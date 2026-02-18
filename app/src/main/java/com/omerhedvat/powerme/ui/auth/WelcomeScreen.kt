@@ -5,7 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.autofill.AutofillHint
+import androidx.compose.ui.autofill.AutofillType
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.autofillHints
 import androidx.compose.ui.semantics.semantics
@@ -97,7 +97,7 @@ fun WelcomeScreen(
                 label = { Text("Email", color = NeonBlue.copy(alpha = 0.7f)) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { autofillHints = listOf(AutofillHint.EmailAddress) },
+                    .semantics { autofillHints = listOf(AutofillType.EmailAddress) },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
@@ -121,7 +121,7 @@ fun WelcomeScreen(
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { autofillHints = listOf(AutofillHint.Password) },
+                    .semantics { autofillHints = listOf(AutofillType.Password) },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
