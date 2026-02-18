@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.autofill.AutofillType
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.autofillHints
@@ -22,6 +23,7 @@ import com.omerhedvat.powerme.ui.theme.NavySurface
 import com.omerhedvat.powerme.ui.theme.NeonBlue
 import com.omerhedvat.powerme.ui.theme.SlateGrey
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun WelcomeScreen(
     onSignedIn: () -> Unit,

@@ -146,7 +146,10 @@ fun ExercisesScreen(
 
     // MagicAdd Dialog
     if (showMagicAddDialog) {
-        MagicAddDialog(onDismiss = { showMagicAddDialog = false })
+        MagicAddDialog(
+            onExerciseAdded = { showMagicAddDialog = false },
+            onDismiss = { showMagicAddDialog = false }
+        )
     }
 
     // YouTube Sheet

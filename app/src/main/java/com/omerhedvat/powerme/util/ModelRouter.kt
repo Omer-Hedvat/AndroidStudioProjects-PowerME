@@ -61,10 +61,10 @@ class ModelRouter @Inject constructor(
 
     suspend fun fetchModels(apiKey: String): List<GeminiModel> {
         val url = URL("https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey")
-        val json = (url.openConnection() as HttpURLConnection).use { conn ->
+        val json = (url.openConnection() as HttpURLConnection).let { conn ->
             conn.connectTimeout = 10_000
             conn.readTimeout = 10_000
-            conn.inputStream.bufferedReader().readText()
+            conn.inputStream.bufferedReader().readText().also { conn.disconnect() }
         }
         val root = JsonParser.parseString(json).asJsonObject
         val modelsArray = root.getAsJsonArray("models") ?: return emptyList()
