@@ -33,7 +33,7 @@ import com.omerhedvat.powerme.data.database.Exercise
 import com.omerhedvat.powerme.data.database.ExerciseType
 import com.omerhedvat.powerme.ui.chat.MedicalRestrictionsDoc
 import com.omerhedvat.powerme.ui.components.YouTubePlayerBottomSheet
-import com.omerhedvat.powerme.ui.theme.CyberLime
+import com.omerhedvat.powerme.ui.theme.NeonBlue
 import com.omerhedvat.powerme.ui.theme.OledBlack
 import com.omerhedvat.powerme.ui.theme.SlateGrey
 import com.omerhedvat.powerme.util.PlateCalculator
@@ -75,7 +75,7 @@ fun ActiveWorkoutScreen(
                     Button(
                         onClick = { viewModel.startWorkout() },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = CyberLime,
+                            containerColor = NeonBlue,
                             contentColor = OledBlack
                         ),
                         modifier = Modifier
@@ -111,7 +111,7 @@ fun ActiveWorkoutScreen(
                             text = "ACTIVE WORKOUT",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
-                            color = CyberLime
+                            color = NeonBlue
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -122,7 +122,7 @@ fun ActiveWorkoutScreen(
                             Button(
                                 onClick = { viewModel.requestWarmup() },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = CyberLime,
+                                    containerColor = NeonBlue,
                                     contentColor = OledBlack
                                 ),
                                 modifier = Modifier.fillMaxWidth(),
@@ -163,7 +163,7 @@ fun ActiveWorkoutScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = CyberLime.copy(alpha = 0.2f)
+                                    containerColor = NeonBlue.copy(alpha = 0.2f)
                                 )
                             ) {
                                 Row(
@@ -176,7 +176,7 @@ fun ActiveWorkoutScreen(
                                         text = "✓ Warmup completed",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = CyberLime
+                                        color = NeonBlue
                                     )
                                 }
                             }
@@ -242,7 +242,7 @@ fun ActiveWorkoutScreen(
                             onClick = { showExerciseDialog = true },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SlateGrey,
-                                contentColor = CyberLime
+                                contentColor = NeonBlue
                             ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -263,7 +263,7 @@ fun ActiveWorkoutScreen(
                         onClick = { viewModel.cancelWorkout() },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = SlateGrey,
-                            contentColor = CyberLime
+                            contentColor = NeonBlue
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
@@ -272,7 +272,7 @@ fun ActiveWorkoutScreen(
                     Button(
                         onClick = { viewModel.finishWorkout() },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = CyberLime,
+                            containerColor = NeonBlue,
                             contentColor = OledBlack
                         ),
                         modifier = Modifier.weight(1f)
@@ -336,26 +336,26 @@ fun ExerciseCard(
                         text = exerciseWithSets.exercise.name,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
                     Text(
                         text = exerciseWithSets.exercise.muscleGroup,
                         fontSize = 14.sp,
-                        color = CyberLime.copy(alpha = 0.7f)
+                        color = NeonBlue.copy(alpha = 0.7f)
                     )
                 }
                 IconButton(onClick = { showSetupNotesEditor = !showSetupNotesEditor }) {
                     Icon(
                         Icons.Default.Notes,
                         contentDescription = "Setup Notes",
-                        tint = if (exerciseWithSets.exercise.setupNotes != null) CyberLime else CyberLime.copy(alpha = 0.5f)
+                        tint = if (exerciseWithSets.exercise.setupNotes != null) NeonBlue else NeonBlue.copy(alpha = 0.5f)
                     )
                 }
                 IconButton(onClick = { showPlateCalculator = !showPlateCalculator }) {
                     Icon(
                         Icons.Default.Calculate,
                         contentDescription = "Plate Calculator",
-                        tint = CyberLime
+                        tint = NeonBlue
                     )
                 }
             }
@@ -373,7 +373,7 @@ fun ExerciseCard(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = CyberLime.copy(alpha = 0.2f)
+                        containerColor = NeonBlue.copy(alpha = 0.2f)
                     )
                 ) {
                     Column(
@@ -385,13 +385,13 @@ fun ExerciseCard(
                             text = "Form Cues:",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = CyberLime
+                            color = NeonBlue
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = exerciseWithSets.exercise.setupNotes!!,
                             fontSize = 14.sp,
-                            color = CyberLime,
+                            color = NeonBlue,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -416,7 +416,7 @@ fun ExerciseCard(
                             text = "Setup Notes (Form Cues)",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = CyberLime
+                            color = NeonBlue
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -426,12 +426,12 @@ fun ExerciseCard(
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = { Text("e.g., Chest up, elbows at 45°, drive through heels") },
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CyberLime,
-                                unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                                focusedTextColor = CyberLime,
-                                unfocusedTextColor = CyberLime,
-                                unfocusedPlaceholderColor = CyberLime.copy(alpha = 0.3f),
-                                focusedPlaceholderColor = CyberLime.copy(alpha = 0.3f)
+                                focusedBorderColor = NeonBlue,
+                                unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                                focusedTextColor = NeonBlue,
+                                unfocusedTextColor = NeonBlue,
+                                unfocusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f),
+                                focusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f)
                             ),
                             minLines = 2,
                             maxLines = 4
@@ -450,7 +450,7 @@ fun ExerciseCard(
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = SlateGrey,
-                                    contentColor = CyberLime
+                                    contentColor = NeonBlue
                                 ),
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -462,7 +462,7 @@ fun ExerciseCard(
                                     showSetupNotesEditor = false
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = CyberLime,
+                                    containerColor = NeonBlue,
                                     contentColor = OledBlack
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -492,7 +492,7 @@ fun ExerciseCard(
                             text = "Plate Calculator",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = CyberLime
+                            color = NeonBlue
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -513,12 +513,12 @@ fun ExerciseCard(
                                         Text(
                                             text = "Set ${set.setOrder}: ${weight}kg",
                                             fontSize = 12.sp,
-                                            color = CyberLime
+                                            color = NeonBlue
                                         )
                                         Text(
                                             text = PlateCalculator.formatPlateBreakdown(breakdown),
                                             fontSize = 12.sp,
-                                            color = CyberLime.copy(alpha = 0.8f)
+                                            color = NeonBlue.copy(alpha = 0.8f)
                                         )
                                     }
                                 }
@@ -534,21 +534,21 @@ fun ExerciseCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Set", fontSize = 12.sp, color = CyberLime, modifier = Modifier.width(40.dp))
+                Text("Set", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.width(40.dp))
                 when (exerciseWithSets.exercise.exerciseType) {
                     ExerciseType.CARDIO -> {
-                        Text("Dist(km)", fontSize = 12.sp, color = CyberLime, modifier = Modifier.weight(1f))
-                        Text("Time(s)", fontSize = 12.sp, color = CyberLime, modifier = Modifier.weight(1f))
-                        Text("Pace", fontSize = 12.sp, color = CyberLime, modifier = Modifier.weight(1f))
+                        Text("Dist(km)", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.weight(1f))
+                        Text("Time(s)", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.weight(1f))
+                        Text("Pace", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.weight(1f))
                     }
                     ExerciseType.TIMED -> {
-                        Text("Time(s)", fontSize = 12.sp, color = CyberLime, modifier = Modifier.weight(1.5f))
-                        Text("RPE", fontSize = 12.sp, color = CyberLime, modifier = Modifier.weight(1f))
+                        Text("Time(s)", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.weight(1.5f))
+                        Text("RPE", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.weight(1f))
                     }
                     else -> {
-                        Text("Weight", fontSize = 12.sp, color = CyberLime, modifier = Modifier.weight(1f))
-                        Text("Reps", fontSize = 12.sp, color = CyberLime, modifier = Modifier.weight(1f))
-                        Text("RPE", fontSize = 12.sp, color = CyberLime, modifier = Modifier.weight(1f))
+                        Text("Weight", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.weight(1f))
+                        Text("Reps", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.weight(1f))
+                        Text("RPE", fontSize = 12.sp, color = NeonBlue, modifier = Modifier.weight(1f))
                     }
                 }
                 Spacer(modifier = Modifier.width(80.dp))
@@ -602,7 +602,7 @@ fun ExerciseCard(
                 onClick = onAddSet,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = OledBlack,
-                    contentColor = CyberLime
+                    contentColor = NeonBlue
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -633,7 +633,7 @@ fun SetRow(
                 text = "${set.setOrder}",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = CyberLime,
+                color = NeonBlue,
                 modifier = Modifier.width(40.dp)
             )
 
@@ -645,15 +645,15 @@ fun SetRow(
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = CyberLime,
-                unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                focusedTextColor = CyberLime,
-                unfocusedTextColor = CyberLime,
-                unfocusedPlaceholderColor = CyberLime.copy(alpha = 0.3f),
-                focusedPlaceholderColor = CyberLime.copy(alpha = 0.3f)
+                focusedBorderColor = NeonBlue,
+                unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                focusedTextColor = NeonBlue,
+                unfocusedTextColor = NeonBlue,
+                unfocusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f),
+                focusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f)
             ),
             placeholder = set.ghostWeight?.let { ghost ->
-                { Text(ghost, color = CyberLime.copy(alpha = 0.3f)) }
+                { Text(ghost, color = NeonBlue.copy(alpha = 0.3f)) }
             },
             singleLine = true
         )
@@ -666,15 +666,15 @@ fun SetRow(
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = CyberLime,
-                unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                focusedTextColor = CyberLime,
-                unfocusedTextColor = CyberLime,
-                unfocusedPlaceholderColor = CyberLime.copy(alpha = 0.3f),
-                focusedPlaceholderColor = CyberLime.copy(alpha = 0.3f)
+                focusedBorderColor = NeonBlue,
+                unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                focusedTextColor = NeonBlue,
+                unfocusedTextColor = NeonBlue,
+                unfocusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f),
+                focusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f)
             ),
             placeholder = set.ghostReps?.let { ghost ->
-                { Text(ghost, color = CyberLime.copy(alpha = 0.3f)) }
+                { Text(ghost, color = NeonBlue.copy(alpha = 0.3f)) }
             },
             singleLine = true
         )
@@ -687,15 +687,15 @@ fun SetRow(
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = CyberLime,
-                unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                focusedTextColor = CyberLime,
-                unfocusedTextColor = CyberLime,
-                unfocusedPlaceholderColor = CyberLime.copy(alpha = 0.3f),
-                focusedPlaceholderColor = CyberLime.copy(alpha = 0.3f)
+                focusedBorderColor = NeonBlue,
+                unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                focusedTextColor = NeonBlue,
+                unfocusedTextColor = NeonBlue,
+                unfocusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f),
+                focusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f)
             ),
             placeholder = set.ghostRpe?.let { ghost ->
-                { Text(ghost, color = CyberLime.copy(alpha = 0.3f)) }
+                { Text(ghost, color = NeonBlue.copy(alpha = 0.3f)) }
             },
             singleLine = true
         )
@@ -707,7 +707,7 @@ fun SetRow(
                 Icon(
                     Icons.Default.Edit,
                     contentDescription = "Set Notes",
-                    tint = if (set.setNotes.isNotBlank()) CyberLime else CyberLime.copy(alpha = 0.3f)
+                    tint = if (set.setNotes.isNotBlank()) NeonBlue else NeonBlue.copy(alpha = 0.3f)
                 )
             }
 
@@ -718,7 +718,7 @@ fun SetRow(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete Set",
-                    tint = CyberLime
+                    tint = NeonBlue
                 )
             }
         }
@@ -728,7 +728,7 @@ fun SetRow(
             Text(
                 text = "Note: ${set.setNotes}",
                 fontSize = 12.sp,
-                color = CyberLime.copy(alpha = 0.7f),
+                color = NeonBlue.copy(alpha = 0.7f),
                 modifier = Modifier.padding(start = 48.dp, top = 4.dp)
             )
         }
@@ -755,7 +755,7 @@ fun SetRow(
                         text = "Set ${set.setOrder} Notes",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
 
                     OutlinedTextField(
@@ -764,12 +764,12 @@ fun SetRow(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("e.g., Felt strong, used belt, slight discomfort") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyberLime,
-                            unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                            focusedTextColor = CyberLime,
-                            unfocusedTextColor = CyberLime,
-                            unfocusedPlaceholderColor = CyberLime.copy(alpha = 0.3f),
-                            focusedPlaceholderColor = CyberLime.copy(alpha = 0.3f)
+                            focusedBorderColor = NeonBlue,
+                            unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                            focusedTextColor = NeonBlue,
+                            unfocusedTextColor = NeonBlue,
+                            unfocusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f),
+                            focusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f)
                         ),
                         minLines = 2,
                         maxLines = 4
@@ -783,7 +783,7 @@ fun SetRow(
                             onClick = { showNotesDialog = false },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SlateGrey.copy(alpha = 0.5f),
-                                contentColor = CyberLime
+                                contentColor = NeonBlue
                             ),
                             modifier = Modifier.weight(1f)
                         ) {
@@ -795,7 +795,7 @@ fun SetRow(
                                 showNotesDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = CyberLime,
+                                containerColor = NeonBlue,
                                 contentColor = OledBlack
                             ),
                             modifier = Modifier.weight(1f)
@@ -842,7 +842,7 @@ fun CardioSetRow(
                 text = "${set.setOrder}",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = CyberLime,
+                color = NeonBlue,
                 modifier = Modifier.width(40.dp)
             )
 
@@ -854,10 +854,10 @@ fun CardioSetRow(
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CyberLime,
-                    unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                    focusedTextColor = CyberLime,
-                    unfocusedTextColor = CyberLime
+                    focusedBorderColor = NeonBlue,
+                    unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                    focusedTextColor = NeonBlue,
+                    unfocusedTextColor = NeonBlue
                 ),
                 singleLine = true
             )
@@ -870,10 +870,10 @@ fun CardioSetRow(
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CyberLime,
-                    unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                    focusedTextColor = CyberLime,
-                    unfocusedTextColor = CyberLime
+                    focusedBorderColor = NeonBlue,
+                    unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                    focusedTextColor = NeonBlue,
+                    unfocusedTextColor = NeonBlue
                 ),
                 singleLine = true
             )
@@ -881,7 +881,7 @@ fun CardioSetRow(
             Text(
                 text = pace,
                 fontSize = 14.sp,
-                color = CyberLime,
+                color = NeonBlue,
                 modifier = Modifier.weight(1f)
             )
 
@@ -892,7 +892,7 @@ fun CardioSetRow(
                 Icon(
                     Icons.Default.Edit,
                     contentDescription = "Set Notes",
-                    tint = if (set.setNotes.isNotBlank()) CyberLime else CyberLime.copy(alpha = 0.3f)
+                    tint = if (set.setNotes.isNotBlank()) NeonBlue else NeonBlue.copy(alpha = 0.3f)
                 )
             }
 
@@ -903,7 +903,7 @@ fun CardioSetRow(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete Set",
-                    tint = CyberLime
+                    tint = NeonBlue
                 )
             }
         }
@@ -912,7 +912,7 @@ fun CardioSetRow(
             Text(
                 text = "Note: ${set.setNotes}",
                 fontSize = 12.sp,
-                color = CyberLime.copy(alpha = 0.7f),
+                color = NeonBlue.copy(alpha = 0.7f),
                 modifier = Modifier.padding(start = 48.dp, top = 4.dp)
             )
         }
@@ -938,7 +938,7 @@ fun CardioSetRow(
                         text = "Set ${set.setOrder} Notes",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
 
                     OutlinedTextField(
@@ -947,12 +947,12 @@ fun CardioSetRow(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("e.g., Felt strong, good pace") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyberLime,
-                            unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                            focusedTextColor = CyberLime,
-                            unfocusedTextColor = CyberLime,
-                            unfocusedPlaceholderColor = CyberLime.copy(alpha = 0.3f),
-                            focusedPlaceholderColor = CyberLime.copy(alpha = 0.3f)
+                            focusedBorderColor = NeonBlue,
+                            unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                            focusedTextColor = NeonBlue,
+                            unfocusedTextColor = NeonBlue,
+                            unfocusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f),
+                            focusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f)
                         ),
                         minLines = 2,
                         maxLines = 4
@@ -966,7 +966,7 @@ fun CardioSetRow(
                             onClick = { showNotesDialog = false },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SlateGrey.copy(alpha = 0.5f),
-                                contentColor = CyberLime
+                                contentColor = NeonBlue
                             ),
                             modifier = Modifier.weight(1f)
                         ) {
@@ -978,7 +978,7 @@ fun CardioSetRow(
                                 showNotesDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = CyberLime,
+                                containerColor = NeonBlue,
                                 contentColor = OledBlack
                             ),
                             modifier = Modifier.weight(1f)
@@ -1011,7 +1011,7 @@ fun TimedSetRow(
                 text = "${set.setOrder}",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = CyberLime,
+                color = NeonBlue,
                 modifier = Modifier.width(40.dp)
             )
 
@@ -1023,10 +1023,10 @@ fun TimedSetRow(
                 modifier = Modifier.weight(1.5f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CyberLime,
-                    unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                    focusedTextColor = CyberLime,
-                    unfocusedTextColor = CyberLime
+                    focusedBorderColor = NeonBlue,
+                    unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                    focusedTextColor = NeonBlue,
+                    unfocusedTextColor = NeonBlue
                 ),
                 singleLine = true,
                 placeholder = { Text("Seconds") }
@@ -1040,10 +1040,10 @@ fun TimedSetRow(
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CyberLime,
-                    unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                    focusedTextColor = CyberLime,
-                    unfocusedTextColor = CyberLime
+                    focusedBorderColor = NeonBlue,
+                    unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                    focusedTextColor = NeonBlue,
+                    unfocusedTextColor = NeonBlue
                 ),
                 singleLine = true
             )
@@ -1055,7 +1055,7 @@ fun TimedSetRow(
                 Icon(
                     Icons.Default.Edit,
                     contentDescription = "Set Notes",
-                    tint = if (set.setNotes.isNotBlank()) CyberLime else CyberLime.copy(alpha = 0.3f)
+                    tint = if (set.setNotes.isNotBlank()) NeonBlue else NeonBlue.copy(alpha = 0.3f)
                 )
             }
 
@@ -1066,7 +1066,7 @@ fun TimedSetRow(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete Set",
-                    tint = CyberLime
+                    tint = NeonBlue
                 )
             }
         }
@@ -1075,7 +1075,7 @@ fun TimedSetRow(
             Text(
                 text = "Note: ${set.setNotes}",
                 fontSize = 12.sp,
-                color = CyberLime.copy(alpha = 0.7f),
+                color = NeonBlue.copy(alpha = 0.7f),
                 modifier = Modifier.padding(start = 48.dp, top = 4.dp)
             )
         }
@@ -1101,7 +1101,7 @@ fun TimedSetRow(
                         text = "Set ${set.setOrder} Notes",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
 
                     OutlinedTextField(
@@ -1110,12 +1110,12 @@ fun TimedSetRow(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("e.g., Held until failure") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyberLime,
-                            unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                            focusedTextColor = CyberLime,
-                            unfocusedTextColor = CyberLime,
-                            unfocusedPlaceholderColor = CyberLime.copy(alpha = 0.3f),
-                            focusedPlaceholderColor = CyberLime.copy(alpha = 0.3f)
+                            focusedBorderColor = NeonBlue,
+                            unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                            focusedTextColor = NeonBlue,
+                            unfocusedTextColor = NeonBlue,
+                            unfocusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f),
+                            focusedPlaceholderColor = NeonBlue.copy(alpha = 0.3f)
                         ),
                         minLines = 2,
                         maxLines = 4
@@ -1129,7 +1129,7 @@ fun TimedSetRow(
                             onClick = { showNotesDialog = false },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SlateGrey.copy(alpha = 0.5f),
-                                contentColor = CyberLime
+                                contentColor = NeonBlue
                             ),
                             modifier = Modifier.weight(1f)
                         ) {
@@ -1141,7 +1141,7 @@ fun TimedSetRow(
                                 showNotesDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = CyberLime,
+                                containerColor = NeonBlue,
                                 contentColor = OledBlack
                             ),
                             modifier = Modifier.weight(1f)
@@ -1199,13 +1199,13 @@ fun ExerciseSelectionDialog(
                         text = "Select Exercise",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
                     Button(
                         onClick = { showMagicAdd = true },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = CyberLime.copy(alpha = 0.15f),
-                            contentColor = CyberLime
+                            containerColor = NeonBlue.copy(alpha = 0.15f),
+                            contentColor = NeonBlue
                         ),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                     ) {
@@ -1250,12 +1250,12 @@ fun ExerciseSelectionDialog(
                                         text = exercise.name,
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = CyberLime
+                                        color = NeonBlue
                                     )
                                     Text(
                                         text = exercise.muscleGroup,
                                         fontSize = 14.sp,
-                                        color = CyberLime.copy(alpha = 0.7f)
+                                        color = NeonBlue.copy(alpha = 0.7f)
                                     )
                                 }
 
@@ -1270,7 +1270,7 @@ fun ExerciseSelectionDialog(
                                         Icon(
                                             Icons.Default.PlayCircle,
                                             contentDescription = "Watch video",
-                                            tint = CyberLime,
+                                            tint = NeonBlue,
                                             modifier = Modifier.size(28.dp)
                                         )
                                     }
@@ -1324,19 +1324,19 @@ fun WarmupPrescriptionCard(
                         text = "COMMITTEE PRESCRIPTION",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
                     Text(
                         text = "Noa & Coach Carter",
                         fontSize = 12.sp,
-                        color = CyberLime.copy(alpha = 0.7f)
+                        color = NeonBlue.copy(alpha = 0.7f)
                     )
                 }
                 IconButton(onClick = onDismiss) {
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Dismiss",
-                        tint = CyberLime
+                        tint = NeonBlue
                     )
                 }
             }
@@ -1358,13 +1358,13 @@ fun WarmupPrescriptionCard(
                         text = "Why These Exercises:",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = prescription.reasoning,
                         fontSize = 12.sp,
-                        color = CyberLime.copy(alpha = 0.9f)
+                        color = NeonBlue.copy(alpha = 0.9f)
                     )
                 }
             }
@@ -1392,7 +1392,7 @@ fun WarmupPrescriptionCard(
                                 text = "${index + 1}. ${exercise.name}",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = CyberLime,
+                                color = NeonBlue,
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
@@ -1401,20 +1401,20 @@ fun WarmupPrescriptionCard(
                                     ?: "",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = CyberLime
+                                color = NeonBlue
                             )
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Target: ${exercise.targetJoint}",
                             fontSize = 11.sp,
-                            color = CyberLime.copy(alpha = 0.6f)
+                            color = NeonBlue.copy(alpha = 0.6f)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = exercise.instructions,
                             fontSize = 12.sp,
-                            color = CyberLime.copy(alpha = 0.8f)
+                            color = NeonBlue.copy(alpha = 0.8f)
                         )
                     }
                 }
@@ -1428,7 +1428,7 @@ fun WarmupPrescriptionCard(
             // Expert Notes
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = CyberLime.copy(alpha = 0.2f)
+                    containerColor = NeonBlue.copy(alpha = 0.2f)
                 )
             ) {
                 Column(
@@ -1440,24 +1440,24 @@ fun WarmupPrescriptionCard(
                         text = "Noa (Physio):",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
                     Text(
                         text = prescription.noaaNote,
                         fontSize = 11.sp,
-                        color = CyberLime.copy(alpha = 0.9f)
+                        color = NeonBlue.copy(alpha = 0.9f)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Coach Carter:",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime
+                        color = NeonBlue
                     )
                     Text(
                         text = prescription.carterNote,
                         fontSize = 11.sp,
-                        color = CyberLime.copy(alpha = 0.9f)
+                        color = NeonBlue.copy(alpha = 0.9f)
                     )
                 }
             }
@@ -1468,7 +1468,7 @@ fun WarmupPrescriptionCard(
             Button(
                 onClick = onLogAsPerformed,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = CyberLime,
+                    containerColor = NeonBlue,
                     contentColor = OledBlack
                 ),
                 modifier = Modifier.fillMaxWidth()
@@ -1491,7 +1491,7 @@ fun RestTimerBar(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = CyberLime
+            containerColor = NeonBlue
         )
     ) {
         Column(
@@ -1515,7 +1515,7 @@ fun RestTimerBar(
                         onClick = onAddTime,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = OledBlack,
-                            contentColor = CyberLime
+                            contentColor = NeonBlue
                         ),
                         modifier = Modifier.height(36.dp)
                     ) {
@@ -1525,7 +1525,7 @@ fun RestTimerBar(
                         onClick = onSkip,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = SlateGrey,
-                            contentColor = CyberLime
+                            contentColor = NeonBlue
                         ),
                         modifier = Modifier.height(36.dp)
                     ) {
@@ -1540,7 +1540,7 @@ fun RestTimerBar(
                     .fillMaxWidth()
                     .height(8.dp),
                 color = OledBlack,
-                trackColor = CyberLime.copy(alpha = 0.3f)
+                trackColor = NeonBlue.copy(alpha = 0.3f)
             )
         }
     }

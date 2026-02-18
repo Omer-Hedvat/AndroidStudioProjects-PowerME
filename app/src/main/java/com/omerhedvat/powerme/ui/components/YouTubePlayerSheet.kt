@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.omerhedvat.powerme.ui.theme.CyberLime
+import com.omerhedvat.powerme.ui.theme.NeonBlue
 import com.omerhedvat.powerme.ui.theme.OledBlack
 import com.omerhedvat.powerme.ui.theme.SlateGrey
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -25,7 +25,7 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
  * - Lifecycle-aware player (pauses on background)
  * - Embedded YouTube player with controls
  * - Exercise name displayed as title
- * - Clean CyberLime/OLED theme
+ * - Clean NeonBlue/OLED theme
  *
  * @param videoId YouTube video ID (e.g., "ultWZbUMPL8")
  * @param exerciseName Name of exercise for display
@@ -46,7 +46,7 @@ fun YouTubePlayerBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = SlateGrey,
-        contentColor = CyberLime
+        contentColor = NeonBlue
     ) {
         Column(
             modifier = Modifier
@@ -59,13 +59,13 @@ fun YouTubePlayerBottomSheet(
                 text = exerciseName,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = CyberLime
+                color = NeonBlue
             )
 
             Text(
                 text = "Form demonstration",
                 fontSize = 12.sp,
-                color = CyberLime.copy(alpha = 0.7f)
+                color = NeonBlue.copy(alpha = 0.7f)
             )
 
             // YouTube Player
@@ -80,7 +80,7 @@ fun YouTubePlayerBottomSheet(
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = CyberLime,
+                    containerColor = NeonBlue,
                     contentColor = OledBlack
                 ),
                 modifier = Modifier.fillMaxWidth()

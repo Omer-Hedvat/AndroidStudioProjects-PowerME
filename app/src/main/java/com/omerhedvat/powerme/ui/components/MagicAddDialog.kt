@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.data.database.Exercise
-import com.omerhedvat.powerme.ui.theme.CyberLime
+import com.omerhedvat.powerme.ui.theme.NeonBlue
 import com.omerhedvat.powerme.ui.theme.OledBlack
 import com.omerhedvat.powerme.ui.theme.SlateGrey
 
@@ -75,14 +75,14 @@ fun MagicAddDialog(
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = null,
-                    tint = CyberLime,
+                    tint = NeonBlue,
                     modifier = Modifier.size(22.dp)
                 )
                 Text(
                     text = "Magic Add",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = CyberLime
+                    color = NeonBlue
                 )
             }
         },
@@ -94,7 +94,7 @@ fun MagicAddDialog(
                 Text(
                     text = "Type any exercise name — AI will fill in the details.",
                     fontSize = 13.sp,
-                    color = CyberLime.copy(alpha = 0.7f)
+                    color = NeonBlue.copy(alpha = 0.7f)
                 )
 
                 // Exercise name input
@@ -110,14 +110,14 @@ fun MagicAddDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
-                    label = { Text("Exercise name", color = CyberLime.copy(alpha = 0.7f)) },
-                    placeholder = { Text("e.g. Cable Chest Fly", color = CyberLime.copy(alpha = 0.4f)) },
+                    label = { Text("Exercise name", color = NeonBlue.copy(alpha = 0.7f)) },
+                    placeholder = { Text("e.g. Cable Chest Fly", color = NeonBlue.copy(alpha = 0.4f)) },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyberLime,
-                        unfocusedBorderColor = CyberLime.copy(alpha = 0.4f),
-                        focusedTextColor = CyberLime,
-                        unfocusedTextColor = CyberLime,
-                        cursorColor = CyberLime
+                        focusedBorderColor = NeonBlue,
+                        unfocusedBorderColor = NeonBlue.copy(alpha = 0.4f),
+                        focusedTextColor = NeonBlue,
+                        unfocusedTextColor = NeonBlue,
+                        cursorColor = NeonBlue
                     ),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
@@ -138,7 +138,7 @@ fun MagicAddDialog(
                     Text(
                         text = "⚠ Gemini API key required. Configure it in Settings.",
                         fontSize = 12.sp,
-                        color = CyberLime.copy(alpha = 0.6f)
+                        color = NeonBlue.copy(alpha = 0.6f)
                     )
                 }
 
@@ -154,13 +154,13 @@ fun MagicAddDialog(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
-                            color = CyberLime,
+                            color = NeonBlue,
                             strokeWidth = 2.dp
                         )
                         Text(
                             text = "Searching...",
                             fontSize = 13.sp,
-                            color = CyberLime.copy(alpha = 0.8f)
+                            color = NeonBlue.copy(alpha = 0.8f)
                         )
                     }
                 }
@@ -175,7 +175,7 @@ fun MagicAddDialog(
                     Text(
                         text = "✗ $error",
                         fontSize = 13.sp,
-                        color = CyberLime.copy(alpha = 0.6f)
+                        color = NeonBlue.copy(alpha = 0.6f)
                     )
                 }
 
@@ -202,7 +202,7 @@ fun MagicAddDialog(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = CyberLime,
+                            containerColor = NeonBlue,
                             contentColor = OledBlack
                         )
                     ) {
@@ -214,7 +214,7 @@ fun MagicAddDialog(
                         onClick = {},
                         enabled = false,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = CyberLime.copy(alpha = 0.3f),
+                            containerColor = NeonBlue.copy(alpha = 0.3f),
                             contentColor = OledBlack
                         )
                     ) {
@@ -229,7 +229,7 @@ fun MagicAddDialog(
                         },
                         enabled = exerciseName.isNotBlank() && viewModel.hasApiKey,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = CyberLime,
+                            containerColor = NeonBlue,
                             contentColor = OledBlack
                         )
                     ) {
@@ -240,7 +240,7 @@ fun MagicAddDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = CyberLime.copy(alpha = 0.7f))
+                Text("Cancel", color = NeonBlue.copy(alpha = 0.7f))
             }
         }
     )
@@ -253,7 +253,7 @@ fun MagicAddDialog(
 private fun ExerciseResultCard(exercise: Exercise) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = CyberLime.copy(alpha = 0.1f)
+            containerColor = NeonBlue.copy(alpha = 0.1f)
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -264,7 +264,7 @@ private fun ExerciseResultCard(exercise: Exercise) {
             Text(
                 text = "✓ Found",
                 fontSize = 11.sp,
-                color = CyberLime,
+                color = NeonBlue,
                 fontWeight = FontWeight.Bold
             )
 
@@ -283,13 +283,13 @@ private fun ExerciseResultCard(exercise: Exercise) {
                     Icon(
                         imageVector = Icons.Default.PlayCircle,
                         contentDescription = null,
-                        tint = CyberLime,
+                        tint = NeonBlue,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "Video found",
                         fontSize = 12.sp,
-                        color = CyberLime
+                        color = NeonBlue
                     )
                 }
             }
@@ -298,7 +298,7 @@ private fun ExerciseResultCard(exercise: Exercise) {
                 Text(
                     text = exercise.setupNotes,
                     fontSize = 11.sp,
-                    color = CyberLime.copy(alpha = 0.7f),
+                    color = NeonBlue.copy(alpha = 0.7f),
                     lineHeight = 15.sp,
                     fontFamily = FontFamily.Default
                 )
@@ -316,12 +316,12 @@ private fun ResultRow(label: String, value: String) {
         Text(
             text = label,
             fontSize = 12.sp,
-            color = CyberLime.copy(alpha = 0.6f)
+            color = NeonBlue.copy(alpha = 0.6f)
         )
         Text(
             text = value,
             fontSize = 12.sp,
-            color = CyberLime,
+            color = NeonBlue,
             fontWeight = FontWeight.Medium
         )
     }

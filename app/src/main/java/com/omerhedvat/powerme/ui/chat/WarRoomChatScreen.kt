@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.actions.ActionResult
 import com.omerhedvat.powerme.data.database.ChatMessage
-import com.omerhedvat.powerme.ui.theme.CyberLime
+import com.omerhedvat.powerme.ui.theme.NeonBlue
 import com.omerhedvat.powerme.ui.theme.OledBlack
 import com.omerhedvat.powerme.ui.theme.SlateGrey
 import com.omerhedvat.powerme.util.MedicalPatch
@@ -53,19 +53,19 @@ fun WarRoomChatScreen(
         AlertDialog(
             onDismissRequest = { },
             title = {
-                Text("API Key Required", color = CyberLime, fontWeight = FontWeight.Bold)
+                Text("API Key Required", color = NeonBlue, fontWeight = FontWeight.Bold)
             },
             text = {
                 Text(
                     "Please configure your Gemini API Key in Settings to use the War Room chat feature.",
-                    color = CyberLime
+                    color = NeonBlue
                 )
             },
             confirmButton = {
                 Button(
                     onClick = onNavigateToSettings,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = CyberLime,
+                        containerColor = NeonBlue,
                         contentColor = OledBlack
                     )
                 ) {
@@ -110,7 +110,7 @@ fun WarRoomChatScreen(
             uiState.error?.let { error ->
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = CyberLime.copy(alpha = 0.2f)
+                    color = NeonBlue.copy(alpha = 0.2f)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -120,11 +120,11 @@ fun WarRoomChatScreen(
                         Text(
                             text = error,
                             fontSize = 12.sp,
-                            color = CyberLime,
+                            color = NeonBlue,
                             modifier = Modifier.weight(1f)
                         )
                         TextButton(onClick = { viewModel.dismissError() }) {
-                            Text("Dismiss", color = CyberLime)
+                            Text("Dismiss", color = NeonBlue)
                         }
                     }
                 }
@@ -138,7 +138,7 @@ fun WarRoomChatScreen(
                 }
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = CyberLime.copy(alpha = 0.12f)
+                    color = NeonBlue.copy(alpha = 0.12f)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -148,11 +148,11 @@ fun WarRoomChatScreen(
                         Text(
                             text = "✦ New session — previous context saved to memory",
                             fontSize = 12.sp,
-                            color = CyberLime,
+                            color = NeonBlue,
                             modifier = Modifier.weight(1f)
                         )
                         TextButton(onClick = { viewModel.dismissSessionReset() }) {
-                            Text("OK", color = CyberLime, fontSize = 12.sp)
+                            Text("OK", color = NeonBlue, fontSize = 12.sp)
                         }
                     }
                 }
@@ -184,20 +184,20 @@ fun WarRoomHeader(onClear: () -> Unit, onShieldTap: () -> Unit) {
                     text = "WAR ROOM",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = CyberLime
+                    color = NeonBlue
                 )
                 Text(
                     text = "הוועדה — 8 יועצים מומחים",
                     fontSize = 12.sp,
-                    color = CyberLime.copy(alpha = 0.7f)
+                    color = NeonBlue.copy(alpha = 0.7f)
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onShieldTap) {
-                    Icon(Icons.Default.Shield, contentDescription = "Medical Shield", tint = CyberLime)
+                    Icon(Icons.Default.Shield, contentDescription = "Medical Shield", tint = NeonBlue)
                 }
                 TextButton(onClick = onClear) {
-                    Text("Clear", color = CyberLime)
+                    Text("Clear", color = NeonBlue)
                 }
             }
         }
@@ -213,14 +213,14 @@ fun FullScreenLoadingSpinner() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(
                 modifier = Modifier.size(48.dp),
-                color = CyberLime,
+                color = NeonBlue,
                 strokeWidth = 3.dp
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "מאתחל את הוועדה...",
                 fontSize = 16.sp,
-                color = CyberLime
+                color = NeonBlue
             )
         }
     }
@@ -285,20 +285,20 @@ fun InterviewSetupCard(onStart: () -> Unit) {
                 text = "✦ FIRST TIME SETUP",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = CyberLime
+                color = NeonBlue
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "Dr. Brad & Noa need to define your training phase before we begin.",
                 fontSize = 14.sp,
-                color = CyberLime.copy(alpha = 0.9f),
+                color = NeonBlue.copy(alpha = 0.9f),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onStart,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = CyberLime,
+                    containerColor = NeonBlue,
                     contentColor = OledBlack
                 )
             ) {
@@ -387,14 +387,14 @@ fun ChatInputArea(
                 onValueChange = onMessageChange,
                 modifier = Modifier.weight(1f),
                 placeholder = {
-                    Text("Ask the Committee...", color = CyberLime.copy(alpha = 0.5f))
+                    Text("Ask the Committee...", color = NeonBlue.copy(alpha = 0.5f))
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CyberLime,
-                    unfocusedBorderColor = CyberLime.copy(alpha = 0.5f),
-                    focusedTextColor = CyberLime,
-                    unfocusedTextColor = CyberLime,
-                    cursorColor = CyberLime
+                    focusedBorderColor = NeonBlue,
+                    unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                    focusedTextColor = NeonBlue,
+                    unfocusedTextColor = NeonBlue,
+                    cursorColor = NeonBlue
                 ),
                 enabled = !isLoading,
                 maxLines = 4
@@ -406,8 +406,8 @@ fun ChatInputArea(
                 Icon(
                     Icons.Default.Send,
                     contentDescription = "Send",
-                    tint = if (messageText.isNotBlank() && !isLoading) CyberLime
-                    else CyberLime.copy(alpha = 0.3f)
+                    tint = if (messageText.isNotBlank() && !isLoading) NeonBlue
+                    else NeonBlue.copy(alpha = 0.3f)
                 )
             }
         }
@@ -423,30 +423,30 @@ fun MedicalPatchConfirmationDialog(
     AlertDialog(
         onDismissRequest = onReject,
         title = {
-            Text("⚠ Noa proposes a Medical Update", color = CyberLime, fontWeight = FontWeight.Bold)
+            Text("⚠ Noa proposes a Medical Update", color = NeonBlue, fontWeight = FontWeight.Bold)
         },
         text = {
             Column {
                 Text(
                     text = "REASON: \"${patch.reason}\"",
                     fontSize = 13.sp,
-                    color = CyberLime.copy(alpha = 0.9f)
+                    color = NeonBlue.copy(alpha = 0.9f)
                 )
                 if (patch.redListAdd.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("ADD to RED LIST:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberLime)
+                    Text("ADD to RED LIST:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
                     patch.redListAdd.forEach {
-                        Text("🔴 $it", fontSize = 12.sp, color = CyberLime.copy(alpha = 0.9f))
+                        Text("🔴 $it", fontSize = 12.sp, color = NeonBlue.copy(alpha = 0.9f))
                     }
                 }
                 if (patch.yellowListAdd.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("ADD to YELLOW LIST:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberLime)
+                    Text("ADD to YELLOW LIST:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
                     patch.yellowListAdd.forEach {
                         Text(
                             "🟡 ${it.exercise} → \"${it.requiredCue}\"",
                             fontSize = 12.sp,
-                            color = CyberLime.copy(alpha = 0.9f)
+                            color = NeonBlue.copy(alpha = 0.9f)
                         )
                     }
                 }
@@ -455,14 +455,14 @@ fun MedicalPatchConfirmationDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = CyberLime, contentColor = OledBlack)
+                colors = ButtonDefaults.buttonColors(containerColor = NeonBlue, contentColor = OledBlack)
             ) {
                 Text("Confirm", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onReject) {
-                Text("Reject", color = CyberLime)
+                Text("Reject", color = NeonBlue)
             }
         },
         containerColor = SlateGrey
@@ -481,13 +481,13 @@ fun WelcomeMessage() {
                 text = "ברוך הבא לחדר המלחמה",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = CyberLime
+                color = NeonBlue
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "אתה מדבר עם הוועדה — 8 יועצים מומחים:",
                 fontSize = 14.sp,
-                color = CyberLime.copy(alpha = 0.9f)
+                color = NeonBlue.copy(alpha = 0.9f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             listOf(
@@ -503,7 +503,7 @@ fun WelcomeMessage() {
                 Text(
                     text = "• $expert",
                     fontSize = 12.sp,
-                    color = CyberLime.copy(alpha = 0.8f),
+                    color = NeonBlue.copy(alpha = 0.8f),
                     modifier = Modifier.padding(start = 8.dp, top = 4.dp)
                 )
             }
@@ -520,7 +520,7 @@ fun MessageBubble(message: ChatMessage) {
         Card(
             modifier = Modifier.widthIn(max = 300.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (message.isUser) CyberLime else SlateGrey
+                containerColor = if (message.isUser) NeonBlue else SlateGrey
             ),
             shape = RoundedCornerShape(
                 topStart = 12.dp,
@@ -535,14 +535,14 @@ fun MessageBubble(message: ChatMessage) {
                         text = "הוועדה",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = CyberLime,
+                        color = NeonBlue,
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
                 Text(
                     text = message.message,
                     fontSize = 14.sp,
-                    color = if (message.isUser) OledBlack else CyberLime,
+                    color = if (message.isUser) OledBlack else NeonBlue,
                     lineHeight = 20.sp
                 )
             }
@@ -568,13 +568,13 @@ fun LoadingIndicator() {
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
-                    color = CyberLime,
+                    color = NeonBlue,
                     strokeWidth = 2.dp
                 )
                 Text(
                     text = "הוועדה מתייעצת...",
                     fontSize = 12.sp,
-                    color = CyberLime
+                    color = NeonBlue
                 )
             }
         }
@@ -599,19 +599,19 @@ fun RoutinePreviewCard(
                 text = "📋 Routine Ready: \"${routine.routineName}\"",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = CyberLime
+                color = NeonBlue
             )
             Text(
                 text = "${routine.exercises.size} exercises · Target: ${routine.targetDate}",
                 fontSize = 12.sp,
-                color = CyberLime.copy(alpha = 0.7f),
+                color = NeonBlue.copy(alpha = 0.7f),
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
             )
             routine.exercises.forEachIndexed { index, ex ->
                 Text(
                     text = "${index + 1}. ${ex.exerciseName}  ${ex.targetSets}×${ex.targetRepsMin}-${ex.targetRepsMax} @RPE${ex.targetRpe} · ${ex.restSeconds}s rest",
                     fontSize = 12.sp,
-                    color = CyberLime.copy(alpha = 0.9f),
+                    color = NeonBlue.copy(alpha = 0.9f),
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
             }
@@ -624,7 +624,7 @@ fun RoutinePreviewCard(
                     onClick = onSave,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = CyberLime,
+                        containerColor = NeonBlue,
                         contentColor = OledBlack
                     )
                 ) {
@@ -633,7 +633,7 @@ fun RoutinePreviewCard(
                 OutlinedButton(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberLime)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue)
                 ) {
                     Text("Dismiss", fontSize = 12.sp)
                 }
@@ -663,7 +663,7 @@ fun MedicalShieldBottomSheet(
                 text = "🛡 Medical Shield — Noa",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = CyberLime
+                color = NeonBlue
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -671,7 +671,7 @@ fun MedicalShieldBottomSheet(
                 Text(
                     text = "No restrictions configured yet.",
                     fontSize = 14.sp,
-                    color = CyberLime.copy(alpha = 0.7f)
+                    color = NeonBlue.copy(alpha = 0.7f)
                 )
             } else {
                 // RED LIST
@@ -679,17 +679,17 @@ fun MedicalShieldBottomSheet(
                     text = "RED LIST — Forbidden Movements",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = CyberLime
+                    color = NeonBlue
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 if (medicalDoc.redList.isEmpty()) {
-                    Text("(none)", fontSize = 13.sp, color = CyberLime.copy(alpha = 0.6f))
+                    Text("(none)", fontSize = 13.sp, color = NeonBlue.copy(alpha = 0.6f))
                 } else {
                     medicalDoc.redList.forEach { item ->
                         Text(
                             text = "🔴 $item",
                             fontSize = 13.sp,
-                            color = CyberLime.copy(alpha = 0.9f),
+                            color = NeonBlue.copy(alpha = 0.9f),
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -702,17 +702,17 @@ fun MedicalShieldBottomSheet(
                     text = "YELLOW LIST — Modify With Cue",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = CyberLime
+                    color = NeonBlue
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 if (medicalDoc.yellowList.isEmpty()) {
-                    Text("(none)", fontSize = 13.sp, color = CyberLime.copy(alpha = 0.6f))
+                    Text("(none)", fontSize = 13.sp, color = NeonBlue.copy(alpha = 0.6f))
                 } else {
                     medicalDoc.yellowList.forEach { entry ->
                         Text(
                             text = "🟡 ${entry.exercise} → ${entry.requiredCue}",
                             fontSize = 13.sp,
-                            color = CyberLime.copy(alpha = 0.9f),
+                            color = NeonBlue.copy(alpha = 0.9f),
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -724,7 +724,7 @@ fun MedicalShieldBottomSheet(
                 onClick = onUpdateViaChat,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = CyberLime,
+                    containerColor = NeonBlue,
                     contentColor = OledBlack
                 )
             ) {
@@ -740,8 +740,8 @@ fun ActionBadge(actionResult: ActionResult, onDismiss: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = when (actionResult) {
-                is ActionResult.Success -> CyberLime.copy(alpha = 0.2f)
-                is ActionResult.Failure -> CyberLime.copy(alpha = 0.1f)
+                is ActionResult.Success -> NeonBlue.copy(alpha = 0.2f)
+                is ActionResult.Failure -> NeonBlue.copy(alpha = 0.1f)
             }
         ),
         shape = RoundedCornerShape(8.dp)
@@ -762,7 +762,7 @@ fun ActionBadge(actionResult: ActionResult, onDismiss: () -> Unit) {
                         is ActionResult.Failure -> Icons.Default.Warning
                     },
                     contentDescription = null,
-                    tint = CyberLime,
+                    tint = NeonBlue,
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
@@ -771,12 +771,12 @@ fun ActionBadge(actionResult: ActionResult, onDismiss: () -> Unit) {
                         is ActionResult.Failure -> "✗ ${actionResult.error}"
                     },
                     fontSize = 12.sp,
-                    color = CyberLime,
+                    color = NeonBlue,
                     fontWeight = FontWeight.Medium
                 )
             }
             TextButton(onClick = onDismiss) {
-                Text("Dismiss", fontSize = 10.sp, color = CyberLime)
+                Text("Dismiss", fontSize = 10.sp, color = NeonBlue)
             }
         }
     }
