@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.data.database.Exercise
 import com.omerhedvat.powerme.ui.components.MagicAddDialog
-import com.omerhedvat.powerme.ui.components.YouTubePlayerSheet
+import com.omerhedvat.powerme.ui.components.YouTubePlayerBottomSheet
 import com.omerhedvat.powerme.ui.theme.ElectricBlue
 import com.omerhedvat.powerme.ui.theme.NavySurface
 import com.omerhedvat.powerme.ui.theme.NeonBlue
@@ -38,7 +38,7 @@ fun ExercisesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showMagicAddDialog by remember { mutableStateOf(false) }
-    var youtubeVideoId by remember { mutableStateOf<String?>(null) }
+    var selectedVideo by remember { mutableStateOf<Pair<String, String>?>(null) }
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -107,7 +107,7 @@ fun ExercisesScreen(
                     items(uiState.exercises, key = { it.id }) { exercise ->
                         ExerciseCard(
                             exercise = exercise,
-                            onYouTubeClick = { youtubeVideoId = it },
+                            onYouTubeClick = { videoId -> selectedVideo = videoId to exercise.name },
                             onLongPress = {
                                 if (exercise.isCustom) showDeleteDialog = exercise
                             }
@@ -147,16 +147,17 @@ fun ExercisesScreen(
     // MagicAdd Dialog
     if (showMagicAddDialog) {
         MagicAddDialog(
-            onExerciseAdded = { showMagicAddDialog = false },
+            onExerciseAdded = { _ -> showMagicAddDialog = false },
             onDismiss = { showMagicAddDialog = false }
         )
     }
 
     // YouTube Sheet
-    youtubeVideoId?.let { videoId ->
-        YouTubePlayerSheet(
+    selectedVideo?.let { (videoId, exerciseName) ->
+        YouTubePlayerBottomSheet(
             videoId = videoId,
-            onDismiss = { youtubeVideoId = null }
+            exerciseName = exerciseName,
+            onDismiss = { selectedVideo = null }
         )
     }
 

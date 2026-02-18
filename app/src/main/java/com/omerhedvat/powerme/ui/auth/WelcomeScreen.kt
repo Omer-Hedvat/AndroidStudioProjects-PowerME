@@ -1,20 +1,16 @@
 package com.omerhedvat.powerme.ui.auth
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.autofill.AutofillType
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.autofillHints
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -23,7 +19,6 @@ import com.omerhedvat.powerme.ui.theme.NavySurface
 import com.omerhedvat.powerme.ui.theme.NeonBlue
 import com.omerhedvat.powerme.ui.theme.SlateGrey
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun WelcomeScreen(
     onSignedIn: () -> Unit,
@@ -97,9 +92,7 @@ fun WelcomeScreen(
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Email", color = NeonBlue.copy(alpha = 0.7f)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { autofillHints = listOf(AutofillType.EmailAddress) },
+                modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
@@ -121,9 +114,7 @@ fun WelcomeScreen(
                 onValueChange = { password = it },
                 label = { Text("Password", color = NeonBlue.copy(alpha = 0.7f)) },
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { autofillHints = listOf(AutofillType.Password) },
+                modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
