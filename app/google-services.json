@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "374389848878",
+    "project_id": "powerme-8ab6e",
+    "storage_bucket": "powerme-8ab6e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:374389848878:android:4846d5ab96315b0c5f18bf",
+        "android_client_info": {
+          "package_name": "com.omerhedvat.powerme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmAwOkQG8Qvo5GbEELC4NQc--QdTrvf_4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
