@@ -1,40 +1,64 @@
 package com.omerhedvat.powerme.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.google.firebase.auth.FirebaseAuth
+import com.omerhedvat.powerme.R
 import com.omerhedvat.powerme.ui.auth.ProfileSetupScreen
 import com.omerhedvat.powerme.ui.auth.WelcomeScreen
+import com.omerhedvat.powerme.ui.chat.ChatViewModel
 import com.omerhedvat.powerme.ui.chat.WarRoomChatScreen
+import com.omerhedvat.powerme.ui.gyms.GymInventoryScreen
 import com.omerhedvat.powerme.ui.exercises.ExercisesScreen
+import com.omerhedvat.powerme.ui.gyms.GymSetupScreen
+import com.omerhedvat.powerme.ui.history.HistoryScreen
 import com.omerhedvat.powerme.ui.metrics.MetricsScreen
 import com.omerhedvat.powerme.ui.settings.SettingsScreen
-import com.omerhedvat.powerme.ui.theme.DeepNavy
-import com.omerhedvat.powerme.ui.theme.JetBrainsMono
-import com.omerhedvat.powerme.ui.theme.NavySurface
-import com.omerhedvat.powerme.ui.theme.NeonBlue
+import com.omerhedvat.powerme.ui.theme.StremioBackground
 import com.omerhedvat.powerme.ui.tools.ToolsScreen
 import com.omerhedvat.powerme.ui.workout.ActiveWorkoutScreen
+import com.omerhedvat.powerme.ui.workouts.WorkoutsScreen
+import com.omerhedvat.powerme.data.AppSettingsDataStore
+import com.omerhedvat.powerme.ui.workout.WorkoutViewModel
+import com.omerhedvat.powerme.util.ModelRouter
+import com.omerhedvat.powerme.util.SecurePreferencesManager
+import com.omerhedvat.powerme.util.UserSessionManager
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object WarRoom   : Screen("warroom",   "War Room",  Icons.Default.Forum)
-    object Exercises : Screen("exercises", "Exercises", Icons.Default.FitnessCenter)
-    object Tools     : Screen("tools",     "Tools",     Icons.Default.Timer)
+    object Workouts  : Screen("workouts",  "Workouts",  Icons.Default.FitnessCenter)
+    object Exercises : Screen("exercises", "Exercises", Icons.Default.DirectionsRun)
+    object Tools     : Screen("tools",     "Clocks",    Icons.Default.Timer)
     object Trends    : Screen("trends",    "Trends",    Icons.Default.BarChart)
+    object History   : Screen("history",   "History",   Icons.Default.History)
 }
 
 private object Routes {
@@ -42,21 +66,85 @@ private object Routes {
     const val AUTH_PROFILE_SETUP = "auth_profile_setup"
     const val WORKOUT = "workout"
     const val SETTINGS = "settings"
+    const val WAR_ROOM = "warroom"
+    const val GYM_SETUP = "gym_setup"
+    const val GYM_INVENTORY = "gym_inventory/{profileId}"
+}
+
+/** Handles startup auth/session check to determine the initial navigation route. */
+@HiltViewModel
+class AppStartupViewModel @Inject constructor(
+    private val userSessionManager: UserSessionManager,
+    private val modelRouter: ModelRouter,
+    private val securePreferencesManager: SecurePreferencesManager,
+    private val appSettingsDataStore: AppSettingsDataStore
+) : ViewModel() {
+
+    private val _startRoute = MutableStateFlow<String?>(null)
+    val startRoute: StateFlow<String?> = _startRoute.asStateFlow()
+
+    companion object {
+        private const val MODELS_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000L
+    }
+
+    init {
+        viewModelScope.launch {
+            val firebaseUser = FirebaseAuth.getInstance().currentUser
+            _startRoute.value = when {
+                firebaseUser == null || !firebaseUser.isEmailVerified -> Routes.AUTH_WELCOME
+                else -> {
+                    val dbUser = userSessionManager.getCurrentUser()
+                    if (dbUser != null) Screen.Workouts.route else Routes.AUTH_PROFILE_SETUP
+                }
+            }
+        }
+        // Background model refresh — fire-and-forget, does not block startup
+        viewModelScope.launch {
+            val apiKey = securePreferencesManager.getApiKey() ?: return@launch
+            val lastFetched = appSettingsDataStore.modelsLastFetched.first()
+            val needsRefresh = lastFetched == 0L ||
+                System.currentTimeMillis() - lastFetched > MODELS_REFRESH_INTERVAL_MS
+            if (needsRefresh) {
+                try {
+                    modelRouter.fetchModels(apiKey)
+                    appSettingsDataStore.setModelsLastFetched(System.currentTimeMillis())
+                } catch (_: Exception) {
+                    // Silently skip; next app open will retry
+                }
+            }
+        }
+    }
 }
 
 @Composable
-fun PowerMeApp() {
+fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
+    val startRoute by startupViewModel.startRoute.collectAsState()
     val navController = rememberNavController()
+    val workoutViewModel: WorkoutViewModel = hiltViewModel()
+    val workoutState by workoutViewModel.workoutState.collectAsState()
+
+    // Show splash loading until startup check completes
+    if (startRoute == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(StremioBackground),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(40.dp))
+        }
+        return
+    }
 
     NavHost(
         navController = navController,
-        startDestination = Routes.AUTH_WELCOME
+        startDestination = startRoute!!
     ) {
         // Auth screens (no bottom nav)
         composable(Routes.AUTH_WELCOME) {
             WelcomeScreen(
                 onSignedIn = {
-                    navController.navigate(Screen.WarRoom.route) {
+                    navController.navigate(Screen.Workouts.route) {
                         popUpTo(Routes.AUTH_WELCOME) { inclusive = true }
                     }
                 },
@@ -71,32 +159,87 @@ fun PowerMeApp() {
         composable(Routes.AUTH_PROFILE_SETUP) {
             ProfileSetupScreen(
                 onProfileSaved = {
-                    navController.navigate(Screen.WarRoom.route) {
+                    navController.navigate(Screen.Workouts.route) {
                         popUpTo(Routes.AUTH_PROFILE_SETUP) { inclusive = true }
                     }
                 }
             )
         }
 
-        // Full-screen workout (launched from Exercises tab)
+        // Full-screen workout (launched from Workouts/Exercises tab)
         composable(Routes.WORKOUT) {
-            ActiveWorkoutScreen()
+            ActiveWorkoutScreen(
+                onWorkoutFinished = {
+                    navController.navigate(Screen.History.route) {
+                        popUpTo(Routes.WORKOUT) { inclusive = true }
+                    }
+                },
+                viewModel = workoutViewModel
+            )
         }
 
         // Settings (launched from top-bar icon)
         composable(Routes.SETTINGS) {
-            SettingsScreen()
+            SettingsScreen(onNavigateToGymSetup = { navController.navigate(Routes.GYM_SETUP) })
         }
 
-        // Main app tabs — each wrapped in MainAppScaffold
-        composable(Screen.WarRoom.route) {
+        // GYM Setup (full-screen, no scaffold)
+        composable(Routes.GYM_SETUP) {
+            GymSetupScreen(
+                onBack = { navController.popBackStack() },
+                onSaved = { id -> navController.navigate("gym_inventory/$id") }
+            )
+        }
+
+        // GYM Inventory summary (shown after saving a gym profile)
+        composable(
+            route = Routes.GYM_INVENTORY,
+            arguments = listOf(navArgument("profileId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val profileId = backStackEntry.arguments?.getLong("profileId") ?: return@composable
+            GymInventoryScreen(
+                profileId = profileId,
+                onDone = { navController.popBackStack() }
+            )
+        }
+
+        // War Room (launched from top-bar Forum icon — not a bottom tab)
+        composable(Routes.WAR_ROOM) {
+            val chatViewModel: ChatViewModel = hiltViewModel()
+            DisposableEffect(Unit) {
+                onDispose { chatViewModel.dismissAllOverlays() }
+            }
             MainAppScaffold(
                 navController = navController,
-                currentScreen = Screen.WarRoom,
+                currentScreen = null,
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
                 WarRoomChatScreen(
-                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) }
+                    viewModel = chatViewModel,
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                    onDismissApiKeyDialog = { navController.popBackStack() }
+                )
+            }
+        }
+
+        // Main app tabs — each wrapped in MainAppScaffold
+        composable(Screen.Workouts.route) {
+            MainAppScaffold(
+                navController = navController,
+                currentScreen = Screen.Workouts,
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+            ) {
+                WorkoutsScreen(
+                    onStartWorkout = { routineId ->
+                        if (routineId > 0L) {
+                            workoutViewModel.startWorkoutFromRoutine(routineId)
+                        } else {
+                            workoutViewModel.startWorkout()
+                        }
+                        navController.navigate(Routes.WORKOUT)
+                    },
+                    isWorkoutActive = workoutState.isActive,
+                    onResumeWorkout = { navController.navigate(Routes.WORKOUT) }
                 )
             }
         }
@@ -132,6 +275,16 @@ fun PowerMeApp() {
                 MetricsScreen()
             }
         }
+
+        composable(Screen.History.route) {
+            MainAppScaffold(
+                navController = navController,
+                currentScreen = Screen.History,
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+            ) {
+                HistoryScreen()
+            }
+        }
     }
 }
 
@@ -139,21 +292,21 @@ fun PowerMeApp() {
 @Composable
 fun MainAppScaffold(
     navController: androidx.navigation.NavHostController,
-    currentScreen: Screen,
+    currentScreen: Screen?,
     onSettingsClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    val tabs = listOf(Screen.WarRoom, Screen.Exercises, Screen.Tools, Screen.Trends)
+    val tabs = listOf(Screen.Exercises, Screen.History, Screen.Workouts, Screen.Tools, Screen.Trends)
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "PowerME",
-                        fontFamily = JetBrainsMono,
-                        fontWeight = FontWeight.Bold,
-                        color = NeonBlue
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "PowerME",
+                        modifier = Modifier.height(36.dp),
+                        contentScale = ContentScale.Fit
                     )
                 },
                 actions = {
@@ -161,19 +314,19 @@ fun MainAppScaffold(
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
-                            tint = NeonBlue
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = NavySurface
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
         bottomBar = {
             NavigationBar(
-                containerColor = NavySurface,
-                contentColor = NeonBlue
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
             ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
@@ -184,6 +337,10 @@ fun MainAppScaffold(
                         label = { Text(screen.title) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
+                            // D4: If currently on War Room, pop it so DisposableEffect fires
+                            if (currentDestination?.route == Routes.WAR_ROOM) {
+                                navController.popBackStack()
+                            }
                             navController.navigate(screen.route) {
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true
@@ -193,11 +350,11 @@ fun MainAppScaffold(
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = DeepNavy,
-                            selectedTextColor = NeonBlue,
-                            indicatorColor = NeonBlue,
-                            unselectedIconColor = NeonBlue.copy(alpha = 0.4f),
-                            unselectedTextColor = NeonBlue.copy(alpha = 0.4f)
+                            selectedIconColor = MaterialTheme.colorScheme.background,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                            unselectedTextColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                         )
                     )
                 }

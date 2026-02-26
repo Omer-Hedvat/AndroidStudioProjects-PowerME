@@ -3,10 +3,14 @@ package com.omerhedvat.powerme.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.*
@@ -24,21 +28,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.data.database.Exercise
-import com.omerhedvat.powerme.ui.theme.NeonBlue
-import com.omerhedvat.powerme.ui.theme.OledBlack
-import com.omerhedvat.powerme.ui.theme.SlateGrey
 
 /**
- * Magic Add Dialog — Gemini-powered exercise creation.
+ * Magic Add Dialog — local exercise search with Gemini-powered creation fallback.
  *
- * User types an exercise name → Gemini returns:
- *   - Muscle group
- *   - Equipment type
- *   - YouTube video ID (from RP/Jeff Nippard/Athlean-X)
- *   - Setup notes (biomechanics-aware, tailored to user profile)
+ * User types a name → local DB results appear instantly (prefix-priority ranked).
+ * Selecting an existing exercise adds it immediately (no Gemini call).
+ * "Create new" at the bottom of results triggers Gemini enrichment for new exercises.
  *
- * On confirm, saves the exercise with isCustom = true and returns it
- * to the caller via onExerciseAdded callback.
+ * On confirm (ADD), saves the Gemini-created exercise with isCustom = true and
+ * returns it to the caller via onExerciseAdded callback.
  */
 @Composable
 fun MagicAddDialog(
@@ -47,6 +46,7 @@ fun MagicAddDialog(
     viewModel: MagicAddViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
     var exerciseName by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -66,7 +66,7 @@ fun MagicAddDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = SlateGrey,
+        containerColor = MaterialTheme.colorScheme.onSurface,
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -75,14 +75,14 @@ fun MagicAddDialog(
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = null,
-                    tint = NeonBlue,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp)
                 )
                 Text(
-                    text = "Magic Add",
+                    text = "Add Exercise",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NeonBlue
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         },
@@ -92,17 +92,18 @@ fun MagicAddDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Type any exercise name — AI will fill in the details.",
+                    text = "Search exercises or create a new one.",
                     fontSize = 13.sp,
-                    color = NeonBlue.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
 
-                // Exercise name input
+                // Exercise name input — triggers local search on every keystroke
                 OutlinedTextField(
                     value = exerciseName,
                     onValueChange = {
                         exerciseName = it
-                        // Reset if user changes input after a result
+                        viewModel.onSearchChanged(it)
+                        // Reset Gemini creation state if user edits after a result
                         if (uiState is MagicAddUiState.Found || uiState is MagicAddUiState.Error) {
                             viewModel.reset()
                         }
@@ -110,39 +111,88 @@ fun MagicAddDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
-                    label = { Text("Exercise name", color = NeonBlue.copy(alpha = 0.7f)) },
-                    placeholder = { Text("e.g. Cable Chest Fly", color = NeonBlue.copy(alpha = 0.4f)) },
+                    label = { Text("Exercise name", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
+                    placeholder = { Text("e.g. Bench Press", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NeonBlue,
-                        unfocusedBorderColor = NeonBlue.copy(alpha = 0.4f),
-                        focusedTextColor = NeonBlue,
-                        unfocusedTextColor = NeonBlue,
-                        cursorColor = NeonBlue
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                        focusedTextColor = MaterialTheme.colorScheme.primary,
+                        unfocusedTextColor = MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary
                     ),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
                         imeAction = ImeAction.Search
                     ),
                     keyboardActions = KeyboardActions(
-                        onSearch = {
-                            keyboard?.hide()
-                            viewModel.searchExercise(exerciseName)
-                        }
+                        onSearch = { keyboard?.hide() }
                     ),
                     singleLine = true,
                     enabled = uiState !is MagicAddUiState.Loading
                 )
 
-                // No API key warning
-                if (!viewModel.hasApiKey) {
-                    Text(
-                        text = "⚠ Gemini API key required. Configure it in Settings.",
-                        fontSize = 12.sp,
-                        color = NeonBlue.copy(alpha = 0.6f)
-                    )
+                // Local search results (shown while user types)
+                if (exerciseName.isNotBlank() && uiState !is MagicAddUiState.Found) {
+                    LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+                        items(searchResults) { exercise ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onExerciseAdded(exercise)
+                                        onDismiss()
+                                    }
+                                    .padding(vertical = 10.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = exercise.name,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = exercise.muscleGroup,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                        }
+                        // "Create new" row — shown when list is not full (< 25 results)
+                        if (searchResults.size < 25 && uiState !is MagicAddUiState.Loading) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            keyboard?.hide()
+                                            viewModel.searchExercise(exerciseName)
+                                        }
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "Create \"$exerciseName\"",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
-                // Loading indicator
+                // Loading indicator (Gemini creation in progress)
                 AnimatedVisibility(
                     visible = uiState is MagicAddUiState.Loading,
                     enter = fadeIn(),
@@ -154,18 +204,18 @@ fun MagicAddDialog(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
-                            color = NeonBlue,
+                            color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 2.dp
                         )
                         Text(
-                            text = "Searching...",
+                            text = "Creating exercise…",
                             fontSize = 13.sp,
-                            color = NeonBlue.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                         )
                     }
                 }
 
-                // Error state
+                // Error state (Gemini creation failed)
                 AnimatedVisibility(
                     visible = uiState is MagicAddUiState.Error,
                     enter = fadeIn(),
@@ -175,11 +225,11 @@ fun MagicAddDialog(
                     Text(
                         text = "✗ $error",
                         fontSize = 13.sp,
-                        color = NeonBlue.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                     )
                 }
 
-                // Result card
+                // Result card (Gemini enrichment returned)
                 AnimatedVisibility(
                     visible = uiState is MagicAddUiState.Found,
                     enter = fadeIn(),
@@ -193,67 +243,39 @@ fun MagicAddDialog(
             }
         },
         confirmButton = {
-            when (val state = uiState) {
-                is MagicAddUiState.Found -> {
-                    Button(
-                        onClick = {
-                            viewModel.saveExercise(state.exercise) { saved ->
-                                onExerciseAdded(saved)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonBlue,
-                            contentColor = OledBlack
-                        )
-                    ) {
-                        Text("ADD", fontWeight = FontWeight.Bold)
-                    }
-                }
-                is MagicAddUiState.Loading -> {
-                    Button(
-                        onClick = {},
-                        enabled = false,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonBlue.copy(alpha = 0.3f),
-                            contentColor = OledBlack
-                        )
-                    ) {
-                        Text("SEARCH", fontWeight = FontWeight.Bold)
-                    }
-                }
-                else -> {
-                    Button(
-                        onClick = {
-                            keyboard?.hide()
-                            viewModel.searchExercise(exerciseName)
-                        },
-                        enabled = exerciseName.isNotBlank() && viewModel.hasApiKey,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonBlue,
-                            contentColor = OledBlack
-                        )
-                    ) {
-                        Text("SEARCH", fontWeight = FontWeight.Bold)
-                    }
+            if (uiState is MagicAddUiState.Found) {
+                val state = uiState as MagicAddUiState.Found
+                Button(
+                    onClick = {
+                        viewModel.saveExercise(state.exercise) { saved ->
+                            onExerciseAdded(saved)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.background
+                    )
+                ) {
+                    Text("ADD", fontWeight = FontWeight.Bold)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = NeonBlue.copy(alpha = 0.7f))
+                Text("Cancel", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
             }
         }
     )
 }
 
 /**
- * Card showing the exercise details returned by Gemini.
+ * Card showing the exercise details returned by Gemini (create new flow).
  */
 @Composable
 private fun ExerciseResultCard(exercise: Exercise) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = NeonBlue.copy(alpha = 0.1f)
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -262,9 +284,9 @@ private fun ExerciseResultCard(exercise: Exercise) {
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "✓ Found",
+                text = "✓ Ready to add",
                 fontSize = 11.sp,
-                color = NeonBlue,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
 
@@ -283,13 +305,13 @@ private fun ExerciseResultCard(exercise: Exercise) {
                     Icon(
                         imageVector = Icons.Default.PlayCircle,
                         contentDescription = null,
-                        tint = NeonBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "Video found",
                         fontSize = 12.sp,
-                        color = NeonBlue
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -298,7 +320,7 @@ private fun ExerciseResultCard(exercise: Exercise) {
                 Text(
                     text = exercise.setupNotes,
                     fontSize = 11.sp,
-                    color = NeonBlue.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                     lineHeight = 15.sp,
                     fontFamily = FontFamily.Default
                 )
@@ -316,12 +338,12 @@ private fun ResultRow(label: String, value: String) {
         Text(
             text = label,
             fontSize = 12.sp,
-            color = NeonBlue.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
         )
         Text(
             text = value,
             fontSize = 12.sp,
-            color = NeonBlue,
+            color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Medium
         )
     }

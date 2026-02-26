@@ -10,7 +10,9 @@ import com.omerhedvat.powerme.actions.ActionExecutor
 import com.omerhedvat.powerme.actions.ActionParser
 import com.omerhedvat.powerme.actions.ActionResult
 import com.omerhedvat.powerme.actions.PlannedExercise
+import com.omerhedvat.powerme.data.AppSettingsDataStore
 import com.omerhedvat.powerme.data.database.ChatMessage
+import com.omerhedvat.powerme.data.database.MetricType
 import com.omerhedvat.powerme.data.database.RoutineDao
 import com.omerhedvat.powerme.data.database.UserSettingsDao
 import com.omerhedvat.powerme.data.repository.AnalyticsRepository
@@ -18,17 +20,20 @@ import com.omerhedvat.powerme.data.repository.ChatRepository
 import com.omerhedvat.powerme.data.repository.ExerciseRepository
 import com.omerhedvat.powerme.data.repository.HealthStatsRepository
 import com.omerhedvat.powerme.data.repository.MedicalLedgerRepository
+import com.omerhedvat.powerme.data.repository.MetricLogRepository
 import com.omerhedvat.powerme.data.repository.StateHistoryRepository
 import com.omerhedvat.powerme.data.repository.WorkoutRepository
 import com.omerhedvat.powerme.util.GeminiResponseLogger
 import com.omerhedvat.powerme.util.GoalDocumentManager
 import com.omerhedvat.powerme.util.MedicalPatch
+import com.omerhedvat.powerme.util.ModelRouter
 import com.omerhedvat.powerme.util.SecurePreferencesManager
 import com.omerhedvat.powerme.util.SessionSummaryManager
 import com.omerhedvat.powerme.util.StatePatchManager
 import com.omerhedvat.powerme.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -74,7 +79,10 @@ class ChatViewModel @Inject constructor(
     private val statePatchManager: StatePatchManager,
     private val routineDao: RoutineDao,
     private val stateHistoryRepository: StateHistoryRepository,
-    private val userSettingsDao: UserSettingsDao
+    private val userSettingsDao: UserSettingsDao,
+    private val appSettingsDataStore: AppSettingsDataStore,
+    private val metricLogRepository: MetricLogRepository,
+    private val modelRouter: ModelRouter
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -193,8 +201,10 @@ class ChatViewModel @Inject constructor(
     private suspend fun createGenerativeModel(userContext: UserContext? = null) {
         val apiKey = securePreferencesManager.getApiKey() ?: return
         val language = userSettingsDao.getSettingsOnce()?.language ?: "Hebrew"
+        val userOverride = appSettingsDataStore.warRoomModel.first()
+        val warRoomModel = modelRouter.resolveWarRoomModel(userOverride)
         generativeModel = GenerativeModel(
-            modelName = "gemini-2.0-flash-exp",
+            modelName = warRoomModel,
             apiKey = apiKey,
             generationConfig = generationConfig {
                 temperature = 0.8f
@@ -220,8 +230,9 @@ class ChatViewModel @Inject constructor(
     private suspend fun postArchitectGreeting(userContext: UserContext) {
         val apiKey = securePreferencesManager.getApiKey() ?: return
         try {
+            val userOverride = appSettingsDataStore.warRoomModel.first()
             val greetingModel = GenerativeModel(
-                modelName = "gemini-2.0-flash-exp",
+                modelName = modelRouter.resolveWarRoomModel(userOverride),
                 apiKey = apiKey,
                 generationConfig = generationConfig {
                     temperature = 0.3f
@@ -269,7 +280,7 @@ Output ONLY the Hebrew greeting. No ActionBlock. No English.
         val apiKey = securePreferencesManager.getApiKey() ?: return null
         return try {
             val summaryModel = GenerativeModel(
-                modelName = "gemini-2.0-flash-exp",
+                modelName = modelRouter.getBestFlashModel(),
                 apiKey = apiKey,
                 generationConfig = generationConfig {
                     temperature = 0.2f
@@ -278,7 +289,7 @@ Output ONLY the Hebrew greeting. No ActionBlock. No English.
                 }
             )
 
-            val chatText = messages.takeLast(50).joinToString("\n") { msg ->
+            val chatText = messages.takeLast(10).joinToString("\n") { msg ->
                 if (msg.isUser) "USER: ${msg.message}" else "COMMITTEE: ${msg.message}"
             }
 
@@ -350,7 +361,7 @@ $chatText$boazSection
         val apiKey = securePreferencesManager.getApiKey() ?: return null
         return try {
             val summaryModel = GenerativeModel(
-                modelName = "gemini-2.0-flash-exp",
+                modelName = modelRouter.getBestFlashModel(),
                 apiKey = apiKey,
                 generationConfig = generationConfig {
                     temperature = 0.2f
@@ -359,7 +370,7 @@ $chatText$boazSection
                 }
             )
 
-            val chatText = messages.takeLast(50).joinToString("\n") { msg ->
+            val chatText = messages.takeLast(10).joinToString("\n") { msg ->
                 if (msg.isUser) "USER: ${msg.message}" else "COMMITTEE: ${msg.message}"
             }
 
@@ -554,6 +565,37 @@ $userMessage
                 _uiState.update {
                     it.copy(isLoading = false, actionResults = actionResults)
                 }
+            } catch (e: com.google.ai.client.generativeai.type.ResponseStoppedException) {
+                val finishReason = e.response.candidates.firstOrNull()?.finishReason?.name ?: ""
+                val isContextFull = finishReason == "MAX_TOKENS"
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = if (isContextFull)
+                            "AI Context Full: Summarizing workout data..."
+                        else
+                            "Response stopped (${finishReason.ifEmpty { "unknown reason" }})"
+                    )
+                }
+            } catch (e: com.google.ai.client.generativeai.type.ServerException) {
+                val msg = e.message ?: ""
+                val isQuota = msg.contains("quota", ignoreCase = true) ||
+                    msg.contains("RESOURCE_EXHAUSTED", ignoreCase = true)
+                val isModelNotFound = msg.contains("not found", ignoreCase = true) ||
+                    msg.contains("404", ignoreCase = true)
+                val isTokenLimit = msg.contains("token", ignoreCase = true) ||
+                    msg.contains("context", ignoreCase = true) && msg.contains("limit", ignoreCase = true)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = when {
+                            isTokenLimit -> "AI Context Full: Summarizing workout data..."
+                            isQuota -> "Gemini quota exceeded — try again later or check your plan"
+                            isModelNotFound -> "Selected model is unavailable — change the model in Settings"
+                            else -> "Gemini server error: $msg"
+                        }
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -627,22 +669,48 @@ After collecting all answers, emit a save_user_onboarding ActionBlock.
 
         val healthStats = healthStatsRepository.getLatestHealthStats()
 
+        // 7-day MetricLog averages for Weight and BodyFat (avoids sending raw per-log data points)
+        val sevenDaysAgo = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L
+        val weightLogs = metricLogRepository.getByType(MetricType.WEIGHT).first()
+            .filter { it.timestamp >= sevenDaysAgo }
+        val bodyFatLogs = metricLogRepository.getByType(MetricType.BODY_FAT).first()
+            .filter { it.timestamp >= sevenDaysAgo }
+        val weightAvg = weightLogs.takeIf { it.isNotEmpty() }?.map { it.value }?.average()
+        val bodyFatAvg = bodyFatLogs.takeIf { it.isNotEmpty() }?.map { it.value }?.average()
+
         return contextInjector.buildContextPacket(
             workouts = workouts,
             workoutSets = workoutSetsMap,
             exerciseNames = exerciseNamesMap,
-            healthStats = healthStats
+            healthStats = healthStats,
+            weightKgAvg7d = weightAvg,
+            bodyFatPctAvg7d = bodyFatAvg
         )
     }
 
     fun clearChat() {
         viewModelScope.launch {
             chatRepository.clearHistory()
+            generativeModel = null
+            _uiState.update { it.copy(warRoomMode = WarRoomMode.LOADING) }
+            initializeSession()
         }
     }
 
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun dismissAllOverlays() {
+        _uiState.update {
+            it.copy(
+                pendingMedicalPatch = null,
+                pendingGoalPatch = null,
+                pendingRoutine = null,
+                error = null,
+                sessionWasReset = false
+            )
+        }
     }
 
     fun clearActionResults() {

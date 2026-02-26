@@ -1,0 +1,74 @@
+[
+  {
+    "id": "chest_001",
+    "name": "Barbell Bench Press",
+    "muscleGroup": "CHEST",
+    "equipment": "BARBELL",
+    "youtubeId": "vcBig73ojpE",
+    "type": "STRENGTH",
+    "setupNotes": "Arch lower back slightly, keep feet planted. For your height, ensure wide enough grip to avoid excessive tricep dominance."
+  },
+  {
+    "id": "chest_002",
+    "name": "Incline Dumbbell Press",
+    "muscleGroup": "CHEST",
+    "equipment": "DUMBBELL",
+    "youtubeId": "8iPEnn-ltC8",
+    "type": "STRENGTH",
+    "setupNotes": "30-45 degree incline. Focus on a deep stretch at the bottom."
+  },
+  {
+    "id": "back_001",
+    "name": "Chest-Supported Row",
+    "muscleGroup": "BACK",
+    "equipment": "MACHINE",
+    "youtubeId": "H75im9fAUMc",
+    "type": "STRENGTH",
+    "setupNotes": "Ideal for your L4-L5 history. Keep chest glued to the pad to eliminate momentum."
+  },
+  {
+    "id": "back_002",
+    "name": "Neutral Grip Lat Pulldown",
+    "muscleGroup": "BACK",
+    "equipment": "CABLE",
+    "youtubeId": "EooDAbT_834",
+    "type": "STRENGTH",
+    "setupNotes": "Neutral grip is safer for your elbow (golfer's elbow). Pull to upper chest, not behind neck."
+  },
+  {
+    "id": "legs_001",
+    "name": "Goblet Squat",
+    "muscleGroup": "LEGS",
+    "equipment": "DUMBBELL",
+    "youtubeId": "MeIiIdhvXT4",
+    "type": "STRENGTH",
+    "setupNotes": "Alternative to Barbell Squat for lower back safety. Upright torso is key."
+  },
+  {
+    "id": "legs_002",
+    "name": "Romanian Deadlift (RDL)",
+    "muscleGroup": "LEGS",
+    "equipment": "BARBELL",
+    "youtubeId": "hCDzSR6bW10",
+    "type": "STRENGTH",
+    "setupNotes": "Due to your 181.5cm height, stop at mid-shin to protect L4-L5. Focus on the hip hinge."
+  },
+  {
+    "id": "arms_001",
+    "name": "Hammer Curls",
+    "muscleGroup": "BICEPS",
+    "equipment": "DUMBBELL",
+    "youtubeId": "TwD-YGVP4Bk",
+    "type": "STRENGTH",
+    "setupNotes": "Neutral grip reduces strain on the medial epicondyle (elbow pain)."
+  },
+  {
+    "id": "shoulders_001",
+    "name": "Seated Dumbbell Overhead Press",
+    "muscleGroup": "SHOULDERS",
+    "equipment": "DUMBBELL",
+    "youtubeId": "qEwK6jnzSss",
+    "type": "STRENGTH",
+    "setupNotes": "Seated version provides more stability for the lower back."
+  }
+]

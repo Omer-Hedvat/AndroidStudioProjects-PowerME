@@ -12,7 +12,7 @@ import androidx.room.PrimaryKey
             entity = Routine::class,
             parentColumns = ["id"],
             childColumns = ["routineId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.SET_NULL
         )
     ],
     indices = [Index(value = ["routineId"])]
@@ -20,9 +20,10 @@ import androidx.room.PrimaryKey
 data class Workout(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val routineId: Long,
+    val routineId: Long?,
     val timestamp: Long,
     val durationSeconds: Int,
     val totalVolume: Double,
-    val notes: String? = null
+    val notes: String? = null,
+    val isCompleted: Boolean = false
 )

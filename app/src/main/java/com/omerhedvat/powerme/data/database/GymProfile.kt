@@ -63,7 +63,10 @@ data class GymProfile(
     /**
      * Optional notes about the gym (e.g., "Open 24/7", "Squat rack usually busy")
      */
-    val notes: String? = null
+    val notes: String? = null,
+
+    val dumbbellMinKg: Float? = null,
+    val dumbbellMaxKg: Float? = null
 ) {
     /**
      * Returns equipment as a list for filtering.

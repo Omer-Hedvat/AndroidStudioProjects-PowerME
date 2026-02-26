@@ -33,4 +33,8 @@ class ExerciseRepository @Inject constructor(
     suspend fun deleteExercise(exercise: Exercise) {
         exerciseDao.deleteExercise(exercise)
     }
+
+    suspend fun searchExercises(query: String): List<Exercise> {
+        return exerciseDao.searchExercises(query)
+    }
 }

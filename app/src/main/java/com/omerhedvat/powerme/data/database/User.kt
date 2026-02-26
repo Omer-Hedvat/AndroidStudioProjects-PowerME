@@ -13,5 +13,9 @@ data class User(
     val averageSleepHours: Float? = null,
     val chronotype: String? = null,       // MORNING | NIGHT | NEUTRAL
     val parentalLoad: Int? = null,        // number of children
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val weightKg: Float? = null,
+    val bodyFatPercent: Float? = null,
+    val gender: String? = null,           // MALE | FEMALE | OTHER
+    val trainingTargets: String? = null   // comma-separated: Hypertrophy,Strength,...
 )

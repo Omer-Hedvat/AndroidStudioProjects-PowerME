@@ -2,4 +2,11 @@
 <resources>
 
     <style name="Theme.PowerME" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.PowerME.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#0A0E17</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.PowerME</item>
+    </style>
+
 </resources>

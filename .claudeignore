@@ -1,0 +1,21 @@
+# .claudeignore
+
+# Archive
+archive/
+archive/**
+
+# Android build outputs
+build/
+.gradle/
+captures/
+*.apk
+*.aar
+*.jks
+
+# Project meta
+plans.json
+
+# IDE & OS
+.idea/
+.DS_Store
+*.iml

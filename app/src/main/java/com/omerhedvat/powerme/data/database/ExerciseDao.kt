@@ -1,6 +1,7 @@
 package com.omerhedvat.powerme.data.database
 
 import androidx.room.*
+import com.omerhedvat.powerme.util.SurgicalValidator
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -26,9 +27,9 @@ interface ExerciseDao {
     @Transaction
     @Query("""
         SELECT e.* FROM exercises e
-        INNER JOIN routine_exercise_cross_ref ref ON e.id = ref.exerciseId
-        WHERE ref.routineId = :routineId
-        ORDER BY e.name ASC
+        INNER JOIN routine_exercises re ON e.id = re.exerciseId
+        WHERE re.routineId = :routineId
+        ORDER BY re.`order` ASC
     """)
     fun getExercisesForRoutine(routineId: Long): Flow<List<Exercise>>
 
@@ -50,4 +51,21 @@ interface ExerciseDao {
 
     @Query("DELETE FROM exercises")
     suspend fun deleteAllExercises()
+
+    @Query(SurgicalValidator.MIGRATION_SQL)
+    suspend fun clearLeakedMetricNotes()
+
+    /**
+     * Local fuzzy search — ProjectMap §2. Case-insensitive LIKE with prefix priority.
+     * Results starting with [query] rank first; other contains-matches rank second.
+     */
+    @Query("""
+        SELECT * FROM exercises
+        WHERE name LIKE '%' || :query || '%'
+        ORDER BY
+            CASE WHEN name LIKE :query || '%' THEN 0 ELSE 1 END,
+            name ASC
+        LIMIT 25
+    """)
+    suspend fun searchExercises(query: String): List<Exercise>
 }

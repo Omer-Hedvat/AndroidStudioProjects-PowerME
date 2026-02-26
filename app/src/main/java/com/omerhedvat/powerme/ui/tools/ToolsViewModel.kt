@@ -3,6 +3,7 @@ package com.omerhedvat.powerme.ui.tools
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.omerhedvat.powerme.util.AlertType
 import com.omerhedvat.powerme.util.RestTimerNotifier
 import com.omerhedvat.powerme.util.WakeLockManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,9 +29,25 @@ data class ToolsUiState(
     val totalRounds: Int = 8,
     val workSeconds: Int = 20,
     val restSeconds: Int = 10,
-    val emomMinutes: Int = 3,
+    val emomRoundSeconds: Int = 60,
+    val emomTotalRounds: Int = 5,
     val countdownInputSeconds: Int = 60,
-    val isRunning: Boolean = false
+    val isRunning: Boolean = false,
+    // Text fields to avoid integer deletion bug
+    val emomRoundSecondsText: String = "60",
+    val emomTotalRoundsText: String = "5",
+    val workSecondsText: String = "20",
+    val restSecondsText: String = "10",
+    val totalRoundsText: String = "8",
+    val countdownText: String = "60",
+    // TABATA skip last rest
+    val tabataSkipLastRest: Boolean = false,
+    // EMOM skip last rest
+    val emomSkipLastRest: Boolean = false,
+    // EMOM warning sound
+    val emomWarnAtSecondsText: String = "",
+    // COUNTDOWN pre-finish alert
+    val countdownWarnAtSecondsText: String = ""
 )
 
 @HiltViewModel
@@ -51,16 +68,65 @@ class ToolsViewModel @Inject constructor(
         _uiState.update { it.copy(mode = mode, phase = TimerPhase.IDLE, displaySeconds = 0, elapsedSeconds = 0, currentRound = 0) }
     }
 
-    fun updateWorkSeconds(seconds: Int) { _uiState.update { it.copy(workSeconds = seconds) } }
-    fun updateRestSeconds(seconds: Int) { _uiState.update { it.copy(restSeconds = seconds) } }
-    fun updateTotalRounds(rounds: Int) { _uiState.update { it.copy(totalRounds = rounds) } }
-    fun updateEmomMinutes(minutes: Int) { _uiState.update { it.copy(emomMinutes = minutes) } }
-    fun updateCountdownSeconds(seconds: Int) { _uiState.update { it.copy(countdownInputSeconds = seconds) } }
+    // Text-based update functions (allow full deletion)
+    fun updateEmomRoundSecondsText(text: String) {
+        _uiState.update { it.copy(emomRoundSecondsText = text, emomRoundSeconds = text.toIntOrNull() ?: it.emomRoundSeconds) }
+    }
+    fun updateEmomTotalRoundsText(text: String) {
+        _uiState.update { it.copy(emomTotalRoundsText = text, emomTotalRounds = text.toIntOrNull() ?: it.emomTotalRounds) }
+    }
+    fun updateWorkSecondsText(text: String) {
+        _uiState.update { it.copy(workSecondsText = text, workSeconds = text.toIntOrNull() ?: it.workSeconds) }
+    }
+    fun updateRestSecondsText(text: String) {
+        _uiState.update { it.copy(restSecondsText = text, restSeconds = text.toIntOrNull() ?: it.restSeconds) }
+    }
+    fun updateTotalRoundsText(text: String) {
+        _uiState.update { it.copy(totalRoundsText = text, totalRounds = text.toIntOrNull() ?: it.totalRounds) }
+    }
+    fun updateCountdownText(text: String) {
+        _uiState.update { it.copy(countdownText = text, countdownInputSeconds = text.toIntOrNull() ?: it.countdownInputSeconds) }
+    }
+    fun updateEmomWarnAtSecondsText(text: String) {
+        _uiState.update { it.copy(emomWarnAtSecondsText = text) }
+    }
+    fun updateCountdownWarnAtSecondsText(text: String) {
+        _uiState.update { it.copy(countdownWarnAtSecondsText = text) }
+    }
+    fun toggleEmomSkipLastRest() {
+        _uiState.update { it.copy(emomSkipLastRest = !it.emomSkipLastRest) }
+    }
+
+    // Legacy Int update functions (kept for compatibility)
+    fun updateWorkSeconds(seconds: Int) { _uiState.update { it.copy(workSeconds = seconds, workSecondsText = seconds.toString()) } }
+    fun updateRestSeconds(seconds: Int) { _uiState.update { it.copy(restSeconds = seconds, restSecondsText = seconds.toString()) } }
+    fun updateTotalRounds(rounds: Int) { _uiState.update { it.copy(totalRounds = rounds, totalRoundsText = rounds.toString()) } }
+    fun updateEmomRoundSeconds(seconds: Int) { _uiState.update { it.copy(emomRoundSeconds = seconds, emomRoundSecondsText = seconds.toString()) } }
+    fun updateEmomTotalRounds(rounds: Int) { _uiState.update { it.copy(emomTotalRounds = rounds, emomTotalRoundsText = rounds.toString()) } }
+    fun updateCountdownSeconds(seconds: Int) { _uiState.update { it.copy(countdownInputSeconds = seconds, countdownText = seconds.toString()) } }
+
+    fun toggleTabataSkipLastRest() {
+        _uiState.update { it.copy(tabataSkipLastRest = !it.tabataSkipLastRest) }
+    }
 
     fun startTimer() {
         if (_uiState.value.isRunning) return
+        val state = _uiState.value
+        // Validate config: parse text fields before starting
+        val emomRound = state.emomRoundSecondsText.toIntOrNull()?.takeIf { it > 0 } ?: state.emomRoundSeconds
+        val emomTotal = state.emomTotalRoundsText.toIntOrNull()?.takeIf { it > 0 } ?: state.emomTotalRounds
+        val work = state.workSecondsText.toIntOrNull()?.takeIf { it > 0 } ?: state.workSeconds
+        val rest = state.restSecondsText.toIntOrNull()?.takeIf { it > 0 } ?: state.restSeconds
+        val rounds = state.totalRoundsText.toIntOrNull()?.takeIf { it > 0 } ?: state.totalRounds
+        val countdown = state.countdownText.toIntOrNull()?.takeIf { it > 0 } ?: state.countdownInputSeconds
+
+        _uiState.update { it.copy(
+            emomRoundSeconds = emomRound, emomTotalRounds = emomTotal,
+            workSeconds = work, restSeconds = rest, totalRounds = rounds,
+            countdownInputSeconds = countdown, isRunning = true
+        ) }
+
         wakeLockManager.acquire()
-        _uiState.update { it.copy(isRunning = true) }
 
         timerJob = viewModelScope.launch {
             when (_uiState.value.mode) {
@@ -92,56 +158,76 @@ class ToolsViewModel @Inject constructor(
     }
 
     private suspend fun runEmom() {
-        val totalSeconds = _uiState.value.emomMinutes * 60
-        var elapsed = _uiState.value.elapsedSeconds
+        val totalRounds   = _uiState.value.emomTotalRounds
+        val roundDuration = _uiState.value.emomRoundSeconds
+        val warnAt        = _uiState.value.emomWarnAtSecondsText.toIntOrNull()
 
-        while (elapsed < totalSeconds) {
-            val secondsInMinute = elapsed % 60
-            val remaining = 60 - secondsInMinute
-
-            if (secondsInMinute == 0) {
-                restTimerNotifier.notifyUser(audioEnabled = true, hapticsEnabled = true)
-                _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = elapsed / 60 + 1) }
+        for (round in 1..totalRounds) {
+            _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = round) }
+            restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
+            var remaining = roundDuration
+            var warnedThisRound = false
+            while (remaining > 0 && _uiState.value.isRunning) {
+                _uiState.update { it.copy(displaySeconds = remaining) }
+                if (warnAt != null && remaining == warnAt && !warnedThisRound) {
+                    warnedThisRound = true
+                    restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
+                }
+                if (remaining == 2 || remaining == 1) {
+                    restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+                }
+                delay(1000L)
+                remaining--
             }
-
-            _uiState.update { it.copy(displaySeconds = remaining, elapsedSeconds = elapsed) }
-            delay(1000L)
-            elapsed++
+            if (!_uiState.value.isRunning) return
+            // No REST phase in EMOM — next round starts immediately
         }
-        finishTimer()
+        finishTimer()  // always reached; fires FINISH alert + cleanup
     }
 
     private suspend fun runTabata() {
-        val state = _uiState.value
-        var round = state.currentRound
-        val totalRounds = state.totalRounds
+        val state        = _uiState.value
+        var round        = state.currentRound
+        val totalRounds  = state.totalRounds
+        val skipLastRest = state.tabataSkipLastRest
 
         while (round < totalRounds) {
-            // WORK phase
+            val isLastRound = round == totalRounds - 1
+
+            // ── WORK phase ───────────────────────────────────────────────────
             _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = round + 1) }
-            restTimerNotifier.notifyUser(audioEnabled = true, hapticsEnabled = true)
+            restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
             var workRemaining = _uiState.value.workSeconds
             while (workRemaining > 0 && _uiState.value.isRunning) {
                 _uiState.update { it.copy(displaySeconds = workRemaining) }
+                if (workRemaining == 2 || workRemaining == 1) {
+                    restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+                }
                 delay(1000L)
                 workRemaining--
             }
             if (!_uiState.value.isRunning) return
+            restTimerNotifier.triggerAudioAlert(AlertType.FINISH)
 
-            // REST phase
-            _uiState.update { it.copy(phase = TimerPhase.REST) }
-            restTimerNotifier.notifyUser(audioEnabled = true, hapticsEnabled = true)
-            var restRemaining = _uiState.value.restSeconds
-            while (restRemaining > 0 && _uiState.value.isRunning) {
-                _uiState.update { it.copy(displaySeconds = restRemaining) }
-                delay(1000L)
-                restRemaining--
+            // ── REST phase ───────────────────────────────────────────────────
+            if (!(isLastRound && skipLastRest)) {
+                _uiState.update { it.copy(phase = TimerPhase.REST) }
+                restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
+                var restRemaining = _uiState.value.restSeconds
+                while (restRemaining > 0 && _uiState.value.isRunning) {
+                    _uiState.update { it.copy(displaySeconds = restRemaining) }
+                    if (restRemaining == 2 || restRemaining == 1) {
+                        restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+                    }
+                    delay(1000L)
+                    restRemaining--
+                }
+                if (!_uiState.value.isRunning) return
+                restTimerNotifier.triggerAudioAlert(AlertType.FINISH)
             }
-            if (!_uiState.value.isRunning) return
-
             round++
         }
-        finishTimer()
+        finishTimer()  // overall cleanup; fires one final FINISH alert
     }
 
     private suspend fun runStopwatch() {
@@ -159,10 +245,18 @@ class ToolsViewModel @Inject constructor(
         var remaining = if (_uiState.value.displaySeconds > 0) _uiState.value.displaySeconds
         else _uiState.value.countdownInputSeconds
 
+        val warnAt = _uiState.value.countdownWarnAtSecondsText.toIntOrNull()
+        var warnedThisRound = false
+
         _uiState.update { it.copy(phase = TimerPhase.WORK) }
 
         while (remaining > 0 && _uiState.value.isRunning) {
             _uiState.update { it.copy(displaySeconds = remaining) }
+            if (warnAt != null && remaining == warnAt && !warnedThisRound) {
+                warnedThisRound = true
+                restTimerNotifier.playWarningBeep()
+            }
+            if (remaining == 2 || remaining == 1) restTimerNotifier.playWarningBeep()
             delay(1000L)
             remaining--
         }
@@ -173,7 +267,7 @@ class ToolsViewModel @Inject constructor(
     }
 
     private fun finishTimer() {
-        restTimerNotifier.notifyUser(audioEnabled = true, hapticsEnabled = true)
+        restTimerNotifier.triggerAudioAlert(AlertType.FINISH)
         wakeLockManager.release()
         _uiState.update { it.copy(isRunning = false, phase = TimerPhase.IDLE) }
     }

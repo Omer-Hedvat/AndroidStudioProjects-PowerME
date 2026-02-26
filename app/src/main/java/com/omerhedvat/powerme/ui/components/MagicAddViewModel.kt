@@ -43,6 +43,9 @@ class MagicAddViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<MagicAddUiState>(MagicAddUiState.Idle)
     val uiState: StateFlow<MagicAddUiState> = _uiState.asStateFlow()
 
+    private val _searchResults = MutableStateFlow<List<Exercise>>(emptyList())
+    val searchResults: StateFlow<List<Exercise>> = _searchResults.asStateFlow()
+
     val hasApiKey: Boolean get() = securePreferencesManager.hasApiKey()
 
     private val json = Json {
@@ -128,9 +131,21 @@ class MagicAddViewModel @Inject constructor(
         }
     }
 
-    /** Resets state back to Idle (e.g. when dialog is reopened) */
+    /**
+     * Live local DB search — called on every keystroke.
+     * Populates [searchResults] with exercises whose name contains [query].
+     */
+    fun onSearchChanged(query: String) {
+        viewModelScope.launch {
+            _searchResults.value = if (query.isBlank()) emptyList()
+            else exerciseRepository.searchExercises(query)
+        }
+    }
+
+    /** Resets state back to Idle and clears search results (e.g. when dialog is reopened) */
     fun reset() {
         _uiState.value = MagicAddUiState.Idle
+        _searchResults.value = emptyList()
     }
 
     private fun buildPrompt(exerciseName: String): String = """

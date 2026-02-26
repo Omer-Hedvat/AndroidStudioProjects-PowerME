@@ -38,7 +38,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "1.0"
+        private const val CURRENT_VERSION = "1.1"  // bumped: stripped 181.5cm prefix from setupNotes
     }
 
     private val json = Json {

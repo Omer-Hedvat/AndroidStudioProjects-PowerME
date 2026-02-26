@@ -1,17 +1,19 @@
 package com.omerhedvat.powerme.ui.tools
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -22,6 +24,7 @@ import com.omerhedvat.powerme.ui.theme.DeepNavy
 import com.omerhedvat.powerme.ui.theme.ElectricBlue
 import com.omerhedvat.powerme.ui.theme.JetBrainsMono
 import com.omerhedvat.powerme.ui.theme.MonoTextStyle
+import com.omerhedvat.powerme.ui.theme.NavySurface
 import com.omerhedvat.powerme.ui.theme.NeonBlue
 import com.omerhedvat.powerme.ui.theme.TimerGreen
 import com.omerhedvat.powerme.ui.theme.TimerRed
@@ -34,17 +37,33 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
         modifier = Modifier
             .fillMaxSize()
             .background(DeepNavy)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Mode selector
-        ModeSelector(
-            selectedMode = state.mode,
-            isRunning = state.isRunning,
-            onModeSelected = viewModel::setMode
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
+        // ── 2×2 Mode Grid (shown when idle and no active timer) ──────
+        if (state.phase == TimerPhase.IDLE && !state.isRunning) {
+            TimerModeGrid(
+                selectedMode = state.mode,
+                onModeSelected = viewModel::setMode
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        } else {
+            // Show compact mode indicator during active timer
+            val activeLabel = when (state.mode) {
+                TimerMode.STOPWATCH -> "Stopwatch"
+                TimerMode.COUNTDOWN -> "Timer"
+                TimerMode.TABATA    -> "Tabata"
+                TimerMode.EMOM      -> "EMOM"
+            }
+            Text(
+                text = activeLabel,
+                fontSize = 14.sp,
+                fontFamily = JetBrainsMono,
+                color = NeonBlue.copy(alpha = 0.7f),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
 
         // Timer display
         TimerDisplay(state = state)
@@ -57,76 +76,174 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Control buttons
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = {
-                    if (state.isRunning) viewModel.pauseTimer() else viewModel.startTimer()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (state.isRunning) ElectricBlue else NeonBlue,
-                    contentColor = DeepNavy
-                ),
-                modifier = Modifier.width(140.dp).height(56.dp)
+        // Control buttons — persistent side-by-side layout for Tabata/EMOM;
+        // toggle behaviour preserved for Stopwatch and Countdown.
+        if (state.mode == TimerMode.TABATA || state.mode == TimerMode.EMOM) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
             ) {
-                Icon(
-                    imageVector = if (state.isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (state.isRunning) "Pause" else "Start"
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (state.isRunning) "Pause" else "Start",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
+                Button(
+                    onClick = {
+                        if (state.isRunning) viewModel.pauseTimer() else viewModel.startTimer()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (state.isRunning) ElectricBlue else NeonBlue,
+                        contentColor = DeepNavy
+                    ),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Icon(
+                        imageVector = if (state.isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (state.isRunning) "Pause" else "Start"
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (state.isRunning) "Pause" else "Start",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+                OutlinedButton(
+                    onClick = viewModel::resetTimer,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Reset")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Reset", maxLines = 1)
+                }
             }
-
-            OutlinedButton(
-                onClick = viewModel::resetTimer,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue),
-                modifier = Modifier.width(100.dp).height(56.dp)
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Reset")
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Reset")
+                Button(
+                    onClick = {
+                        if (state.isRunning) viewModel.pauseTimer() else viewModel.startTimer()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (state.isRunning) ElectricBlue else NeonBlue,
+                        contentColor = DeepNavy
+                    ),
+                    modifier = Modifier.width(140.dp).height(56.dp)
+                ) {
+                    Icon(
+                        imageVector = if (state.isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (state.isRunning) "Pause" else "Start"
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (state.isRunning) "Pause" else "Start",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+                OutlinedButton(
+                    onClick = viewModel::resetTimer,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue),
+                    modifier = Modifier.width(120.dp).height(56.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Reset")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Reset", maxLines = 1)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ModeSelector(
+private fun TimerModeGrid(
     selectedMode: TimerMode,
-    isRunning: Boolean,
     onModeSelected: (TimerMode) -> Unit
 ) {
-    val modes = TimerMode.values()
-    Row(
+    val modeInfo = listOf(
+        Triple(TimerMode.STOPWATCH, Icons.Default.PlayCircle, "Count Up"),
+        Triple(TimerMode.COUNTDOWN, Icons.Default.HourglassBottom, "Count Down"),
+        Triple(TimerMode.TABATA,    Icons.Default.Timer,       "Work / Rest"),
+        Triple(TimerMode.EMOM,      Icons.Default.Repeat,      "Every Minute")
+    )
+
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        modes.forEach { mode ->
-            val isSelected = mode == selectedMode
-            FilterChip(
-                selected = isSelected,
-                onClick = { if (!isRunning) onModeSelected(mode) },
-                label = {
-                    Text(
-                        text = mode.name,
-                        fontSize = 12.sp,
-                        fontFamily = JetBrainsMono
+        modeInfo.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                row.forEach { (mode, icon, desc) ->
+                    ModeCard(
+                        mode = mode,
+                        icon = icon,
+                        description = desc,
+                        isSelected = mode == selectedMode,
+                        onClick = { onModeSelected(mode) },
+                        modifier = Modifier.weight(1f)
                     )
-                },
-                modifier = Modifier.weight(1f),
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = NeonBlue,
-                    selectedLabelColor = DeepNavy,
-                    containerColor = DeepNavy,
-                    labelColor = NeonBlue
-                )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModeCard(
+    mode: TimerMode,
+    icon: ImageVector,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .height(80.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) NeonBlue else NavySurface
+        )
+    ) {
+        val label = when (mode) {
+            TimerMode.STOPWATCH -> "Stopwatch"
+            TimerMode.COUNTDOWN -> "Timer"
+            TimerMode.TABATA    -> "Tabata"
+            TimerMode.EMOM      -> "EMOM"
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isSelected) DeepNavy else NeonBlue,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontFamily = JetBrainsMono,
+                fontWeight = FontWeight.Bold,
+                color = if (isSelected) DeepNavy else NeonBlue,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = description,
+                fontSize = 10.sp,
+                color = if (isSelected) DeepNavy.copy(alpha = 0.7f) else NeonBlue.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center,
+                maxLines = 1
             )
         }
     }
@@ -175,7 +292,7 @@ private fun TimerDisplay(state: ToolsUiState) {
                     Text(
                         text = when (state.mode) {
                             TimerMode.TABATA -> "Round ${state.currentRound} / ${state.totalRounds}"
-                            TimerMode.EMOM -> "Minute ${state.currentRound} / ${state.emomMinutes}"
+                            TimerMode.EMOM -> "Round ${state.currentRound} / ${state.emomTotalRounds}"
                             else -> ""
                         },
                         style = MonoTextStyle.copy(fontSize = 18.sp, color = textColor.copy(alpha = 0.8f))
@@ -200,35 +317,66 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
     when (state.mode) {
         TimerMode.EMOM -> {
             TimerConfigField(
-                label = "Duration (minutes)",
-                value = state.emomMinutes.toString(),
-                onValueChange = { it.toIntOrNull()?.let(viewModel::updateEmomMinutes) }
+                label = "Round Duration (sec)",
+                value = state.emomRoundSecondsText,
+                onValueChange = viewModel::updateEmomRoundSecondsText
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TimerConfigField(
+                label = "Number of Rounds",
+                value = state.emomTotalRoundsText,
+                onValueChange = viewModel::updateEmomTotalRoundsText
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TimerConfigField(
+                label = "Warn at X seconds remaining (optional)",
+                value = state.emomWarnAtSecondsText,
+                onValueChange = viewModel::updateEmomWarnAtSecondsText
             )
         }
         TimerMode.TABATA -> {
             TimerConfigField(
                 label = "Work (seconds)",
-                value = state.workSeconds.toString(),
-                onValueChange = { it.toIntOrNull()?.let(viewModel::updateWorkSeconds) }
+                value = state.workSecondsText,
+                onValueChange = viewModel::updateWorkSecondsText
             )
             Spacer(modifier = Modifier.height(8.dp))
             TimerConfigField(
                 label = "Rest (seconds)",
-                value = state.restSeconds.toString(),
-                onValueChange = { it.toIntOrNull()?.let(viewModel::updateRestSeconds) }
+                value = state.restSecondsText,
+                onValueChange = viewModel::updateRestSecondsText
             )
             Spacer(modifier = Modifier.height(8.dp))
             TimerConfigField(
                 label = "Rounds",
-                value = state.totalRounds.toString(),
-                onValueChange = { it.toIntOrNull()?.let(viewModel::updateTotalRounds) }
+                value = state.totalRoundsText,
+                onValueChange = viewModel::updateTotalRoundsText
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Skip last rest period", color = Color.White, fontSize = 14.sp)
+                Switch(
+                    checked = state.tabataSkipLastRest,
+                    onCheckedChange = { viewModel.toggleTabataSkipLastRest() },
+                    colors = SwitchDefaults.colors(checkedThumbColor = DeepNavy, checkedTrackColor = NeonBlue)
+                )
+            }
         }
         TimerMode.COUNTDOWN -> {
             TimerConfigField(
                 label = "Duration (seconds)",
-                value = state.countdownInputSeconds.toString(),
-                onValueChange = { it.toIntOrNull()?.let(viewModel::updateCountdownSeconds) }
+                value = state.countdownText,
+                onValueChange = viewModel::updateCountdownText
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TimerConfigField(
+                label = "Alert before finish (sec, optional)",
+                value = state.countdownWarnAtSecondsText,
+                onValueChange = viewModel::updateCountdownWarnAtSecondsText
             )
         }
         TimerMode.STOPWATCH -> {
@@ -245,7 +393,9 @@ private fun TimerConfigField(
 ) {
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
+        onValueChange = { newText ->
+            if (newText.isEmpty() || newText.all { it.isDigit() }) onValueChange(newText)
+        },
         label = { Text(label, color = NeonBlue.copy(alpha = 0.7f)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.fillMaxWidth(),

@@ -41,5 +41,7 @@ data class WorkoutSet(
     val timeSeconds: Int? = null,      // For cardio/timed exercises
     val startTime: Long? = null,       // epoch ms — set started (for TUT)
     val endTime: Long? = null,         // epoch ms — set ended (for TUT)
-    val restDuration: Int? = null      // seconds between this and next set
+    val restDuration: Int? = null,     // seconds between this and next set
+    val supersetGroupId: String? = null, // UUID shared by paired superset exercises
+    val isCompleted: Boolean = false   // Iron Vault: persisted completion state
 )

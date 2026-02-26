@@ -139,6 +139,30 @@ object StatisticalEngine {
     }
 
     /**
+     * Bayesian M-Estimate of 1RM — reduces noise from small sample sizes.
+     * μ_bayesian = (C * μ_prior + n * μ_sample) / (C + n)
+     *
+     * @param sampleMean         Mean e1RM across [sampleSize] recent sets (kg)
+     * @param sampleSize         Number of sets in the current sample (n)
+     * @param priorMean          User's all-time average e1RM for this exercise (μ_prior).
+     *                           Pass 0.0 for untracked exercises; the function returns
+     *                           [sampleMean] directly to avoid pulling estimates toward zero.
+     * @param confidenceConstant Virtual prior set count; default = 5 sets (C)
+     */
+    fun calculateBayesian1RM(
+        sampleMean: Double,
+        sampleSize: Int,
+        priorMean: Double,
+        confidenceConstant: Int = 5
+    ): Double {
+        if (sampleSize <= 0) return priorMean
+        if (priorMean == 0.0) return sampleMean          // safety: untracked exercise
+        val c = confidenceConstant.toDouble()
+        val n = sampleSize.toDouble()
+        return (c * priorMean + n * sampleMean) / (c + n)
+    }
+
+    /**
      * Calculate rate of change (percentage)
      */
     fun rateOfChange(current: Double, previous: Double): Double {

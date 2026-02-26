@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.omerhedvat.powerme"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.omerhedvat.powerme"
@@ -107,6 +107,15 @@ dependencies {
 
     // Compose Google Fonts (for JetBrains Mono downloadable font)
     implementation("androidx.compose.ui:ui-text-google-fonts:1.7.0")
+
+    // Splash Screen API
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
+    // Drag-and-drop reordering for LazyColumn
+    implementation("sh.calvin.reorderable:reorderable:2.5.1")
+
+    // Health Connect
+    implementation("androidx.health.connect:connect-client:1.1.0-rc01")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.0.0"))

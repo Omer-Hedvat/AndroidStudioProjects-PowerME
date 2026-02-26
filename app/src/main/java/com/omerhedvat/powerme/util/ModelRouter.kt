@@ -30,20 +30,51 @@ class ModelRouter @Inject constructor(
         "gemini-1.5-flash-8b"      // Fallback 2
     )
 
+    // Safety last-resort: always available, low cost
+    private val FALLBACK_MODEL = "gemini-1.5-flash-8b"
+
     var availableModelIds: Set<String> = emptySet()
 
     fun resolveWarRoomModel(userOverride: String?): String {
         val preferred = userOverride ?: THINKING_CHAIN.first()
         return if (availableModelIds.isEmpty()) preferred
         else THINKING_CHAIN.firstOrNull { it == preferred && it in availableModelIds }
-            ?: THINKING_CHAIN.last()
+            ?: THINKING_CHAIN.firstOrNull { it in availableModelIds }
+            ?: FALLBACK_MODEL
     }
 
     fun resolveEnrichmentModel(userOverride: String?): String {
         val preferred = userOverride ?: ENRICHMENT_CHAIN.first()
         return if (availableModelIds.isEmpty()) preferred
         else ENRICHMENT_CHAIN.firstOrNull { it == preferred && it in availableModelIds }
-            ?: ENRICHMENT_CHAIN.last()
+            ?: ENRICHMENT_CHAIN.firstOrNull { it in availableModelIds }
+            ?: FALLBACK_MODEL
+    }
+
+    /**
+     * Returns the best available Flash-tier model for enrichment/utility calls.
+     * Walks ENRICHMENT_CHAIN against the fetched model list; falls back to
+     * [FALLBACK_MODEL] as a hardcoded last resort so the app never crashes on
+     * model unavailability.
+     */
+    fun getBestFlashModel(): String {
+        return if (availableModelIds.isEmpty()) ENRICHMENT_CHAIN.first()
+        else ENRICHMENT_CHAIN.firstOrNull { it in availableModelIds } ?: FALLBACK_MODEL
+    }
+
+    /**
+     * Fetches available Gemini models using the stored API key.
+     * On failure, logs the error and leaves [availableModelIds] empty so callers
+     * fall back to [FALLBACK_MODEL] automatically.
+     */
+    suspend fun fetchAvailableModels(): List<GeminiModel> {
+        val apiKey = securePreferencesManager.getApiKey() ?: return emptyList()
+        return try {
+            fetchModels(apiKey)
+        } catch (e: Exception) {
+            android.util.Log.w("ModelRouter", "fetchAvailableModels failed — using fallback chain", e)
+            emptyList()
+        }
     }
 
     fun buildModel(modelId: String, temperature: Float, topK: Int, topP: Float): GenerativeModel {
@@ -93,11 +124,22 @@ class ModelRouter @Inject constructor(
             }
     }
 
-    suspend fun validateKey(apiKey: String): Boolean = try {
-        GenerativeModel("gemini-2.0-flash-exp", apiKey)
-            .generateContent("ping")
-        true
-    } catch (e: Exception) {
-        false
+    suspend fun validateKey(apiKey: String): Boolean {
+        val testModels = listOf("gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro")
+        for (modelId in testModels) {
+            try {
+                GenerativeModel(modelId, apiKey).generateContent("hi")
+                return true  // success
+            } catch (e: Exception) {
+                val msg = e.message ?: ""
+                if (msg.contains("API_KEY_INVALID", ignoreCase = true) ||
+                    msg.contains("INVALID_ARGUMENT", ignoreCase = true) ||
+                    msg.contains("API key not valid", ignoreCase = true)) {
+                    return false  // definitively invalid
+                }
+                // model unavailable, quota, or other transient error — try next
+            }
+        }
+        return true  // exhausted models but no key-invalid signal → assume valid
     }
 }

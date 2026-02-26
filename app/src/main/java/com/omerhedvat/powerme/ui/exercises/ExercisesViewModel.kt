@@ -16,7 +16,8 @@ import javax.inject.Inject
 data class ExercisesUiState(
     val exercises: List<Exercise> = emptyList(),
     val searchQuery: String = "",
-    val selectedMuscle: String? = null,
+    val selectedMuscles: Set<String> = emptySet(),
+    val selectedEquipment: Set<String> = emptySet(),
     val isLoading: Boolean = false
 )
 
@@ -50,19 +51,34 @@ class ExercisesViewModel @Inject constructor(
         applyFilters()
     }
 
-    fun onMuscleFilterChanged(muscle: String?) {
-        _uiState.update { it.copy(selectedMuscle = muscle) }
+    fun onMuscleFilterToggled(muscle: String) {
+        val current = _uiState.value.selectedMuscles
+        val updated = if (muscle == "All") emptySet()
+        else if (muscle in current) current - muscle else current + muscle
+        _uiState.update { it.copy(selectedMuscles = updated) }
+        applyFilters()
+    }
+
+    fun onEquipmentFilterToggled(equipment: String) {
+        val current = _uiState.value.selectedEquipment
+        val updated = if (equipment == "All") emptySet()
+        else if (equipment in current) current - equipment else current + equipment
+        _uiState.update { it.copy(selectedEquipment = updated) }
         applyFilters()
     }
 
     private fun applyFilters() {
         val query = _uiState.value.searchQuery.trim().lowercase()
-        val muscle = _uiState.value.selectedMuscle
+        val muscles = _uiState.value.selectedMuscles
+        val equipment = _uiState.value.selectedEquipment
 
         val filtered = allExercises.filter { exercise ->
             val matchesQuery = query.isEmpty() || exercise.name.lowercase().contains(query)
-            val matchesMuscle = muscle == null || exercise.muscleGroup.equals(muscle, ignoreCase = true)
-            matchesQuery && matchesMuscle
+            val matchesMuscle = muscles.isEmpty() ||
+                muscles.any { it.equals(exercise.muscleGroup, ignoreCase = true) }
+            val matchesEquipment = equipment.isEmpty() ||
+                equipment.any { it.equals(exercise.equipmentType, ignoreCase = true) }
+            matchesQuery && matchesMuscle && matchesEquipment
         }
         _uiState.update { it.copy(exercises = filtered) }
     }

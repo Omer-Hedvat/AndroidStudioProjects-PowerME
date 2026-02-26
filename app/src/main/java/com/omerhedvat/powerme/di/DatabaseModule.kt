@@ -16,6 +16,7 @@ import com.omerhedvat.powerme.util.GeminiResponseLogger
 import com.omerhedvat.powerme.util.GoalDocumentManager
 import com.omerhedvat.powerme.util.ModelRouter
 import com.omerhedvat.powerme.util.StatePatchManager
+import com.omerhedvat.powerme.util.SurgicalValidator
 import com.omerhedvat.powerme.util.UserSessionManager
 import com.omerhedvat.powerme.util.WakeLockManager
 import dagger.Module
@@ -172,6 +173,108 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE gym_profiles ADD COLUMN dumbbellMinKg REAL")
+            db.execSQL("ALTER TABLE gym_profiles ADD COLUMN dumbbellMaxKg REAL")
+        }
+    }
+
+    private val MIGRATION_14_15 = object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE users ADD COLUMN weightKg REAL")
+            db.execSQL("ALTER TABLE users ADD COLUMN bodyFatPercent REAL")
+            db.execSQL("ALTER TABLE users ADD COLUMN gender TEXT")
+            db.execSQL("ALTER TABLE users ADD COLUMN trainingTargets TEXT")
+        }
+    }
+
+    private val MIGRATION_15_16 = object : Migration(15, 16) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE workout_sets ADD COLUMN supersetGroupId TEXT")
+        }
+    }
+
+    private val MIGRATION_16_17 = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE routine_exercise_cross_ref ADD COLUMN stickyNote TEXT")
+        }
+    }
+
+    private val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(SurgicalValidator.MIGRATION_SQL)
+        }
+    }
+
+    private val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(SurgicalValidator.MIGRATION_SQL_V19)
+        }
+    }
+
+    private val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE routines ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS routine_exercises (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    routineId INTEGER NOT NULL,
+                    exerciseId INTEGER NOT NULL,
+                    sets INTEGER NOT NULL DEFAULT 3,
+                    reps INTEGER NOT NULL DEFAULT 10,
+                    restTime INTEGER NOT NULL DEFAULT 90,
+                    `order` INTEGER NOT NULL DEFAULT 0,
+                    supersetGroupId TEXT,
+                    FOREIGN KEY (routineId) REFERENCES routines(id) ON DELETE CASCADE,
+                    FOREIGN KEY (exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_routine_exercises_routineId ON routine_exercises(routineId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_routine_exercises_exerciseId ON routine_exercises(exerciseId)")
+        }
+    }
+
+    private val MIGRATION_21_22 = object : Migration(21, 22) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE workout_sets ADD COLUMN isCompleted INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    private val MIGRATION_20_21 = object : Migration(20, 21) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1. Recreate workouts table: nullable routineId + SET_NULL FK + isCompleted column
+            db.execSQL("""
+                CREATE TABLE workouts_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    routineId INTEGER,
+                    timestamp INTEGER NOT NULL,
+                    durationSeconds INTEGER NOT NULL,
+                    totalVolume REAL NOT NULL,
+                    notes TEXT,
+                    isCompleted INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY(routineId) REFERENCES routines(id) ON DELETE SET NULL
+                )
+            """.trimIndent())
+            // Existing records get isCompleted=1 to preserve History visibility
+            db.execSQL("INSERT INTO workouts_new SELECT id, routineId, timestamp, durationSeconds, totalVolume, notes, 1 FROM workouts")
+            db.execSQL("DROP TABLE workouts")
+            db.execSQL("ALTER TABLE workouts_new RENAME TO workouts")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workouts_routineId ON workouts(routineId)")
+
+            // 2. Merge stickyNote into routine_exercises and drop cross_ref table
+            db.execSQL("ALTER TABLE routine_exercises ADD COLUMN stickyNote TEXT")
+            db.execSQL("""
+                UPDATE routine_exercises SET stickyNote = (
+                    SELECT cr.stickyNote FROM routine_exercise_cross_ref cr
+                    WHERE cr.routineId = routine_exercises.routineId
+                      AND cr.exerciseId = routine_exercises.exerciseId
+                )
+            """.trimIndent())
+            db.execSQL("DROP TABLE routine_exercise_cross_ref")
+        }
+    }
+
     private val MIGRATION_12_13 = object : Migration(12, 13) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("""
@@ -301,7 +404,16 @@ object DatabaseModule {
                 MIGRATION_9_10,
                 MIGRATION_10_11,
                 MIGRATION_11_12,
-                MIGRATION_12_13
+                MIGRATION_12_13,
+                MIGRATION_13_14,
+                MIGRATION_14_15,
+                MIGRATION_15_16,
+                MIGRATION_16_17,
+                MIGRATION_17_18,
+                MIGRATION_18_19,
+                MIGRATION_19_20,
+                MIGRATION_20_21,
+                MIGRATION_21_22
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -329,12 +441,6 @@ object DatabaseModule {
     @Singleton
     fun provideWorkoutSetDao(database: PowerMeDatabase): WorkoutSetDao {
         return database.workoutSetDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideRoutineExerciseCrossRefDao(database: PowerMeDatabase): RoutineExerciseCrossRefDao {
-        return database.routineExerciseCrossRefDao()
     }
 
     @Provides
@@ -476,4 +582,8 @@ object DatabaseModule {
     ): ModelRouter {
         return ModelRouter(appSettings, securePreferencesManager)
     }
+
+    @Provides
+    @Singleton
+    fun provideRoutineExerciseDao(db: PowerMeDatabase): RoutineExerciseDao = db.routineExerciseDao()
 }

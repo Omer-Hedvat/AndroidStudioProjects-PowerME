@@ -3,8 +3,8 @@ package com.omerhedvat.powerme.actions
 import android.util.Log
 import com.omerhedvat.powerme.data.database.Routine
 import com.omerhedvat.powerme.data.database.RoutineDao
-import com.omerhedvat.powerme.data.database.RoutineExerciseCrossRef
-import com.omerhedvat.powerme.data.database.RoutineExerciseCrossRefDao
+import com.omerhedvat.powerme.data.database.RoutineExercise
+import com.omerhedvat.powerme.data.database.RoutineExerciseDao
 import com.omerhedvat.powerme.data.repository.ExerciseRepository
 import com.omerhedvat.powerme.data.repository.GymProfileRepository
 import com.omerhedvat.powerme.data.repository.MedicalLedgerRepository
@@ -35,7 +35,7 @@ class ActionExecutor @Inject constructor(
     private val goalDocumentManager: GoalDocumentManager,
     private val medicalLedgerRepository: MedicalLedgerRepository,
     private val routineDao: RoutineDao,
-    private val routineExerciseCrossRefDao: RoutineExerciseCrossRefDao
+    private val routineExerciseDao: RoutineExerciseDao
 ) {
 
     /**
@@ -219,11 +219,11 @@ class ActionExecutor @Inject constructor(
                 Routine(name = action.routineName, isCustom = true)
             )
 
-            // Save cross refs linking routine to each matched exercise
-            matchedExercises.filterNotNull().forEach { (_, matchedName) ->
+            // Save routine_exercises entries linking routine to each matched exercise
+            matchedExercises.filterNotNull().forEachIndexed { index, (_, matchedName) ->
                 val exercise = allExercises.firstOrNull { it.name == matchedName }
                 if (exercise != null) {
-                    routineExerciseCrossRefDao.insert(RoutineExerciseCrossRef(routineId, exercise.id))
+                    routineExerciseDao.insert(RoutineExercise(routineId = routineId, exerciseId = exercise.id, order = index))
                 }
             }
 

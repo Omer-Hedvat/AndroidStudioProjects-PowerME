@@ -70,10 +70,14 @@ class AuthViewModel @Inject constructor(
         name: String?,
         age: Int?,
         heightCm: Float?,
+        weightKg: Float? = null,
+        bodyFatPercent: Float? = null,
         occupationType: String?,
         parentalLoad: Int?,
         chronotype: String?,
-        averageSleepHours: Float?
+        averageSleepHours: Float?,
+        gender: String? = null,
+        trainingTargets: String? = null
     ) {
         viewModelScope.launch {
             try {
@@ -87,10 +91,14 @@ class AuthViewModel @Inject constructor(
                     name = name?.takeIf { it.isNotBlank() },
                     age = age,
                     heightCm = heightCm,
+                    weightKg = weightKg,
+                    bodyFatPercent = bodyFatPercent,
                     occupationType = occupationType,
                     parentalLoad = parentalLoad,
                     chronotype = chronotype,
-                    averageSleepHours = averageSleepHours
+                    averageSleepHours = averageSleepHours,
+                    gender = gender,
+                    trainingTargets = trainingTargets
                 )
                 userSessionManager.saveUser(user)
                 _uiState.update { it.copy(isLoading = false, isSignedIn = true, needsProfileSetup = false) }

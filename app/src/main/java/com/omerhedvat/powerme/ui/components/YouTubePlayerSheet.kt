@@ -4,16 +4,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.omerhedvat.powerme.ui.theme.NeonBlue
-import com.omerhedvat.powerme.ui.theme.OledBlack
-import com.omerhedvat.powerme.ui.theme.SlateGrey
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
@@ -25,7 +25,7 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
  * - Lifecycle-aware player (pauses on background)
  * - Embedded YouTube player with controls
  * - Exercise name displayed as title
- * - Clean NeonBlue/OLED theme
+ * - Clean MaterialTheme.colorScheme.primary/OLED theme
  *
  * @param videoId YouTube video ID (e.g., "ultWZbUMPL8")
  * @param exerciseName Name of exercise for display
@@ -45,8 +45,8 @@ fun YouTubePlayerBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SlateGrey,
-        contentColor = NeonBlue
+        containerColor = MaterialTheme.colorScheme.onSurface,
+        contentColor = MaterialTheme.colorScheme.primary
     ) {
         Column(
             modifier = Modifier
@@ -59,18 +59,19 @@ fun YouTubePlayerBottomSheet(
                 text = exerciseName,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = NeonBlue
+                color = MaterialTheme.colorScheme.primary
             )
 
             Text(
                 text = "Form demonstration",
                 fontSize = 12.sp,
-                color = NeonBlue.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
             )
 
             // YouTube Player
             YouTubePlayerComposable(
                 videoId = videoId,
+                exerciseName = exerciseName,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(220.dp)
@@ -80,8 +81,8 @@ fun YouTubePlayerBottomSheet(
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = NeonBlue,
-                    contentColor = OledBlack
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.background
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -105,14 +106,41 @@ fun YouTubePlayerBottomSheet(
  * - Video loading
  * - Lifecycle events (pause/resume)
  * - Cleanup on disposal
+ * - Error/unavailable video fallback
  */
 @Composable
 private fun YouTubePlayerComposable(
     videoId: String,
+    exerciseName: String,
     modifier: Modifier = Modifier
 ) {
     var youTubePlayer by remember { mutableStateOf<YouTubePlayer?>(null) }
+    var isError by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val uriHandler = LocalUriHandler.current
+
+    if (isError) {
+        Card(
+            modifier = modifier,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+            ) {
+                Text("Video unavailable", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = {
+                    val query = exerciseName.replace(" ", "+") + "+form"
+                    uriHandler.openUri("https://www.youtube.com/results?search_query=$query")
+                }) {
+                    Text("Search on YouTube", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                }
+            }
+        }
+        return
+    }
 
     // Lifecycle observer for pause/resume
     DisposableEffect(lifecycleOwner) {
@@ -145,6 +173,10 @@ private fun YouTubePlayerComposable(
                     override fun onReady(player: YouTubePlayer) {
                         youTubePlayer = player
                         player.cueVideo(videoId, 0f)
+                    }
+
+                    override fun onError(youTubePlayer: YouTubePlayer, error: PlayerConstants.PlayerError) {
+                        isError = true
                     }
                 })
             }

@@ -7,14 +7,19 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.omerhedvat.powerme.data.AppSettingsDataStore
 import com.omerhedvat.powerme.data.database.GymProfile
+import com.omerhedvat.powerme.health.HealthConnectManager
 import com.omerhedvat.powerme.data.database.PowerMeDatabase
 import com.omerhedvat.powerme.data.database.UserSettings
 import com.omerhedvat.powerme.data.database.UserSettingsDao
+import com.omerhedvat.powerme.data.database.MetricType
 import com.omerhedvat.powerme.data.repository.GymProfileRepository
+import com.omerhedvat.powerme.data.repository.MetricLogRepository
 import com.omerhedvat.powerme.util.DatabaseExporter
 import com.omerhedvat.powerme.util.GeminiModel
 import com.omerhedvat.powerme.util.ModelRouter
 import com.omerhedvat.powerme.util.SecurePreferencesManager
+import com.omerhedvat.powerme.util.SurgicalValidator
+import com.omerhedvat.powerme.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,13 +54,28 @@ data class SettingsUiState(
     // Model discovery
     val availableModels: List<GeminiModel> = emptyList(),
     val isFetchingModels: Boolean = false,
-    val selectedWarRoomModel: String = "gemini-2.0-flash-thinking-exp",
+    val selectedWarRoomModel: String = "gemini-2.0-flash",
     val selectedEnrichmentModel: String = "gemini-1.5-flash",
     // Language
     val language: String = "Hebrew",
     // Account deletion
     val showDeleteAccountDialog: Boolean = false,
-    val isDeletingAccount: Boolean = false
+    val isDeletingAccount: Boolean = false,
+    // Body metrics
+    val weightInput: String = "",
+    val bodyFatInput: String = "",
+    val heightInput: String = "",
+    val lastWeight: Double? = null,
+    val lastBodyFat: Double? = null,
+    val lastHeight: Float? = null,
+    val isSavingMetrics: Boolean = false,
+    // Keep screen on
+    val keepScreenOn: Boolean = false,
+    // Health Connect
+    val bodyMeasurementsFromHC: Boolean = false,
+    val isSyncingFromHC: Boolean = false,
+    val hcSyncError: String? = null,
+    val hcPermissionsMissing: Boolean = false
 )
 
 @HiltViewModel
@@ -64,8 +84,11 @@ class SettingsViewModel @Inject constructor(
     private val userSettingsDao: UserSettingsDao,
     private val database: PowerMeDatabase,
     private val gymProfileRepository: GymProfileRepository,
+    private val metricLogRepository: MetricLogRepository,
     private val appSettingsDataStore: AppSettingsDataStore,
     private val modelRouter: ModelRouter,
+    private val healthConnectManager: HealthConnectManager,
+    private val userSessionManager: UserSessionManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -77,6 +100,18 @@ class SettingsViewModel @Inject constructor(
         loadUserSettings()
         loadGymProfiles()
         loadAppSettings()
+        observeMetricLogs()
+        loadUserHeight()
+    }
+
+    private fun loadUserHeight() {
+        viewModelScope.launch {
+            val user = userSessionManager.getCurrentUser()
+            val h = user?.heightCm
+            if (h != null) {
+                _uiState.update { it.copy(lastHeight = h, heightInput = h.toInt().toString()) }
+            }
+        }
     }
 
     private fun loadAppSettings() {
@@ -93,6 +128,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appSettingsDataStore.language.collect { lang ->
                 _uiState.update { it.copy(language = lang) }
+            }
+        }
+        viewModelScope.launch {
+            appSettingsDataStore.keepScreenOn.collect { value ->
+                _uiState.update { it.copy(keepScreenOn = value) }
             }
         }
     }
@@ -159,8 +199,16 @@ class SettingsViewModel @Inject constructor(
 
     fun fetchModelsIfNeeded() {
         val key = securePreferencesManager.getApiKey() ?: return
-        if (_uiState.value.availableModels.isEmpty() && !_uiState.value.isFetchingModels) {
-            viewModelScope.launch { fetchModels(key) }
+        if (!_uiState.value.isFetchingModels) {
+            viewModelScope.launch {
+                val lastFetched = appSettingsDataStore.modelsLastFetched.first()
+                val stale = lastFetched == 0L ||
+                    System.currentTimeMillis() - lastFetched > 24 * 60 * 60 * 1000L
+                if (_uiState.value.availableModels.isEmpty() || stale) {
+                    fetchModels(key)
+                    appSettingsDataStore.setModelsLastFetched(System.currentTimeMillis())
+                }
+            }
         }
     }
 
@@ -259,6 +307,100 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val profile = gymProfileRepository.getProfileByName(gymName)
             if (profile != null) gymProfileRepository.setActiveProfile(profile.id)
+        }
+    }
+
+    private fun observeMetricLogs() {
+        viewModelScope.launch {
+            metricLogRepository.getByType(MetricType.WEIGHT).collect { entries ->
+                _uiState.update { it.copy(lastWeight = entries.lastOrNull()?.value) }
+            }
+        }
+        viewModelScope.launch {
+            metricLogRepository.getByType(MetricType.BODY_FAT).collect { entries ->
+                _uiState.update { it.copy(lastBodyFat = entries.lastOrNull()?.value) }
+            }
+        }
+    }
+
+    fun updateWeightInput(value: String) { _uiState.update { it.copy(weightInput = value, bodyMeasurementsFromHC = false) } }
+    fun updateBodyFatInput(value: String) { _uiState.update { it.copy(bodyFatInput = value, bodyMeasurementsFromHC = false) } }
+    fun updateHeightInput(value: String) {
+        val result = SurgicalValidator.parseDecimal(value)
+        if (result !is SurgicalValidator.ValidationResult.Invalid) {
+            _uiState.update { it.copy(heightInput = value, bodyMeasurementsFromHC = false) }
+        }
+    }
+
+    fun syncFromHealthConnect() {
+        if (!healthConnectManager.isAvailable()) {
+            _uiState.update { it.copy(hcSyncError = "Health Connect is not available on this device") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSyncingFromHC = true, hcSyncError = null, hcPermissionsMissing = false) }
+            val permissionsGranted = healthConnectManager.checkPermissionsGranted()
+            if (!permissionsGranted) {
+                _uiState.update { it.copy(isSyncingFromHC = false, hcPermissionsMissing = true) }
+                return@launch
+            }
+            val weight = healthConnectManager.getLatestWeight()
+            val bodyFat = healthConnectManager.getLatestBodyFat()
+            val height = healthConnectManager.getLatestHeight()
+            _uiState.update {
+                it.copy(
+                    isSyncingFromHC = false,
+                    weightInput = weight?.let { w -> "%.1f".format(w) } ?: it.weightInput,
+                    bodyFatInput = bodyFat?.let { bf -> "%.1f".format(bf) } ?: it.bodyFatInput,
+                    heightInput = height?.let { h -> h.toInt().toString() } ?: it.heightInput,
+                    bodyMeasurementsFromHC = weight != null || bodyFat != null || height != null,
+                    hcSyncError = if (weight == null && bodyFat == null && height == null) "No recent data found in Health Connect" else null
+                )
+            }
+        }
+    }
+
+    fun saveBodyMetrics() {
+        val weightResult = SurgicalValidator.parseDecimal(_uiState.value.weightInput.trim())
+        val bodyFatResult = SurgicalValidator.parseDecimal(_uiState.value.bodyFatInput.trim())
+        val heightResult = SurgicalValidator.parseDecimal(_uiState.value.heightInput.trim())
+        val weight = (weightResult as? SurgicalValidator.ValidationResult.Valid)?.value
+        val bodyFat = (bodyFatResult as? SurgicalValidator.ValidationResult.Valid)?.value
+        val heightCm = (heightResult as? SurgicalValidator.ValidationResult.Valid)?.value?.toFloat()
+        if (weight == null && bodyFat == null && heightCm == null) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSavingMetrics = true) }
+            // MetricLog sink
+            weight?.let { metricLogRepository.log(MetricType.WEIGHT, it) }
+            bodyFat?.let { metricLogRepository.log(MetricType.BODY_FAT, it) }
+            heightCm?.toDouble()?.let { metricLogRepository.log(MetricType.HEIGHT, it) }
+            // User entity sink
+            val currentUser = userSessionManager.getCurrentUser()
+            if (currentUser != null) {
+                val updated = currentUser.copy(
+                    weightKg = weight?.toFloat() ?: currentUser.weightKg,
+                    bodyFatPercent = bodyFat?.toFloat() ?: currentUser.bodyFatPercent,
+                    heightCm = heightCm ?: currentUser.heightCm
+                )
+                userSessionManager.saveUser(updated)
+            }
+            _uiState.update {
+                it.copy(
+                    isSavingMetrics = false,
+                    weightInput = "",
+                    bodyFatInput = "",
+                    heightInput = "",
+                    lastHeight = heightCm ?: it.lastHeight
+                )
+            }
+        }
+    }
+
+    fun toggleKeepScreenOn() {
+        viewModelScope.launch {
+            val newValue = !_uiState.value.keepScreenOn
+            appSettingsDataStore.setKeepScreenOn(newValue)
+            _uiState.update { it.copy(keepScreenOn = newValue) }
         }
     }
 

@@ -15,9 +15,8 @@ class WakeLockManager @Inject constructor(
 
     fun acquire() {
         if (wakeLock?.isHeld == true) return
-        @Suppress("DEPRECATION")
         wakeLock = pm.newWakeLock(
-            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+            PowerManager.PARTIAL_WAKE_LOCK,
             "PowerME:TimerLock"
         )
         wakeLock?.acquire(10 * 60 * 1000L)  // 10 min max

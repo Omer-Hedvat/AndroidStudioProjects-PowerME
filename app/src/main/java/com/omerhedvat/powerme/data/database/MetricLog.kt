@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-enum class MetricType { WEIGHT, BODY_FAT, CALORIES }
+enum class MetricType { WEIGHT, BODY_FAT, CALORIES, HEIGHT }
 
 @Entity(
     tableName = "metric_log",

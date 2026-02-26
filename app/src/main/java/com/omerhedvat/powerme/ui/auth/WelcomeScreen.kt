@@ -1,5 +1,6 @@
 package com.omerhedvat.powerme.ui.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -7,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -14,10 +17,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.omerhedvat.powerme.ui.theme.DeepNavy
-import com.omerhedvat.powerme.ui.theme.NavySurface
-import com.omerhedvat.powerme.ui.theme.NeonBlue
-import com.omerhedvat.powerme.ui.theme.SlateGrey
+import com.omerhedvat.powerme.R
 
 @Composable
 fun WelcomeScreen(
@@ -37,29 +37,32 @@ fun WelcomeScreen(
         if (uiState.needsProfileSetup) onNeedsProfile()
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = DeepNavy) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(32.dp),
+            modifier = Modifier.fillMaxSize().imePadding().padding(32.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "PowerME",
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold,
-                color = NeonBlue
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "PowerME Logo",
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .aspectRatio(1f)
+                    .padding(bottom = 8.dp),
+                contentScale = ContentScale.Fit
             )
             Text(
                 text = "הוועדה — 8 יועצים מומחים",
                 fontSize = 14.sp,
-                color = NeonBlue.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             if (uiState.needsEmailVerification) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = SlateGrey),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -67,19 +70,19 @@ fun WelcomeScreen(
                             "Check your email",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = NeonBlue
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             "A verification link has been sent to $email. Please verify your email then sign in.",
                             fontSize = 14.sp,
-                            color = NeonBlue.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = { viewModel.signIn(email, password) },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonBlue, contentColor = NavySurface)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Text("I've verified — Sign In", fontWeight = FontWeight.Bold)
                         }
@@ -91,18 +94,18 @@ fun WelcomeScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email", color = NeonBlue.copy(alpha = 0.7f)) },
+                label = { Text("Email", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = NeonBlue,
-                    unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    cursorColor = NeonBlue
+                    cursorColor = MaterialTheme.colorScheme.primary
                 ),
                 singleLine = true
             )
@@ -112,7 +115,7 @@ fun WelcomeScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Password", color = NeonBlue.copy(alpha = 0.7f)) },
+                label = { Text("Password", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
@@ -120,11 +123,11 @@ fun WelcomeScreen(
                     imeAction = ImeAction.Done
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = NeonBlue,
-                    unfocusedBorderColor = NeonBlue.copy(alpha = 0.5f),
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    cursorColor = NeonBlue
+                    cursorColor = MaterialTheme.colorScheme.primary
                 ),
                 singleLine = true
             )
@@ -143,10 +146,10 @@ fun WelcomeScreen(
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = email.isNotBlank() && password.isNotBlank() && !uiState.isLoading,
-                colors = ButtonDefaults.buttonColors(containerColor = NeonBlue, contentColor = NavySurface)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.surface)
             ) {
                 if (uiState.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = NavySurface, strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
                 } else {
                     Text(
                         text = if (isSignUp) "Create Account" else "Sign In",
@@ -162,7 +165,7 @@ fun WelcomeScreen(
                 Text(
                     text = if (isSignUp) "Already have an account? Sign In"
                     else "New here? Create Account",
-                    color = NeonBlue.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                     fontSize = 13.sp
                 )
             }

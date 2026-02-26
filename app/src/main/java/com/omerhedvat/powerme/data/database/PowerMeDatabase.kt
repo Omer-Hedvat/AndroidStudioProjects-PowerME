@@ -10,7 +10,6 @@ import androidx.room.TypeConverters
         Exercise::class,
         Workout::class,
         WorkoutSet::class,
-        RoutineExerciseCrossRef::class,
         ChatMessage::class,
         HealthStats::class,
         WarmupLog::class,
@@ -21,9 +20,10 @@ import androidx.room.TypeConverters
         User::class,
         MedicalLedger::class,
         StateHistoryEntry::class,
-        MetricLog::class
+        MetricLog::class,
+        RoutineExercise::class
     ],
-    version = 13,
+    version = 22,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -32,7 +32,6 @@ abstract class PowerMeDatabase : RoomDatabase() {
     abstract fun exerciseDao(): ExerciseDao
     abstract fun workoutDao(): WorkoutDao
     abstract fun workoutSetDao(): WorkoutSetDao
-    abstract fun routineExerciseCrossRefDao(): RoutineExerciseCrossRefDao
     abstract fun chatMessageDao(): ChatMessageDao
     abstract fun healthStatsDao(): HealthStatsDao
     abstract fun warmupLogDao(): WarmupLogDao
@@ -44,4 +43,5 @@ abstract class PowerMeDatabase : RoomDatabase() {
     abstract fun medicalLedgerDao(): MedicalLedgerDao
     abstract fun stateHistoryDao(): StateHistoryDao
     abstract fun metricLogDao(): MetricLogDao
+    abstract fun routineExerciseDao(): RoutineExerciseDao
 }

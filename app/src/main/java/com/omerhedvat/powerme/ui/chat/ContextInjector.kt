@@ -29,7 +29,9 @@ data class BiometricsSummary(
     val restingHeartRate: Int?,
     val steps: Int?,
     val highFatigueFlag: Boolean = false,
-    val anomalousRecoveryFlag: Boolean = false
+    val anomalousRecoveryFlag: Boolean = false,
+    val weightKgAvg7d: Double? = null,
+    val bodyFatPctAvg7d: Double? = null
 )
 
 @Serializable
@@ -57,7 +59,9 @@ class ContextInjector @Inject constructor(
         workoutSets: Map<Long, List<WorkoutSet>>,
         exerciseNames: Map<Long, String>,
         healthStats: HealthStats?,
-        healthConnectSync: HealthConnectSync? = null
+        healthConnectSync: HealthConnectSync? = null,
+        weightKgAvg7d: Double? = null,
+        bodyFatPctAvg7d: Double? = null
     ): String {
         val workoutSummaries = workouts.take(3).map { workout ->
             val sets = workoutSets[workout.id] ?: emptyList()
@@ -81,7 +85,9 @@ class ContextInjector @Inject constructor(
                 restingHeartRate = healthConnectSync.rhr,
                 steps = healthConnectSync.steps,
                 highFatigueFlag = healthConnectSync.highFatigueFlag,
-                anomalousRecoveryFlag = healthConnectSync.anomalousRecoveryFlag
+                anomalousRecoveryFlag = healthConnectSync.anomalousRecoveryFlag,
+                weightKgAvg7d = weightKgAvg7d,
+                bodyFatPctAvg7d = bodyFatPctAvg7d
             )
         } else {
             healthStats?.let {
@@ -89,9 +95,20 @@ class ContextInjector @Inject constructor(
                     sleepDurationMinutes = it.sleepDurationMinutes,
                     heartRateVariability = it.heartRateVariability,
                     restingHeartRate = it.restingHeartRate,
-                    steps = it.steps
+                    steps = it.steps,
+                    weightKgAvg7d = weightKgAvg7d,
+                    bodyFatPctAvg7d = bodyFatPctAvg7d
                 )
-            }
+            } ?: if (weightKgAvg7d != null || bodyFatPctAvg7d != null) {
+                BiometricsSummary(
+                    sleepDurationMinutes = null,
+                    heartRateVariability = null,
+                    restingHeartRate = null,
+                    steps = null,
+                    weightKgAvg7d = weightKgAvg7d,
+                    bodyFatPctAvg7d = bodyFatPctAvg7d
+                )
+            } else null
         }
 
         val contextPacket = ContextPacket(
@@ -280,18 +297,15 @@ RESPONSE FORMAT:
 --- USER PROFILE SEGMENT ---
 Name: ${user.name ?: "—"}
 Age: ${user.age?.toString() ?: "—"}
+Gender: ${user.gender ?: "—"}
 Height: ${user.heightCm?.let { "${it.toInt()}cm" } ?: "—"}
+Weight: ${user.weightKg?.let { "${"%.1f".format(it)} kg" } ?: "—"}
+Body Fat: ${user.bodyFatPercent?.let { "${"%.1f".format(it)}%" } ?: "—"}
+Training Targets: ${user.trainingTargets ?: "—"}
 Occupation Type: ${user.occupationType ?: "—"}
 Chronotype: ${user.chronotype ?: "—"}
 Parental Load: ${user.parentalLoad?.let { "$it child(ren)" } ?: "—"}
 Avg Sleep Hours: ${user.averageSleepHours?.let { "${it}h" } ?: "—"}
-
-${user.heightCm?.let {
-    """Biomechanics note for ${it.toInt()}cm height:
-- Longer femurs → 30-35° torso lean required for squat stability
-- Lumbar protection: minimize lumbar shear, reduce load on spinal compression exercises
-- Joint-friendly grips recommended per medical restrictions"""
-} ?: ""}
 ---
 
 """
