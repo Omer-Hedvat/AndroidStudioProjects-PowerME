@@ -54,6 +54,7 @@
 - ActiveWorkoutScreen: LazyColumn contentPadding = PaddingValues(bottom=8.dp) added; imePadding() on outer Column ensures set fields stay visible when keyboard is active
 - WorkoutViewModel: `onWeightChanged`/`onRepsChanged` — early return on Invalid (no state mutation), removed `isCompleted` side-effect from both; new `completeSet(exerciseId, setOrder)` function — sole setter of `isCompleted = true`, gated behind dual SurgicalValidator checks, starts rest timer only after confirmed completion; eliminates timer race condition on keystroke
 - WorkoutInputField: new reusable composable (ui/components/WorkoutInputField.kt) — BasicTextField with StremioInputPill (#2C2C4E) background, RoundedCornerShape(4.dp), 34dp height, 1dp primary border on focus, centered text; used in WorkoutSetRow
+- Strong-Inspired UI Overhaul: ActiveWorkoutScreen compact top bar (Close icon → workoutName + elapsed mm:ss → Finish button); PostWorkoutSummarySheet triggered by `pendingWorkoutSummary` state (name, duration, volume, set count, exercise list); STRENGTH column headers match WorkoutSetRow widths; Add Set replaced with minimal clickable Row; exercise name/muscle group colors use `onSurface` tokens; WorkoutsScreen gains "Workouts" title, `OutlinedButton` for empty start, "Routines" label, RoutineCard with left primary accent bar + exercise count SuggestionChip + AccessTime recency icon + FilledTonalButton; HistoryScreen redesigned (routineName title fallback, stats row with Timer/FitnessCenter/List icons, FlowRow exercise chips, setCount from DAO); WorkoutViewModel: `elapsedTimerJob` + `startElapsedTimer()`, `workoutName`/`elapsedSeconds`/`pendingWorkoutSummary` in state, `dismissWorkoutSummary()`, `finishWorkout()` no longer takes callback; WorkoutDao: `WorkoutExerciseNameRow` + SQL query add `routineName` (LEFT JOIN routines) and `setCount` (COUNT subquery); HistoryViewModel: `WorkoutWithExerciseSummary` gains `routineName` + `setCount`
 - WorkoutSetRow: new composable in ActiveWorkoutScreen.kt — high-density row matching 'Strong' app aesthetic: Set# 24dp | Previous 72dp | KG pill | REPS pill | ✓ button (TimerGreen when completed); replaces SetRow in the STRENGTH else branch; ExerciseCard gains onCompleteSet param wired to viewModel.completeSet()
 - Superset Spine: ExerciseCard restructured to Card{Row(IntrinsicSize.Min){Box(4dp secondary spine if isInSuperset) + Column(weight(1f))}} — spine spans full card height
 - RoutineExercise entity: new Room entity (routine_exercises table) — routineId FK, exerciseId FK, sets, reps, restTime, order, supersetGroupId; RoutineExerciseDao with getForRoutine (backtick-escaped `order`), insert, insertAll, delete, deleteByRoutineAndExercise, updateOrder
@@ -87,6 +88,20 @@
 **SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides parseDecimal() (locale-aware, accepts commas+periods), parseReps() (integer only), isLeakedMetric() for runtime checks, MIGRATION_SQL const val for Room @Query and Migration (v17→v18), and MIGRATION_SQL_V19 for the "181.5 cm:" prefix cleanse (v18→v19). No inline try-catch in ViewModels or Composables (ProjectMap §3).
 
 **Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
+
+**Unit Test Coverage (src/test/, 12 files, ~74 tests total):**
+- `actions/ActionParserTest.kt` — 11 tests
+- `actions/ActionExecutorTest.kt` — 10 tests
+- `data/ExerciseDaoTest.kt` — DAO tests
+- `data/PreMigrationValidatorTest.kt`
+- `data/GymProfileRepositoryTest.kt` — 12 tests
+- `util/SQLSafetyValidatorTest.kt` — 25 tests
+- `util/GeminiResponseLoggerTest.kt`
+- `util/SurgicalValidatorTest.kt` — 18 tests (parseDecimal, parseReps, isLeakedMetric)
+- `util/PlateCalculatorTest.kt` — 13 tests (calculatePlates, parseAvailablePlates, formatPlateBreakdown)
+- `analytics/StatisticalEngineTest.kt` — 22 tests (mean, stdDev, zScore, quartiles, IQR, outliers, Pearson, 1RM, Bayesian 1RM, rateOfChange)
+- `ui/history/HistoryViewModelTest.kt` — 5 tests
+- `ui/workout/WorkoutViewModelTest.kt` — 6 tests
 
 **Known Specs / Design Docs in repo:**
 - `CARDIO_TIMED_SPEC.md`, `DS_POWER_TOOLS_SPEC.md`, `EQUIPMENT_SPEC.md`, `GYM_PROFILES_SPEC.md`
@@ -144,6 +159,8 @@
 - If a spec is outdated relative to the implementation, note it in the spec file.
 
 ### Testing
+- **Writing and running tests is a mandatory step after any business-logic change — not optional, not deferred.** Do not consider a feature or fix complete until tests are written AND pass.
+- After implementing changes to ViewModels, Repositories, DAOs, or utility classes: immediately write unit tests covering the new behavior, then run them with `./gradlew :app:testDebugUnitTest` before closing the task.
 - New business logic should have unit tests (JUnit + Mockito).
 - New UI flows should have Compose UI tests where feasible.
 - Run existing tests before committing changes to catch regressions.
