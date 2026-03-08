@@ -1,9 +1,14 @@
 package com.omerhedvat.powerme.actions
 
 import com.omerhedvat.powerme.data.database.GymProfile
+import com.omerhedvat.powerme.data.database.RoutineDao
+import com.omerhedvat.powerme.data.database.RoutineExerciseDao
 import com.omerhedvat.powerme.data.database.WorkoutSet
+import com.omerhedvat.powerme.data.repository.ExerciseRepository
 import com.omerhedvat.powerme.data.repository.GymProfileRepository
+import com.omerhedvat.powerme.data.repository.MedicalLedgerRepository
 import com.omerhedvat.powerme.data.repository.WorkoutRepository
+import com.omerhedvat.powerme.util.GoalDocumentManager
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -30,6 +35,11 @@ class ActionExecutorTest {
     private lateinit var executor: ActionExecutor
     private lateinit var mockWorkoutRepository: WorkoutRepository
     private lateinit var mockGymProfileRepository: GymProfileRepository
+    private lateinit var mockExerciseRepository: ExerciseRepository
+    private lateinit var mockGoalDocumentManager: GoalDocumentManager
+    private lateinit var mockMedicalLedgerRepository: MedicalLedgerRepository
+    private lateinit var mockRoutineDao: RoutineDao
+    private lateinit var mockRoutineExerciseDao: RoutineExerciseDao
 
     private val testSet = WorkoutSet(
         id = 1,
@@ -61,7 +71,20 @@ class ActionExecutorTest {
     fun setup() {
         mockWorkoutRepository = mock(WorkoutRepository::class.java)
         mockGymProfileRepository = mock(GymProfileRepository::class.java)
-        executor = ActionExecutor(mockWorkoutRepository, mockGymProfileRepository)
+        mockExerciseRepository = mock(ExerciseRepository::class.java)
+        mockGoalDocumentManager = mock(GoalDocumentManager::class.java)
+        mockMedicalLedgerRepository = mock(MedicalLedgerRepository::class.java)
+        mockRoutineDao = mock(RoutineDao::class.java)
+        mockRoutineExerciseDao = mock(RoutineExerciseDao::class.java)
+        executor = ActionExecutor(
+            mockWorkoutRepository,
+            mockGymProfileRepository,
+            mockExerciseRepository,
+            mockGoalDocumentManager,
+            mockMedicalLedgerRepository,
+            mockRoutineDao,
+            mockRoutineExerciseDao
+        )
     }
 
     /**
