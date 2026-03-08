@@ -70,6 +70,14 @@ data class RestTimerState(
     val totalSeconds: Int = 0
 )
 
+data class WorkoutSummary(
+    val workoutName: String,
+    val durationSeconds: Int,
+    val totalVolume: Double,
+    val setCount: Int,
+    val exerciseNames: List<String>
+)
+
 data class ActiveWorkoutState(
     val isActive: Boolean = false,
     val workoutId: Long? = null,
@@ -85,7 +93,10 @@ data class ActiveWorkoutState(
     val activeSupersetExerciseId: Long? = null,
     val isSupersetSelectMode: Boolean = false,
     val supersetCandidateIds: Set<Long> = emptySet(),
-    val snackbarMessage: String? = null
+    val snackbarMessage: String? = null,
+    val workoutName: String = "Workout",
+    val elapsedSeconds: Int = 0,
+    val pendingWorkoutSummary: WorkoutSummary? = null
 )
 
 @HiltViewModel
@@ -174,6 +185,7 @@ class WorkoutViewModel @Inject constructor(
         super.onCleared()
         serviceCollectionJob?.cancel()
         timerJob?.cancel()
+        elapsedTimerJob?.cancel()
         if (serviceBound) {
             context.unbindService(timerConnection)
             serviceBound = false
@@ -214,15 +226,18 @@ class WorkoutViewModel @Inject constructor(
                     ExerciseWithSets(exercise = exercise, sets = activeSets)
                 }
             }
+            val name = activeWorkout.routineId?.let { routineDao.getRoutineById(it)?.name } ?: "Workout"
             _workoutState.update {
                 it.copy(
                     isActive = true,
                     workoutId = activeWorkout.id,
                     routineId = activeWorkout.routineId ?: 0L,
                     startTime = activeWorkout.timestamp,
-                    exercises = exercises
+                    exercises = exercises,
+                    workoutName = name
                 )
             }
+            startElapsedTimer()
         }
     }
 
@@ -247,13 +262,15 @@ class WorkoutViewModel @Inject constructor(
                 val sticky = try { routineExerciseDao.getStickyNote(routineId, re.exerciseId) } catch (_: Exception) { null }
                 ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky)
             }
+            val name = routineDao.getRoutineById(routineId)?.name ?: "Workout"
             _workoutState.update {
                 it.copy(
                     isActive = true, workoutId = bootstrap.workoutId,
                     routineId = routineId, startTime = System.currentTimeMillis(),
-                    exercises = exercises
+                    exercises = exercises, workoutName = name
                 )
             }
+            startElapsedTimer()
         }
     }
 
@@ -266,9 +283,11 @@ class WorkoutViewModel @Inject constructor(
                     workoutId = id,
                     routineId = routineId,
                     startTime = System.currentTimeMillis(),
-                    exercises = emptyList()
+                    exercises = emptyList(),
+                    workoutName = "Empty Workout"
                 )
             }
+            startElapsedTimer()
         }
     }
 
@@ -546,14 +565,12 @@ class WorkoutViewModel @Inject constructor(
         _workoutState.update { it.copy(notes = notes) }
     }
 
-    fun finishWorkout(onComplete: () -> Unit = {}) {
+    fun finishWorkout() {
+        elapsedTimerJob?.cancel()
         viewModelScope.launch {
             try {
                 val state = _workoutState.value
-                if (!state.isActive || state.startTime == null) {
-                    onComplete()
-                    return@launch
-                }
+                if (!state.isActive || state.startTime == null) return@launch
 
                 val endTime = System.currentTimeMillis()
                 val durationSeconds = ((endTime - state.startTime) / 1000).toInt()
@@ -575,7 +592,7 @@ class WorkoutViewModel @Inject constructor(
                 }
 
                 // Update the existing workout record (created at workout start via Iron Vault)
-                val workoutId = state.workoutId ?: run { onComplete(); return@launch }
+                val workoutId = state.workoutId ?: return@launch
                 workoutDao.updateWorkout(
                     Workout(
                         id = workoutId,
@@ -616,22 +633,37 @@ class WorkoutViewModel @Inject constructor(
                     )
                 }
 
-                // Reset state
+                val completedSetCount = state.exercises.sumOf { ex -> ex.sets.count { it.isCompleted } }
+                val exerciseNames = state.exercises.map { it.exercise.name }
                 _workoutState.update {
-                    ActiveWorkoutState(availableExercises = it.availableExercises)
+                    it.copy(
+                        isActive = false,
+                        pendingWorkoutSummary = WorkoutSummary(
+                            workoutName = state.workoutName,
+                            durationSeconds = durationSeconds,
+                            totalVolume = totalVolume,
+                            setCount = completedSetCount,
+                            exerciseNames = exerciseNames
+                        )
+                    )
                 }
             } catch (e: Exception) {
                 android.util.Log.e("WorkoutViewModel", "finishWorkout failed", e)
                 _workoutState.update {
                     ActiveWorkoutState(availableExercises = it.availableExercises)
                 }
-            } finally {
-                onComplete()
             }
         }
     }
 
+    fun dismissWorkoutSummary() {
+        _workoutState.update {
+            ActiveWorkoutState(availableExercises = it.availableExercises)
+        }
+    }
+
     fun cancelWorkout() {
+        elapsedTimerJob?.cancel()
         viewModelScope.launch {
             _workoutState.value.workoutId?.let { wid ->
                 workoutSetDao.deleteSetsForWorkout(wid)
@@ -712,6 +744,17 @@ class WorkoutViewModel @Inject constructor(
     }
 
     private var timerJob: kotlinx.coroutines.Job? = null
+    private var elapsedTimerJob: kotlinx.coroutines.Job? = null
+
+    private fun startElapsedTimer() {
+        elapsedTimerJob?.cancel()
+        elapsedTimerJob = viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                _workoutState.update { it.copy(elapsedSeconds = it.elapsedSeconds + 1) }
+            }
+        }
+    }
 
     // Called by the service on the main thread for every countdown tick.
     private fun onTimerTick(remaining: Int) {

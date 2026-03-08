@@ -1,10 +1,13 @@
 package com.omerhedvat.powerme.ui.workouts
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,6 +39,15 @@ fun WorkoutsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
         ) {
+            item {
+                Text(
+                    text = "Workouts",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
             if (isWorkoutActive) {
                 item {
                     Button(
@@ -51,22 +63,23 @@ fun WorkoutsScreen(
                 }
             }
             item {
-                Button(
+                OutlinedButton(
                     onClick = { onStartWorkout(0L) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.background
-                    )
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Start Empty Workout", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Start Empty Workout",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
             item {
                 Text(
-                    text = "My Routines",
-                    fontSize = 22.sp,
+                    text = "Routines",
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -159,49 +172,81 @@ private fun RoutineCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .height(IntrinsicSize.Min)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = summary.routine.name,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            // Left accent bar
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+            )
+            // Main content
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = summary.routine.name,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SuggestionChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                "${summary.exerciseNames.size} exercises",
+                                fontSize = 11.sp
+                            )
+                        }
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = exerciseSummary,
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = recencyLabel,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                )
-            }
-            Button(
-                onClick = onStartWorkout,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.background
-                )
-            ) {
-                Text("Start", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            }
-            Box {
-                IconButton(onClick = { showMenu = true }) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Default.MoreVert,
-                        contentDescription = "Routine options",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        Icons.Default.AccessTime,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = recencyLabel,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                     )
                 }
-                DropdownMenu(
+            }
+            // Actions column
+            Column(
+                modifier = Modifier.padding(8.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                FilledTonalButton(onClick = onStartWorkout) {
+                    Text("Start", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "Routine options",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+                    DropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
@@ -228,6 +273,7 @@ private fun RoutineCard(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                         onClick = { showMenu = false; onDelete() }
                     )
+                }
                 }
             }
         }

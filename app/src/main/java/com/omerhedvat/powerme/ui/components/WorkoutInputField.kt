@@ -37,13 +37,13 @@ fun WorkoutInputField(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
-    val pillShape = RoundedCornerShape(4.dp)
+    val pillShape = RoundedCornerShape(8.dp)
 
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier
-            .height(34.dp)
+            .height(40.dp)
             .background(StremioInputPill, pillShape)
             .then(
                 if (isFocused) Modifier.border(1.dp, MaterialTheme.colorScheme.primary, pillShape)
@@ -55,7 +55,7 @@ fun WorkoutInputField(
         interactionSource = interactionSource,
         textStyle = TextStyle(
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             fontWeight = FontWeight.Normal,
             textAlign = TextAlign.Center
         ),
@@ -65,7 +65,7 @@ fun WorkoutInputField(
                     Text(
                         text = placeholder,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
                         textAlign = TextAlign.Center
                     )
                 }
