@@ -17,7 +17,9 @@ data class WorkoutWithExerciseSummary(
     val durationSeconds: Int,
     val totalVolume: Double,
     val notes: String?,
-    val exerciseNames: List<String>
+    val exerciseNames: List<String>,
+    val routineName: String?,
+    val setCount: Int
 )
 
 @HiltViewModel
@@ -39,7 +41,7 @@ class HistoryViewModel @Inject constructor(
             .groupBy { it.id }
             .map { (_, group) ->
                 val first = group.first()
-                val names = group.mapNotNull { it.exerciseName }.distinct().take(4)
+                val names = group.mapNotNull { it.exerciseName }.distinct()
                 WorkoutWithExerciseSummary(
                     id = first.id,
                     routineId = first.routineId,
@@ -47,7 +49,9 @@ class HistoryViewModel @Inject constructor(
                     durationSeconds = first.durationSeconds,
                     totalVolume = first.totalVolume,
                     notes = first.notes,
-                    exerciseNames = names
+                    exerciseNames = names,
+                    routineName = first.routineName,
+                    setCount = first.setCount
                 )
             }
             .sortedByDescending { it.timestamp }

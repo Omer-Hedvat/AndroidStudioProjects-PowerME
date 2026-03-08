@@ -11,7 +11,9 @@ data class WorkoutExerciseNameRow(
     val totalVolume: Double,
     val notes: String?,
     val isCompleted: Boolean,
-    val exerciseName: String?
+    val exerciseName: String?,
+    val routineName: String?,
+    val setCount: Int
 )
 
 @Dao
@@ -42,12 +44,15 @@ interface WorkoutDao {
 
     @Query("""
         SELECT w.id, w.routineId, w.timestamp, w.durationSeconds, w.totalVolume,
-               w.notes, w.isCompleted, e.name AS exerciseName
+               w.notes, w.isCompleted, e.name AS exerciseName,
+               r.name AS routineName,
+               (SELECT COUNT(*) FROM workout_sets ws2 WHERE ws2.workoutId = w.id AND ws2.isCompleted = 1) AS setCount
         FROM workouts w
         LEFT JOIN (
             SELECT DISTINCT workoutId, exerciseId FROM workout_sets
         ) ws ON ws.workoutId = w.id
         LEFT JOIN exercises e ON ws.exerciseId = e.id
+        LEFT JOIN routines r ON r.id = w.routineId
         WHERE w.isCompleted = 1
         ORDER BY w.timestamp DESC
     """)
