@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "lastUpdated": "2026-02-16",
   "totalExercises": 156,
   "exercises": [
@@ -34,7 +34,7 @@
     {
       "name": "Goblet Squat",
       "muscleGroup": "Legs",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": "MeIiIdhvXT4",
@@ -48,7 +48,7 @@
     {
       "name": "Bulgarian Split Squat",
       "muscleGroup": "Legs",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": "2C-uNgKwPLE",
@@ -202,7 +202,7 @@
     {
       "name": "Single-Leg RDL",
       "muscleGroup": "Legs",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "deadlift_family",
       "youtubeVideoId": "kNR8b77aYlo",
@@ -300,7 +300,7 @@
     {
       "name": "Dumbbell Flat Bench Press",
       "muscleGroup": "Chest",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": "VmB1G1K7v94",
@@ -314,7 +314,7 @@
     {
       "name": "Incline Dumbbell Bench Press",
       "muscleGroup": "Chest",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": "0G2_XV7slIg",
@@ -398,7 +398,7 @@
     {
       "name": "Dumbbell Row",
       "muscleGroup": "Back",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "row_family",
       "youtubeVideoId": "roCP6wCXPqo",
@@ -510,7 +510,7 @@
     {
       "name": "Seated Dumbbell Overhead Press",
       "muscleGroup": "Shoulders",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "overhead_press_family",
       "youtubeVideoId": "qEwKCR5JCog",
@@ -524,7 +524,7 @@
     {
       "name": "Arnold Press",
       "muscleGroup": "Shoulders",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "overhead_press_family",
       "youtubeVideoId": "6Z15_WdXmVw",
@@ -776,7 +776,7 @@
     {
       "name": "Dumbbell Curl",
       "muscleGroup": "Arms",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "av7-8igSXTs",
@@ -790,7 +790,7 @@
     {
       "name": "Hammer Curl",
       "muscleGroup": "Arms",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "zC3nLlEvin4",
@@ -832,7 +832,7 @@
     {
       "name": "Overhead Tricep Extension",
       "muscleGroup": "Arms",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "YbX7Wd8jQ-Q",
@@ -874,7 +874,7 @@
     {
       "name": "Lateral Raise",
       "muscleGroup": "Shoulders",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "3VcKaXpzqRo",
@@ -902,7 +902,7 @@
     {
       "name": "Rear Delt Fly",
       "muscleGroup": "Shoulders",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "EA7u4Q_8HQ0",
@@ -916,7 +916,7 @@
     {
       "name": "Shrugs",
       "muscleGroup": "Back",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "cJRVVxmytaM",
@@ -1000,7 +1000,7 @@
     {
       "name": "Farmer's Walk",
       "muscleGroup": "Core",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "CARDIO",
       "familyId": "accessory_family",
       "youtubeVideoId": "rt14xQ0RPhM",
@@ -1168,7 +1168,7 @@
     {
       "name": "Step-Up",
       "muscleGroup": "Legs",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "dQqApCGd5Ss",
@@ -1182,7 +1182,7 @@
     {
       "name": "Reverse Lunge",
       "muscleGroup": "Legs",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": "xXKVLqx7yKg",
@@ -1196,7 +1196,7 @@
     {
       "name": "Walking Lunge",
       "muscleGroup": "Legs",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": "L8fvypPrzzs",
@@ -1252,7 +1252,7 @@
     {
       "name": "Concentration Curl",
       "muscleGroup": "Arms",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "Jvj2wV0vOYU",
@@ -1266,7 +1266,7 @@
     {
       "name": "Incline Curl",
       "muscleGroup": "Arms",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "soxrZlIl35U",
@@ -1280,7 +1280,7 @@
     {
       "name": "Tricep Kickback",
       "muscleGroup": "Arms",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "6SS6K3lAwZ8",
@@ -1336,7 +1336,7 @@
     {
       "name": "Front Raise",
       "muscleGroup": "Shoulders",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "SDx1E1mkXvk",
@@ -1420,7 +1420,7 @@
     {
       "name": "Wrist Curl",
       "muscleGroup": "Arms",
-      "equipmentType": "Dumbbells",
+      "equipmentType": "Dumbbell",
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "sdAup2_BTXY",

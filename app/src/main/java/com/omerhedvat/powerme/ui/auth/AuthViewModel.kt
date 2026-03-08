@@ -20,7 +20,8 @@ data class AuthUiState(
     val error: String? = null,
     val isSignedIn: Boolean = false,
     val needsEmailVerification: Boolean = false,
-    val needsProfileSetup: Boolean = false
+    val needsProfileSetup: Boolean = false,
+    val resetEmailSent: Boolean = false
 )
 
 @HiltViewModel
@@ -110,6 +111,22 @@ class AuthViewModel @Inject constructor(
 
     fun isEmailVerified(): Boolean {
         return Firebase.auth.currentUser?.isEmailVerified == true
+    }
+
+    fun sendPasswordReset(email: String) {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                Firebase.auth.sendPasswordResetEmail(email).await()
+                _uiState.update { it.copy(isLoading = false, resetEmailSent = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun dismissResetConfirmation() {
+        _uiState.update { it.copy(resetEmailSent = false) }
     }
 
     fun dismissError() {

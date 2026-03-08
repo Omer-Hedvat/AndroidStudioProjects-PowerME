@@ -27,11 +27,17 @@ import com.omerhedvat.powerme.data.database.Exercise
 import com.omerhedvat.powerme.ui.components.MagicAddDialog
 
 private val MUSCLE_GROUPS = listOf("All", "Chest", "Back", "Shoulders", "Arms", "Legs", "Core")
-private val EQUIPMENT_TYPES = listOf("All", "Barbell", "Dumbbell", "Machine", "Cable", "Bodyweight")
 
-/** Converts a DB-stored UPPER_CASE equipment type (e.g. "CABLE") to Title Case ("Cable"). */
-private fun String.toEquipmentDisplayName(): String =
-    this.lowercase().replaceFirstChar { it.uppercaseChar() }
+internal data class EquipmentFilter(val key: String, val label: String = key)
+
+internal val EQUIPMENT_FILTERS = listOf(
+    EquipmentFilter("All"),
+    EquipmentFilter("Barbell"),
+    EquipmentFilter("Dumbbell"),
+    EquipmentFilter("Machine"),
+    EquipmentFilter("Cable"),
+    EquipmentFilter("Bodyweight"),
+)
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -125,14 +131,14 @@ fun ExercisesScreen(
                             .padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        EQUIPMENT_TYPES.forEach { equipment ->
-                            val isSelected = if (equipment == "All") uiState.selectedEquipment.isEmpty()
-                            else equipment in uiState.selectedEquipment
+                        EQUIPMENT_FILTERS.forEach { filter ->
+                            val isSelected = if (filter.key == "All") uiState.selectedEquipment.isEmpty()
+                            else filter.key in uiState.selectedEquipment
 
                             FilterChip(
                                 selected = isSelected,
-                                onClick = { viewModel.onEquipmentFilterToggled(equipment) },
-                                label = { Text(equipment) },
+                                onClick = { viewModel.onEquipmentFilterToggled(filter.key) },
+                                label = { Text(filter.label) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.secondary,
                                     selectedLabelColor = MaterialTheme.colorScheme.surface,
@@ -278,7 +284,7 @@ private fun ExerciseCard(
                     )
                     SuggestionChip(
                         onClick = {},
-                        label = { Text(exercise.equipmentType.toEquipmentDisplayName(), fontSize = 11.sp) },
+                        label = { Text(exercise.equipmentType, fontSize = 11.sp) },
                         colors = SuggestionChipDefaults.suggestionChipColors(
                             containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
                             labelColor = MaterialTheme.colorScheme.secondary
@@ -317,7 +323,7 @@ fun ExerciseDetailSheet(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SuggestionChip(onClick = {}, label = { Text(exercise.muscleGroup) })
                 SuggestionChip(onClick = {}, label = {
-                    Text(exercise.equipmentType.toEquipmentDisplayName())
+                    Text(exercise.equipmentType)
                 })
             }
             // Form Cues (setupNotes) — only shown here, never in the list

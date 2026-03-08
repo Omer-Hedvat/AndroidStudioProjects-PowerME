@@ -77,7 +77,7 @@ class ExercisesViewModel @Inject constructor(
             val matchesMuscle = muscles.isEmpty() ||
                 muscles.any { it.equals(exercise.muscleGroup, ignoreCase = true) }
             val matchesEquipment = equipment.isEmpty() ||
-                equipment.any { it.equals(exercise.equipmentType, ignoreCase = true) }
+                equipment.any { it.equals(exercise.equipmentType.trim(), ignoreCase = true) }
             matchesQuery && matchesMuscle && matchesEquipment
         }
         _uiState.update { it.copy(exercises = filtered) }

@@ -26,6 +26,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.omerhedvat.powerme.R
+import com.omerhedvat.powerme.ui.auth.AuthViewModel
+import com.omerhedvat.powerme.ui.auth.ForgotPasswordScreen
 import com.omerhedvat.powerme.ui.auth.ProfileSetupScreen
 import com.omerhedvat.powerme.ui.auth.WelcomeScreen
 import com.omerhedvat.powerme.ui.chat.ChatViewModel
@@ -64,6 +66,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 private object Routes {
     const val AUTH_WELCOME = "auth_welcome"
     const val AUTH_PROFILE_SETUP = "auth_profile_setup"
+    const val AUTH_FORGOT_PASSWORD = "auth_forgot_password"
     const val WORKOUT = "workout"
     const val SETTINGS = "settings"
     const val WAR_ROOM = "warroom"
@@ -152,7 +155,18 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                     navController.navigate(Routes.AUTH_PROFILE_SETUP) {
                         popUpTo(Routes.AUTH_WELCOME) { inclusive = true }
                     }
-                }
+                },
+                onForgotPassword = { navController.navigate(Routes.AUTH_FORGOT_PASSWORD) }
+            )
+        }
+
+        composable(Routes.AUTH_FORGOT_PASSWORD) {
+            val authViewModel: AuthViewModel = hiltViewModel(
+                navController.getBackStackEntry(Routes.AUTH_WELCOME)
+            )
+            ForgotPasswordScreen(
+                viewModel = authViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
