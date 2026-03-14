@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -28,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.util.GeminiModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -63,6 +63,25 @@ fun SettingsScreen(
                 Text("SETTINGS", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
 
+            // ── Appearance ───────────────────────────────────────
+            item {
+                SettingsCard(title = "Appearance") {
+                    val themeModes = com.omerhedvat.powerme.data.ThemeMode.entries
+                    val labels = listOf("Light", "Dark", "System")
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        themeModes.forEachIndexed { index, mode ->
+                            SegmentedButton(
+                                selected = uiState.themeMode == mode,
+                                onClick = { viewModel.setThemeMode(mode) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = themeModes.size)
+                            ) {
+                                Text(labels[index])
+                            }
+                        }
+                    }
+                }
+            }
+
             // ── API Key ──────────────────────────────────────────
             item {
                 SettingsCard(title = "Gemini API Key") {
@@ -77,7 +96,7 @@ fun SettingsScreen(
                         text = linkText,
                         style = LocalTextStyle.current.copy(
                             fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { uriHandler.openUri("https://aistudio.google.com/app/apikey") }
@@ -102,8 +121,8 @@ fun SettingsScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         singleLine = true
                     )
@@ -169,7 +188,7 @@ fun SettingsScreen(
                                 onSelect = viewModel::setEnrichmentModel
                             )
                         } else {
-                            Text("Save a valid API key to load available models.", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+                            Text("Save a valid API key to load available models.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         }
                     }
                 }
@@ -201,7 +220,7 @@ fun SettingsScreen(
                     Text(
                         "Committee will respond in ${uiState.language} by default.",
                         fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.5f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                 }
             }
@@ -223,7 +242,7 @@ fun SettingsScreen(
                         }
                     }
                     if (lastText.isNotBlank()) {
-                        Text(lastText, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
+                        Text(lastText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     // Sync from Health Connect button — requests permissions first, then syncs
@@ -250,7 +269,7 @@ fun SettingsScreen(
                         }
                     }
                     uiState.hcSyncError?.let { err ->
-                        Text(err, fontSize = 11.sp, color = Color.Red.copy(alpha = 0.8f))
+                        Text(err, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
                     }
                     if (uiState.bodyMeasurementsFromHC) {
                         Text("(from HealthConnect)", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
@@ -270,8 +289,8 @@ fun SettingsScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             singleLine = true
                         )
@@ -284,8 +303,8 @@ fun SettingsScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             singleLine = true
                         )
@@ -300,8 +319,8 @@ fun SettingsScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         singleLine = true
                     )
@@ -325,7 +344,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Audio", color = Color.White)
+                        Text("Audio", color = MaterialTheme.colorScheme.onSurface)
                         Switch(
                             checked = uiState.restTimerAudioEnabled,
                             onCheckedChange = { viewModel.toggleRestTimerAudio() },
@@ -337,7 +356,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Haptics", color = Color.White)
+                        Text("Haptics", color = MaterialTheme.colorScheme.onSurface)
                         Switch(
                             checked = uiState.restTimerHapticsEnabled,
                             onCheckedChange = { viewModel.toggleRestTimerHaptics() },
@@ -350,8 +369,8 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Keep screen on", color = Color.White)
-                            Text("Prevent display from sleeping during workout", fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f))
+                            Text("Keep screen on", color = MaterialTheme.colorScheme.onSurface)
+                            Text("Prevent display from sleeping during workout", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         }
                         Switch(
                             checked = uiState.keepScreenOn,
@@ -371,7 +390,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(gym.name, color = Color.White)
+                            Text(gym.name, color = MaterialTheme.colorScheme.onSurface)
                             RadioButton(
                                 selected = gym.isActive,
                                 onClick = { viewModel.switchToGym(gym.name) },
@@ -395,10 +414,10 @@ fun SettingsScreen(
                     Button(
                         onClick = viewModel::exportDatabase,
                         enabled = !uiState.isExporting,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)
                     ) {
                         if (uiState.isExporting) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onSecondary, strokeWidth = 2.dp)
                             Spacer(modifier = Modifier.width(8.dp))
                         }
                         Text("Export Database to JSON")
@@ -414,7 +433,7 @@ fun SettingsScreen(
                     Text(
                         text = "Your data is stored locally and mirrored to Firebase for account continuity. Deleting your account permanently removes all local data and your Firebase user record.",
                         fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     if (uiState.isDeletingAccount) {
@@ -427,7 +446,7 @@ fun SettingsScreen(
                             onClick = viewModel::showDeleteAccountDialog,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = Color.White
+                                contentColor = MaterialTheme.colorScheme.onError
                             )
                         ) {
                             Text("Delete Account")
@@ -446,13 +465,13 @@ fun SettingsScreen(
             text = {
                 Text(
                     "This will permanently delete all your data, workout history, and your account. This cannot be undone.",
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             },
             confirmButton = {
                 Button(
                     onClick = { viewModel.deleteAccount {} },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = Color.White)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
                 ) { Text("Delete Everything") }
             },
             dismissButton = {
@@ -500,8 +519,8 @@ private fun ModelDropdown(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
             )
         )
         ExposedDropdownMenu(
@@ -513,7 +532,7 @@ private fun ModelDropdown(
                 DropdownMenuItem(
                     text = {
                         Column {
-                            Text(model.displayName, color = Color.White, fontSize = 14.sp)
+                            Text(model.displayName, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
                             Text(
                                 text = when (model.tier) {
                                     0 -> "Thinking"

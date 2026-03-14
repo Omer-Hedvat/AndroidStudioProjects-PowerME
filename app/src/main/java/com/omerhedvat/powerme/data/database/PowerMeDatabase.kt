@@ -21,9 +21,10 @@ import androidx.room.TypeConverters
         MedicalLedger::class,
         StateHistoryEntry::class,
         MetricLog::class,
-        RoutineExercise::class
+        RoutineExercise::class,
+        ExerciseMuscleGroup::class
     ],
-    version = 22,
+    version = 27,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -44,4 +45,5 @@ abstract class PowerMeDatabase : RoomDatabase() {
     abstract fun stateHistoryDao(): StateHistoryDao
     abstract fun metricLogDao(): MetricLogDao
     abstract fun routineExerciseDao(): RoutineExerciseDao
+    abstract fun exerciseMuscleGroupDao(): ExerciseMuscleGroupDao
 }

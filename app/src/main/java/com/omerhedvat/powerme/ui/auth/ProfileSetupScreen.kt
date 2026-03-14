@@ -49,6 +49,7 @@ fun ProfileSetupScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
@@ -225,8 +226,8 @@ private fun ProfileTextField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-            focusedTextColor = androidx.compose.ui.graphics.Color.White,
-            unfocusedTextColor = androidx.compose.ui.graphics.Color.White,
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
             cursorColor = MaterialTheme.colorScheme.primary
         )
     )
@@ -250,7 +251,7 @@ private fun SingleChoiceSegmented(
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                     selectedLabelColor = MaterialTheme.colorScheme.surface,
-                    containerColor = MaterialTheme.colorScheme.onSurface,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     labelColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                 )
             )
@@ -277,7 +278,7 @@ private fun MultiSelectChips(
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primary,
                         selectedLabelColor = MaterialTheme.colorScheme.surface,
-                        containerColor = MaterialTheme.colorScheme.onSurface,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         labelColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                     )
                 )

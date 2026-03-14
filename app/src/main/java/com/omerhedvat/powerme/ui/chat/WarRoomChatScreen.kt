@@ -70,7 +70,7 @@ fun WarRoomChatScreen(
                     Text("Go to Settings", fontWeight = FontWeight.Bold)
                 }
             },
-            containerColor = MaterialTheme.colorScheme.onSurface
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -170,7 +170,7 @@ fun WarRoomChatScreen(
 fun WarRoomHeader(onClear: () -> Unit, onShieldTap: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.onSurface
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -272,7 +272,7 @@ fun InterviewModeUI(
 fun InterviewSetupCard(onStart: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
@@ -373,7 +373,7 @@ fun ChatInputArea(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.onSurface
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -463,7 +463,7 @@ fun MedicalPatchConfirmationDialog(
                 Text("Reject", color = MaterialTheme.colorScheme.primary)
             }
         },
-        containerColor = MaterialTheme.colorScheme.onSurface
+        containerColor = MaterialTheme.colorScheme.surface
     )
 }
 
@@ -471,7 +471,7 @@ fun MedicalPatchConfirmationDialog(
 fun WelcomeMessage() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -518,7 +518,7 @@ fun MessageBubble(message: ChatMessage) {
         Card(
             modifier = Modifier.widthIn(max = 300.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (message.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                containerColor = if (message.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
             ),
             shape = RoundedCornerShape(
                 topStart = 12.dp,
@@ -556,7 +556,7 @@ fun LoadingIndicator() {
     ) {
         Card(
             modifier = Modifier.widthIn(max = 200.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(
@@ -589,7 +589,7 @@ fun RoutinePreviewCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -649,13 +649,14 @@ fun MedicalShieldBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.onSurface
+        containerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp)
         ) {
             Text(
                 text = "🛡 Medical Shield — Noa",

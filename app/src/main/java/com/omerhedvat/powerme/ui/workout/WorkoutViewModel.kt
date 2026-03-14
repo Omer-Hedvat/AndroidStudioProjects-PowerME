@@ -9,7 +9,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.omerhedvat.powerme.data.AppSettingsDataStore
 import com.omerhedvat.powerme.data.database.Exercise
+import com.omerhedvat.powerme.data.database.Routine
 import com.omerhedvat.powerme.data.database.RoutineDao
+import com.omerhedvat.powerme.data.database.RoutineExercise
 import com.omerhedvat.powerme.data.database.SetType
 import com.omerhedvat.powerme.data.database.TargetJoint
 import com.omerhedvat.powerme.data.database.UserSettingsDao
@@ -25,7 +27,6 @@ import com.omerhedvat.powerme.data.repository.StateHistoryRepository
 import com.omerhedvat.powerme.data.repository.WarmupRepository
 import com.omerhedvat.powerme.data.repository.WorkoutRepository
 import com.omerhedvat.powerme.ui.chat.MedicalRestrictionsDoc
-import com.omerhedvat.powerme.util.PlateCalculator
 import com.omerhedvat.powerme.util.RestTimerNotifier
 import com.omerhedvat.powerme.util.SurgicalValidator
 import com.omerhedvat.powerme.util.WorkoutTimerService
@@ -46,6 +47,7 @@ data class ActiveSet(
     val weight: String = "",
     val reps: String = "",
     val rpe: String = "",
+    val rpeValue: Int? = null,        // Badge-style RPE (Int×10: 60=6.0, 65=6.5, …, 100=10.0)
     val setType: SetType = SetType.NORMAL,
     val isCompleted: Boolean = false,
     val ghostWeight: String? = null,  // Previous session weight hint
@@ -67,7 +69,10 @@ data class ExerciseWithSets(
 data class RestTimerState(
     val isActive: Boolean = false,
     val remainingSeconds: Int = 0,
-    val totalSeconds: Int = 0
+    val totalSeconds: Int = 0,
+    val exerciseId: Long? = null,
+    val setOrder: Int? = null,
+    val isPaused: Boolean = false
 )
 
 data class WorkoutSummary(
@@ -77,6 +82,16 @@ data class WorkoutSummary(
     val setCount: Int,
     val exerciseNames: List<String>
 )
+
+/** Captured at workout start from the routine template — used to detect changes at finish. */
+data class RoutineExerciseSnapshot(
+    val exerciseId: Long,
+    val sets: Int,
+    val reps: Int,
+    val defaultWeight: String
+)
+
+enum class RoutineSyncType { STRUCTURE, VALUES, BOTH }
 
 data class ActiveWorkoutState(
     val isActive: Boolean = false,
@@ -96,7 +111,13 @@ data class ActiveWorkoutState(
     val snackbarMessage: String? = null,
     val workoutName: String = "Workout",
     val elapsedSeconds: Int = 0,
-    val pendingWorkoutSummary: WorkoutSummary? = null
+    val pendingWorkoutSummary: WorkoutSummary? = null,
+    val restTimeOverrides: Map<String, Int> = emptyMap(),
+    val routineSnapshot: List<RoutineExerciseSnapshot> = emptyList(),
+    val pendingRoutineSync: RoutineSyncType? = null,
+    val hiddenRestSeparators: Set<String> = emptySet(),
+    val isEditMode: Boolean = false,
+    val editModeSaved: Boolean = false   // one-shot navigation trigger (like pendingWorkoutSummary)
 )
 
 @HiltViewModel
@@ -108,6 +129,7 @@ class WorkoutViewModel @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val workoutSetDao: com.omerhedvat.powerme.data.database.WorkoutSetDao,
     private val routineExerciseDao: com.omerhedvat.powerme.data.database.RoutineExerciseDao,
+    private val exerciseDao: com.omerhedvat.powerme.data.database.ExerciseDao,
     private val routineDao: RoutineDao,
     private val userSettingsDao: UserSettingsDao,
     private val medicalLedgerRepository: MedicalLedgerRepository,
@@ -136,7 +158,7 @@ class WorkoutViewModel @Inject constructor(
                     if (serviceState.isRunning) {
                         _workoutState.update { state ->
                             state.copy(
-                                restTimer = RestTimerState(
+                                restTimer = state.restTimer.copy(
                                     isActive = true,
                                     remainingSeconds = serviceState.remainingSeconds,
                                     totalSeconds = serviceState.totalSeconds
@@ -163,10 +185,6 @@ class WorkoutViewModel @Inject constructor(
 
     val keepScreenOn: StateFlow<Boolean> = appSettingsDataStore.keepScreenOn
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
-
-    val availablePlates: StateFlow<List<Double>> = userSettingsDao.getSettings()
-        .map { settings -> PlateCalculator.parseAvailablePlates(settings?.availablePlates ?: "0.5,1.25,2.5,5,10,15,20,25") }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val saveJobs = mutableMapOf<Pair<Long, Int>, Job>()
 
@@ -263,11 +281,20 @@ class WorkoutViewModel @Inject constructor(
                 ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky)
             }
             val name = routineDao.getRoutineById(routineId)?.name ?: "Workout"
+            val snapshot = routineExercises.map { re ->
+                RoutineExerciseSnapshot(
+                    exerciseId = re.exerciseId,
+                    sets = re.sets,
+                    reps = re.reps,
+                    defaultWeight = re.defaultWeight
+                )
+            }
             _workoutState.update {
                 it.copy(
                     isActive = true, workoutId = bootstrap.workoutId,
                     routineId = routineId, startTime = System.currentTimeMillis(),
-                    exercises = exercises, workoutName = name
+                    exercises = exercises, workoutName = name,
+                    routineSnapshot = snapshot
                 )
             }
             startElapsedTimer()
@@ -288,6 +315,91 @@ class WorkoutViewModel @Inject constructor(
                 )
             }
             startElapsedTimer()
+        }
+    }
+
+    fun startEditMode(routineId: Long) {
+        viewModelScope.launch {
+            _workoutState.update { it.copy(editModeSaved = false) }
+            val routineExercises = routineExerciseDao.getForRoutine(routineId)
+            val exercises = routineExercises.mapNotNull { re ->
+                val exercise = exerciseRepository.getExerciseById(re.exerciseId) ?: return@mapNotNull null
+                val activeSets = (1..re.sets).map { i ->
+                    ActiveSet(
+                        id = -i.toLong(),
+                        setOrder = i,
+                        weight = re.defaultWeight,
+                        reps = if (re.reps > 0) re.reps.toString() else ""
+                    )
+                }
+                val sticky = try { routineExerciseDao.getStickyNote(routineId, re.exerciseId) } catch (_: Exception) { null }
+                ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky)
+            }
+            val name = routineDao.getRoutineById(routineId)?.name ?: "Routine"
+            _workoutState.update {
+                it.copy(
+                    isActive = true,
+                    isEditMode = true,
+                    routineId = routineId,
+                    workoutId = null,
+                    startTime = null,
+                    exercises = exercises,
+                    workoutName = name,
+                    elapsedSeconds = 0,
+                    routineSnapshot = emptyList(),
+                    editModeSaved = false
+                )
+            }
+        }
+    }
+
+    fun saveRoutineEdits() {
+        viewModelScope.launch {
+            val state = _workoutState.value
+            val routineId = state.routineId
+            val originalIds = routineExerciseDao.getForRoutine(routineId).map { it.exerciseId }.toSet()
+            val currentIds = state.exercises.map { it.exercise.id }.toSet()
+
+            // Delete removed exercises
+            for (exerciseId in originalIds - currentIds) {
+                routineExerciseDao.deleteByRoutineAndExercise(routineId, exerciseId)
+            }
+
+            // Update or insert exercises
+            state.exercises.forEachIndexed { index, ex ->
+                val exerciseId = ex.exercise.id
+                val firstSet = ex.sets.firstOrNull()
+                val reps = firstSet?.reps?.toIntOrNull() ?: 0
+                val weight = firstSet?.weight ?: ""
+                if (exerciseId in originalIds) {
+                    routineExerciseDao.updateSets(routineId, exerciseId, ex.sets.size)
+                    routineExerciseDao.updateRepsAndWeight(routineId, exerciseId, reps, weight)
+                } else {
+                    routineExerciseDao.insert(
+                        RoutineExercise(
+                            routineId = routineId,
+                            exerciseId = exerciseId,
+                            sets = ex.sets.size,
+                            reps = reps,
+                            restTime = 90,
+                            order = index,
+                            defaultWeight = weight
+                        )
+                    )
+                }
+            }
+            _workoutState.update {
+                ActiveWorkoutState(
+                    availableExercises = it.availableExercises,
+                    editModeSaved = true
+                )
+            }
+        }
+    }
+
+    fun cancelEditMode() {
+        _workoutState.update {
+            ActiveWorkoutState(availableExercises = it.availableExercises)
         }
     }
 
@@ -360,7 +472,15 @@ class WorkoutViewModel @Inject constructor(
             val state = _workoutState.value
             val currentExercise = state.exercises.find { it.exercise.id == exerciseId } ?: return@launch
             val newSetOrder = currentExercise.sets.size + 1
-            var newSet = ActiveSet(setOrder = newSetOrder)
+            val lastSet = currentExercise.sets.lastOrNull()
+            val newWeightStr = lastSet?.weight ?: ""
+            val newRepsStr = lastSet?.reps ?: ""
+            var newSet = ActiveSet(
+                id = if (state.isEditMode) -(System.nanoTime()) else 0L,
+                setOrder = newSetOrder,
+                weight = newWeightStr,
+                reps = newRepsStr
+            )
 
             val workoutId = state.workoutId
             if (workoutId != null) {
@@ -368,8 +488,8 @@ class WorkoutViewModel @Inject constructor(
                     workoutId = workoutId,
                     exerciseId = exerciseId,
                     setOrder = newSetOrder,
-                    weight = 0.0,
-                    reps = 0
+                    weight = newWeightStr.toDoubleOrNull() ?: 0.0,
+                    reps = newRepsStr.toIntOrNull() ?: 0
                 )
                 val dbId = workoutSetDao.insertSet(ws)
                 newSet = newSet.copy(id = dbId)
@@ -412,20 +532,31 @@ class WorkoutViewModel @Inject constructor(
         val result = SurgicalValidator.parseDecimal(raw)
         if (result is SurgicalValidator.ValidationResult.Invalid) return  // discard silently
         _workoutState.update { state ->
-            state.copy(exercises = state.exercises.map { ex ->
-                if (ex.exercise.id != exerciseId) return@map ex
-                ex.copy(sets = ex.sets.map { set ->
-                    if (set.setOrder != setOrder) return@map set
-                    val effectiveWeight = when (result) {
-                        is SurgicalValidator.ValidationResult.Valid -> raw.trim()
-                        is SurgicalValidator.ValidationResult.Empty -> set.ghostWeight ?: ""
-                        else -> return@map set  // Invalid already returned above
+            val ex = state.exercises.find { it.exercise.id == exerciseId }
+            val minOrder = ex?.sets?.minOfOrNull { it.setOrder } ?: setOrder
+            val isFirstSet = setOrder == minOrder
+            state.copy(exercises = state.exercises.map { e ->
+                if (e.exercise.id != exerciseId) return@map e
+                e.copy(sets = e.sets.map { set ->
+                    when {
+                        set.setOrder == setOrder -> {
+                            val effectiveWeight = when (result) {
+                                is SurgicalValidator.ValidationResult.Valid -> raw.trim()
+                                is SurgicalValidator.ValidationResult.Empty -> set.ghostWeight ?: ""
+                                else -> return@map set
+                            }
+                            set.copy(weight = effectiveWeight)
+                        }
+                        // Cascade: first set changed → fill only EMPTY + UNCOMPLETED sets below
+                        isFirstSet && set.weight.isBlank() && !set.isCompleted &&
+                            result is SurgicalValidator.ValidationResult.Valid ->
+                            set.copy(weight = raw.trim())
+                        else -> set
                     }
-                    set.copy(weight = effectiveWeight)  // no isCompleted side-effect
                 })
             })
         }
-        if (result is SurgicalValidator.ValidationResult.Valid) {
+        if (!_workoutState.value.isEditMode && result is SurgicalValidator.ValidationResult.Valid) {
             debouncedSaveSet(exerciseId, setOrder)
         }
     }
@@ -434,20 +565,31 @@ class WorkoutViewModel @Inject constructor(
         val result = SurgicalValidator.parseReps(raw)
         if (result is SurgicalValidator.ValidationResult.Invalid) return  // discard silently
         _workoutState.update { state ->
-            state.copy(exercises = state.exercises.map { ex ->
-                if (ex.exercise.id != exerciseId) return@map ex
-                ex.copy(sets = ex.sets.map { set ->
-                    if (set.setOrder != setOrder) return@map set
-                    val effectiveReps = when (result) {
-                        is SurgicalValidator.ValidationResult.Valid -> raw.trim()
-                        is SurgicalValidator.ValidationResult.Empty -> set.ghostReps ?: ""
-                        else -> return@map set  // Invalid already returned above
+            val ex = state.exercises.find { it.exercise.id == exerciseId }
+            val minOrder = ex?.sets?.minOfOrNull { it.setOrder } ?: setOrder
+            val isFirstSet = setOrder == minOrder
+            state.copy(exercises = state.exercises.map { e ->
+                if (e.exercise.id != exerciseId) return@map e
+                e.copy(sets = e.sets.map { set ->
+                    when {
+                        set.setOrder == setOrder -> {
+                            val effectiveReps = when (result) {
+                                is SurgicalValidator.ValidationResult.Valid -> raw.trim()
+                                is SurgicalValidator.ValidationResult.Empty -> set.ghostReps ?: ""
+                                else -> return@map set
+                            }
+                            set.copy(reps = effectiveReps)
+                        }
+                        // Cascade: first set changed → fill only EMPTY + UNCOMPLETED sets below
+                        isFirstSet && set.reps.isBlank() && !set.isCompleted &&
+                            result is SurgicalValidator.ValidationResult.Valid ->
+                            set.copy(reps = raw.trim())
+                        else -> set
                     }
-                    set.copy(reps = effectiveReps)  // no isCompleted side-effect
                 })
             })
         }
-        if (result is SurgicalValidator.ValidationResult.Valid) {
+        if (!_workoutState.value.isEditMode && result is SurgicalValidator.ValidationResult.Valid) {
             debouncedSaveSet(exerciseId, setOrder)
         }
     }
@@ -469,30 +611,57 @@ class WorkoutViewModel @Inject constructor(
     }
 
     /**
-     * V-button handler — the ONLY place isCompleted is set to true.
-     * Gated behind dual SurgicalValidator checks; starts rest timer only on confirmed completion.
+     * V-button handler — toggles isCompleted. Starts rest timer on completion, stops it on un-complete.
      */
     fun completeSet(exerciseId: Long, setOrder: Int) {
+        val isEditMode = _workoutState.value.isEditMode
+        var wasCompleted = false
         _workoutState.update { state ->
             state.copy(exercises = state.exercises.map { ex ->
                 if (ex.exercise.id != exerciseId) return@map ex
                 ex.copy(sets = ex.sets.map { set ->
                     if (set.setOrder != setOrder) return@map set
-                    val weightOk = SurgicalValidator.parseDecimal(set.weight) is SurgicalValidator.ValidationResult.Valid
-                    val repsOk = SurgicalValidator.parseReps(set.reps) is SurgicalValidator.ValidationResult.Valid
-                    if (!weightOk || !repsOk) return@map set  // silently reject incomplete sets
-                    set.copy(isCompleted = true)
+                    wasCompleted = set.isCompleted
+                    set.copy(isCompleted = !set.isCompleted)
                 })
             })
         }
-        // Persist completion to DB and start timer only if actually completed
-        val completedSet = _workoutState.value.exercises
-            .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (completedSet?.isCompleted == true) {
-            if (completedSet.id > 0L) {
-                viewModelScope.launch { workoutSetDao.updateSetCompleted(completedSet.id, true) }
+        if (!isEditMode) {
+            val updatedSet = _workoutState.value.exercises
+                .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
+            if (updatedSet != null && updatedSet.id > 0L) {
+                viewModelScope.launch { workoutSetDao.updateSetCompleted(updatedSet.id, updatedSet.isCompleted) }
             }
-            startRestTimer(exerciseId)
+            if (wasCompleted) {
+                stopRestTimer()
+            } else {
+                startRestTimer(exerciseId, setOrder)
+            }
+        }
+    }
+
+    fun stopRestTimer() {
+        timerJob?.cancel()
+        if (serviceBound && timerService != null) {
+            timerService!!.stopTimer()
+        }
+        _workoutState.update { it.copy(restTimer = RestTimerState()) }
+    }
+
+    fun updateRpe(exerciseId: Long, setOrder: Int, rpe: Int?) {
+        _workoutState.update { state ->
+            state.copy(exercises = state.exercises.map { ex ->
+                if (ex.exercise.id != exerciseId) return@map ex
+                ex.copy(sets = ex.sets.map { set ->
+                    if (set.setOrder != setOrder) return@map set
+                    set.copy(rpeValue = rpe)
+                })
+            })
+        }
+        val set = _workoutState.value.exercises
+            .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
+        if (set != null && set.id > 0L) {
+            viewModelScope.launch { workoutSetDao.updateRpe(set.id, rpe) }
         }
     }
 
@@ -546,6 +715,17 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun deleteSet(exerciseId: Long, setOrder: Int) {
+        // Cancel rest timer if it belongs to this set
+        val timer = _workoutState.value.restTimer
+        if (timer.isActive && timer.exerciseId == exerciseId && timer.setOrder == setOrder) {
+            stopRestTimer()
+        }
+        val setToDelete = _workoutState.value.exercises
+            .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
+        if (setToDelete != null && setToDelete.id > 0L) {
+            viewModelScope.launch { workoutSetDao.deleteSetById(setToDelete.id) }
+        }
+        val key = "${exerciseId}_${setOrder}"
         _workoutState.update { state ->
             val updatedExercises = state.exercises.map { exerciseWithSets ->
                 if (exerciseWithSets.exercise.id == exerciseId) {
@@ -557,7 +737,39 @@ class WorkoutViewModel @Inject constructor(
                     exerciseWithSets
                 }
             }
-            state.copy(exercises = updatedExercises)
+            state.copy(
+                exercises = updatedExercises,
+                restTimeOverrides = state.restTimeOverrides - key,
+                hiddenRestSeparators = state.hiddenRestSeparators - key
+            )
+        }
+    }
+
+    /** Hide a rest separator for this session (in-memory only). Cancels timer if it belongs to it. */
+    fun deleteRestSeparator(exerciseId: Long, setOrder: Int) {
+        val timer = _workoutState.value.restTimer
+        if (timer.isActive && timer.exerciseId == exerciseId && timer.setOrder == setOrder) {
+            stopRestTimer()
+        }
+        val key = "${exerciseId}_${setOrder}"
+        _workoutState.update { it.copy(hiddenRestSeparators = it.hiddenRestSeparators + key) }
+    }
+
+    /** Set the type for a set directly and persist to DB. */
+    fun selectSetType(exerciseId: Long, setOrder: Int, setType: SetType) {
+        _workoutState.update { state ->
+            state.copy(exercises = state.exercises.map { ex ->
+                if (ex.exercise.id != exerciseId) return@map ex
+                ex.copy(sets = ex.sets.map { set ->
+                    if (set.setOrder != setOrder) return@map set
+                    set.copy(setType = setType)
+                })
+            })
+        }
+        val updated = _workoutState.value.exercises
+            .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
+        if (updated != null && updated.id > 0L) {
+            viewModelScope.launch { workoutSetDao.updateSetType(updated.id, setType) }
         }
     }
 
@@ -635,18 +847,46 @@ class WorkoutViewModel @Inject constructor(
 
                 val completedSetCount = state.exercises.sumOf { ex -> ex.sets.count { it.isCompleted } }
                 val exerciseNames = state.exercises.map { it.exercise.name }
-                _workoutState.update {
-                    it.copy(
-                        isActive = false,
-                        pendingWorkoutSummary = WorkoutSummary(
-                            workoutName = state.workoutName,
-                            durationSeconds = durationSeconds,
-                            totalVolume = totalVolume,
-                            setCount = completedSetCount,
-                            exerciseNames = exerciseNames
-                        )
-                    )
+                val summary = WorkoutSummary(
+                    workoutName = state.workoutName,
+                    durationSeconds = durationSeconds,
+                    totalVolume = totalVolume,
+                    setCount = completedSetCount,
+                    exerciseNames = exerciseNames
+                )
+
+                // Routine sync: detect changes vs snapshot captured at workout start
+                val snapshot = state.routineSnapshot
+                if (snapshot.isNotEmpty() && state.routineId > 0L) {
+                    val structuralChange = state.exercises.any { ex ->
+                        val snap = snapshot.find { it.exerciseId == ex.exercise.id }
+                        snap != null && ex.sets.count { it.isCompleted } != snap.sets
+                    } || state.exercises.size != snapshot.size
+
+                    val valueChange = state.exercises.any { ex ->
+                        val snap = snapshot.find { it.exerciseId == ex.exercise.id } ?: return@any false
+                        val firstCompleted = ex.sets.firstOrNull { it.isCompleted }
+                        val repsChanged = firstCompleted?.reps?.toIntOrNull() != snap.reps
+                        val weightChanged = firstCompleted?.weight?.isNotBlank() == true &&
+                            firstCompleted.weight != snap.defaultWeight
+                        repsChanged || weightChanged
+                    }
+
+                    val syncType = when {
+                        structuralChange && valueChange -> RoutineSyncType.BOTH
+                        structuralChange               -> RoutineSyncType.STRUCTURE
+                        valueChange                    -> RoutineSyncType.VALUES
+                        else                           -> null
+                    }
+                    if (syncType != null) {
+                        _workoutState.update {
+                            it.copy(isActive = false, pendingRoutineSync = syncType, pendingWorkoutSummary = summary)
+                        }
+                        return@launch
+                    }
                 }
+
+                _workoutState.update { it.copy(isActive = false, pendingWorkoutSummary = summary) }
             } catch (e: Exception) {
                 android.util.Log.e("WorkoutViewModel", "finishWorkout failed", e)
                 _workoutState.update {
@@ -659,6 +899,82 @@ class WorkoutViewModel @Inject constructor(
     fun dismissWorkoutSummary() {
         _workoutState.update {
             ActiveWorkoutState(availableExercises = it.availableExercises)
+        }
+    }
+
+    fun confirmUpdateRoutineStructure() {
+        viewModelScope.launch {
+            val state = _workoutState.value
+            state.exercises.forEach { ex ->
+                val completedCount = ex.sets.count { it.isCompleted }
+                if (completedCount > 0) {
+                    routineExerciseDao.updateSets(state.routineId, ex.exercise.id, completedCount)
+                }
+            }
+            resolveRoutineSync()
+        }
+    }
+
+    fun confirmUpdateRoutineValues() {
+        viewModelScope.launch {
+            val state = _workoutState.value
+            state.exercises.forEach { ex ->
+                val firstCompleted = ex.sets.firstOrNull { it.isCompleted } ?: return@forEach
+                val reps = firstCompleted.reps.toIntOrNull() ?: return@forEach
+                routineExerciseDao.updateRepsAndWeight(
+                    state.routineId, ex.exercise.id, reps, firstCompleted.weight
+                )
+            }
+            resolveRoutineSync()
+        }
+    }
+
+    fun confirmUpdateBoth() {
+        viewModelScope.launch {
+            val state = _workoutState.value
+            state.exercises.forEach { ex ->
+                val completedCount = ex.sets.count { it.isCompleted }
+                if (completedCount > 0) {
+                    routineExerciseDao.updateSets(state.routineId, ex.exercise.id, completedCount)
+                }
+                val firstCompleted = ex.sets.firstOrNull { it.isCompleted } ?: return@forEach
+                val reps = firstCompleted.reps.toIntOrNull() ?: return@forEach
+                routineExerciseDao.updateRepsAndWeight(
+                    state.routineId, ex.exercise.id, reps, firstCompleted.weight
+                )
+            }
+            resolveRoutineSync()
+        }
+    }
+
+    fun dismissRoutineSync() = resolveRoutineSync()
+
+    private fun resolveRoutineSync() {
+        _workoutState.update { it.copy(pendingRoutineSync = null) }
+    }
+
+    fun saveWorkoutAsRoutine(routineName: String) {
+        val workoutId = _workoutState.value.workoutId ?: return
+        viewModelScope.launch {
+            val sets = workoutSetDao.getSetsForWorkout(workoutId).first()
+                .filter { it.isCompleted }
+            if (sets.isEmpty()) return@launch
+            val newRoutineId = routineDao.insertRoutine(Routine(name = routineName, isCustom = true))
+            val grouped = sets.groupBy { it.exerciseId }.entries.toList()
+            val routineExercises = grouped.mapIndexed { index, (exerciseId, exSets) ->
+                val modalReps = exSets.groupingBy { it.reps }.eachCount().maxByOrNull { it.value }?.key ?: 10
+                RoutineExercise(
+                    routineId = newRoutineId,
+                    exerciseId = exerciseId,
+                    sets = exSets.size,
+                    reps = modalReps,
+                    restTime = 90,
+                    order = index,
+                    supersetGroupId = exSets.first().supersetGroupId
+                )
+            }
+            routineExerciseDao.insertAll(routineExercises)
+            _workoutState.update { it.copy(snackbarMessage = "Saved as \"$routineName\"") }
         }
     }
 
@@ -780,7 +1096,7 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun startRestTimer(exerciseId: Long) {
+    fun startRestTimer(exerciseId: Long, setOrder: Int? = null) {
         // Guard: cancel any in-process coroutine to prevent double-beep race conditions.
         timerJob?.cancel()
 
@@ -791,6 +1107,18 @@ class WorkoutViewModel @Inject constructor(
         val restDuration = exercise.restDurationSeconds
 
         if (serviceBound && timerService != null) {
+            // Set identity fields before delegating to service.
+            _workoutState.update {
+                it.copy(
+                    restTimer = RestTimerState(
+                        isActive = true,
+                        remainingSeconds = restDuration,
+                        totalSeconds = restDuration,
+                        exerciseId = exerciseId,
+                        setOrder = setOrder
+                    )
+                )
+            }
             // Delegate to the foreground service so the timer survives backgrounding.
             // The service's StateFlow is mirrored to _workoutState by timerConnection.
             timerService!!.startTimer(
@@ -805,7 +1133,9 @@ class WorkoutViewModel @Inject constructor(
                     restTimer = RestTimerState(
                         isActive = true,
                         remainingSeconds = restDuration,
-                        totalSeconds = restDuration
+                        totalSeconds = restDuration,
+                        exerciseId = exerciseId,
+                        setOrder = setOrder
                     )
                 )
             }
@@ -965,19 +1295,112 @@ class WorkoutViewModel @Inject constructor(
     fun updateExerciseRestTimer(exerciseId: Long, seconds: Int) {
         viewModelScope.launch {
             try {
-                val exercise = _workoutState.value.exercises
-                    .find { it.exercise.id == exerciseId }?.exercise ?: return@launch
-                val updated = exercise.copy(restDurationSeconds = seconds)
-                exerciseRepository.updateExercise(updated)
+                exerciseDao.updateRestDuration(exerciseId, seconds)
                 _workoutState.update { state ->
                     state.copy(
                         exercises = state.exercises.map { ex ->
-                            if (ex.exercise.id == exerciseId) ex.copy(exercise = updated) else ex
+                            if (ex.exercise.id == exerciseId)
+                                ex.copy(exercise = ex.exercise.copy(restDurationSeconds = seconds))
+                            else ex
                         }
                     )
                 }
             } catch (e: Exception) {
                 _workoutState.update { it.copy(snackbarMessage = "Failed to update rest timer") }
+            }
+        }
+    }
+
+    /** Store a per-set rest time override (falls back to exercise default when removed). */
+    fun updateLocalRestTime(exerciseId: Long, setOrder: Int, newSeconds: Int) {
+        _workoutState.update {
+            it.copy(restTimeOverrides = it.restTimeOverrides + ("${exerciseId}_${setOrder}" to newSeconds))
+        }
+    }
+
+    /** Remove a per-set rest time override, reverting to the exercise default. */
+    fun deleteLocalRestTime(exerciseId: Long, setOrder: Int) {
+        _workoutState.update {
+            it.copy(restTimeOverrides = it.restTimeOverrides - "${exerciseId}_${setOrder}")
+        }
+    }
+
+    /** Pause the active rest timer and store remaining seconds in state. */
+    fun pauseRestTimer() {
+        val timer = _workoutState.value.restTimer
+        if (!timer.isActive || timer.isPaused) return
+        val remaining = if (serviceBound && timerService != null) {
+            timerService!!.pauseTimer()
+        } else {
+            timerJob?.cancel()
+            timer.remainingSeconds
+        }
+        _workoutState.update { it.copy(restTimer = it.restTimer.copy(isPaused = true, remainingSeconds = remaining)) }
+    }
+
+    /** Resume a paused rest timer from where it left off. */
+    fun resumeRestTimer() {
+        val timer = _workoutState.value.restTimer
+        if (!timer.isPaused) return
+        val exerciseId = timer.exerciseId ?: return
+        _workoutState.update { it.copy(restTimer = it.restTimer.copy(isPaused = false)) }
+        startRestTimerWithDuration(exerciseId, timer.setOrder, timer.remainingSeconds)
+    }
+
+    /**
+     * Start (or restart) the rest timer for [exerciseId] with an explicit [durationSeconds],
+     * bypassing the exercise's default rest duration.
+     */
+    private fun startRestTimerWithDuration(exerciseId: Long, setOrder: Int?, durationSeconds: Int) {
+        timerJob?.cancel()
+        if (serviceBound && timerService != null) {
+            _workoutState.update {
+                it.copy(
+                    restTimer = RestTimerState(
+                        isActive = true,
+                        remainingSeconds = durationSeconds,
+                        totalSeconds = durationSeconds,
+                        exerciseId = exerciseId,
+                        setOrder = setOrder
+                    )
+                )
+            }
+            timerService!!.startTimer(
+                totalSeconds = durationSeconds,
+                onTick = ::onTimerTick,
+                onFinish = ::onTimerFinish
+            )
+        } else {
+            _workoutState.update {
+                it.copy(
+                    restTimer = RestTimerState(
+                        isActive = true,
+                        remainingSeconds = durationSeconds,
+                        totalSeconds = durationSeconds,
+                        exerciseId = exerciseId,
+                        setOrder = setOrder
+                    )
+                )
+            }
+            timerJob = viewModelScope.launch {
+                for (i in durationSeconds downTo 0) {
+                    _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
+                    if (i == 2 || i == 1) {
+                        val settings = userSettingsDao.getSettingsOnce()
+                        if (settings?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
+                    }
+                    if (i == 0) {
+                        val settings = userSettingsDao.getSettingsOnce()
+                        if (settings != null) {
+                            restTimerNotifier.notifyEnd(
+                                audioEnabled = settings.restTimerAudioEnabled,
+                                hapticsEnabled = settings.restTimerHapticsEnabled
+                            )
+                        }
+                    }
+                    if (i > 0) delay(1000)
+                }
+                _workoutState.update { it.copy(restTimer = RestTimerState()) }
             }
         }
     }

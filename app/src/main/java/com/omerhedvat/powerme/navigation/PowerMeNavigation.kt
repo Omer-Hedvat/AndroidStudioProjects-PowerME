@@ -36,11 +36,13 @@ import com.omerhedvat.powerme.ui.gyms.GymInventoryScreen
 import com.omerhedvat.powerme.ui.exercises.ExercisesScreen
 import com.omerhedvat.powerme.ui.gyms.GymSetupScreen
 import com.omerhedvat.powerme.ui.history.HistoryScreen
+import com.omerhedvat.powerme.ui.history.WorkoutDetailScreen
 import com.omerhedvat.powerme.ui.metrics.MetricsScreen
 import com.omerhedvat.powerme.ui.settings.SettingsScreen
 import com.omerhedvat.powerme.ui.theme.StremioBackground
 import com.omerhedvat.powerme.ui.tools.ToolsScreen
 import com.omerhedvat.powerme.ui.workout.ActiveWorkoutScreen
+import com.omerhedvat.powerme.ui.workouts.TemplateBuilderScreen
 import com.omerhedvat.powerme.ui.workouts.WorkoutsScreen
 import com.omerhedvat.powerme.data.AppSettingsDataStore
 import com.omerhedvat.powerme.ui.workout.WorkoutViewModel
@@ -72,6 +74,9 @@ private object Routes {
     const val WAR_ROOM = "warroom"
     const val GYM_SETUP = "gym_setup"
     const val GYM_INVENTORY = "gym_inventory/{profileId}"
+    const val WORKOUT_DETAIL = "workout_detail/{workoutId}"
+    const val TEMPLATE_BUILDER = "template_builder/{routineId}"
+    const val EXERCISE_PICKER = "exercise_picker"
 }
 
 /** Handles startup auth/session check to determine the initial navigation route. */
@@ -184,7 +189,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         composable(Routes.WORKOUT) {
             ActiveWorkoutScreen(
                 onWorkoutFinished = {
-                    navController.navigate(Screen.History.route) {
+                    navController.navigate(Screen.Workouts.route) {
                         popUpTo(Routes.WORKOUT) { inclusive = true }
                     }
                 },
@@ -236,6 +241,27 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             }
         }
 
+        // Template builder (full-screen, no scaffold)
+        composable(
+            route = Routes.TEMPLATE_BUILDER,
+            arguments = listOf(navArgument("routineId") { type = NavType.LongType })
+        ) {
+            TemplateBuilderScreen(navController = navController)
+        }
+
+        // Exercise picker (full-screen, no scaffold, no bottom nav)
+        composable(Routes.EXERCISE_PICKER) {
+            ExercisesScreen(
+                pickerMode = true,
+                onExercisesSelected = { ids ->
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("selected_exercises", ArrayList(ids))
+                    navController.popBackStack()
+                }
+            )
+        }
+
         // Main app tabs — each wrapped in MainAppScaffold
         composable(Screen.Workouts.route) {
             MainAppScaffold(
@@ -253,7 +279,12 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                         navController.navigate(Routes.WORKOUT)
                     },
                     isWorkoutActive = workoutState.isActive,
-                    onResumeWorkout = { navController.navigate(Routes.WORKOUT) }
+                    onResumeWorkout = { navController.navigate(Routes.WORKOUT) },
+                    onCreateRoutine = { navController.navigate("template_builder/-1") },
+                    onEditRoutine = { routineId ->
+                        workoutViewModel.startEditMode(routineId)
+                        navController.navigate(Routes.WORKOUT)
+                    }
                 )
             }
         }
@@ -296,8 +327,19 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 currentScreen = Screen.History,
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
-                HistoryScreen()
+                HistoryScreen(
+                    onWorkoutClick = { workoutId ->
+                        navController.navigate("workout_detail/$workoutId")
+                    }
+                )
             }
+        }
+
+        composable(
+            route = Routes.WORKOUT_DETAIL,
+            arguments = listOf(navArgument("workoutId") { type = NavType.LongType })
+        ) {
+            WorkoutDetailScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 }
@@ -310,7 +352,7 @@ fun MainAppScaffold(
     onSettingsClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    val tabs = listOf(Screen.Exercises, Screen.History, Screen.Workouts, Screen.Tools, Screen.Trends)
+    val tabs = listOf(Screen.Workouts, Screen.History, Screen.Exercises, Screen.Tools, Screen.Trends)
 
     Scaffold(
         topBar = {

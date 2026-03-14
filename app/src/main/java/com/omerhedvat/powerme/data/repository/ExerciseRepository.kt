@@ -2,6 +2,7 @@ package com.omerhedvat.powerme.data.repository
 
 import com.omerhedvat.powerme.data.database.Exercise
 import com.omerhedvat.powerme.data.database.ExerciseDao
+import com.omerhedvat.powerme.data.database.toSearchName
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,6 +36,18 @@ class ExerciseRepository @Inject constructor(
     }
 
     suspend fun searchExercises(query: String): List<Exercise> {
-        return exerciseDao.searchExercises(query)
+        return exerciseDao.searchExercises(query.trim().toSearchName())
+    }
+
+    suspend fun getExercisesByIds(ids: List<Long>): List<Exercise> {
+        return exerciseDao.getByIds(ids)
+    }
+
+    suspend fun getDistinctMuscleGroups(): List<String> {
+        return exerciseDao.getDistinctMuscleGroups()
+    }
+
+    suspend fun getDistinctEquipmentTypes(): List<String> {
+        return exerciseDao.getDistinctEquipmentTypes()
     }
 }

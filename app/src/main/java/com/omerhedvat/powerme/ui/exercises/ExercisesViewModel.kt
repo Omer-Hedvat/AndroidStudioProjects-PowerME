@@ -3,6 +3,7 @@ package com.omerhedvat.powerme.ui.exercises
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.omerhedvat.powerme.data.database.Exercise
+import com.omerhedvat.powerme.data.database.toSearchName
 import com.omerhedvat.powerme.data.repository.ExerciseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,10 +30,17 @@ class ExercisesViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ExercisesUiState())
     val uiState: StateFlow<ExercisesUiState> = _uiState.asStateFlow()
 
+    private val _muscleGroupFilters = MutableStateFlow<List<String>>(listOf("All"))
+    val muscleGroupFilters: StateFlow<List<String>> = _muscleGroupFilters.asStateFlow()
+
+    private val _equipmentFilters = MutableStateFlow<List<String>>(listOf("All"))
+    val equipmentFilters: StateFlow<List<String>> = _equipmentFilters.asStateFlow()
+
     private var allExercises: List<Exercise> = emptyList()
 
     init {
         loadExercises()
+        loadFilterOptions()
     }
 
     private fun loadExercises() {
@@ -43,6 +51,16 @@ class ExercisesViewModel @Inject constructor(
                 applyFilters()
                 _uiState.update { it.copy(isLoading = false) }
             }
+        }
+    }
+
+    private fun loadFilterOptions() {
+        viewModelScope.launch {
+            val muscles = exerciseRepository.getDistinctMuscleGroups()
+            _muscleGroupFilters.value = listOf("All") + muscles
+
+            val equipment = exerciseRepository.getDistinctEquipmentTypes()
+            _equipmentFilters.value = listOf("All") + equipment
         }
     }
 
@@ -68,12 +86,12 @@ class ExercisesViewModel @Inject constructor(
     }
 
     private fun applyFilters() {
-        val query = _uiState.value.searchQuery.trim().lowercase()
+        val query = _uiState.value.searchQuery.trim().toSearchName()
         val muscles = _uiState.value.selectedMuscles
         val equipment = _uiState.value.selectedEquipment
 
         val filtered = allExercises.filter { exercise ->
-            val matchesQuery = query.isEmpty() || exercise.name.lowercase().contains(query)
+            val matchesQuery = query.isEmpty() || exercise.searchName.contains(query)
             val matchesMuscle = muscles.isEmpty() ||
                 muscles.any { it.equals(exercise.muscleGroup, ignoreCase = true) }
             val matchesEquipment = equipment.isEmpty() ||

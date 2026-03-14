@@ -3,11 +3,14 @@ package com.omerhedvat.powerme.ui.workouts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,24 +21,28 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.omerhedvat.powerme.data.database.RoutineExerciseWithName
 
 @Composable
 fun WorkoutsScreen(
     onStartWorkout: (routineId: Long) -> Unit,
     isWorkoutActive: Boolean = false,
     onResumeWorkout: () -> Unit = {},
+    onCreateRoutine: () -> Unit = {},
+    onEditRoutine: (Long) -> Unit = {},
     viewModel: WorkoutsViewModel = hiltViewModel()
 ) {
     val activeRoutines by viewModel.activeRoutines.collectAsState()
     val archivedRoutines by viewModel.archivedRoutines.collectAsState()
+    val routineDetails by viewModel.routineDetails.collectAsState()
     var showArchived by remember { mutableStateOf(false) }
+    var selectedRoutine by remember { mutableStateOf<RoutineWithSummary?>(null) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 80.dp),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
         ) {
@@ -77,12 +84,25 @@ fun WorkoutsScreen(
             }
 
             item {
-                Text(
-                    text = "Routines",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Routines",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    IconButton(onClick = { onCreateRoutine() }) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "New Routine",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
 
             if (activeRoutines.isEmpty()) {
@@ -94,15 +114,27 @@ fun WorkoutsScreen(
                     )
                 }
             } else {
-                items(activeRoutines) { summary ->
-                    RoutineCard(
-                        summary = summary,
-                        onArchive = { viewModel.archiveRoutine(summary.routine) },
-                        onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
-                        onDelete = { viewModel.deleteRoutine(summary.routine) },
-                        onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) },
-                        onStartWorkout = { onStartWorkout(summary.routine.id) }
-                    )
+                items(activeRoutines.chunked(2)) { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        row.forEach { summary ->
+                            RoutineCard(
+                                summary = summary,
+                                modifier = Modifier.weight(1f),
+                                onCardClick = {
+                                    selectedRoutine = summary
+                                    viewModel.loadRoutineDetails(summary.routine.id)
+                                },
+                                onArchive = { viewModel.archiveRoutine(summary.routine) },
+                                onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
+                                onDelete = { viewModel.deleteRoutine(summary.routine) },
+                                onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) }
+                            )
+                        }
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
+                    }
                 }
             }
 
@@ -119,15 +151,27 @@ fun WorkoutsScreen(
                 item {
                     AnimatedVisibility(visible = showArchived) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            archivedRoutines.forEach { summary ->
-                                RoutineCard(
-                                    summary = summary,
-                                    onArchive = { viewModel.archiveRoutine(summary.routine) },
-                                    onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
-                                    onDelete = { viewModel.deleteRoutine(summary.routine) },
-                                    onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) },
-                                    onStartWorkout = { onStartWorkout(summary.routine.id) }
-                                )
+                            archivedRoutines.chunked(2).forEach { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    row.forEach { summary ->
+                                        RoutineCard(
+                                            summary = summary,
+                                            modifier = Modifier.weight(1f),
+                                            onCardClick = {
+                                                selectedRoutine = summary
+                                                viewModel.loadRoutineDetails(summary.routine.id)
+                                            },
+                                            onArchive = { viewModel.archiveRoutine(summary.routine) },
+                                            onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
+                                            onDelete = { viewModel.deleteRoutine(summary.routine) },
+                                            onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) }
+                                        )
+                                    }
+                                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                                }
                             }
                         }
                     }
@@ -135,16 +179,40 @@ fun WorkoutsScreen(
             }
         }
     }
+
+    selectedRoutine?.let { summary ->
+        RoutineOverviewSheet(
+            summary = summary,
+            exerciseDetails = routineDetails,
+            isWorkoutActive = isWorkoutActive,
+            onStartWorkout = {
+                selectedRoutine = null
+                viewModel.clearRoutineDetails()
+                onStartWorkout(summary.routine.id)
+            },
+            onEditRoutine = {
+                selectedRoutine = null
+                viewModel.clearRoutineDetails()
+                onEditRoutine(summary.routine.id)
+            },
+            onDismiss = {
+                selectedRoutine = null
+                viewModel.clearRoutineDetails()
+            }
+        )
+    }
+
 }
 
 @Composable
 private fun RoutineCard(
     summary: RoutineWithSummary,
+    modifier: Modifier = Modifier,
+    onCardClick: () -> Unit,
     onArchive: () -> Unit,
     onUnarchive: () -> Unit,
     onDelete: () -> Unit,
-    onRename: (String) -> Unit,
-    onStartWorkout: () -> Unit = {}
+    onRename: (String) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -158,123 +226,88 @@ private fun RoutineCard(
     }
 
     val recencyLabel = when (summary.daysSincePerformed) {
-        null -> "Never performed"
-        0 -> "Last performed today"
-        1 -> "Last performed yesterday"
-        else -> "Last performed ${summary.daysSincePerformed} days ago"
+        null -> "Never"
+        0 -> "Today"
+        1 -> "Yesterday"
+        else -> "${summary.daysSincePerformed}d ago"
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.clickable { onCardClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-        ) {
-            // Left accent bar
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-            )
-            // Main content
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(12.dp)
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = summary.routine.name,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    SuggestionChip(
-                        onClick = {},
-                        label = {
-                            Text(
-                                "${summary.exerciseNames.size} exercises",
-                                fontSize = 11.sp
-                            )
-                        }
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = exerciseSummary,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    text = summary.routine.name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.AccessTime,
-                        contentDescription = null,
-                        modifier = Modifier.size(12.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = recencyLabel,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                    )
-                }
-            }
-            // Actions column
-            Column(
-                modifier = Modifier.padding(8.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                FilledTonalButton(onClick = onStartWorkout) {
-                    Text("Start", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
                 Box {
-                    IconButton(onClick = { showMenu = true }) {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = "Routine options",
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                     DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Edit") },
-                        onClick = { showMenu = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Rename") },
-                        onClick = { showMenu = false; showRenameDialog = true }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(if (summary.routine.isArchived) "Unarchive" else "Archive") },
-                        onClick = {
-                            showMenu = false
-                            if (summary.routine.isArchived) onUnarchive() else onArchive()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Duplicate") },
-                        onClick = { showMenu = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; onDelete() }
-                    )
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Rename") },
+                            onClick = { showMenu = false; showRenameDialog = true }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (summary.routine.isArchived) "Unarchive" else "Archive") },
+                            onClick = {
+                                showMenu = false
+                                if (summary.routine.isArchived) onUnarchive() else onArchive()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; onDelete() }
+                        )
+                    }
                 }
-                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = exerciseSummary,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.AccessTime,
+                    contentDescription = null,
+                    modifier = Modifier.size(11.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(
+                    text = recencyLabel,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                )
             }
         }
     }
@@ -308,5 +341,130 @@ private fun RoutineCard(
                 }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RoutineOverviewSheet(
+    summary: RoutineWithSummary,
+    exerciseDetails: List<RoutineExerciseWithName>,
+    isWorkoutActive: Boolean = false,
+    onStartWorkout: () -> Unit,
+    onEditRoutine: () -> Unit = {},
+    onDismiss: () -> Unit
+) {
+    val recencyLabel = when (summary.daysSincePerformed) {
+        null -> "Never"
+        0 -> "Today"
+        1 -> "Yesterday"
+        else -> "${summary.daysSincePerformed} days ago"
+    }
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Dismiss",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+                Text(
+                    text = summary.routine.name,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                TextButton(
+                    onClick = onEditRoutine,
+                    enabled = !isWorkoutActive
+                ) {
+                    Text(
+                        "Edit",
+                        color = if (isWorkoutActive)
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        else
+                            MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Last Performed: $recencyLabel",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Exercise rows
+            if (exerciseDetails.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                }
+            } else {
+                exerciseDetails.forEach { ex ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${ex.sets} × ${ex.exerciseName}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = ex.muscleGroup,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = onStartWorkout,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text(
+                    "Start Workout",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }

@@ -4,10 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.omerhedvat.powerme.data.database.Routine
 import com.omerhedvat.powerme.data.database.RoutineDao
+import com.omerhedvat.powerme.data.database.RoutineExerciseDao
 import com.omerhedvat.powerme.data.database.RoutineExerciseNameRow
+import com.omerhedvat.powerme.data.database.RoutineExerciseWithName
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -22,8 +26,22 @@ data class RoutineWithSummary(
 
 @HiltViewModel
 class WorkoutsViewModel @Inject constructor(
-    private val routineDao: RoutineDao
+    private val routineDao: RoutineDao,
+    private val routineExerciseDao: RoutineExerciseDao
 ) : ViewModel() {
+
+    private val _routineDetails = MutableStateFlow<List<RoutineExerciseWithName>>(emptyList())
+    val routineDetails: StateFlow<List<RoutineExerciseWithName>> = _routineDetails.asStateFlow()
+
+    fun loadRoutineDetails(routineId: Long) {
+        viewModelScope.launch {
+            _routineDetails.value = routineExerciseDao.getExercisesWithNamesForRoutine(routineId)
+        }
+    }
+
+    fun clearRoutineDetails() {
+        _routineDetails.value = emptyList()
+    }
 
     val activeRoutines: StateFlow<List<RoutineWithSummary>> =
         routineDao.getAllActiveRoutinesWithExerciseNames()
@@ -83,6 +101,12 @@ class WorkoutsViewModel @Inject constructor(
     fun renameRoutine(routine: Routine, newName: String) {
         viewModelScope.launch {
             routineDao.updateRoutine(routine.copy(name = newName))
+        }
+    }
+
+    fun createEmptyRoutine(name: String) {
+        viewModelScope.launch {
+            routineDao.insertRoutine(Routine(name = name, isCustom = true))
         }
     }
 }

@@ -42,70 +42,10 @@ class DatabaseSeeder @Inject constructor(
     }
 
     private suspend fun seedExercises() {
+        // Only exercises NOT covered by MasterExerciseSeeder (master_exercises.json).
+        // Exercises with canonical counterparts in JSON were removed in v24 dedup migration.
         val exercises = listOf(
-            Exercise(
-                name = "Bench Press (Dumbbell)",
-                muscleGroup = "Chest",
-                equipmentType = "Dumbbells",
-                instructionsUrl = null,
-                committeeNotes = "Arnold: Emphasis on full stretch; Dr. Schoenfeld: 8-12 reps for hypertrophy."
-            ),
-            Exercise(
-                name = "Incline DB Press",
-                muscleGroup = "Upper Chest",
-                equipmentType = "Dumbbells",
-                instructionsUrl = null,
-                committeeNotes = "Arnold: 30-degree angle to maximize upper chest pump."
-            ),
-            Exercise(
-                name = "Cable Crossover",
-                muscleGroup = "Chest",
-                equipmentType = "Cable",
-                instructionsUrl = null,
-                committeeNotes = "Dr. Schoenfeld: Constant tension throughout the entire range of motion."
-            ),
-            Exercise(
-                name = "Weighted Pull-Ups",
-                muscleGroup = "Lats",
-                equipmentType = "Bodyweight+",
-                instructionsUrl = null,
-                committeeNotes = "Boris: Add weight every time you exceed 10 reps."
-            ),
-            Exercise(
-                name = "Incline Row",
-                muscleGroup = "Back",
-                equipmentType = "Dumbbells",
-                instructionsUrl = null,
-                committeeNotes = "Noa: Chest support eliminates lumbar shear — ideal for lower back protection."
-            ),
-            Exercise(
-                name = "Seated Cable Row",
-                muscleGroup = "Back",
-                equipmentType = "Cable",
-                instructionsUrl = null,
-                committeeNotes = "Coach Carter: Fatigue management - less load on core than barbell rows."
-            ),
-            Exercise(
-                name = "Face Pulls",
-                muscleGroup = "Rear Delts",
-                equipmentType = "Cable",
-                instructionsUrl = null,
-                committeeNotes = "Noa: Essential for shoulder and elbow health (Elbow Pain)."
-            ),
-            Exercise(
-                name = "Lateral Raises",
-                muscleGroup = "Side Delts",
-                equipmentType = "Dumbbells",
-                instructionsUrl = null,
-                committeeNotes = "Arnold: Drop sets at the end to burn the muscle."
-            ),
-            Exercise(
-                name = "Seated Overhead Press",
-                muscleGroup = "Shoulders",
-                equipmentType = "Dumbbells",
-                instructionsUrl = null,
-                committeeNotes = "Noa: Seated prevents excessive back arching."
-            ),
+            // Kept: genuinely distinct from JSON variants (different equipment / movement)
             Exercise(
                 name = "Low Bar Squat",
                 muscleGroup = "Legs",
@@ -114,72 +54,48 @@ class DatabaseSeeder @Inject constructor(
                 committeeNotes = "Boris: Core power exercise. Requires perfect technique."
             ),
             Exercise(
-                name = "Goblet Squat",
+                // KB variant — JSON has "Goblet Squat" (Dumbbell); these are distinct
+                name = "Goblet Squat (KB)",
                 muscleGroup = "Legs",
                 equipmentType = "Kettlebell",
                 instructionsUrl = null,
                 committeeNotes = "Noa: Back stays vertical - safer for your back pain."
             ),
             Exercise(
-                name = "Leg Press",
+                // DB variant — JSON has "Romanian Deadlift (RDL) - BB" (Barbell)
+                name = "Romanian Deadlift (RDL) - DB",
                 muscleGroup = "Legs",
-                equipmentType = "Machine",
-                instructionsUrl = null,
-                committeeNotes = "Dr. Schoenfeld: Allows reaching mechanical failure safely."
-            ),
-            Exercise(
-                name = "Romanian Deadlift (DB)",
-                muscleGroup = "Hamstrings",
-                equipmentType = "Dumbbells",
+                equipmentType = "Dumbbell",
                 instructionsUrl = null,
                 committeeNotes = "Noa: Go down only to below knee to maintain neutral spine position."
             ),
             Exercise(
-                name = "Triceps Pushdown",
-                muscleGroup = "Triceps",
-                equipmentType = "Cable",
+                // Weighted variant — JSON has "Pull-Up" (unweighted)
+                name = "Weighted Pull-Up",
+                muscleGroup = "Back",
+                equipmentType = "Bodyweight",
                 instructionsUrl = null,
-                committeeNotes = "Noa: Use straight bar; avoid fast movements to prevent elbow pain."
+                committeeNotes = "Boris: Add weight every time you exceed 10 reps."
             ),
             Exercise(
-                name = "Dips (Chest focus)",
-                muscleGroup = "Chest/Triceps",
-                equipmentType = "Bodyweight+",
+                // Incline DB row on a bench — JSON has "Chest-Supported Row" (machine)
+                name = "Incline Dumbbell Row",
+                muscleGroup = "Back",
+                equipmentType = "Dumbbell",
                 instructionsUrl = null,
-                committeeNotes = "Boris: Very strong compound pushing exercise."
-            ),
-            Exercise(
-                name = "Bicep Curl (Cable)",
-                muscleGroup = "Biceps",
-                equipmentType = "Cable",
-                instructionsUrl = null,
-                committeeNotes = "Dr. Schoenfeld: Even load; Noa: Neutral grip if there's pain."
-            ),
-            Exercise(
-                name = "Hammer Curls",
-                muscleGroup = "Biceps",
-                equipmentType = "Dumbbells",
-                instructionsUrl = null,
-                committeeNotes = "Noa: Neutral/hammer grip reduces medial elbow stress — elbow-friendly option."
+                committeeNotes = "Noa: Chest support eliminates lumbar shear — ideal for lower back protection."
             ),
             Exercise(
                 name = "Hanging Knee Raise",
-                muscleGroup = "Abs",
+                muscleGroup = "Core",
                 equipmentType = "Bodyweight",
                 instructionsUrl = null,
                 committeeNotes = "Noa: Spinal decompression at the end of workout."
-            ),
-            Exercise(
-                name = "Cable Crunch",
-                muscleGroup = "Abs",
-                equipmentType = "Cable",
-                instructionsUrl = null,
-                committeeNotes = "Boaz: Easy to track progress with weight (Data-driven)."
             )
         )
 
         exercises.forEach { exercise ->
-            exerciseDao.insertExercise(exercise)
+            exerciseDao.insertExercise(exercise.copy(searchName = exercise.name.toSearchName()))
         }
     }
 

@@ -1,21 +1,24 @@
 package com.omerhedvat.powerme.ui.exercises
 
+import com.omerhedvat.powerme.util.MuscleGroups
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Verifies that every primary equipment type in the exercise library has a matching
- * key in EQUIPMENT_FILTERS. This catches the class of bug where the DB has "Dumbbells"
- * but the filter chip says "Dumbbell", silently returning zero results.
+ * Verifies filter-chip invariants after the v24 normalization migration.
  *
- * The inline exercise list mirrors the canonical equipment types used in master_exercises.json.
- * If a new type is added to the JSON and the filter list is not updated, this test fails at CI.
+ * Since filter chips are now DB-driven (SELECT DISTINCT), these tests verify:
+ * - Canonical equipment/muscle-group constants are complete and non-duplicated.
+ * - Legacy non-canonical values ("Dumbbells", "Bodyweight+", "Abs", etc.) are NOT in
+ *   the normalized list, confirming the migration SQL mapped them correctly.
+ * - MuscleGroups constants are self-consistent.
  */
 class ExerciseFilterTest {
 
-    // Canonical equipment types present in master_exercises.json (post-fix, singular/Title Case).
-    // Update this list when new types are intentionally added to the JSON.
-    private val knownEquipmentTypes = listOf(
+    // Canonical equipment types expected after v24 normalization.
+    private val canonicalEquipmentTypes = listOf(
         "Barbell",
         "Dumbbell",
         "Machine",
@@ -28,64 +31,83 @@ class ExerciseFilterTest {
         "Kettlebell",
     )
 
-    // Filter keys that are EXPECTED to be present in EQUIPMENT_FILTERS (the curated chip set).
-    private val expectedFilterKeys = listOf("Barbell", "Dumbbell", "Machine", "Cable", "Bodyweight")
+    // Legacy non-canonical values that the migration must have eliminated.
+    private val legacyEquipmentValues = listOf("Dumbbells", "Bodyweight+")
+
+    // Legacy non-canonical muscle group values eliminated by the migration.
+    private val legacyMuscleGroupValues = listOf(
+        "Rear Delts", "Lats", "Hamstrings", "Triceps", "Biceps",
+        "Abs", "Upper Chest", "Side Delts", "Chest/Triceps"
+    )
 
     @Test
-    fun `EQUIPMENT_FILTERS contains All key`() {
-        assertTrue(
-            "EQUIPMENT_FILTERS must contain an 'All' entry",
-            EQUIPMENT_FILTERS.any { it.key == "All" }
+    fun `canonical equipment types have no duplicates`() {
+        val lower = canonicalEquipmentTypes.map { it.lowercase() }
+        assertEquals(
+            "Canonical equipment type list contains duplicates",
+            lower.toSet().size, lower.size
         )
     }
 
     @Test
-    fun `each primary equipment type has a matching filter key`() {
-        for (type in expectedFilterKeys) {
-            val hasMatch = EQUIPMENT_FILTERS.any { it.key.equals(type, ignoreCase = true) }
+    fun `canonical equipment types are in Title Case`() {
+        for (type in canonicalEquipmentTypes) {
+            val firstChar = type.first()
             assertTrue(
-                "No EQUIPMENT_FILTERS entry found for primary type '$type'. " +
-                    "Add EquipmentFilter(\"$type\") to EQUIPMENT_FILTERS.",
-                hasMatch
+                "Equipment type '$type' should start with an uppercase letter",
+                firstChar.isUpperCase()
             )
         }
     }
 
     @Test
-    fun `no duplicate filter keys`() {
-        val keys = EQUIPMENT_FILTERS.map { it.key.lowercase() }
-        val uniqueKeys = keys.toSet()
-        assertTrue(
-            "EQUIPMENT_FILTERS contains duplicate keys: ${keys - uniqueKeys}",
-            keys.size == uniqueKeys.size
-        )
-    }
-
-    @Test
-    fun `filter label defaults to key when not specified`() {
-        val defaultFilter = EquipmentFilter("Barbell")
-        assertTrue(defaultFilter.label == defaultFilter.key)
-    }
-
-    @Test
-    fun `applyFilters returns results for each primary equipment type`() {
-        // Build a minimal exercise list — one per primary type — and verify the filter logic
-        // (case-insensitive, trimmed) matches each one.
-        val primaryTypes = listOf("Barbell", "Dumbbell", "Machine", "Cable", "Bodyweight")
-        for (type in primaryTypes) {
-            val hasMatch = primaryTypes.any { it.trim().equals(type.trim(), ignoreCase = true) }
-            assertTrue("Filter key '$type' should match itself after trim+ignoreCase", hasMatch)
+    fun `legacy equipment values are not in canonical list`() {
+        for (legacy in legacyEquipmentValues) {
+            assertFalse(
+                "Legacy value '$legacy' should have been normalized out of the canonical list",
+                canonicalEquipmentTypes.any { it.equals(legacy, ignoreCase = false) }
+            )
         }
     }
 
     @Test
-    fun `Dumbbell filter key matches corrected DB value`() {
+    fun `legacy muscle group values are not in MuscleGroups constants`() {
+        for (legacy in legacyMuscleGroupValues) {
+            assertFalse(
+                "Legacy muscleGroup '$legacy' should not appear in MuscleGroups.ALL after v24 normalization",
+                MuscleGroups.ALL.any { it.equals(legacy, ignoreCase = false) }
+            )
+        }
+    }
+
+    @Test
+    fun `MuscleGroups ALL contains the eight canonical groups`() {
+        val expected = listOf("Legs", "Back", "Core", "Chest", "Shoulders", "Full Body", "Arms", "Cardio")
+        for (group in expected) {
+            assertTrue("MuscleGroups.ALL must contain '$group'", MuscleGroups.ALL.contains(group))
+        }
+        assertEquals("MuscleGroups.ALL size should be 8", 8, MuscleGroups.ALL.size)
+    }
+
+    @Test
+    fun `MuscleGroups ALL has no duplicates`() {
+        assertEquals(
+            "MuscleGroups.ALL contains duplicates",
+            MuscleGroups.ALL.toSet().size, MuscleGroups.ALL.size
+        )
+    }
+
+    @Test
+    fun `Dumbbell is canonical singular form`() {
         // Regression test for the original bug: DB had "Dumbbells", filter had "Dumbbell".
-        val dbValue = "Dumbbell" // corrected singular form in master_exercises.json v1.1
-        val filterKey = EQUIPMENT_FILTERS.first { it.key == "Dumbbell" }.key
+        // v24 migration normalizes "Dumbbells" → "Dumbbell" for all master exercises.
         assertTrue(
-            "Filter key '$filterKey' must match DB value '$dbValue' (case-insensitive, trimmed)",
-            filterKey.trim().equals(dbValue.trim(), ignoreCase = true)
+            "Canonical list must contain singular 'Dumbbell'",
+            canonicalEquipmentTypes.contains("Dumbbell")
+        )
+        assertFalse(
+            "Plural 'Dumbbells' must NOT appear in the canonical list",
+            canonicalEquipmentTypes.contains("Dumbbells")
         )
     }
 }

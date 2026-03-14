@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,9 +19,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.analytics.ProgressionAnomaly
 import com.omerhedvat.powerme.analytics.VolumeLoadAnomaly
 import com.omerhedvat.powerme.analytics.WeeklyInsights
-import com.omerhedvat.powerme.ui.theme.ElectricBlue
-import com.omerhedvat.powerme.ui.theme.NavySurface
-import com.omerhedvat.powerme.ui.theme.NeonBlue
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -49,16 +45,16 @@ fun MetricsScreen(
                         text = "BOAZ'S INSIGHTS",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = NeonBlue
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = "Statistical Performance Analysis",
                         fontSize = 12.sp,
-                        color = NeonBlue.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                     )
                 }
                 IconButton(onClick = { viewModel.loadInsights() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = NeonBlue)
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -70,7 +66,7 @@ fun MetricsScreen(
                         modifier = Modifier.fillMaxWidth().height(120.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = NeonBlue)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -78,7 +74,7 @@ fun MetricsScreen(
                 item {
                     Text(
                         text = uiState.error ?: "Unknown error",
-                        color = NeonBlue,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(8.dp)
                     )
                 }
@@ -91,26 +87,26 @@ fun MetricsScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = NavySurface)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("Summary", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
+                            Text("Summary", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(insights.summary, fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
+                            Text(insights.summary, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f))
                         }
                     }
                 }
 
                 if (insights.volumeLoadAnomalies.isNotEmpty()) {
                     item {
-                        Text("Volume-Load Anomalies", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
+                        Text("Volume-Load Anomalies", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                     items(insights.volumeLoadAnomalies) { VolumeAnomalyCard(it) }
                 }
 
                 if (insights.progressionAnomalies.isNotEmpty()) {
                     item {
-                        Text("Progression Analysis", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
+                        Text("Progression Analysis", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                     items(insights.progressionAnomalies) { ProgressionAnomalyCard(it) }
                 }
@@ -119,15 +115,15 @@ fun MetricsScreen(
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = NavySurface)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                                Text("Sleep-Performance Correlation", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
+                                Text("Sleep-Performance Correlation", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("r = ${"%.3f".format(correlation.correlationCoefficient)}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
-                                Text(correlation.interpretation, fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f))
+                                Text("r = ${"%.3f".format(correlation.correlationCoefficient)}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text(correlation.interpretation, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(correlation.recommendation, fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f))
+                                Text(correlation.recommendation, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                             }
                         }
                     }
@@ -135,19 +131,19 @@ fun MetricsScreen(
 
                 if (insights.recommendations.isNotEmpty()) {
                     item {
-                        Text("Committee Recommendations", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
+                        Text("Committee Recommendations", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                     items(insights.recommendations) { recommendation ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = NavySurface)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(Icons.Default.Warning, contentDescription = null, tint = NeonBlue, modifier = Modifier.size(20.dp))
-                                Text(recommendation, fontSize = 12.sp, color = Color.White, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                Text(recommendation, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                             }
                         }
                     }
@@ -165,7 +161,7 @@ private fun StatusCard(insights: WeeklyInsights) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = NavySurface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -173,9 +169,9 @@ private fun StatusCard(insights: WeeklyInsights) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Week: $weekStart - $weekEnd", fontSize = 12.sp, color = NeonBlue.copy(alpha = 0.7f))
+                Text("Week: $weekStart - $weekEnd", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(insights.status, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
+                Text(insights.status, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -188,7 +184,7 @@ private fun VolumeAnomalyCard(anomaly: VolumeLoadAnomaly) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = NavySurface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -197,17 +193,17 @@ private fun VolumeAnomalyCard(anomaly: VolumeLoadAnomaly) {
             Icon(
                 imageVector = if (anomaly.type == "Positive Outlier") Icons.Default.TrendingUp else Icons.Default.TrendingDown,
                 contentDescription = null,
-                tint = NeonBlue,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
-                Text("${anomaly.type} ($date)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
+                Text("${anomaly.type} ($date)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("Volume: ${anomaly.volumeLoad.toInt()} kg", fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
-                Text("Z-score: ${"%.2f".format(anomaly.zScore)}σ", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+                Text("Volume: ${anomaly.volumeLoad.toInt()} kg", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f))
+                Text("Z-score: ${"%.2f".format(anomaly.zScore)}σ", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
                 anomaly.healthContext?.let {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(it, fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f))
+                    Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 }
             }
         }
@@ -218,25 +214,25 @@ private fun VolumeAnomalyCard(anomaly: VolumeLoadAnomaly) {
 private fun ProgressionAnomalyCard(anomaly: ProgressionAnomaly) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = NavySurface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(anomaly.exerciseName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = NeonBlue)
+            Text(anomaly.exerciseName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Previous: ${"%.1f".format(anomaly.previousE1RM)} kg", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
-                Text("Current: ${"%.1f".format(anomaly.currentE1RM)} kg", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+                Text("Previous: ${"%.1f".format(anomaly.previousE1RM)} kg", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                Text("Current: ${"%.1f".format(anomaly.currentE1RM)} kg", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 "Change: ${if (anomaly.rateOfChange >= 0) "+" else ""}${"%.1f".format(anomaly.rateOfChange * 100)}%",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = NeonBlue
+                color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Card(colors = CardDefaults.cardColors(containerColor = NeonBlue.copy(alpha = 0.2f))) {
-                Text(anomaly.flag, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NeonBlue, modifier = Modifier.padding(8.dp))
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))) {
+                Text(anomaly.flag, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(8.dp))
             }
         }
     }

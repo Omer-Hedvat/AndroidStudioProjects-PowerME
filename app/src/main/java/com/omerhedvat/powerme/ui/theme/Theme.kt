@@ -5,23 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-
-private val DarkColorScheme = darkColorScheme(
-    primary          = StremioViolet,
-    secondary        = StremioMagenta,
-    tertiary         = StremioViolet,
-    background       = StremioBackground,
-    surface          = StremioSurface,
-    surfaceVariant   = StremioSurfaceVar,
-    onPrimary        = StremioBackground,
-    onSecondary      = StremioCloudGrey,
-    onTertiary       = StremioBackground,
-    onBackground     = StremioCloudGrey,
-    onSurface        = StremioCloudGrey,
-    onSurfaceVariant = StremioCloudGrey,
-    error            = StremioError,
-    onError          = StremioBackground
-)
+import com.omerhedvat.powerme.data.ThemeMode
 
 private val LightColorScheme = lightColorScheme(
     primary          = StremioViolet,
@@ -40,13 +24,32 @@ private val LightColorScheme = lightColorScheme(
     onError          = LightBackground
 )
 
+private val DarkColorScheme = darkColorScheme(
+    primary          = StremioViolet,
+    secondary        = StremioMagenta,
+    tertiary         = StremioViolet,
+    background       = StremioBackground,
+    surface          = StremioSurface,
+    surfaceVariant   = StremioSurfaceVar,
+    onPrimary        = StremioBackground,
+    onSecondary      = StremioBackground,
+    onTertiary       = StremioBackground,
+    onBackground     = StremioCloudGrey,
+    onSurface        = StremioCloudGrey,
+    onSurfaceVariant = StremioCloudGrey,
+    error            = StremioError,
+    onError          = StremioBackground
+)
+
 @Composable
-fun PowerMETheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
+fun PowerMETheme(themeMode: ThemeMode = ThemeMode.LIGHT, content: @Composable () -> Unit) {
+    val isDark = when (themeMode) {
+        ThemeMode.LIGHT  -> false
+        ThemeMode.DARK   -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        colorScheme = if (isDark) DarkColorScheme else LightColorScheme,
         typography = Typography,
         content = content
     )

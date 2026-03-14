@@ -3,6 +3,7 @@ package com.omerhedvat.powerme.ui.exercises
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -11,12 +12,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -26,32 +31,47 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.data.database.Exercise
 import com.omerhedvat.powerme.ui.components.MagicAddDialog
 
-private val MUSCLE_GROUPS = listOf("All", "Chest", "Back", "Shoulders", "Arms", "Legs", "Core")
-
-internal data class EquipmentFilter(val key: String, val label: String = key)
-
-internal val EQUIPMENT_FILTERS = listOf(
-    EquipmentFilter("All"),
-    EquipmentFilter("Barbell"),
-    EquipmentFilter("Dumbbell"),
-    EquipmentFilter("Machine"),
-    EquipmentFilter("Cable"),
-    EquipmentFilter("Bodyweight"),
-)
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ExercisesScreen(
-    onStartWorkout: () -> Unit,
+    onStartWorkout: () -> Unit = {},
+    pickerMode: Boolean = false,
+    onExercisesSelected: (List<Long>) -> Unit = {},
     viewModel: ExercisesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val muscleGroupFilters by viewModel.muscleGroupFilters.collectAsState()
+    val equipmentFilters by viewModel.equipmentFilters.collectAsState()
     var showMagicAddDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
     var selectedExercise by remember { mutableStateOf<Exercise?>(null) }
+    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
+            // Picker mode header
+            if (pickerMode) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Select Exercises",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (selectedIds.isNotEmpty()) {
+                        TextButton(onClick = { onExercisesSelected(selectedIds.toList()) }) {
+                            Text("Add (${selectedIds.size})", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
             // Search field
             OutlinedTextField(
                 value = uiState.searchQuery,
@@ -59,6 +79,17 @@ fun ExercisesScreen(
                 placeholder = { Text("Search exercises…", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)) },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Clear search",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -81,29 +112,41 @@ fun ExercisesScreen(
             )
 
             // Muscle group filter chips
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                MUSCLE_GROUPS.forEach { muscle ->
-                    val isSelected = if (muscle == "All") uiState.selectedMuscles.isEmpty()
-                    else muscle in uiState.selectedMuscles
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    muscleGroupFilters.forEach { muscle ->
+                        val isSelected = if (muscle == "All") uiState.selectedMuscles.isEmpty()
+                        else muscle in uiState.selectedMuscles
 
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { viewModel.onMuscleFilterToggled(muscle) },
-                        label = { Text(muscle) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.surface,
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            labelColor = MaterialTheme.colorScheme.primary
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { viewModel.onMuscleFilterToggled(muscle) },
+                            label = { Text(muscle) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.surface,
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                labelColor = MaterialTheme.colorScheme.primary
+                            )
                         )
-                    )
+                    }
                 }
+                val bgColor = MaterialTheme.colorScheme.background
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .width(40.dp)
+                        .height(40.dp)
+                        .background(
+                            Brush.horizontalGradient(listOf(Color.Transparent, bgColor))
+                        )
+                )
             }
 
             // Divider between chip rows
@@ -124,29 +167,41 @@ fun ExercisesScreen(
                         color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)
                     )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        EQUIPMENT_FILTERS.forEach { filter ->
-                            val isSelected = if (filter.key == "All") uiState.selectedEquipment.isEmpty()
-                            else filter.key in uiState.selectedEquipment
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            equipmentFilters.forEach { equipment ->
+                                val isSelected = if (equipment == "All") uiState.selectedEquipment.isEmpty()
+                                else equipment in uiState.selectedEquipment
 
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { viewModel.onEquipmentFilterToggled(filter.key) },
-                                label = { Text(filter.label) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.secondary,
-                                    selectedLabelColor = MaterialTheme.colorScheme.surface,
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    labelColor = MaterialTheme.colorScheme.secondary
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { viewModel.onEquipmentFilterToggled(equipment) },
+                                    label = { Text(equipment) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                                        selectedLabelColor = MaterialTheme.colorScheme.surface,
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        labelColor = MaterialTheme.colorScheme.secondary
+                                    )
                                 )
-                            )
+                            }
                         }
+                        val svColor = MaterialTheme.colorScheme.surfaceVariant
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .width(40.dp)
+                                .height(40.dp)
+                                .background(
+                                    Brush.horizontalGradient(listOf(Color.Transparent, svColor))
+                                )
+                        )
                     }
                 }
             }
@@ -167,39 +222,51 @@ fun ExercisesScreen(
                     items(uiState.exercises, key = { it.id }) { exercise ->
                         ExerciseCard(
                             exercise = exercise,
-                            onClick = { selectedExercise = exercise },
+                            isSelected = pickerMode && exercise.id in selectedIds,
+                            onClick = {
+                                if (pickerMode) {
+                                    selectedIds = if (exercise.id in selectedIds)
+                                        selectedIds - exercise.id
+                                    else
+                                        selectedIds + exercise.id
+                                } else {
+                                    selectedExercise = exercise
+                                }
+                            },
                             onLongPress = {
-                                if (exercise.isCustom) showDeleteDialog = exercise
+                                if (!pickerMode && exercise.isCustom) showDeleteDialog = exercise
                             }
                         )
                     }
-                    item { Spacer(modifier = Modifier.height(80.dp)) }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
             }
         }
 
-        // FABs
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Start Workout FAB
-            FloatingActionButton(
-                onClick = onStartWorkout,
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = Color.White
+        // FABs (hidden in picker mode)
+        if (!pickerMode) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Start Workout")
-            }
-            // Add Exercise FAB
-            FloatingActionButton(
-                onClick = { showMagicAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.surface
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Exercise")
+                // Start Workout FAB
+                FloatingActionButton(
+                    onClick = onStartWorkout,
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "Start Workout")
+                }
+                // Add Exercise FAB
+                FloatingActionButton(
+                    onClick = { showMagicAddDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.surface
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Exercise")
+                }
             }
         }
     }
@@ -247,7 +314,8 @@ fun ExercisesScreen(
 private fun ExerciseCard(
     exercise: Exercise,
     onClick: () -> Unit,
-    onLongPress: () -> Unit
+    onLongPress: () -> Unit,
+    isSelected: Boolean = false
 ) {
     Card(
         modifier = Modifier
@@ -258,39 +326,56 @@ private fun ExerciseCard(
             ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = exercise.name,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SuggestionChip(
-                        onClick = {},
-                        label = { Text(exercise.muscleGroup, fontSize = 11.sp) },
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            labelColor = MaterialTheme.colorScheme.primary
-                        )
+        Box {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = exercise.name,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    SuggestionChip(
-                        onClick = {},
-                        label = { Text(exercise.equipmentType, fontSize = 11.sp) },
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
-                            labelColor = MaterialTheme.colorScheme.secondary
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text(exercise.muscleGroup, fontSize = 11.sp) },
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                labelColor = MaterialTheme.colorScheme.primary
+                            )
                         )
-                    )
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text(exercise.equipmentType, fontSize = 11.sp) },
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
+                                labelColor = MaterialTheme.colorScheme.secondary
+                            )
+                        )
+                    }
                 }
+            }
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                )
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                )
             }
         }
     }
@@ -303,6 +388,7 @@ fun ExerciseDetailSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    var showFormCues by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface
@@ -311,7 +397,8 @@ fun ExerciseDetailSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp),
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
@@ -320,14 +407,28 @@ fun ExerciseDetailSheet(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 SuggestionChip(onClick = {}, label = { Text(exercise.muscleGroup) })
                 SuggestionChip(onClick = {}, label = {
                     Text(exercise.equipmentType)
                 })
+                if (exercise.setupNotes?.isNotBlank() == true) {
+                    IconButton(onClick = { showFormCues = !showFormCues }) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = "Toggle Form Cues",
+                            tint = if (showFormCues) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                }
             }
-            // Form Cues (setupNotes) — only shown here, never in the list
-            exercise.setupNotes?.takeIf { it.isNotBlank() }?.let { cues ->
+            // Form Cues (setupNotes) — shown only when toggled via Info icon
+            val cues = exercise.setupNotes
+            if (showFormCues && !cues.isNullOrBlank()) {
                 Surface(
                     color = Color(0xFF5A4D1A),  // Cues Banner: muted gold per ProjectMap §1
                     shape = MaterialTheme.shapes.small,

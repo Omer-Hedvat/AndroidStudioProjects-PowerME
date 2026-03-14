@@ -1,5 +1,106 @@
 # PowerME Database Upgrade Log
 
+## v27 — exercise_muscle_groups Index Name Fix (crash fix)
+
+**Migration:** `MIGRATION_26_27`
+**Date:** 2026-03-14
+
+### Changes
+
+#### Table: `exercise_muscle_groups` (schema fix — no data change)
+- Drops `idx_emg_exerciseId` (the name used by `MIGRATION_23_24`) and recreates it as `index_exercise_muscle_groups_exerciseId` (Room's auto-generated convention: `index_{tableName}_{columnName}`).
+
+### Root Cause
+`MIGRATION_23_24` created `idx_emg_exerciseId` but `@Entity(..., indices = [Index(value = ["exerciseId"])])` on `ExerciseMuscleGroup` makes Room expect `index_exercise_muscle_groups_exerciseId`. The mismatch caused `IllegalStateException: Migration didn't properly handle: exercise_muscle_groups` on every cold launch since v24. Mirrors the v26 fix applied to the `exercises` table.
+
+### SQL
+```sql
+DROP INDEX IF EXISTS idx_emg_exerciseId;
+CREATE INDEX IF NOT EXISTS index_exercise_muscle_groups_exerciseId ON exercise_muscle_groups(exerciseId);
+```
+
+---
+
+## v26 — Schema Mismatch Fix (crash fix)
+
+**Migration:** `MIGRATION_25_26`
+**Date:** 2026-03-14
+
+### Changes
+
+#### Table: `exercises` (schema fix — no data change)
+- Added `@ColumnInfo(defaultValue = "")` annotation to `Exercise.searchName` field so Room's expected schema matches the SQL default `''` set by `MIGRATION_24_25`.
+- Dropped `idx_exercises_master_unique` partial unique index — Room cannot represent partial indexes via `@Entity(indices=[...])`, causing `IllegalStateException: Migration didn't properly handle: exercises` on every cold start after v24→v25 migration.
+
+### Root Cause
+Two schema mismatches between Room-generated expected schema and actual SQLite DB:
+1. `searchName` column added in v25 with `DEFAULT ''` but `Exercise.searchName` lacked `@ColumnInfo(defaultValue = "")` → Room expected `defaultValue='undefined'`.
+2. `MIGRATION_23_24` created a partial `UNIQUE INDEX` that Room's annotation processor cannot represent → index was untracked, causing schema validation failure.
+
+### SQL
+```sql
+DROP INDEX IF EXISTS idx_exercises_master_unique;
+```
+
+---
+
+## v25 — Pre-Normalized Search Column
+
+**Migration:** `MIGRATION_24_25`
+**Date:** 2026-03-14
+
+### Changes
+
+#### Table: `exercises` (schema + data migration)
+- New column: `searchName TEXT NOT NULL DEFAULT ''` — pre-normalized version of `name` for fast fuzzy search.
+- Back-fill SQL: `LOWER(REPLACE(REPLACE(REPLACE(REPLACE(name, '-', ''), ' ', ''), '(', ''), ')', ''))` applied to all existing rows.
+- `MasterExerciseSeeder` bumped to `v1.3` — populates `searchName` via `toSearchName()` extension on every insert/update.
+- `DatabaseSeeder` also populates `searchName` for its 6 hardcoded legacy exercises.
+
+### Query Changes
+- `ExerciseDao.searchExercises(normalizedQuery)` now targets `searchName` column instead of `name`.
+- `ExerciseRepository.searchExercises(query)` normalizes input via `toSearchName()` before passing to DAO.
+- `ExercisesViewModel.applyFilters()` normalizes search query once via `toSearchName()` and matches against `exercise.searchName` — eliminates per-exercise Regex allocation on every keystroke.
+
+### Kotlin
+- `Exercise.searchName: String = ""` field added (kotlinx.serialization ignores it when reading JSON due to `ignoreUnknownKeys = true`).
+- Top-level `fun String.toSearchName()` extension added in `Exercise.kt`.
+
+### UX
+- Search ✕ clear button added to `ExercisesScreen` search `OutlinedTextField` (shows when query is non-empty).
+- Fuzzy matching now works across hyphens/spaces/parens: "pull up" → "Pull-Up", "rdl" → "RDL-BB", "goblet squat" → "Goblet Squat (KB)".
+
+---
+
+## v24 — Exercise Normalization & Multi-Muscle Group Support
+
+**Migration:** `MIGRATION_23_24`
+**Date:** 2026-03-14
+
+### Changes
+
+#### Table: `exercises` (data migration)
+- **13 MERGE deduplication**: Legacy DatabaseSeeder exercises with different names but identical canonical counterparts (e.g. "Face Pulls" → "Face Pull") merged: FK references in `routine_exercises` + `workout_sets` re-pointed to canonical ID, legacy row deleted.
+- **KEEP-BOTH renames**: Exercises that are genuinely distinct but had ambiguous names renamed for clarity: "Romanian Deadlift (RDL)" → "Romanian Deadlift (RDL) - BB", "Romanian Deadlift (DB)" → "Romanian Deadlift (RDL) - DB", "Weighted Pull-Ups" → "Weighted Pull-Up", "Incline Row" → "Incline Dumbbell Row".
+- **Equipment normalization**: `Dumbbells` → `Dumbbell`, `Bodyweight+` → `Bodyweight` (all master exercises).
+- **MuscleGroup normalization**: Non-canonical group names standardized — `Rear Delts`→`Shoulders`, `Lats`→`Back`, `Hamstrings`→`Legs`, `Triceps`→`Arms`, `Biceps`→`Arms`, `Abs`→`Core`, `Upper Chest`→`Chest`, `Side Delts`→`Shoulders`, `Chest/Triceps`→`Chest`.
+
+#### New table: `exercise_muscle_groups`
+- `id INTEGER PK`, `exerciseId FK`, `majorGroup TEXT`, `subGroup TEXT?`, `isPrimary INTEGER DEFAULT 0`
+- FK: `exercises.id ON DELETE CASCADE`
+- Index: `idx_emg_exerciseId`
+- Populated on migration: every exercise gets one `isPrimary=1` row from its `muscleGroup`.
+- Secondary rows added for key compound exercises (Conventional Deadlift, Barbell Bench Press, Pull-Up, etc.)
+
+#### Partial UNIQUE index
+- `idx_exercises_master_unique ON exercises(name, equipmentType) WHERE isCustom = 0` — prevents future seeder collisions for master exercises.
+
+### JSON / Seeder
+- `master_exercises.json` version bumped `1.1` → `1.2`; "Romanian Deadlift (RDL)" renamed to "Romanian Deadlift (RDL) - BB".
+- `DatabaseSeeder.seedExercises()` reduced to 6 genuinely-unique legacy entries; 13 merge-duplicates removed.
+
+---
+
 ## v22 — Iron Vault Sprint (Active Workout DB Persistence)
 
 **Migration:** `MIGRATION_21_22`

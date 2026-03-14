@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.omerhedvat.powerme.data.AppSettingsDataStore
+import com.omerhedvat.powerme.data.ThemeMode
 import com.omerhedvat.powerme.data.database.GymProfile
 import com.omerhedvat.powerme.health.HealthConnectManager
 import com.omerhedvat.powerme.data.database.PowerMeDatabase
@@ -71,6 +72,8 @@ data class SettingsUiState(
     val isSavingMetrics: Boolean = false,
     // Keep screen on
     val keepScreenOn: Boolean = false,
+    // Appearance
+    val themeMode: ThemeMode = ThemeMode.LIGHT,
     // Health Connect
     val bodyMeasurementsFromHC: Boolean = false,
     val isSyncingFromHC: Boolean = false,
@@ -134,6 +137,18 @@ class SettingsViewModel @Inject constructor(
             appSettingsDataStore.keepScreenOn.collect { value ->
                 _uiState.update { it.copy(keepScreenOn = value) }
             }
+        }
+        viewModelScope.launch {
+            appSettingsDataStore.themeMode.collect { mode ->
+                _uiState.update { it.copy(themeMode = mode) }
+            }
+        }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            appSettingsDataStore.setThemeMode(mode)
+            _uiState.update { it.copy(themeMode = mode) }
         }
     }
 

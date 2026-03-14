@@ -1,5 +1,6 @@
 package com.omerhedvat.powerme.ui.history
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -23,26 +24,40 @@ import java.util.Locale
 
 @Composable
 fun HistoryScreen(
+    onWorkoutClick: (Long) -> Unit = {},
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val workouts by viewModel.workouts.collectAsState()
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         if (workouts.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "No history yet",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Complete your first workout to see history here",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                    )
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp)
+            ) {
+                Text(
+                    text = "History",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "No history yet",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Complete your first workout to see history here",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    }
                 }
             }
         } else {
@@ -60,7 +75,7 @@ fun HistoryScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
                 items(workouts) { workout ->
-                    WorkoutHistoryCard(item = workout)
+                    WorkoutHistoryCard(item = workout, onClick = { onWorkoutClick(workout.id) })
                 }
             }
         }
@@ -76,13 +91,13 @@ private fun formatDuration(seconds: Int): String {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WorkoutHistoryCard(item: WorkoutWithExerciseSummary) {
+private fun WorkoutHistoryCard(item: WorkoutWithExerciseSummary, onClick: () -> Unit = {}) {
     val dateLabel = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(Date(item.timestamp))
     val titleLabel = item.routineName
         ?: "Workout — ${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(item.timestamp))}"
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {

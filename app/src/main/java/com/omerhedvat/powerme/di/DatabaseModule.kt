@@ -241,6 +241,176 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_22_23 = object : Migration(22, 23) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE routine_exercises ADD COLUMN defaultWeight TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val MIGRATION_26_27 = object : Migration(26, 27) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Fix index name mismatch on exercise_muscle_groups:
+            // v24 created idx_emg_exerciseId but Room expects index_exercise_muscle_groups_exerciseId
+            db.execSQL("DROP INDEX IF EXISTS idx_emg_exerciseId")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_exercise_muscle_groups_exerciseId ON exercise_muscle_groups(exerciseId)")
+        }
+    }
+
+    private val MIGRATION_25_26 = object : Migration(25, 26) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Remove the unmanaged partial unique index that Room can't represent via
+            // @Entity(indices=[...]) annotations. Uniqueness is enforced at the app layer
+            // via OnConflictStrategy.REPLACE in MasterExerciseSeeder.
+            db.execSQL("DROP INDEX IF EXISTS idx_exercises_master_unique")
+        }
+    }
+
+    private val MIGRATION_24_25 = object : Migration(24, 25) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE exercises ADD COLUMN searchName TEXT NOT NULL DEFAULT ''")
+            db.execSQL("""
+                UPDATE exercises SET searchName = LOWER(
+                    REPLACE(REPLACE(REPLACE(REPLACE(name, '-', ''), ' ', ''), '(', ''), ')', '')
+                )
+            """.trimIndent())
+        }
+    }
+
+    private val MIGRATION_23_24 = object : Migration(23, 24) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // ── PART 1: MERGE — re-point FK references then delete legacy exercise ──
+            // Pattern per exercise:
+            //   UPDATE routine_exercises → point to canonical B (if B exists)
+            //   UPDATE workout_sets → same
+            //   DELETE A (guard: only when B exists to avoid orphaning data)
+
+            val merges = listOf(
+                "Face Pulls" to "Face Pull",
+                "Hammer Curls" to "Hammer Curl",
+                "Lateral Raises" to "Lateral Raise",
+                "Triceps Pushdown" to "Tricep Pushdown",
+                "Bicep Curl (Cable)" to "Cable Curl",
+                "Seated Overhead Press" to "Seated Dumbbell Overhead Press",
+                "Incline DB Press" to "Incline Dumbbell Bench Press",
+                "Bench Press (Dumbbell)" to "Dumbbell Flat Bench Press",
+                "Seated Cable Row" to "Cable Row",
+                "Cable Crossover" to "Cable Chest Fly",
+                "Dips (Chest focus)" to "Dips"
+            )
+
+            for ((legacyName, canonicalName) in merges) {
+                // Only act when the canonical (B) exercise exists — guard against missing JSON seed
+                db.execSQL("""
+                    UPDATE routine_exercises
+                    SET exerciseId = (SELECT id FROM exercises WHERE name = '$canonicalName' AND isCustom = 0 LIMIT 1)
+                    WHERE exerciseId IN (SELECT id FROM exercises WHERE name = '$legacyName' AND isCustom = 0)
+                      AND (SELECT id FROM exercises WHERE name = '$canonicalName' AND isCustom = 0 LIMIT 1) IS NOT NULL
+                """.trimIndent())
+
+                db.execSQL("""
+                    UPDATE workout_sets
+                    SET exerciseId = (SELECT id FROM exercises WHERE name = '$canonicalName' AND isCustom = 0 LIMIT 1)
+                    WHERE exerciseId IN (SELECT id FROM exercises WHERE name = '$legacyName' AND isCustom = 0)
+                      AND (SELECT id FROM exercises WHERE name = '$canonicalName' AND isCustom = 0 LIMIT 1) IS NOT NULL
+                """.trimIndent())
+
+                db.execSQL("DELETE FROM exercises WHERE name = '$legacyName' AND isCustom = 0")
+            }
+
+            // ── PART 2: KEEP-BOTH renames ──
+            db.execSQL("UPDATE exercises SET name = 'Romanian Deadlift (RDL) - BB' WHERE name = 'Romanian Deadlift (RDL)' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET name = 'Romanian Deadlift (RDL) - DB' WHERE name = 'Romanian Deadlift (DB)' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET name = 'Weighted Pull-Up' WHERE name = 'Weighted Pull-Ups' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET name = 'Incline Dumbbell Row' WHERE name = 'Incline Row' AND isCustom = 0")
+
+            // ── PART 3: Equipment type normalization ──
+            db.execSQL("UPDATE exercises SET equipmentType = 'Dumbbell' WHERE equipmentType = 'Dumbbells' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET equipmentType = 'Bodyweight' WHERE equipmentType = 'Bodyweight+' AND isCustom = 0")
+
+            // ── PART 4: MuscleGroup normalization (non-standard → canonical) ──
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Shoulders' WHERE muscleGroup = 'Rear Delts' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Back' WHERE muscleGroup = 'Lats' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Legs' WHERE muscleGroup = 'Hamstrings' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Arms' WHERE muscleGroup = 'Triceps' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Arms' WHERE muscleGroup = 'Biceps' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Core' WHERE muscleGroup = 'Abs' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Chest' WHERE muscleGroup = 'Upper Chest' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Shoulders' WHERE muscleGroup = 'Side Delts' AND isCustom = 0")
+            db.execSQL("UPDATE exercises SET muscleGroup = 'Chest' WHERE muscleGroup = 'Chest/Triceps' AND isCustom = 0")
+
+            // ── PART 5: Create exercise_muscle_groups table ──
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS exercise_muscle_groups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    exerciseId INTEGER NOT NULL,
+                    majorGroup TEXT NOT NULL,
+                    subGroup TEXT,
+                    isPrimary INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_emg_exerciseId ON exercise_muscle_groups(exerciseId)")
+
+            // ── PART 6: Populate exercise_muscle_groups from exercises.muscleGroup (one primary row each) ──
+            db.execSQL("""
+                INSERT INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, muscleGroup, NULL, 1 FROM exercises
+            """.trimIndent())
+
+            // ── PART 7: Secondary muscle group rows for key compound exercises ──
+            // Conventional Deadlift: primary=Back, secondary=Legs(Hamstrings), secondary=Legs(Glutes)
+            db.execSQL("""
+                INSERT OR IGNORE INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, 'Legs', 'Hamstrings', 0 FROM exercises WHERE name = 'Conventional Deadlift' AND isCustom = 0
+            """.trimIndent())
+            db.execSQL("""
+                INSERT OR IGNORE INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, 'Legs', 'Glutes', 0 FROM exercises WHERE name = 'Conventional Deadlift' AND isCustom = 0
+            """.trimIndent())
+
+            // Romanian Deadlift (RDL) - BB: primary=Legs, secondary=Back
+            db.execSQL("""
+                INSERT OR IGNORE INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, 'Back', 'Erector Spinae', 0 FROM exercises WHERE name = 'Romanian Deadlift (RDL) - BB' AND isCustom = 0
+            """.trimIndent())
+
+            // Romanian Deadlift (RDL) - DB: primary=Legs, secondary=Back
+            db.execSQL("""
+                INSERT OR IGNORE INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, 'Back', 'Erector Spinae', 0 FROM exercises WHERE name = 'Romanian Deadlift (RDL) - DB' AND isCustom = 0
+            """.trimIndent())
+
+            // Barbell Row: primary=Back, secondary=Arms(Biceps)
+            db.execSQL("""
+                INSERT OR IGNORE INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, 'Arms', 'Biceps', 0 FROM exercises WHERE name = 'Barbell Row' AND isCustom = 0
+            """.trimIndent())
+
+            // Barbell Flat Bench Press: primary=Chest, secondary=Arms(Triceps), secondary=Shoulders
+            db.execSQL("""
+                INSERT OR IGNORE INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, 'Arms', 'Triceps', 0 FROM exercises WHERE name = 'Barbell Flat Bench Press' AND isCustom = 0
+            """.trimIndent())
+            db.execSQL("""
+                INSERT OR IGNORE INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, 'Shoulders', 'Front Delts', 0 FROM exercises WHERE name = 'Barbell Flat Bench Press' AND isCustom = 0
+            """.trimIndent())
+
+            // Pull-Up: primary=Back, secondary=Arms(Biceps)
+            db.execSQL("""
+                INSERT OR IGNORE INTO exercise_muscle_groups (exerciseId, majorGroup, subGroup, isPrimary)
+                SELECT id, 'Arms', 'Biceps', 0 FROM exercises WHERE name = 'Pull-Up' AND isCustom = 0
+            """.trimIndent())
+
+            // ── PART 8: Partial UNIQUE index on master exercises (prevents seeder re-collisions) ──
+            db.execSQL("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_exercises_master_unique
+                ON exercises(name, equipmentType)
+                WHERE isCustom = 0
+            """.trimIndent())
+        }
+    }
+
     private val MIGRATION_20_21 = object : Migration(20, 21) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // 1. Recreate workouts table: nullable routineId + SET_NULL FK + isCompleted column
@@ -413,7 +583,12 @@ object DatabaseModule {
                 MIGRATION_18_19,
                 MIGRATION_19_20,
                 MIGRATION_20_21,
-                MIGRATION_21_22
+                MIGRATION_21_22,
+                MIGRATION_22_23,
+                MIGRATION_23_24,
+                MIGRATION_24_25,
+                MIGRATION_25_26,
+                MIGRATION_26_27
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -586,4 +761,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideRoutineExerciseDao(db: PowerMeDatabase): RoutineExerciseDao = db.routineExerciseDao()
+
+    @Provides
+    @Singleton
+    fun provideExerciseMuscleGroupDao(db: PowerMeDatabase): ExerciseMuscleGroupDao = db.exerciseMuscleGroupDao()
 }

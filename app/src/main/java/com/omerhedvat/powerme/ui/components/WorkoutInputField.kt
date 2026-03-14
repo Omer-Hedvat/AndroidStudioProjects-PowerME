@@ -16,6 +16,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -23,7 +25,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.omerhedvat.powerme.ui.theme.StremioInputPill
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
@@ -33,7 +34,8 @@ fun WorkoutInputField(
     modifier: Modifier = Modifier,
     placeholder: String = "",
     keyboardType: KeyboardType = KeyboardType.Decimal,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    focusRequester: FocusRequester? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -43,12 +45,13 @@ fun WorkoutInputField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier
-            .height(40.dp)
-            .background(StremioInputPill, pillShape)
+            .height(34.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, pillShape)
             .then(
                 if (isFocused) Modifier.border(1.dp, MaterialTheme.colorScheme.primary, pillShape)
                 else Modifier
-            ),
+            )
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
         enabled = enabled,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),

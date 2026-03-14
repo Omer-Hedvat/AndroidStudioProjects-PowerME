@@ -38,7 +38,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "1.1"  // bumped: stripped 181.5cm prefix from setupNotes
+        private const val CURRENT_VERSION = "1.4"  // bumped: +65 exercises (chest/core/arms/back/shoulders/legs/kettlebell/band/smith machine)
     }
 
     private val json = Json {
@@ -126,7 +126,7 @@ class MasterExerciseSeeder @Inject constructor(
                 when {
                     existing == null -> {
                         // New exercise - insert
-                        exerciseDao.insertExercise(masterExercise)
+                        exerciseDao.insertExercise(masterExercise.copy(searchName = masterExercise.name.toSearchName()))
                         insertedCount++
                     }
                     existing.isCustom -> {
@@ -138,7 +138,8 @@ class MasterExerciseSeeder @Inject constructor(
                         // Existing master exercise - update with new data, preserve favorites
                         val updated = masterExercise.copy(
                             id = existing.id,  // Preserve database ID
-                            isFavorite = existing.isFavorite  // Preserve favorite flag
+                            isFavorite = existing.isFavorite,  // Preserve favorite flag
+                            searchName = masterExercise.name.toSearchName()
                         )
                         exerciseDao.updateExercise(updated)
                         updatedCount++

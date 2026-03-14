@@ -3,8 +3,6 @@ package com.omerhedvat.powerme.ui.tools
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,12 +18,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.omerhedvat.powerme.ui.theme.DeepNavy
-import com.omerhedvat.powerme.ui.theme.ElectricBlue
 import com.omerhedvat.powerme.ui.theme.JetBrainsMono
 import com.omerhedvat.powerme.ui.theme.MonoTextStyle
-import com.omerhedvat.powerme.ui.theme.NavySurface
-import com.omerhedvat.powerme.ui.theme.NeonBlue
 import com.omerhedvat.powerme.ui.theme.TimerGreen
 import com.omerhedvat.powerme.ui.theme.TimerRed
 
@@ -36,44 +30,44 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DeepNavy)
-            .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
         // ── 2×2 Mode Grid (shown when idle and no active timer) ──────
-        if (state.phase == TimerPhase.IDLE && !state.isRunning) {
-            TimerModeGrid(
-                selectedMode = state.mode,
-                onModeSelected = viewModel::setMode
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        } else {
-            // Show compact mode indicator during active timer
-            val activeLabel = when (state.mode) {
-                TimerMode.STOPWATCH -> "Stopwatch"
-                TimerMode.COUNTDOWN -> "Timer"
-                TimerMode.TABATA    -> "Tabata"
-                TimerMode.EMOM      -> "EMOM"
+        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            if (state.phase == TimerPhase.IDLE && !state.isRunning) {
+                TimerModeGrid(
+                    selectedMode = state.mode,
+                    onModeSelected = viewModel::setMode
+                )
+            } else {
+                // Show compact mode indicator during active timer
+                val activeLabel = when (state.mode) {
+                    TimerMode.STOPWATCH -> "Stopwatch"
+                    TimerMode.COUNTDOWN -> "Timer"
+                    TimerMode.TABATA    -> "Tabata"
+                    TimerMode.EMOM      -> "EMOM"
+                }
+                Text(
+                    text = activeLabel,
+                    fontSize = 14.sp,
+                    fontFamily = JetBrainsMono,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
             }
-            Text(
-                text = activeLabel,
-                fontSize = 14.sp,
-                fontFamily = JetBrainsMono,
-                color = NeonBlue.copy(alpha = 0.7f),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
         }
 
-        // Timer display
-        TimerDisplay(state = state)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Config inputs (only when idle)
-        if (!state.isRunning && state.phase == TimerPhase.IDLE) {
-            ConfigInputs(state = state, viewModel = viewModel)
-            Spacer(modifier = Modifier.height(24.dp))
+        // Timer display + config inputs
+        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                TimerDisplay(state = state)
+                if (!state.isRunning && state.phase == TimerPhase.IDLE) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    ConfigInputs(state = state, viewModel = viewModel)
+                }
+            }
         }
 
         // Control buttons — persistent side-by-side layout for Tabata/EMOM;
@@ -91,8 +85,8 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                         if (state.isRunning) viewModel.pauseTimer() else viewModel.startTimer()
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state.isRunning) ElectricBlue else NeonBlue,
-                        contentColor = DeepNavy
+                        containerColor = if (state.isRunning) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     modifier = Modifier.weight(1f).height(56.dp)
                 ) {
@@ -109,7 +103,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                 }
                 OutlinedButton(
                     onClick = viewModel::resetTimer,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.weight(1f).height(56.dp)
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Reset")
@@ -127,8 +121,8 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                         if (state.isRunning) viewModel.pauseTimer() else viewModel.startTimer()
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state.isRunning) ElectricBlue else NeonBlue,
-                        contentColor = DeepNavy
+                        containerColor = if (state.isRunning) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     modifier = Modifier.width(140.dp).height(56.dp)
                 ) {
@@ -145,7 +139,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                 }
                 OutlinedButton(
                     onClick = viewModel::resetTimer,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.width(120.dp).height(56.dp)
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Reset")
@@ -207,7 +201,7 @@ private fun ModeCard(
             .height(80.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) NeonBlue else NavySurface
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
         )
     ) {
         val label = when (mode) {
@@ -226,7 +220,7 @@ private fun ModeCard(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (isSelected) DeepNavy else NeonBlue,
+                tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -235,13 +229,13 @@ private fun ModeCard(
                 fontSize = 12.sp,
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) DeepNavy else NeonBlue,
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = description,
                 fontSize = 10.sp,
-                color = if (isSelected) DeepNavy.copy(alpha = 0.7f) else NeonBlue.copy(alpha = 0.6f),
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
                 maxLines = 1
             )
@@ -254,12 +248,13 @@ private fun TimerDisplay(state: ToolsUiState) {
     val backgroundColor = when (state.phase) {
         TimerPhase.WORK -> TimerGreen.copy(alpha = 0.2f)
         TimerPhase.REST -> TimerRed.copy(alpha = 0.2f)
-        TimerPhase.IDLE -> DeepNavy
+        TimerPhase.IDLE -> Color.Transparent
     }
+    val idlePrimaryColor = MaterialTheme.colorScheme.primary
     val textColor = when (state.phase) {
         TimerPhase.WORK -> TimerGreen
         TimerPhase.REST -> TimerRed
-        TimerPhase.IDLE -> NeonBlue
+        TimerPhase.IDLE -> idlePrimaryColor
     }
 
     val displayValue = when (state.mode) {
@@ -358,11 +353,11 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Skip last rest period", color = Color.White, fontSize = 14.sp)
+                Text("Skip last rest period", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
                 Switch(
                     checked = state.tabataSkipLastRest,
                     onCheckedChange = { viewModel.toggleTabataSkipLastRest() },
-                    colors = SwitchDefaults.colors(checkedThumbColor = DeepNavy, checkedTrackColor = NeonBlue)
+                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.onPrimary, checkedTrackColor = MaterialTheme.colorScheme.primary)
                 )
             }
         }
@@ -396,15 +391,17 @@ private fun TimerConfigField(
         onValueChange = { newText ->
             if (newText.isEmpty() || newText.all { it.isDigit() }) onValueChange(newText)
         },
-        label = { Text(label, color = NeonBlue.copy(alpha = 0.7f)) },
+        label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.fillMaxWidth(),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = NeonBlue,
-            unfocusedBorderColor = NeonBlue.copy(alpha = 0.4f),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            cursorColor = NeonBlue
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            cursorColor = MaterialTheme.colorScheme.primary
         ),
         textStyle = MonoTextStyle,
         singleLine = true

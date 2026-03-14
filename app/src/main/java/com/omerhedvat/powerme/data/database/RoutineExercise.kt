@@ -1,5 +1,6 @@
 package com.omerhedvat.powerme.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -20,7 +21,10 @@ data class RoutineExercise(
     val sets: Int = 3,
     val reps: Int = 10,
     val restTime: Int = 90,          // seconds
+    @ColumnInfo(name = "order")
     val order: Int = 0,              // display order within routine
     val supersetGroupId: String? = null,
-    val stickyNote: String? = null
+    val stickyNote: String? = null,
+    @ColumnInfo(defaultValue = "''")
+    val defaultWeight: String = ""   // default weight for routine sync (v23)
 )

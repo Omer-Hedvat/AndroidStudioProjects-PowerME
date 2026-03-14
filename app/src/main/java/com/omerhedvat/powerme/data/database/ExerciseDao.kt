@@ -56,16 +56,29 @@ interface ExerciseDao {
     suspend fun clearLeakedMetricNotes()
 
     /**
-     * Local fuzzy search — ProjectMap §2. Case-insensitive LIKE with prefix priority.
-     * Results starting with [query] rank first; other contains-matches rank second.
+     * Local fuzzy search — ProjectMap §2. Searches pre-normalized searchName column.
+     * [normalizedQuery] must already be lowercase with hyphens/spaces/parens stripped.
+     * Results starting with [normalizedQuery] rank first; other contains-matches rank second.
      */
     @Query("""
         SELECT * FROM exercises
-        WHERE name LIKE '%' || :query || '%'
+        WHERE searchName LIKE '%' || :normalizedQuery || '%'
         ORDER BY
-            CASE WHEN name LIKE :query || '%' THEN 0 ELSE 1 END,
+            CASE WHEN searchName LIKE :normalizedQuery || '%' THEN 0 ELSE 1 END,
             name ASC
         LIMIT 25
     """)
-    suspend fun searchExercises(query: String): List<Exercise>
+    suspend fun searchExercises(normalizedQuery: String): List<Exercise>
+
+    @Query("SELECT * FROM exercises WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<Exercise>
+
+    @Query("UPDATE exercises SET restDurationSeconds = :seconds WHERE id = :exerciseId")
+    suspend fun updateRestDuration(exerciseId: Long, seconds: Int)
+
+    @Query("SELECT DISTINCT muscleGroup FROM exercises ORDER BY muscleGroup ASC")
+    suspend fun getDistinctMuscleGroups(): List<String>
+
+    @Query("SELECT DISTINCT equipmentType FROM exercises ORDER BY equipmentType ASC")
+    suspend fun getDistinctEquipmentTypes(): List<String>
 }

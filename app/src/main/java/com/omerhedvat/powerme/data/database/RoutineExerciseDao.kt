@@ -2,6 +2,17 @@ package com.omerhedvat.powerme.data.database
 
 import androidx.room.*
 
+data class RoutineExerciseWithName(
+    val exerciseId: Long,
+    val exerciseName: String,
+    val muscleGroup: String,
+    val equipmentType: String,
+    val sets: Int,
+    val reps: Int,
+    val order: Int,
+    val supersetGroupId: String?
+)
+
 @Dao
 interface RoutineExerciseDao {
     @Query("SELECT * FROM routine_exercises WHERE routineId = :routineId ORDER BY `order` ASC")
@@ -27,4 +38,23 @@ interface RoutineExerciseDao {
 
     @Query("UPDATE routine_exercises SET stickyNote = :note WHERE routineId = :routineId AND exerciseId = :exerciseId")
     suspend fun updateStickyNote(routineId: Long, exerciseId: Long, note: String?)
+
+    @Query("""
+        SELECT re.exerciseId, e.name AS exerciseName, e.muscleGroup, e.equipmentType,
+               re.sets, re.reps, re.`order`, re.supersetGroupId
+        FROM routine_exercises re
+        JOIN exercises e ON re.exerciseId = e.id
+        WHERE re.routineId = :routineId
+        ORDER BY re.`order` ASC
+    """)
+    suspend fun getExercisesWithNamesForRoutine(routineId: Long): List<RoutineExerciseWithName>
+
+    @Query("DELETE FROM routine_exercises WHERE routineId = :routineId")
+    suspend fun deleteAllForRoutine(routineId: Long)
+
+    @Query("UPDATE routine_exercises SET sets = :sets WHERE routineId = :routineId AND exerciseId = :exerciseId")
+    suspend fun updateSets(routineId: Long, exerciseId: Long, sets: Int)
+
+    @Query("UPDATE routine_exercises SET reps = :reps, defaultWeight = :weight WHERE routineId = :routineId AND exerciseId = :exerciseId")
+    suspend fun updateRepsAndWeight(routineId: Long, exerciseId: Long, reps: Int, weight: String)
 }
