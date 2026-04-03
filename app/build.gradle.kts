@@ -82,7 +82,6 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
-    implementation(libs.hilt.work)
 
     // DataStore
     implementation(libs.androidx.datastore.preferences)
@@ -95,12 +94,6 @@ dependencies {
 
     // Security Crypto
     implementation(libs.androidx.security.crypto)
-
-    // WorkManager
-    implementation(libs.androidx.work.runtime.ktx)
-
-    // YouTube Player
-    implementation(libs.youtube.player)
 
     // Vico Charts
     implementation(libs.vico.compose.m3)

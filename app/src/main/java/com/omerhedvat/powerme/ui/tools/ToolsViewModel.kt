@@ -103,8 +103,6 @@ class ToolsViewModel @Inject constructor(
     fun updateTotalRounds(rounds: Int) { _uiState.update { it.copy(totalRounds = rounds, totalRoundsText = rounds.toString()) } }
     fun updateEmomRoundSeconds(seconds: Int) { _uiState.update { it.copy(emomRoundSeconds = seconds, emomRoundSecondsText = seconds.toString()) } }
     fun updateEmomTotalRounds(rounds: Int) { _uiState.update { it.copy(emomTotalRounds = rounds, emomTotalRoundsText = rounds.toString()) } }
-    fun updateCountdownSeconds(seconds: Int) { _uiState.update { it.copy(countdownInputSeconds = seconds, countdownText = seconds.toString()) } }
-
     fun toggleTabataSkipLastRest() {
         _uiState.update { it.copy(tabataSkipLastRest = !it.tabataSkipLastRest) }
     }

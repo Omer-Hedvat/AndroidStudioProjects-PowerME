@@ -232,8 +232,6 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(apiKey = "", hasApiKey = false, showSuccessMessage = false) }
     }
 
-    fun dismissSuccessMessage() { _uiState.update { it.copy(showSuccessMessage = false) } }
-
     fun setWarRoomModel(modelId: String) {
         viewModelScope.launch {
             appSettingsDataStore.setWarRoomModel(modelId)

@@ -66,9 +66,6 @@ class MetricsViewModel @Inject constructor(
         }
     }
 
-    fun onWeightInputChanged(value: String) { _uiState.update { it.copy(weightInput = value) } }
-    fun onBodyFatInputChanged(value: String) { _uiState.update { it.copy(bodyFatInput = value) } }
-
     fun saveMetrics() {
         val weightStr = _uiState.value.weightInput.trim()
         val bodyFatStr = _uiState.value.bodyFatInput.trim()
