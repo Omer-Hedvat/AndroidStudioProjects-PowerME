@@ -9,20 +9,24 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,11 +38,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private const val SET_COL_WEIGHT = 0.10f
-private const val WEIGHT_COL_WEIGHT = 0.30f
-private const val REPS_COL_WEIGHT = 0.30f
-private const val RPE_COL_WEIGHT = 0.20f
-private const val CHECK_COL_WEIGHT = 0.10f
+// Shared column weight distribution — synchronized with ActiveWorkoutScreen
+private const val SET_COL_WEIGHT    = 0.08f
+private const val PREV_SPACE_WEIGHT = 0.22f // Space for PREV (not shown in history)
+private const val WEIGHT_COL_WEIGHT = 0.25f
+private const val REPS_COL_WEIGHT   = 0.22f
+private const val RPE_COL_WEIGHT    = 0.13f
+private const val CHECK_COL_WEIGHT  = 0.10f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,26 +53,85 @@ fun WorkoutDetailScreen(
     viewModel: WorkoutDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Session?") },
+            text = { Text("This workout and all its sets will be permanently deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteSession { onNavigateBack() }
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = uiState.workout?.let { _ ->
-                            uiState.exerciseGroups.firstOrNull()?.let { "Workout" } ?: "Workout"
-                        } ?: "Workout",
-                        fontWeight = FontWeight.Bold
+                        text = "Workout History",
+                        style = MaterialTheme.typography.titleLarge
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (uiState.isEditMode) viewModel.cancelEditMode() else onNavigateBack()
+                    }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (uiState.isEditMode) {
+                        TextButton(
+                            onClick = { viewModel.saveEdits() },
+                            enabled = !uiState.isSaving
+                        ) { Text("Save", fontWeight = FontWeight.Bold) }
+                    } else {
+                        Box {
+                            IconButton(onClick = { showOverflowMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More")
+                            }
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Edit Session") },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.startEditMode()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete Session", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showDeleteDialog = true
+                                    }
+                                )
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
-                )
+                ),
+                windowInsets = TopAppBarDefaults.windowInsets
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -97,7 +162,7 @@ fun WorkoutDetailScreen(
                         .format(Date(w.timestamp))
                     Text(
                         text = dateStr,
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -115,7 +180,7 @@ fun WorkoutDetailScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 formatDetailDuration(w.durationSeconds),
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                             )
                         }
@@ -128,7 +193,7 @@ fun WorkoutDetailScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 "${w.totalVolume.toInt()} kg",
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                             )
                         }
@@ -142,7 +207,7 @@ fun WorkoutDetailScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 "$totalSets sets",
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                             )
                         }
@@ -156,7 +221,11 @@ fun WorkoutDetailScreen(
                 ExerciseDetailCard(
                     group = group,
                     isExpanded = isExpanded,
-                    onToggleExpansion = { viewModel.toggleExerciseExpansion(group.exerciseId) }
+                    isEditMode = uiState.isEditMode,
+                    pendingEdits = uiState.pendingEdits,
+                    onToggleExpansion = { viewModel.toggleExerciseExpansion(group.exerciseId) },
+                    onWeightChanged = { setId, w -> viewModel.updatePendingWeight(setId, w) },
+                    onRepsChanged = { setId, r -> viewModel.updatePendingReps(setId, r) }
                 )
             }
         }
@@ -167,7 +236,11 @@ fun WorkoutDetailScreen(
 private fun ExerciseDetailCard(
     group: ExerciseGroup,
     isExpanded: Boolean,
-    onToggleExpansion: () -> Unit
+    isEditMode: Boolean = false,
+    pendingEdits: Map<Long, PendingEdit> = emptyMap(),
+    onToggleExpansion: () -> Unit,
+    onWeightChanged: (Long, String) -> Unit = { _, _ -> },
+    onRepsChanged: (Long, String) -> Unit = { _, _ -> }
 ) {
     val rotation by animateFloatAsState(if (isExpanded) 180f else 0f, label = "rotation")
 
@@ -200,14 +273,13 @@ private fun ExerciseDetailCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = group.exerciseName,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         group.muscleGroup?.let {
                             Text(
                                 text = it,
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                         }
@@ -218,7 +290,7 @@ private fun ExerciseDetailCard(
                     ) {
                         Text(
                             text = "${group.sets.size} sets",
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
                         Icon(
@@ -240,45 +312,48 @@ private fun ExerciseDetailCard(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("SET", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.width(40.dp))
-                                Text("DIST(KM)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.weight(1f))
-                                Text("TIME(S)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.weight(1f))
-                                Text("PACE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.weight(1f))
-                                Spacer(modifier = Modifier.width(40.dp)) // Matching CHECK width
+                                Text("SET", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
+                                Text("DIST(KM)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
+                                Text("TIME(S)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
+                                Text("PACE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.20f))
+                                Text("RPE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.10f))
+                                Spacer(modifier = Modifier.width(40.dp))
                             }
                             ExerciseType.TIMED -> Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("SET", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.width(40.dp))
-                                Text("TIME(S)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.weight(1.5f))
-                                Text("RPE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.weight(1f))
-                                Spacer(modifier = Modifier.width(40.dp)) // Matching CHECK width
+                                Text("SET", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
+                                Text("WEIGHT", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
+                                Text("TIME(S)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.35f))
+                                Text("RPE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.20f))
+                                Spacer(modifier = Modifier.width(40.dp))
                             }
                             else -> Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                             ) {
                                 Text(
                                     "SET", fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.weight(SET_COL_WEIGHT)
                                 )
+                                Spacer(modifier = Modifier.weight(PREV_SPACE_WEIGHT))
                                 Text(
                                     "WEIGHT", fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.weight(WEIGHT_COL_WEIGHT)
                                 )
                                 Text(
                                     "REPS", fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.weight(REPS_COL_WEIGHT)
                                 )
                                 Text(
                                     "RPE", fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.weight(RPE_COL_WEIGHT)
                                 )
@@ -293,7 +368,13 @@ private fun ExerciseDetailCard(
                             when (group.exerciseType) {
                                 ExerciseType.CARDIO -> CardioSetDetailRow(set = set)
                                 ExerciseType.TIMED -> TimedSetDetailRow(set = set)
-                                else -> StrengthSetDetailRow(set = set)
+                                else -> StrengthSetDetailRow(
+                                    set = set,
+                                    isEditMode = isEditMode,
+                                    pendingEdit = pendingEdits[set.id],
+                                    onWeightChanged = { w -> onWeightChanged(set.id, w) },
+                                    onRepsChanged = { r -> onRepsChanged(set.id, r) }
+                                )
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                         }
@@ -305,7 +386,17 @@ private fun ExerciseDetailCard(
 }
 
 @Composable
-private fun StrengthSetDetailRow(set: SetDisplayRow) {
+private fun StrengthSetDetailRow(
+    set: SetDisplayRow,
+    isEditMode: Boolean = false,
+    pendingEdit: PendingEdit? = null,
+    onWeightChanged: (String) -> Unit = {},
+    onRepsChanged: (String) -> Unit = {}
+) {
+    val weightDisplay = pendingEdit?.weight
+        ?: set.weight.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) }
+    val repsDisplay = pendingEdit?.reps ?: set.reps.toString()
+
     Column {
         Row(
             modifier = Modifier
@@ -332,6 +423,8 @@ private fun StrengthSetDetailRow(set: SetDisplayRow) {
                 )
             }
 
+            Spacer(modifier = Modifier.weight(PREV_SPACE_WEIGHT))
+
             // WEIGHT column
             Box(
                 modifier = Modifier
@@ -339,17 +432,22 @@ private fun StrengthSetDetailRow(set: SetDisplayRow) {
                     .padding(horizontal = 2.dp)
                     .fillMaxHeight()
                     .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = if (isEditMode) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(8.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = set.weight.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) },
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
-                )
+                if (isEditMode) {
+                    BasicEditField(value = weightDisplay, onValueChange = onWeightChanged, keyboardType = KeyboardType.Decimal)
+                } else {
+                    Text(
+                        text = weightDisplay,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             // REPS column
@@ -359,17 +457,22 @@ private fun StrengthSetDetailRow(set: SetDisplayRow) {
                     .padding(horizontal = 2.dp)
                     .fillMaxHeight()
                     .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = if (isEditMode) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(8.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = set.reps.toString(),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
-                )
+                if (isEditMode) {
+                    BasicEditField(value = repsDisplay, onValueChange = onRepsChanged, keyboardType = KeyboardType.Number)
+                } else {
+                    Text(
+                        text = repsDisplay,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             // RPE column
@@ -410,13 +513,38 @@ private fun StrengthSetDetailRow(set: SetDisplayRow) {
         set.setNotes?.takeIf { it.isNotBlank() }?.let { notes ->
             Text(
                 text = notes,
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.bodySmall,
                 fontStyle = FontStyle.Italic,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                 modifier = Modifier.padding(start = 24.dp, bottom = 2.dp, top = 2.dp)
             )
         }
     }
+}
+
+@Composable
+private fun BasicEditField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    keyboardType: KeyboardType
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Medium
+        ),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+            focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+            unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent
+        ),
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
@@ -428,6 +556,12 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
         "—"
     }
 
+    val timeFormatted = set.timeSeconds?.let {
+        val m = it / 60
+        val s = it % 60
+        "%d:%02d".format(m, s)
+    } ?: "—"
+
     Column {
         Row(
             modifier = Modifier
@@ -438,9 +572,9 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
         ) {
             Text(
                 text = "${set.setOrder}",
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.width(40.dp),
                 textAlign = TextAlign.Center
             )
@@ -448,13 +582,13 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
             // DISTANCE pill
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(0.25f)
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = set.distance?.toString() ?: "—",
+                    text = set.distance?.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) } ?: "—",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium
@@ -464,28 +598,53 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
             // TIME pill
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(0.25f)
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = set.timeSeconds?.toString() ?: "—",
+                    text = timeFormatted,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium
                 )
             }
 
-            // PACE
-            Text(
-                text = pace,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center
-            )
+            // PACE pill
+            Box(
+                modifier = Modifier
+                    .weight(0.20f)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = pace,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            // RPE pill
+            Box(
+                modifier = Modifier
+                    .weight(0.10f)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                val rpeLabel = set.rpe?.let { if (it % 10 == 0) "${it / 10}" else "${it / 10}.5" }
+                Text(
+                    text = rpeLabel ?: "—",
+                    fontSize = 13.sp,
+                    fontWeight = if (set.rpe != null) FontWeight.Bold else FontWeight.Normal,
+                    color = if (set.rpe != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                    textAlign = TextAlign.Center
+                )
+            }
 
             // CHECK status
             Box(
@@ -517,6 +676,12 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
 
 @Composable
 private fun TimedSetDetailRow(set: SetDisplayRow) {
+    val timeFormatted = set.timeSeconds?.let {
+        val m = it / 60
+        val s = it % 60
+        "%d:%02d".format(m, s)
+    } ?: "—"
+
     Column {
         Row(
             modifier = Modifier
@@ -527,23 +692,39 @@ private fun TimedSetDetailRow(set: SetDisplayRow) {
         ) {
             Text(
                 text = "${set.setOrder}",
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.width(40.dp),
                 textAlign = TextAlign.Center
             )
 
-            // TIME pill
+            // WEIGHT pill
             Box(
                 modifier = Modifier
-                    .weight(1.5f)
+                    .weight(0.25f)
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = set.timeSeconds?.toString() ?: "—",
+                    text = set.weight.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) },
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            // TIME pill
+            Box(
+                modifier = Modifier
+                    .weight(0.35f)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = timeFormatted,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium
@@ -553,7 +734,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow) {
             // RPE pill
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(0.20f)
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
@@ -561,9 +742,11 @@ private fun TimedSetDetailRow(set: SetDisplayRow) {
                 val rpeLabel = set.rpe?.let { if (it % 10 == 0) "${it / 10}" else "${it / 10}.5" }
                 Text(
                     text = rpeLabel ?: "—",
-                    fontSize = 14.sp,
-                    color = if (set.rpe != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                    fontWeight = if (set.rpe != null) FontWeight.Bold else FontWeight.Normal
+                    fontSize = 13.sp,
+                    fontWeight = if (set.rpe != null) FontWeight.Bold else FontWeight.Normal,
+                    color = if (set.rpe != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                    textAlign = TextAlign.Center
                 )
             }
 

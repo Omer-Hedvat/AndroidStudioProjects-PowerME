@@ -41,6 +41,7 @@ fun GymSetupScreen(
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
         topBar = {
             TopAppBar(
                 title = { Text("Create GYM", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) },
@@ -49,7 +50,8 @@ fun GymSetupScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.primary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                windowInsets = TopAppBarDefaults.windowInsets
             )
         },
         containerColor = MaterialTheme.colorScheme.background

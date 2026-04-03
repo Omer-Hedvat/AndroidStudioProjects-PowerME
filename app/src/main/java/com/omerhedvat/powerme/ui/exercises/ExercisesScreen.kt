@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.data.database.Exercise
 import com.omerhedvat.powerme.ui.components.MagicAddDialog
+import com.omerhedvat.powerme.ui.theme.FormCuesGold
 
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -48,7 +49,7 @@ fun ExercisesScreen(
     var selectedExercise by remember { mutableStateOf<Exercise?>(null) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Picker mode header
             if (pickerMode) {
@@ -255,7 +256,7 @@ fun ExercisesScreen(
                 FloatingActionButton(
                     onClick = onStartWorkout,
                     containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = Color.White
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = "Start Workout")
                 }
@@ -430,7 +431,7 @@ fun ExerciseDetailSheet(
             val cues = exercise.setupNotes
             if (showFormCues && !cues.isNullOrBlank()) {
                 Surface(
-                    color = Color(0xFF5A4D1A),  // Cues Banner: muted gold per ProjectMap §1
+                    color = FormCuesGold,
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth()
                 ) {

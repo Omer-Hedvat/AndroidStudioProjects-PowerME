@@ -2,14 +2,15 @@
 
 ## 1. Project Overview
 - **App:** PowerME (Hypertrophy-focused Android workout tracker).
-- **Tech Stack:** Kotlin 2.0.21, Jetpack Compose (Material 3), MVVM, Hilt, Room (v25), Health Connect.
-- **Visual Identity:** **Stremio Indigo "Pure Performance" Palette**.
-    - **Background:** `MaterialTheme.colorScheme.background` (#0F0F1E)
-    - **Surface:** `MaterialTheme.colorScheme.surface` (#191932)
-    - **Chips/Rows:** `MaterialTheme.colorScheme.surfaceVariant` (#1F1F3E)
-    - **Primary:** `MaterialTheme.colorScheme.primary` (#7B5BE4)
-    - **Secondary/SS:** `MaterialTheme.colorScheme.secondary` (#B3478C)
-    - **Text:** `MaterialTheme.colorScheme.onSurface` (#E1E1E6)
+- **Tech Stack:** Kotlin 2.0.21, Jetpack Compose (Material 3), MVVM, Hilt, Room (v27), Health Connect.
+- **Visual Identity:** **Pro Tracker v4.0 (Pure Performance)**.
+    - **Background:** `MaterialTheme.colorScheme.background` (#000000 - Pure OLED Black)
+    - **Surface:** `MaterialTheme.colorScheme.surface` (#121212)
+    - **Chips/Rows:** `MaterialTheme.colorScheme.surfaceVariant` (#1E1E1E)
+    - **Primary:** `MaterialTheme.colorScheme.primary` (#A061FF - Stremio Violet)
+    - **Secondary:** `MaterialTheme.colorScheme.secondary` (#B3478C)
+    - **Text:** `MaterialTheme.colorScheme.onSurface` (#FFFFFF)
+    - **SubText:** `MaterialTheme.colorScheme.onSurfaceVariant` (#A0A0A0)
     - **Timer/Success:** `TimerGreen` (#34D399)
 
 ## 2. User Context (Safety & Biomechanics)
@@ -21,7 +22,7 @@
 ## 3. Engineering Standards
 - **Data Integrity:** **ALL** numeric inputs (Weight, Reps, Height) **must** use `SurgicalValidator.kt`.
 - **Database (Room):** 
-    - Schema changes require a version bump and migration in `DatabaseModule.kt`.
+    - Schema changes require a version bump and migration in `DatabaseModule.kt`. Update `DB_UPGRADE.md`.
     - `withTransaction` is mandatory for multi-table operations (e.g., instantiating a workout).
     - `isCompleted` flag is the primary gate for history visibility.
 - **UI Architecture:** 
@@ -34,10 +35,10 @@
 - **RoutineExercise** → **WorkoutSet** (Skeleton rows created at session start).
 - **Iron Vault:** Every state change (weight/reps/completion) must sync to Room immediately (debounced if needed).
 
-## 5. Active Sprint: UI Refinement & History Detail
-- **Completed:** `WorkoutDetailScreen` expansion logic and visual alignment with `ActiveWorkoutScreen`.
-- **Current Task:** Context maintenance and specification alignment.
-- **Next Up:** Reviewing `plans.json` updates and ensuring consistency across all history views.
+## 5. Active Sprint: Exercise Library & Hybrid Tracking
+- **Completed:** Added 75+ exercises (v1.5 master exercises), implemented `TIMED` and `CARDIO` row types in `ActiveWorkoutScreen` and `WorkoutDetailScreen`.
+- **Current Task:** Context maintenance and ensuring database seeding consistency.
+- **Next Up:** Analytics expansion and 1RM tracking refinement using `StatisticalEngine.kt`.
 
 ## 6. Communication
 - **Directives:** Only clarify if critically underspecified; otherwise, work autonomously.

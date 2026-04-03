@@ -25,5 +25,7 @@ data class Workout(
     val durationSeconds: Int,
     val totalVolume: Double,
     val notes: String? = null,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val startTimeMs: Long = 0L,
+    val endTimeMs: Long = 0L
 )

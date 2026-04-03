@@ -29,6 +29,7 @@ fun ForgotPasswordScreen(
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
         topBar = {
             TopAppBar(
                 title = { Text("Reset Password") },
@@ -39,7 +40,8 @@ fun ForgotPasswordScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
-                )
+                ),
+                windowInsets = TopAppBarDefaults.windowInsets
             )
         }
     ) { innerPadding ->

@@ -11,6 +11,7 @@ import com.omerhedvat.powerme.data.database.*
 import com.omerhedvat.powerme.data.repository.HealthDataRepository
 import com.omerhedvat.powerme.data.repository.HealthDataRepositoryImpl
 import com.omerhedvat.powerme.data.repository.MedicalLedgerRepository
+import com.omerhedvat.powerme.data.repository.RoutineRepository
 import com.omerhedvat.powerme.data.repository.StateHistoryRepository
 import com.omerhedvat.powerme.util.GeminiResponseLogger
 import com.omerhedvat.powerme.util.GoalDocumentManager
@@ -244,6 +245,29 @@ object DatabaseModule {
     private val MIGRATION_22_23 = object : Migration(22, 23) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE routine_exercises ADD COLUMN defaultWeight TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val MIGRATION_27_28 = object : Migration(27, 28) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add per-set type storage to routine templates (v28)
+            db.execSQL("ALTER TABLE routine_exercises ADD COLUMN setTypesJson TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val MIGRATION_28_29 = object : Migration(28, 29) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add per-set weight and reps storage to routine templates (v29)
+            db.execSQL("ALTER TABLE routine_exercises ADD COLUMN setWeightsJson TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE routine_exercises ADD COLUMN setRepsJson TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val MIGRATION_29_30 = object : Migration(29, 30) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add session timestamps to workouts table for duration display and analytics (v30)
+            db.execSQL("ALTER TABLE workouts ADD COLUMN startTimeMs INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE workouts ADD COLUMN endTimeMs INTEGER NOT NULL DEFAULT 0")
         }
     }
 
@@ -588,7 +612,10 @@ object DatabaseModule {
                 MIGRATION_23_24,
                 MIGRATION_24_25,
                 MIGRATION_25_26,
-                MIGRATION_26_27
+                MIGRATION_26_27,
+                MIGRATION_27_28,
+                MIGRATION_28_29,
+                MIGRATION_29_30
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -765,4 +792,12 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideExerciseMuscleGroupDao(db: PowerMeDatabase): ExerciseMuscleGroupDao = db.exerciseMuscleGroupDao()
+
+    @Provides
+    @Singleton
+    fun provideRoutineRepository(
+        routineDao: RoutineDao,
+        routineExerciseDao: RoutineExerciseDao,
+        database: PowerMeDatabase
+    ): RoutineRepository = RoutineRepository(routineDao, routineExerciseDao, database)
 }

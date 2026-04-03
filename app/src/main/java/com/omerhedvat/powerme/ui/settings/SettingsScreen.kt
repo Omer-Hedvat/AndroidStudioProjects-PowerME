@@ -5,9 +5,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -31,37 +36,49 @@ import com.omerhedvat.powerme.util.GeminiModel
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateToGymSetup: () -> Unit = {}
+    onNavigateToGymSetup: () -> Unit = {},
+    onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showApiKey by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
 
-    // Health Connect permission launcher — requests READ_WEIGHT + READ_BODY_FAT at runtime,
-    // then triggers sync once permissions are (potentially) granted
+    // Health Connect permission launcher
     val hcPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        // After the system permission dialog, attempt sync regardless — HC will return data
-        // if granted, or null if still denied (handled by syncFromHealthConnect's error state)
         viewModel.syncFromHealthConnect()
     }
 
-    // Trigger model fetch when screen opens if key exists
     LaunchedEffect(Unit) { viewModel.fetchModelsIfNeeded() }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                windowInsets = TopAppBarDefaults.windowInsets
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            // Header
-            item {
-                Text("SETTINGS", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            }
+            // Header removed as it is now in TopAppBar
 
             // ── Appearance ───────────────────────────────────────
             item {
@@ -228,6 +245,8 @@ fun SettingsScreen(
             // ── Profile (Body Metrics) ─────────────────────────────
             item {
                 SettingsCard(title = "Profile") {
+                    val bodyFatFocusRequester = remember { FocusRequester() }
+                    val heightFocusRequester = remember { FocusRequester() }
                     val lastText = buildString {
                         val w = uiState.lastWeight
                         val bf = uiState.lastBodyFat
@@ -284,7 +303,8 @@ fun SettingsScreen(
                             value = uiState.weightInput,
                             onValueChange = viewModel::updateWeightInput,
                             label = { Text("Weight (kg)", fontSize = 12.sp) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { bodyFatFocusRequester.requestFocus() }),
                             modifier = Modifier.weight(1f),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -298,8 +318,9 @@ fun SettingsScreen(
                             value = uiState.bodyFatInput,
                             onValueChange = viewModel::updateBodyFatInput,
                             label = { Text("Body Fat (%)", fontSize = 12.sp) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
+                            modifier = Modifier.weight(1f).focusRequester(bodyFatFocusRequester),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
@@ -314,8 +335,9 @@ fun SettingsScreen(
                         value = uiState.heightInput,
                         onValueChange = viewModel::updateHeightInput,
                         label = { Text("Height (cm)", fontSize = 12.sp) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
+                        modifier = Modifier.fillMaxWidth().focusRequester(heightFocusRequester),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),

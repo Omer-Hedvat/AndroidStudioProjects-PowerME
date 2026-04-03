@@ -1,5 +1,42 @@
 # PowerME Database Upgrade Log
 
+## v30 — Session Timestamps
+
+**Migration:** `MIGRATION_29_30`
+
+### Changes
+- `workouts.startTimeMs INTEGER NOT NULL DEFAULT 0` — epoch ms when session was started (set at workout creation in `WorkoutRepository`)
+- `workouts.endTimeMs INTEGER NOT NULL DEFAULT 0` — epoch ms when session was finished (set in `finishWorkout()`)
+- `WorkoutExerciseNameRow` DTO updated to include both fields
+- `HistoryCard` and `WorkoutDetailScreen` can now display accurate session duration as `endTimeMs - startTimeMs`
+
+---
+
+## v28 — Routine Per-Set Slot Configuration (PLANNED — not yet implemented)
+
+**Migration:** `MIGRATION_27_28`
+**Spec:** `WORKOUT_SPEC.md §28`
+
+### Planned Changes
+
+#### New table: `routine_set_slots`
+- `id INTEGER PK AUTOINCREMENT`
+- `routineExerciseId INTEGER FK` → `routine_exercises.id` ON DELETE CASCADE
+- `slotOrder INTEGER NOT NULL` — 1-indexed position within the exercise
+- `setType TEXT NOT NULL DEFAULT 'NORMAL'`
+- `defaultWeight TEXT NOT NULL DEFAULT ''`
+- `reps INTEGER NOT NULL DEFAULT 0`
+- `restTimeSeconds INTEGER NOT NULL DEFAULT 90`
+
+### Data Migration
+Expand each `routine_exercises` row into N `routine_set_slots` rows (N = `routine_exercises.sets`), copying `.defaultWeight`, `.reps`, `.restTime` into each slot. Existing `routine_exercises.sets`/`.defaultWeight`/`.reps`/`.restTime` columns deprecated (not dropped in v28).
+
+### Future: Exercise Data Fixes (planned, version TBD)
+- Romanian Deadlift name normalization migration
+- Hammer Curl / Face Pull deduplication migration
+
+---
+
 ## v27 — exercise_muscle_groups Index Name Fix (crash fix)
 
 **Migration:** `MIGRATION_26_27`

@@ -8,7 +8,7 @@
 - Language: Kotlin 2.0.21
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
-- Database: Room (v23, 16 entities, 15 DAOs)
+- Database: Room (v30, 16 entities, 15 DAOs)
 - AI: Google Gemini (War Room chat + action parsing)
 - Auth/Backend: Firebase Auth + Firestore
 - Health: Health Connect API (`androidx.health.connect:connect-client:1.1.0-rc01`)
@@ -21,21 +21,12 @@
 **Main Features Implemented:**
 - Workout routine creation and management
 - Active workout tracking (sets, reps, weight, duration)
-- Superset support (pair exercises via multi-select CAB, SS badge, turn-based alternation, border glow)
-- Exercise Management Hub (ModalBottomSheet, 8 actions: session note, sticky note, warmup sets, rest timer, replace, superset, preferences, remove)
-- Session notes (volatile, per-session) + sticky notes (persisted per routine-exercise via `routine_exercises.stickyNote` DB column)
-- Rest timer sheet (in-workout per-exercise rest duration adjustment)
-- Workout history with timestamps and notes; tapping a history card navigates to WorkoutDetailScreen (per-exercise, per-set breakdown with e1RM column, set type prefix W/D/F, set notes, superset spine)
-- WorkoutDetailScreen + WorkoutDetailViewModel: new files in `ui/history/`; `WorkoutSetWithExercise` data class + `getSetsWithExerciseForWorkout()` query in `WorkoutSetDao`; uses `StatisticalEngine.calculate1RM()` per set
+- **Workout/Routine flow** — Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary (uses `skipPartiallyExpanded` and weighted layouts to ensure full visibility above system bars on Samsung/Android 14 devices), template builder, exercise picker. **See WORKOUT_SPEC.md.** Per-set-type rest timer logic: `computeRestDuration(completed, next, default)` in `WorkoutViewModel` returns 0s for DROP sets, 30s for WARMUP→WARMUP, exercise default otherwise.
 - Theme mode: `ThemeMode` enum (LIGHT/DARK/SYSTEM) in `data/ThemeMode.kt`; `AppSettingsDataStore.themeMode: Flow<ThemeMode>` + `setThemeMode()`; `PowerMETheme(themeMode: ThemeMode)` applies `LightColorScheme` or `DarkColorScheme` (Stremio dark palette) or follows system; `MainActivity` collects themeMode, calls `enableEdgeToEdge` via `SideEffect` conditionally; Appearance card in SettingsScreen with `SingleChoiceSegmentedButtonRow` (Light/Dark/System); deprecated `darkModeEnabled` / `setDarkModeEnabled` preserved for schema stability
 - Google Fonts: `BarlowCondensed` (Medium/SemiBold/Bold) + `Barlow` (Normal/Medium/SemiBold) loaded via `GoogleFont.Provider`; `res/values/font_provider_certs.xml` contains GMS cert arrays; `Typography` expanded to 11 M3 roles (displaySmall, headlineL/M/S, titleL/M, bodyL/M/S, labelMedium/Small); graceful fallback to system sans-serif offline
 - Nav tab order: Workouts / History / Exercises / Tools / Trends (Workouts first)
-- Save as Routine: PostWorkoutSummarySheet "Save as Routine" button → AlertDialog → `WorkoutViewModel.saveWorkoutAsRoutine()` creates Routine + RoutineExercise rows from completed sets
-- Auto-copy weight/reps: `addSet()` pre-fills new set with last set's weight and reps strings
-- Rest timer (audio + haptic) — 2s/1s warning beeps + 800ms end beep at 0s
-- WorkoutTimerService (ForegroundService wrapping countdown timer coroutine with persistent notification); bound to WorkoutViewModel via ServiceConnection — timer survives backgrounding; `timerJob?.cancel()` guard prevents double-beep race; `onTimerTick`/`onTimerFinish` callbacks drive audio+haptic
 - Exercise library (150+ exercises, YouTube demos via native Intent, muscle groups, equipment types)
-- Multi-select muscle group filter + equipment filter chips in Exercises tab (AND-combined filtering); equipment chips use canonical taxonomy [All, Barbell, Dumbbell, Machine, Cable, Bodyweight]; case-insensitive matching against DB uppercase values; equipment row wrapped in surfaceVariant Surface (Slate800) for visual distinction from muscle row
+- Multi-select muscle group filter + equipment filter chips in Exercises tab (AND-combined filtering). Full spec in `EXERCISES_SPEC.md §4`.
 - AI "War Room" chat (Gemini) with action parsing (create routines, update weight, switch gym, update injuries)
 - War Room overlay auto-dismissed via DisposableEffect on nav away; user-selected model respected (AppSettingsDataStore)
 - War Room clear fully resets Gemini in-memory session (no stale context)
@@ -51,52 +42,11 @@
 - Performance metrics, trends, and charts
 - State history auditing trail
 - DataStore preferences (plates config, timers, language, modelsLastFetched)
-- Clocks tab (Stopwatch, Timer, Tabata, EMOM) with countdown beeps, skip-last-rest, pre-finish alerts, input validation
-- Drag-and-drop exercise reorder (reorderable-compose library; `reorderExercise()` in WorkoutViewModel)
-- Bayesian M-Estimate 1RM (`calculateBayesian1RM()` in StatisticalEngine.kt): smooths e1RM readings from small sample sets via μ_bayesian=(C*μ_prior+n*μ_sample)/(C+n), C=5 default
-- WeeklyInsightsAnalyzer: 100% local/deterministic; receives bayesian1RMs Map<Long,Double> from AnalyticsRepository — no AI calls
-- ExercisesScreen: equipmentType chip now uses `toEquipmentDisplayName()` extension (DB UPPER_CASE → Title Case, e.g. CABLE → Cable); all static color imports replaced with MaterialTheme.colorScheme tokens (§1 compliant); VideoLibrary play icon removed from ExerciseCard; tap opens ExerciseDetailSheet (ModalBottomSheet) with Form Cues (muted gold banner) + YouTube TextButton; `selectedExercise` state at screen scope drives the sheet
-- ExerciseDetailSheet: new @Composable in ExercisesScreen.kt — ModalBottomSheet showing exercise name, muscle/equipment chips, setupNotes in gold banner (Color 0xFF5A4D1A), YouTube link via vnd.youtube: intent + browser fallback
-- ActiveWorkoutScreen: LazyColumn contentPadding = PaddingValues(bottom=8.dp) added; imePadding() on outer Column ensures set fields stay visible when keyboard is active
-- WorkoutViewModel: `onWeightChanged`/`onRepsChanged` — early return on Invalid (no state mutation), removed `isCompleted` side-effect from both; `completeSet(exerciseId, setOrder)` now **toggles** `isCompleted` (no SurgicalValidator gate) — first tap completes + starts rest timer, second tap un-completes + calls `stopRestTimer()`; `stopRestTimer()` cancels `timerJob`, stops bound service, clears `RestTimerState`
-- WorkoutInputField: new reusable composable (ui/components/WorkoutInputField.kt) — BasicTextField with StremioInputPill (#2C2C4E) background, RoundedCornerShape(4.dp), 34dp height, 1dp primary border on focus, centered text; used in WorkoutSetRow
-- Strong-Inspired UI Overhaul: ActiveWorkoutScreen compact top bar (Close icon → workoutName + elapsed mm:ss → Finish button); PostWorkoutSummarySheet triggered by `pendingWorkoutSummary` state (name, duration, volume, set count, exercise list); STRENGTH column headers match WorkoutSetRow widths; Add Set replaced with minimal clickable Row; exercise name/muscle group colors use `onSurface` tokens; WorkoutsScreen gains "Workouts" title, `OutlinedButton` for empty start, "Routines" label, RoutineCard with left primary accent bar + exercise count SuggestionChip + AccessTime recency icon + FilledTonalButton; HistoryScreen redesigned (routineName title fallback, stats row with Timer/FitnessCenter/List icons, FlowRow exercise chips, setCount from DAO); WorkoutViewModel: `elapsedTimerJob` + `startElapsedTimer()`, `workoutName`/`elapsedSeconds`/`pendingWorkoutSummary` in state, `dismissWorkoutSummary()`, `finishWorkout()` no longer takes callback; WorkoutDao: `WorkoutExerciseNameRow` + SQL query add `routineName` (LEFT JOIN routines) and `setCount` (COUNT subquery); HistoryViewModel: `WorkoutWithExerciseSummary` gains `routineName` + `setCount`
-- WorkoutSetRow: new composable in ActiveWorkoutScreen.kt — high-density row: Set# 24dp | Previous 72dp | KG pill | REPS pill | ✓ button (TimerGreen when completed) + tappable RPE SuggestionChip badge after ✓ (visible only when isCompleted); replaces SetRow in the STRENGTH else branch; ExerciseCard gains onCompleteSet + onUpdateRpe params wired to viewModel
-- RPE integration: scale 6.0–10.0 in 0.5 steps, stored as Int×10 in existing `WorkoutSet.rpe` DB column (no migration); `ActiveSet.rpeValue: Int?` holds in-memory state; `WorkoutViewModel.updateRpe()` updates memory + DB via `WorkoutSetDao.updateRpe()`; `RpePickerSheet` ModalBottomSheet (replaces old `RpePickerDialog` AlertDialog) with `navigationBarsPadding()` + FlowRow of FilterChips + Clear; triggered by long-press on Reps `BadgedBox` (shows `@RPE` badge when rpeValue set, no post-checkmark chip); `WorkoutSetWithExercise.rpe` + `SetDisplayRow.rpe` carry RPE into WorkoutDetailScreen (RPE column header + per-set label next to e1RM)
-- Superset Spine: ExerciseCard restructured to Card{Row(IntrinsicSize.Min){Box(4dp secondary spine if isInSuperset) + Column(weight(1f))}} — spine spans full card height
-- RoutineExercise entity: new Room entity (routine_exercises table) — routineId FK, exerciseId FK, sets, reps, restTime, order, supersetGroupId; RoutineExerciseDao with getForRoutine (backtick-escaped `order`), insert, insertAll, delete, deleteByRoutineAndExercise, updateOrder
-- Routine.isArchived: new soft-archive field (Boolean, default false)
-- RoutineDao: RoutineExerciseNameRow projection model; getAllActiveRoutinesWithExerciseNames() + getAllArchivedRoutinesWithExerciseNames() Flow queries with LEFT JOIN
-- WorkoutsViewModel: RoutineWithSummary(routine, exerciseNames, daysSincePerformed?); activeRoutines+archivedRoutines StateFlows; archiveRoutine, unarchiveRoutine, deleteRoutine, renameRoutine; now injects RoutineExerciseDao; routineDetails StateFlow + loadRoutineDetails()/clearRoutineDetails() for RoutineOverviewSheet
-- WorkoutsScreen: 2-column chunked grid of compact clickable RoutineCards (tap card → RoutineOverviewSheet; ⋯ top-right → Rename/Archive/Delete dropdown); RoutineOverviewSheet ModalBottomSheet: ✕ | name | Edit no-op, recency label, N × Exercise rows, Start Workout button; archived routines also 2-col under AnimatedVisibility
-- RoutineExerciseDao: added RoutineExerciseWithName data class + getExercisesWithNamesForRoutine() JOIN query
-- ActiveWorkoutScreen: RestSeparator private composable — Crossfade between active (primary-tinted block with live mm:ss countdown) and passive (TimerGreen HorizontalDividers + monospace rest-time label) states; sets loop checks isThisTimerActive so last set also shows separator while timer is live; global RestTimerBar banner removed; sets loop changed to forEachIndexed; Add Set button label updated to 'Add Set (M:SS)'
-- WorkoutViewModel: RestTimerState gains exerciseId: Long? + setOrder: Int? fields; startRestTimer() accepts optional setOrder param and stamps identity on timer start; service mirror preserves identity via state.restTimer.copy(); completeSet() passes setOrder to startRestTimer()
-- WorkoutRepository: added RoutineExerciseDao; instantiateWorkoutFromRoutine(routineId) → WorkoutBootstrap (creates Workout + WorkoutSets from RoutineExercise, returns ghostMap)
-- MagicAddDialog/MagicAddViewModel: Gemini removed from the search path; `onSearchChanged(query)` drives local DB search via `ExerciseRepository.searchExercises()`; results show as clickable LazyColumn rows (prefix-priority ranked, LIMIT 25); "Create new" row at bottom triggers existing Gemini enrichment flow for exercises not in DB; `searchResults: StateFlow<List<Exercise>>` exposed from ViewModel; `reset()` also clears searchResults
-- ExerciseDao: `searchExercises(query)` @Query added — case-insensitive LIKE with prefix-first ORDER BY, LIMIT 25; `getByIds(ids)` @Query added for bulk exercise fetch by ID list
-- ExerciseRepository: `searchExercises(query)` + `getExercisesByIds(ids)` exposed as suspend funs
-- RoutineExerciseDao: `deleteAllForRoutine(routineId)` added
-- ToolsScreen (Clocks): TABATA and EMOM modes now use persistent side-by-side Start+Reset buttons (weight(1f) each, always visible regardless of timer phase) with PlayArrow/Pause icons matching Stopwatch/Timer layout; STOPWATCH and COUNTDOWN keep existing icon-labeled toggle+reset layout
-- TemplateBuilderScreen + TemplateBuilderViewModel (new files in `ui/workouts/`): full-screen routine editor — TopAppBar (back / name OutlinedTextField / Save TextButton), LazyColumn of DraftExerciseRows (exercise name + muscle chip, sets stepper −/N/+, delete icon), empty state, footer "Add Exercises" OutlinedButton; navigates to EXERCISE_PICKER route and receives selected IDs via savedStateHandle "selected_exercises" key; `DraftExercise` data class; `TemplateBuilderViewModel` injects `RoutineDao`, `RoutineExerciseDao`, `ExerciseRepository`, `PowerMeDatabase`, `SavedStateHandle`; `save()` uses `database.withTransaction { deleteAllForRoutine + insertAll }`; supports both create (`routineId=-1`) and edit flows
-- ExercisesScreen: `pickerMode: Boolean` param — when true: shows picker header with "Add (N)" confirm button, tapping cards toggles selection (selectedIds Set<Long>), selected cards show primary overlay + CheckCircle icon at top-end, FABs hidden, ExerciseDetailSheet disabled; `onExercisesSelected: (List<Long>) -> Unit` callback
-- Navigation: `TEMPLATE_BUILDER = "template_builder/{routineId}"` + `EXERCISE_PICKER = "exercise_picker"` routes added; EXERCISE_PICKER is full-screen (no bottom nav scaffold); WorkoutsScreen wired with `onCreateRoutine` + `onEditRoutine` lambdas
-- WorkoutsScreen: `showCreateDialog` AlertDialog removed; "+" icon calls `onCreateRoutine()`; RoutineOverviewSheet Edit button calls `onEditRoutine(routineId)`; Edit button disabled when `isWorkoutActive=true`
-- Routine Edit Mode: `WorkoutViewModel.startEditMode(routineId)` loads RoutineExercise rows into `ActiveWorkoutState` with `isEditMode=true`, `workoutId=null`, no elapsed timer; `saveRoutineEdits()` batch-writes changes to `routine_exercises` and sets `editModeSaved=true` (navigation trigger); `cancelEditMode()` resets state; `ActiveWorkoutState` gains `isEditMode` + `editModeSaved` fields; `addSet()` uses negative fake ID in edit mode; `onWeightChanged`/`onRepsChanged` skip Iron Vault debounce in edit mode; `completeSet()` skips rest timer in edit mode; `ActiveWorkoutScreen` branches on `isEditMode`: BackHandler, Close button, elapsed timer hidden, footer shows "Save Changes" vs "Finish Workout", RestSeparators hidden; `PowerMeNavigation.onEditRoutine` now calls `startEditMode(routineId)` + navigates to workout route instead of TemplateBuilder
-- WorkoutSetRow: row background is `MaterialTheme.colorScheme.surfaceVariant` (`Slate200` in light mode) when `isCompleted`, `Color.Transparent` otherwise
-- WorkoutSetRow: set number pill tap opens DropdownMenu with "Change Type" and "Delete Timer" (error-colored) items; `onDeleteTimer` param wired through ExerciseCard → screen → `viewModel.deleteLocalRestTime()`
-- Per-set rest time overrides: `ActiveWorkoutState.restTimeOverrides: Map<String, Int>` keyed by `"${exerciseId}_${setOrder}"`; `updateLocalRestTime()` / `deleteLocalRestTime()` in ViewModel; passive RestSeparator tap → `RestTimePickerDialog` (min/sec OutlinedTextFields, CONFIRM/CANCEL) → `updateLocalRestTime`; effectiveRest computed per set in ExerciseCard
-- RestTimerState gains `isPaused: Boolean = false`; `pauseRestTimer()` / `resumeRestTimer()` / `startRestTimerWithDuration()` added to WorkoutViewModel; `WorkoutTimerService.pauseTimer()` returns remaining seconds and stops the coroutine
-- TimerControlsSheet (ModalBottomSheet): shows remaining time, -10s / Pause-or-Play / +10s controls, Skip button; triggered by tapping active RestSeparator (primary-tinted box); wired at screen level via `showTimerControls` state
-- UpdateRestTimersDialog: AlertDialog with min/sec fields replacing old RestTimerSheet flow for the Management Hub "Update rest timer" action; `updateExerciseRestTimer()` now calls `ExerciseDao.updateRestDuration()` directly (new @Query) instead of fetching full Exercise via repository
-- ExerciseDao: `updateRestDuration(exerciseId, seconds)` @Query added
-- WorkoutViewModel: `ExerciseDao` injected directly (new constructor param) for `updateRestDuration` call
-- WorkoutInputField: optional `focusRequester: FocusRequester?` param added; appended via `.then(Modifier.focusRequester(...))` if non-null
-- RestSeparator: `onActiveClick` and `onPassiveClick` callbacks added; active box has `.clickable(onClick = onActiveClick)`, passive row has `.clickable(onClick = onPassiveClick)`
-- Power Grid Efficiency Update (v23 refactor): collapsible ExerciseCards (`isCollapsed by rememberSaveable`, `AnimatedVisibility`, chevron `IconButton`); weight-based column grid (SET=0.10f, WEIGHT=0.30f, REPS=0.30f, RPE=0.20f, CHECK=0.10f) shared between header `Row` and `WorkoutSetRow` for perfect alignment; RPE column always-visible in `WorkoutSetRow` (tap → `RpePickerSheet`), `BadgedBox` + post-completion RPE chip removed; "Add Rest" `TextButton` (muted, Timer icon) alongside "Add Set" in exercise card footer; Finish button moved from TopAppBar to LazyColumn footer item with `navigationBarsPadding()`; smart-fill cascade in `onWeightChanged`/`onRepsChanged` (first set → blank+uncompleted sets only); Routine sync prompts on `finishWorkout()`: `RoutineExerciseSnapshot` data class, `RoutineSyncType` enum (STRUCTURE/VALUES), `pendingRoutineSync` in `ActiveWorkoutState`, two `AlertDialog` composables in screen, `confirmUpdateRoutineStructure()`/`confirmUpdateRoutineValues()`/`dismissRoutineSync()` in ViewModel; `RoutineExercise.defaultWeight` field + `RoutineExerciseDao.updateSets()`/`updateRepsAndWeight()` queries; DB v22→v23 migration adds `defaultWeight TEXT NOT NULL DEFAULT ''` to `routine_exercises`
-- Set Row UI & Interaction (Items 8, 9, 10, 11): PREV column added to WorkoutSetRow and ExerciseCard header (PREV_COL_WEIGHT=0.22f, `formatGhostLabel()` helper shows previous session ghostWeight×ghostReps@RPE or "—"); column weights updated to SET=0.08/PREV=0.22/WEIGHT=0.25/REPS=0.22/RPE=0.13/CHECK=0.10; `SetTypePickerSheet` ModalBottomSheet replaces DropdownMenu — 4 RadioButton rows (Normal/Warm Up/Drop Set/Failure) + Info icon (AlertDialog description per type) + Delete Timer TextButton in error color; `selectSetType(exerciseId, setOrder, setType)` added to WorkoutViewModel (updates state + writes DB via `workoutSetDao.updateSetType()`), `cycleSetType` preserved; `SwipeToDismissBox` (EndToStart) wrapping WorkoutSetRow (keyed by `set.id`) and RestSeparator rows, `SwipeToDeleteBackground` composable (error color fade + Delete icon); `deleteSet()` extended to cancel rest timer if it matches (exerciseId, setOrder), call `workoutSetDao.deleteSetById()`, and clean restTimeOverrides/hiddenRestSeparators; `deleteRestSeparator(exerciseId, setOrder)` added; `hiddenRestSeparators: Set<String>` added to `ActiveWorkoutState`; `deleteSetById @Query` added to `WorkoutSetDao`; 5 new tests in WorkoutViewModelTest; ExerciseCard `onCycleSetType` → `onSelectSetType: (Int, SetType) -> Unit`, `onDeleteRestSeparator` + `hiddenRestSeparators` params added
+- Clocks tab (Stopwatch, Timer, Tabata, EMOM) with countdown beeps, skip-last-rest, pre-finish alerts, input validation; TABATA and EMOM use persistent side-by-side Start+Reset buttons (always visible, PlayArrow/Pause icons); STOPWATCH and COUNTDOWN use icon-labeled toggle+reset layout
+- StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository, BoazPerformanceAnalyzer (V2 stub). Full spec in `HISTORY_ANALYTICS_SPEC.md`.
+- ExercisesScreen: tap opens ExerciseDetailSheet (ModalBottomSheet) with Form Cues (muted gold banner) + YouTube TextButton. Full spec in `EXERCISES_SPEC.md §5–§6`.
 
-**Color System:** v3.0 Stremio 'Pure Performance' palette (ProjectMap §1 compliant). Core tokens: StremioBackground #0F0F1E (page bg), StremioSurface #191932 (cards/bars), StremioSurfaceVar #1F1F3E (chips/rows), StremioViolet #7B5BE4 (primary), StremioMagenta #B3478C (secondary), StremioCloudGrey #E1E1E6 (on-surface text), StremioError #FF4444. Legacy aliases (DeepNavy, NavySurface, SlateGrey, OledBlack, NeonBlue, ElectricBlue, Slate200) defined in Color.kt only. All composables use `MaterialTheme.colorScheme.*` tokens — no static color imports in composables. MedicalAmber/MedicalAmberContainer preserved. TimerGreen = Emerald400 (#34D399).
+**Color System:** Pro Tracker v4.0 palette. Current dark surface values: `StremioBackground=#000000`, `StremioSurface=#252525`, `StremioSurfaceVar=#303030`, `StremioInputPill=#2A2A2A`. Full token reference, ThemeMode system, typography, semantic colors, and token usage rules in `THEME_SPEC.md`.
 
 **Navigation Structure:**
 - Auth flow: Welcome → Profile Setup
@@ -104,20 +54,23 @@
 - Overlays: Settings, Gym Setup → Gym Inventory, Active Workout
 - War Room route exists but the TopAppBar Forum button is hidden (AI de-coupling phase)
 
-**Database:** Room v27 — migrations covered from v6 → v27. Seeded on startup with 150+ master exercises.
+**Database:** Room v30 — migrations covered from v6 → v30. Seeded on startup with 150+ master exercises.
 - v16 adds `supersetGroupId TEXT` column to `workout_sets`
 - v17 adds `stickyNote TEXT` column to `routine_exercise_cross_ref`
 - v18 data-only migration: clears leaked profile metrics from `exercises.setupNotes` (SurgicalValidator.MIGRATION_SQL)
 - v19 data-only migration: strips `"181.5 cm:"` prefix from `exercises.setupNotes` that bypassed v18 guard (SurgicalValidator.MIGRATION_SQL_V19)
 - v20 schema migration: adds `isArchived INTEGER NOT NULL DEFAULT 0` to `routines`; creates new `routine_exercises` table (id, routineId FK, exerciseId FK, sets, reps, restTime, `order`, supersetGroupId) with indices on routineId+exerciseId
 - v21 Data Hardening: `workouts.routineId` made nullable; FK changed to `SET_NULL` (orphan protection); `workouts.isCompleted INTEGER NOT NULL DEFAULT 0` added (settled-data gate); `routine_exercises.stickyNote TEXT` added; `routine_exercise_cross_ref` table dropped (data merged); `RoutineExerciseCrossRef.kt` + `RoutineExerciseCrossRefDao.kt` deleted; sticky-note queries moved to `RoutineExerciseDao`; `getPreviousSessionSets` filters `AND w.isCompleted = 1`; `instantiateWorkoutFromRoutine` wrapped in `withTransaction`; `finishWorkout()` sets `isCompleted=true` + calls `updateLastPerformed`; History tab now shows exercise name chips via `getAllCompletedWorkoutsWithExerciseNames` query
-- v22 Iron Vault Sprint: `workout_sets.isCompleted INTEGER NOT NULL DEFAULT 0` added; Iron Vault auto-save wiring in `WorkoutViewModel` (rehydration on init, `startWorkoutFromRoutine()`, debounced weight/reps saves, discrete set-completion + setType DB writes); `cancelWorkout()` deletes orphaned DB records; `finishWorkout()` updates existing Workout row + deletes incomplete sets; SetType tap-to-cycle badge in `WorkoutSetRow` (NORMAL→WARMUP→FAILURE→DROP); per-set `PlateCalculatorSheet` ModalBottomSheet reading from `UserSettings.availablePlates`; `WorkoutsScreen` gains Resume Workout banner + RoutineCard Start button; shared `WorkoutViewModel` at NavHost level
+- v22 Iron Vault Sprint: `workout_sets.isCompleted INTEGER NOT NULL DEFAULT 0` added; Iron Vault auto-save wiring in `WorkoutViewModel` (rehydration on init, `startWorkoutFromRoutine()`, debounced weight/reps saves, discrete set-completion + setType DB writes); `cancelWorkout()` deletes orphaned DB records; `finishWorkout()` updates existing Workout row + deletes incomplete sets; SetType uses anchored `DropdownMenu` in `WorkoutSetRow` (see WORKOUT_SPEC.md §10.2); `cycleSetType()` is **hard-deleted** — do not reintroduce; per-set `PlateCalculatorSheet` ModalBottomSheet reading from `UserSettings.availablePlates`; `WorkoutsScreen` gains Resume Workout banner + RoutineCard Start button; shared `WorkoutViewModel` at NavHost level
 - v23 Power Grid: adds `defaultWeight TEXT NOT NULL DEFAULT ''` to `routine_exercises` table; supports routine sync change detection on workout finish
 - v24 Exercise Normalization: MIGRATION_23_24 — (1) 11 MERGE dedup passes (re-point routine_exercises+workout_sets FK → canonical exercise, delete legacy row); (2) 4 KEEP-BOTH renames (Romanian Deadlift RDL-BB/RDL-DB split, Weighted Pull-Up, Incline Dumbbell Row); (3) equipment normalization (Dumbbells→Dumbbell, Bodyweight+→Bodyweight); (4) muscleGroup normalization (Rear Delts→Shoulders, Lats→Back, Hamstrings→Legs, Triceps/Biceps→Arms, Abs→Core, Upper Chest/Side Delts→Shoulders/Chest, Chest/Triceps→Chest); (5) new `exercise_muscle_groups` table (exerciseId FK, majorGroup, subGroup, isPrimary) populated from muscleGroup + secondary rows for compound exercises; (6) partial UNIQUE index on master exercises (name, equipmentType WHERE isCustom=0)
 - DatabaseSeeder reduced to 6 unique legacy entries (13 merge-duplicates removed); MasterExerciseSeeder bumped to v1.2 to force reseed of renamed exercises
 - v25 Search Normalization: MIGRATION_24_25 — adds `searchName TEXT NOT NULL DEFAULT ''` to `exercises`; back-fills via SQLite `LOWER(REPLACE(...))` for all existing rows; `Exercise.searchName` field + `fun String.toSearchName()` extension (lowercase, strips hyphens/spaces/parens); `MasterExerciseSeeder` bumped v1.2→v1.3 (populates searchName on insert/update); `DatabaseSeeder` also populates searchName; `ExerciseDao.searchExercises()` targets `searchName` column; `ExerciseRepository.searchExercises()` normalizes query via `toSearchName()`; `ExercisesViewModel.applyFilters()` normalizes once + matches `exercise.searchName`; ExercisesScreen search field gains trailing ✕ clear icon
 - v26 Schema Mismatch Fix: MIGRATION_25_26 — drops `idx_exercises_master_unique` partial UNIQUE index (Room cannot represent partial indexes; was causing `IllegalStateException: Migration didn't properly handle: exercises` crash on every cold launch after v24); `Exercise.searchName` gains `@ColumnInfo(defaultValue = "")` annotation to match SQL default set in MIGRATION_24_25
 - v27 Index Name Fix: MIGRATION_26_27 — drops `idx_emg_exerciseId` on `exercise_muscle_groups` (created by v24 with wrong name) and recreates as `index_exercise_muscle_groups_exerciseId` (Room's expected convention); fixes `IllegalStateException: Migration didn't properly handle: exercise_muscle_groups` crash on every cold launch since v24
+- v28 Set Type Persistence: MIGRATION_27_28 — adds `setTypesJson TEXT NOT NULL DEFAULT ''` to `routine_exercises`; stores per-set types as comma-separated SetType names (e.g. `"NORMAL,WARMUP,NORMAL"`); `startEditMode()` deserializes via `String.toEditModeSetTypes()`; `saveRoutineEdits()` serializes all set types sorted by `setOrder`
+- v29 Per-Set Weight/Reps Persistence: MIGRATION_28_29 — adds `setWeightsJson TEXT NOT NULL DEFAULT ''` and `setRepsJson TEXT NOT NULL DEFAULT ''` to `routine_exercises`; stores per-set weights and reps as comma-separated strings (e.g. `"80,85,90"`, `"10,8,6"`); `startEditMode()` deserializes via `String.toEditModeValues()`; `saveRoutineEdits()` serializes sorted by `setOrder`; `defaultWeight`+`reps` kept in sync with set 1 for Diff Engine compatibility
+- v30 Workout Timestamps: MIGRATION_29_30 — adds `startTimeMs INTEGER NOT NULL DEFAULT 0` and `endTimeMs INTEGER NOT NULL DEFAULT 0` to `workouts`; `WorkoutRepository.createEmptyWorkout()` + `instantiateWorkoutFromRoutine()` set `startTimeMs = System.currentTimeMillis()`; `WorkoutViewModel.finishWorkout()` sets `endTimeMs`; `HistoryCard` uses `durationMsComputed` (precise ms diff or fallback to `durationSeconds`)
 - ExercisesScreen filter chips now DB-driven (SELECT DISTINCT muscleGroup/equipmentType via ExerciseDao + ExerciseRepository + ExercisesViewModel.muscleGroupFilters/equipmentFilters StateFlows); hardcoded MUSCLE_GROUPS/EQUIPMENT_FILTERS constants removed
 - util/MuscleGroups.kt: new object with 8 canonical group string constants (LEGS, BACK, CORE, CHEST, SHOULDERS, FULL_BODY, ARMS, CARDIO)
 
@@ -126,7 +79,7 @@
 
 **Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
 
-**Unit Test Coverage (src/test/, 12 files, ~95 tests total):**
+**Unit Test Coverage (src/test/, 12 files, 225 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -137,18 +90,84 @@
 - `util/SurgicalValidatorTest.kt` — 18 tests (parseDecimal, parseReps, isLeakedMetric)
 - `util/PlateCalculatorTest.kt` — 13 tests (calculatePlates, parseAvailablePlates, formatPlateBreakdown)
 - `analytics/StatisticalEngineTest.kt` — 22 tests (mean, stdDev, zScore, quartiles, IQR, outliers, Pearson, 1RM, Bayesian 1RM, rateOfChange)
-- `ui/history/HistoryViewModelTest.kt` — 5 tests
-- `ui/workout/WorkoutViewModelTest.kt` — 27 tests (includes 2 completeSet toggle tests + 5 rest timer/override tests + 5 cascade/routine-sync tests + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode)
+- `ui/history/HistoryViewModelTest.kt` — 12 tests
+- `ui/workout/WorkoutViewModelTest.kt` — 32 tests (includes 2 completeSet toggle tests + 5 rest timer/override tests + 5 per-set-type rest timer tests + 5 cascade/routine-sync tests + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode + 1 helper)
 
-**Known Specs / Design Docs in repo:**
-- `CARDIO_TIMED_SPEC.md`, `DS_POWER_TOOLS_SPEC.md`, `EQUIPMENT_SPEC.md`, `GYM_PROFILES_SPEC.md`
-- `INJURY_CONTEXT_SPEC.md`, `INJURY_TRACKER_SPEC.md`, `METRICS_ALGORITHM.md`
-- `NOAA_WARMUP_SPEC.md`, `WAR_ROOM_ACTIONS_SPEC.md`, `UX_UTILITIES.md`
-- `DB_UPGRADE.md`, `EALTH_CONNECT_PROTO.md`, `committee_manifest.md`
+---
+
+## Feature Specs
+
+Read the relevant spec before touching files in that domain.
+
+| Spec File | Status | Domain |
+|---|---|---|
+| `WORKOUT_SPEC.md` | ✅ Complete | Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary, warmup, notes, minimize/maximize, Iron Vault |
+| `EXERCISES_SPEC.md` | ✅ Exists | Exercise library (150+ exercises), search/filter UI, ExerciseDetailSheet, MagicAddDialog, equipment display, YouTube demo intent, picker mode |
+| `HISTORY_ANALYTICS_SPEC.md` | ✅ Complete | HistoryScreen layout, StatisticalEngine (Epley/Bayesian 1RM, Volume, dynamic PRs), WeeklyInsightsAnalyzer, WorkoutDetailScreen data contract + retroactive edit flow, BoazPerformanceAnalyzer (V2 stub) |
+| `NAVIGATION_SPEC.md` | ✅ Complete | Route map (16 routes), auth decision tree, WorkoutViewModel scope, minimize/maximize state machine, transitions, MainAppScaffold + MainActivity contracts |
+| `THEME_SPEC.md` | ✅ Complete | Pro Tracker v4.0 palette (all tokens), DarkColorScheme, LightColorScheme (draft), ThemeMode system, typography (Barlow + BarlowCondensed + JetBrainsMono), semantic color contexts, WCAG contrast audit, token rules |
+| `HEALTH_CONNECT_SPEC.md` | 📋 Planned | Permission declaration, sync logic (sleep, HRV, RHR, steps, weight, body fat, height), dual-sink write pattern, anomaly detection |
+| `WAR_ROOM_ACTIONS_SPEC.md` | ⚠️ Archive only | Gemini action parsing, ActionBlock, ActionParser, ActionExecutor — stub in `archive/docs/`; no root-level spec yet |
+| `GYM_PROFILES_SPEC.md` | ⚠️ Archive only | Gym setup, equipment entry, dumbbell range slider, GymInventoryScreen — stub in `archive/docs/`; no root-level spec yet |
+| `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v30, schema changes |
+| `HANDOFF.md` | ✅ Session handoff | Phase 2 completion status, Steps E+F full spec, build/test commands, test patterns |
 
 ---
 
 ## Instructions
+
+### Build & Test Commands
+
+`gradle-wrapper.jar` is missing — `./gradlew` does NOT work. Always use the hardcoded binary path:
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+
+# Run unit tests
+/Users/omerhedvat/.gradle/wrapper/dists/gradle-9.1.0-bin/9agqghryom9wkf8r80qlhnts3/gradle-9.1.0/bin/gradle \
+  -p /Users/omerhedvat/git/AndroidStudioProjects-PowerME :app:testDebugUnitTest
+
+# Build debug APK
+/Users/omerhedvat/.gradle/wrapper/dists/gradle-9.1.0-bin/9agqghryom9wkf8r80qlhnts3/gradle-9.1.0/bin/gradle \
+  -p /Users/omerhedvat/git/AndroidStudioProjects-PowerME :app:assembleDebug
+```
+
+APK output: `app/build/outputs/apk/debug/app-debug.apk`
+Install on emulator: use `mcp__mobile__install_app` tool.
+
+---
+
+### Remaining Work — Phase 2
+
+**Read `HANDOFF.md` for the full spec of each step before starting.**
+
+#### Step E — Exercise Reorder (next up)
+
+**ViewModel (`WorkoutViewModel.kt`):**
+- Add `collapsedExerciseIds: Set<Long>` to `ActiveWorkoutState`
+- Add `collapseAllExcept(exerciseId: Long)` — collapses all exercises except the given one
+- Add `toggleCollapsed(exerciseId: Long)` — toggles a single exercise's collapsed state
+- Add `reorderExercises(fromIndex: Int, toIndex: Int)` — reorders the exercises list in state
+
+**UI (`ActiveWorkoutScreen.kt`):**
+- Replace `LazyColumn` with `ReorderableLazyColumn` from `sh.calvin.reorderable` (dep already in `app/build.gradle.kts` as `sh.calvin.reorderable:reorderable-compose:2.4.3`)
+- Drag handle (`DragHandle` icon) in ExerciseCard header — visible in active mode only, not edit mode
+- Tapping an exercise header calls `collapseAllExcept()` — only tapped exercise shows its sets
+- Hide sets section when `exerciseId in collapsedExerciseIds`
+
+**Tests (2 new in `WorkoutViewModelTest.kt`):**
+- `collapseAllExcept collapses all other exercises and expands the target`
+- `reorderExercises moves exercise from one index to another`
+
+#### Step F — Post-Workout Routine Sync Fix
+
+Fix `RoutineSyncType` diff engine in `WorkoutViewModel.finishWorkout()` / `WorkoutRepository.kt`:
+- `null` → ad-hoc workout
+- `VALUES` → only weight/reps changed
+- `STRUCTURE` → exercise list or order changed
+- `BOTH` → both structure and values differ
+
+---
 
 ### Keeping This Document Current
 - **After every change to the project — update the "Current State" section above.** Reflect new features added, features removed, schema changes (Room version bumps), new libraries, architecture decisions, or anything that affects the overall state of the app.
@@ -194,13 +213,56 @@
 ### Specs & Documentation
 - If implementing a feature that has a corresponding `*_SPEC.md` file, read it before writing any code.
 - If a spec is outdated relative to the implementation, note it in the spec file.
+- **`WORKOUT_SPEC.md` is mandatory reading before any workout or routine change.** It defines the state machine, rendering priority, and technical invariants that prevent the recurring regressions in `ActiveWorkoutScreen`.
+- **After implementing any workout or routine feature — update `WORKOUT_SPEC.md`** to reflect the new behaviour, state transitions, UI components, or invariants introduced.
+- **If a user instruction conflicts with anything documented in `WORKOUT_SPEC.md` — stop and explicitly ask the user to confirm which behaviour they want before writing any code.** Then update the spec to reflect the decision. Never silently resolve a spec conflict by guessing.
 
 ### Testing
 - **Writing and running tests is a mandatory step after any business-logic change — not optional, not deferred.** Do not consider a feature or fix complete until tests are written AND pass.
-- After implementing changes to ViewModels, Repositories, DAOs, or utility classes: immediately write unit tests covering the new behavior, then run them with `./gradlew :app:testDebugUnitTest` before closing the task.
+
+**WorkoutViewModelTest dispatcher pattern** — use `StandardTestDispatcher` for both main and test. Single dispatcher instance:
+```kotlin
+private val testDispatcher = StandardTestDispatcher()
+@Before fun setup() { Dispatchers.setMain(testDispatcher) }
+@After fun tearDown() { Dispatchers.resetMain() }
+// Each test: runTest(testDispatcher) { ... runCurrent() ... }
+```
+
+**`startEditMode()` uses `withContext(Dispatchers.IO)`** — IO runs on a real thread, not the test dispatcher. After calling it, drain with:
+```kotlin
+viewModel.startEditMode(routineId)
+runCurrent()        // drains to the withContext(IO) boundary
+Thread.sleep(100)   // let IO thread schedule continuation back
+runCurrent()        // drain the re-queued continuation
+```
+
+**`advanceTimeBy` off-by-one** — processes tasks where `time < currentTime + N`. To tick a 1000ms timer N times, use `advanceTimeBy(N * 1000 + 1)`.
+
+**Cancel-before-assert** — always call `cancelWorkout()` + `runCurrent()` BEFORE any assertion that could fail, to prevent timer loops blocking `advanceUntilIdle()` cleanup.
+- After implementing changes to ViewModels, Repositories, DAOs, or utility classes: immediately write unit tests covering the new behavior, then run them using the hardcoded Gradle command in the **Build & Test Commands** section above before closing the task.
 - New business logic should have unit tests (JUnit + Mockito).
 - New UI flows should have Compose UI tests where feasible.
 - Run existing tests before committing changes to catch regressions.
+
+### QA Protocol (mandatory after every implementation step)
+
+The QA gate for each step is: **build ✅ + unit tests ✅ + screenshot**.
+
+Steps in order:
+1. **Build** — Run `:app:assembleDebug` using the hardcoded Gradle path (see **Build & Test Commands** section). Must succeed with zero errors.
+2. **Unit tests** — Run `:app:testDebugUnitTest` using the hardcoded Gradle path. Must pass. Fix any regressions before continuing.
+3. **Install + screenshot** — Install the debug APK on the connected Android emulator via `mcp__mobile__install_app`, launch the app, and take at least one screenshot confirming the relevant screen renders without a crash. Navigate to the changed screen if possible.
+
+**Emulator constraints:**
+- Firebase Auth requires network access which is unavailable on the test emulator — sign-in will fail with a network error. This is expected and does not block QA.
+- Connected Android Tests (`connectedAndroidTest`) are skipped because the emulator runs API 36, which is incompatible with the current test runner setup.
+- Screenshot QA is therefore scoped to: app launches without crash, logo/welcome screen renders, and any screen reachable without authentication (e.g. welcome, sign-in form).
+
+**After QA passes**, output:
+- `### WHAT CHANGED` — bullet summary of every file and behaviour modified
+- `### HOW TO QA IT` — manual checklist for the user to verify on device
+
+Do not advance to the next step until the user replies **APPROVED**.
 
 ### Security
 - Never hardcode API keys or secrets. Use `local.properties` + `BuildConfig`.
@@ -212,7 +274,8 @@
 - Optionally focus the review: `/simplify focus on Compose recomposition` or `/simplify focus on ViewModel state management`.
 
 ### UI / UX Reviews
-- For any new screen, composable, or visual redesign — invoke the `ui-ux-pro-max` skill.
+- For any **new screen or open-ended visual design** where layout, color, spacing, or interaction patterns are not already defined by a spec file — invoke the `ui-ux-pro-max` skill.
+- Do **not** invoke it for spec-driven implementations: if a `*_SPEC.md` file already defines the exact tokens, typography, layout, and animation parameters, the spec is the design authority and `ui-ux-pro-max` adds no value.
 - Stack context for this project: Jetpack Compose + Material Design 3, Stremio Indigo palette (see ProjectMap §1).
 - Always use `MaterialTheme.colorScheme.*` tokens — no hardcoded colors.
 
@@ -224,4 +287,7 @@
 ### Security Audits (Shannon — pending install)
 - Once Shannon: Autonomous AI Pentester is installed, run it on any change touching: Firebase Auth/Firestore rules, API keys, EncryptedSharedPreferences, Health Connect data, or Android Intent handling.
 - Do not run on every commit — scope to security-sensitive changes only.
+
+### MCP Servers
+- **`mobile`** (user-scoped, stdio): `npx -y claude-in-mobile` — provides mobile development tools (Android/iOS). Use this MCP server for device interaction, app inspection, and mobile-specific tasks in this project.
 

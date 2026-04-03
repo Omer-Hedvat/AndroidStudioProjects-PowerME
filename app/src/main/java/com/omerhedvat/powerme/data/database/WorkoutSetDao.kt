@@ -77,6 +77,12 @@ interface WorkoutSetDao {
     @Query("UPDATE workout_sets SET rpe = :rpe WHERE id = :id")
     suspend fun updateRpe(id: Long, rpe: Int?)
 
+    @Query("UPDATE workout_sets SET weight = :weight, timeSeconds = :timeSeconds, rpe = :rpe, isCompleted = :completed WHERE id = :id")
+    suspend fun updateTimedSet(id: Long, weight: Double, timeSeconds: Int, rpe: Int?, completed: Boolean)
+
+    @Query("UPDATE workout_sets SET distance = :distance, timeSeconds = :timeSeconds, rpe = :rpe, isCompleted = :completed WHERE id = :id")
+    suspend fun updateCardioSet(id: Long, distance: Double, timeSeconds: Int, rpe: Int?, completed: Boolean)
+
     @Query("DELETE FROM workout_sets WHERE id = :setId")
     suspend fun deleteSetById(setId: Long)
 

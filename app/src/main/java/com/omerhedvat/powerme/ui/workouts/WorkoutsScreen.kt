@@ -1,8 +1,8 @@
 package com.omerhedvat.powerme.ui.workouts
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,14 +14,17 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.omerhedvat.powerme.data.database.RoutineExerciseWithName
+import com.omerhedvat.powerme.data.database.workingSets
 
 @Composable
 fun WorkoutsScreen(
@@ -32,11 +35,31 @@ fun WorkoutsScreen(
     onEditRoutine: (Long) -> Unit = {},
     viewModel: WorkoutsViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val activeRoutines by viewModel.activeRoutines.collectAsState()
     val archivedRoutines by viewModel.archivedRoutines.collectAsState()
     val routineDetails by viewModel.routineDetails.collectAsState()
-    var showArchived by remember { mutableStateOf(false) }
+    var showArchived by rememberSaveable { mutableStateOf(false) }
     var selectedRoutine by remember { mutableStateOf<RoutineWithSummary?>(null) }
+    var pendingExportId by remember { mutableStateOf<Long?>(null) }
+
+    // Fire Android share sheet once routine details are loaded for an export request
+    LaunchedEffect(routineDetails) {
+        val exportId = pendingExportId ?: return@LaunchedEffect
+        if (routineDetails.isNotEmpty()) {
+            val routineName = (activeRoutines + archivedRoutines)
+                .find { it.routine.id == exportId }?.routine?.name ?: "Routine"
+            val text = routineDetails.joinToString("\n") { "${it.workingSets}×${it.reps} ${it.exerciseName}" }
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                putExtra(Intent.EXTRA_SUBJECT, routineName)
+            }
+            context.startActivity(Intent.createChooser(intent, "Export Routine"))
+            pendingExportId = null
+            viewModel.clearRoutineDetails()
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
@@ -83,18 +106,25 @@ fun WorkoutsScreen(
                 }
             }
 
+            // Routines header row: label + "Show Archived" FilterChip + Add button
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Routines",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.weight(1f)
                     )
+                    FilterChip(
+                        selected = showArchived,
+                        onClick = { showArchived = !showArchived },
+                        label = { Text("Archived", fontSize = 12.sp) }
+                    )
+                    Spacer(Modifier.width(4.dp))
                     IconButton(onClick = { onCreateRoutine() }) {
                         Icon(
                             imageVector = Icons.Default.Add,
@@ -105,74 +135,91 @@ fun WorkoutsScreen(
                 }
             }
 
-            if (activeRoutines.isEmpty()) {
-                item {
-                    Text(
-                        text = "No routines yet — ask the War Room to build one",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                    )
-                }
-            } else {
-                items(activeRoutines.chunked(2)) { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        row.forEach { summary ->
-                            RoutineCard(
-                                summary = summary,
-                                modifier = Modifier.weight(1f),
-                                onCardClick = {
-                                    selectedRoutine = summary
-                                    viewModel.loadRoutineDetails(summary.routine.id)
-                                },
-                                onArchive = { viewModel.archiveRoutine(summary.routine) },
-                                onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
-                                onDelete = { viewModel.deleteRoutine(summary.routine) },
-                                onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) }
-                            )
-                        }
-                        if (row.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
-
-            if (archivedRoutines.isNotEmpty()) {
-                item {
-                    TextButton(onClick = { showArchived = !showArchived }) {
+            if (!showArchived) {
+                // Active routines
+                if (activeRoutines.isEmpty()) {
+                    item {
                         Text(
-                            text = if (showArchived) "Hide Archived" else "Show Archived (${archivedRoutines.size})",
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                            fontSize = 13.sp
+                            text = "No routines yet — ask the War Room to build one",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                         )
                     }
-                }
-                item {
-                    AnimatedVisibility(visible = showArchived) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            archivedRoutines.chunked(2).forEach { row ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    row.forEach { summary ->
-                                        RoutineCard(
-                                            summary = summary,
-                                            modifier = Modifier.weight(1f),
-                                            onCardClick = {
-                                                selectedRoutine = summary
-                                                viewModel.loadRoutineDetails(summary.routine.id)
-                                            },
-                                            onArchive = { viewModel.archiveRoutine(summary.routine) },
-                                            onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
-                                            onDelete = { viewModel.deleteRoutine(summary.routine) },
-                                            onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) }
-                                        )
-                                    }
-                                    if (row.size == 1) Spacer(Modifier.weight(1f))
-                                }
+                } else {
+                    items(activeRoutines.chunked(2)) { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            row.forEach { summary ->
+                                RoutineCard(
+                                    summary = summary,
+                                    modifier = Modifier.weight(1f),
+                                    isWorkoutActive = isWorkoutActive,
+                                    onCardClick = {
+                                        selectedRoutine = summary
+                                        viewModel.loadRoutineDetails(summary.routine.id)
+                                    },
+                                    onEdit = {
+                                        onEditRoutine(summary.routine.id)
+                                    },
+                                    onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) },
+                                    onDuplicate = { viewModel.duplicateRoutine(summary.routine) },
+                                    onExpress = { viewModel.createExpressRoutine(summary.routine) },
+                                    onExportText = {
+                                        viewModel.clearRoutineDetails()
+                                        pendingExportId = summary.routine.id
+                                        viewModel.loadRoutineDetails(summary.routine.id)
+                                    },
+                                    onArchive = { viewModel.archiveRoutine(summary.routine) },
+                                    onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
+                                    onDelete = { viewModel.deleteRoutine(summary.routine) }
+                                )
                             }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+            } else {
+                // Archived routines
+                if (archivedRoutines.isEmpty()) {
+                    item {
+                        Text(
+                            text = "No archived routines",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    }
+                } else {
+                    items(archivedRoutines.chunked(2)) { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            row.forEach { summary ->
+                                RoutineCard(
+                                    summary = summary,
+                                    modifier = Modifier.weight(1f),
+                                    isWorkoutActive = isWorkoutActive,
+                                    onCardClick = {
+                                        selectedRoutine = summary
+                                        viewModel.loadRoutineDetails(summary.routine.id)
+                                    },
+                                    onEdit = { onEditRoutine(summary.routine.id) },
+                                    onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) },
+                                    onDuplicate = { viewModel.duplicateRoutine(summary.routine) },
+                                    onExpress = { viewModel.createExpressRoutine(summary.routine) },
+                                    onExportText = {
+                                        viewModel.clearRoutineDetails()
+                                        pendingExportId = summary.routine.id
+                                        viewModel.loadRoutineDetails(summary.routine.id)
+                                    },
+                                    onArchive = { viewModel.archiveRoutine(summary.routine) },
+                                    onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
+                                    onDelete = { viewModel.deleteRoutine(summary.routine) }
+                                )
+                            }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
@@ -190,10 +237,48 @@ fun WorkoutsScreen(
                 viewModel.clearRoutineDetails()
                 onStartWorkout(summary.routine.id)
             },
-            onEditRoutine = {
+            onEdit = {
                 selectedRoutine = null
                 viewModel.clearRoutineDetails()
                 onEditRoutine(summary.routine.id)
+            },
+            onRename = { newName ->
+                viewModel.renameRoutine(summary.routine, newName)
+            },
+            onDuplicate = {
+                viewModel.duplicateRoutine(summary.routine)
+                selectedRoutine = null
+                viewModel.clearRoutineDetails()
+            },
+            onExpress = {
+                viewModel.createExpressRoutine(summary.routine)
+                selectedRoutine = null
+                viewModel.clearRoutineDetails()
+            },
+            onExportText = {
+                // exerciseDetails already loaded in the sheet — fire immediately
+                val text = routineDetails.joinToString("\n") { "${it.workingSets}×${it.reps} ${it.exerciseName}" }
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                    putExtra(Intent.EXTRA_SUBJECT, summary.routine.name)
+                }
+                context.startActivity(Intent.createChooser(intent, "Export Routine"))
+            },
+            onArchive = {
+                viewModel.archiveRoutine(summary.routine)
+                selectedRoutine = null
+                viewModel.clearRoutineDetails()
+            },
+            onUnarchive = {
+                viewModel.unarchiveRoutine(summary.routine)
+                selectedRoutine = null
+                viewModel.clearRoutineDetails()
+            },
+            onDelete = {
+                viewModel.deleteRoutine(summary.routine)
+                selectedRoutine = null
+                viewModel.clearRoutineDetails()
             },
             onDismiss = {
                 selectedRoutine = null
@@ -201,21 +286,26 @@ fun WorkoutsScreen(
             }
         )
     }
-
 }
 
 @Composable
 private fun RoutineCard(
     summary: RoutineWithSummary,
     modifier: Modifier = Modifier,
+    isWorkoutActive: Boolean,
     onCardClick: () -> Unit,
+    onEdit: () -> Unit,
+    onRename: (String) -> Unit,
+    onDuplicate: () -> Unit,
+    onExpress: () -> Unit,
+    onExportText: () -> Unit,
     onArchive: () -> Unit,
     onUnarchive: () -> Unit,
-    onDelete: () -> Unit,
-    onRename: (String) -> Unit
+    onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val exerciseSummary = if (summary.exerciseNames.isEmpty()) {
         "No exercises"
@@ -268,10 +358,40 @@ private fun RoutineCard(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        // 1. Edit
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Edit",
+                                    color = if (isWorkoutActive)
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = { if (!isWorkoutActive) { showMenu = false; onEdit() } },
+                            enabled = !isWorkoutActive
+                        )
+                        // 2. Rename
                         DropdownMenuItem(
                             text = { Text("Rename") },
                             onClick = { showMenu = false; showRenameDialog = true }
                         )
+                        // 3. Duplicate
+                        DropdownMenuItem(
+                            text = { Text("Duplicate") },
+                            onClick = { showMenu = false; onDuplicate() }
+                        )
+                        // 4. Create Express
+                        DropdownMenuItem(
+                            text = { Text("Create Express") },
+                            onClick = { showMenu = false; onExpress() }
+                        )
+                        // 5. Export to Text
+                        DropdownMenuItem(
+                            text = { Text("Export to Text") },
+                            onClick = { showMenu = false; onExportText() }
+                        )
+                        // 6. Archive / Unarchive
                         DropdownMenuItem(
                             text = { Text(if (summary.routine.isArchived) "Unarchive" else "Archive") },
                             onClick = {
@@ -279,9 +399,10 @@ private fun RoutineCard(
                                 if (summary.routine.isArchived) onUnarchive() else onArchive()
                             }
                         )
+                        // 7. Delete
                         DropdownMenuItem(
                             text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                            onClick = { showMenu = false; onDelete() }
+                            onClick = { showMenu = false; showDeleteConfirm = true }
                         )
                     }
                 }
@@ -327,18 +448,28 @@ private fun RoutineCard(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    if (renameText.isNotBlank()) {
-                        onRename(renameText.trim())
-                    }
+                    if (renameText.isNotBlank()) onRename(renameText.trim())
                     showRenameDialog = false
-                }) {
-                    Text("Save")
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Routine") },
+            text = { Text("Delete \"${summary.routine.name}\"? This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirm = false; onDelete() }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
             }
         )
     }
@@ -349,11 +480,22 @@ private fun RoutineCard(
 private fun RoutineOverviewSheet(
     summary: RoutineWithSummary,
     exerciseDetails: List<RoutineExerciseWithName>,
-    isWorkoutActive: Boolean = false,
+    isWorkoutActive: Boolean,
     onStartWorkout: () -> Unit,
-    onEditRoutine: () -> Unit = {},
+    onEdit: () -> Unit,
+    onRename: (String) -> Unit,
+    onDuplicate: () -> Unit,
+    onExpress: () -> Unit,
+    onExportText: () -> Unit,
+    onArchive: () -> Unit,
+    onUnarchive: () -> Unit,
+    onDelete: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     val recencyLabel = when (summary.daysSincePerformed) {
         null -> "Never"
         0 -> "Today"
@@ -370,7 +512,7 @@ private fun RoutineOverviewSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 24.dp)
         ) {
-            // Header
+            // Header: [✕] [Routine name] [⋯]
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -391,17 +533,73 @@ private fun RoutineOverviewSheet(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                TextButton(
-                    onClick = onEditRoutine,
-                    enabled = !isWorkoutActive
-                ) {
-                    Text(
-                        "Edit",
-                        color = if (isWorkoutActive)
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        else
-                            MaterialTheme.colorScheme.primary
-                    )
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "Routine options",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        // 1. Edit
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Edit",
+                                    color = if (isWorkoutActive)
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = { if (!isWorkoutActive) { showMenu = false; onEdit() } },
+                            enabled = !isWorkoutActive
+                        )
+                        // 2. Rename
+                        DropdownMenuItem(
+                            text = { Text("Rename") },
+                            onClick = { showMenu = false; showRenameDialog = true }
+                        )
+                        // 3. Duplicate
+                        DropdownMenuItem(
+                            text = { Text("Duplicate") },
+                            onClick = { showMenu = false; onDuplicate() }
+                        )
+                        // 4. Create Express
+                        DropdownMenuItem(
+                            text = { Text("Create Express") },
+                            onClick = { showMenu = false; onExpress() }
+                        )
+                        // 5. Export to Text (disabled while details are loading)
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Export to Text",
+                                    color = if (exerciseDetails.isEmpty())
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = { if (exerciseDetails.isNotEmpty()) { showMenu = false; onExportText() } },
+                            enabled = exerciseDetails.isNotEmpty()
+                        )
+                        // 6. Archive / Unarchive
+                        DropdownMenuItem(
+                            text = { Text(if (summary.routine.isArchived) "Unarchive" else "Archive") },
+                            onClick = {
+                                showMenu = false
+                                if (summary.routine.isArchived) onUnarchive() else onArchive()
+                            }
+                        )
+                        // 7. Delete
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; showDeleteConfirm = true }
+                        )
+                    }
                 }
             }
 
@@ -435,7 +633,7 @@ private fun RoutineOverviewSheet(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "${ex.sets} × ${ex.exerciseName}",
+                                text = "${ex.workingSets} × ${ex.exerciseName}",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -459,12 +657,49 @@ private fun RoutineOverviewSheet(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                Text(
-                    "Start Workout",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("Start Workout", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
+
+    if (showRenameDialog) {
+        var renameText by remember { mutableStateOf(summary.routine.name) }
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename Routine") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    label = { Text("Routine name") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (renameText.isNotBlank()) onRename(renameText.trim())
+                    showRenameDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Routine") },
+            text = { Text("Delete \"${summary.routine.name}\"? This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirm = false; onDelete() }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
     }
 }

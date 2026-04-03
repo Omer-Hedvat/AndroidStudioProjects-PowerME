@@ -11,9 +11,12 @@ data class WorkoutExerciseNameRow(
     val totalVolume: Double,
     val notes: String?,
     val isCompleted: Boolean,
+    val startTimeMs: Long,
+    val endTimeMs: Long,
     val exerciseName: String?,
     val routineName: String?,
-    val setCount: Int
+    val setCount: Int,
+    val hasPR: Int = 0
 )
 
 @Dao
@@ -44,9 +47,35 @@ interface WorkoutDao {
 
     @Query("""
         SELECT w.id, w.routineId, w.timestamp, w.durationSeconds, w.totalVolume,
-               w.notes, w.isCompleted, e.name AS exerciseName,
+               w.notes, w.isCompleted, w.startTimeMs, w.endTimeMs, e.name AS exerciseName,
                r.name AS routineName,
-               (SELECT COUNT(*) FROM workout_sets ws2 WHERE ws2.workoutId = w.id AND ws2.isCompleted = 1) AS setCount
+               (SELECT COUNT(*) FROM workout_sets ws2 WHERE ws2.workoutId = w.id AND ws2.isCompleted = 1 AND ws2.setType != 'WARMUP') AS setCount,
+               (SELECT CASE WHEN EXISTS (
+                   SELECT 1 FROM workout_sets ws3
+                   WHERE ws3.workoutId = w.id
+                     AND ws3.isCompleted = 1
+                     AND ws3.setType != 'WARMUP'
+                     AND (
+                         NOT EXISTS (
+                             SELECT 1 FROM workout_sets ws4
+                             INNER JOIN workouts w4 ON ws4.workoutId = w4.id
+                             WHERE ws4.exerciseId = ws3.exerciseId
+                               AND ws4.isCompleted = 1
+                               AND w4.isCompleted = 1
+                               AND w4.timestamp < w.timestamp
+                         )
+                         OR
+                         (ws3.weight * (1 + ws3.reps / 30.0)) > (
+                             SELECT COALESCE(MAX(ws4.weight * (1 + ws4.reps / 30.0)), 0)
+                             FROM workout_sets ws4
+                             INNER JOIN workouts w4 ON ws4.workoutId = w4.id
+                             WHERE ws4.exerciseId = ws3.exerciseId
+                               AND ws4.isCompleted = 1
+                               AND w4.isCompleted = 1
+                               AND w4.timestamp < w.timestamp
+                         )
+                     )
+               ) THEN 1 ELSE 0 END) AS hasPR
         FROM workouts w
         LEFT JOIN (
             SELECT DISTINCT workoutId, exerciseId FROM workout_sets

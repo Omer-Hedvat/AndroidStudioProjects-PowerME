@@ -26,5 +26,11 @@ data class RoutineExercise(
     val supersetGroupId: String? = null,
     val stickyNote: String? = null,
     @ColumnInfo(defaultValue = "''")
-    val defaultWeight: String = ""   // default weight for routine sync (v23)
+    val defaultWeight: String = "",  // default weight for routine sync (v23)
+    @ColumnInfo(defaultValue = "''")
+    val setTypesJson: String = "",   // comma-separated SetType names per set in order, e.g. "NORMAL,WARMUP,NORMAL" (v28)
+    @ColumnInfo(defaultValue = "''")
+    val setWeightsJson: String = "", // comma-separated weights per set in order, e.g. "80,85,90" (v29)
+    @ColumnInfo(defaultValue = "''")
+    val setRepsJson: String = ""     // comma-separated reps per set in order, e.g. "10,8,6" (v29)
 )

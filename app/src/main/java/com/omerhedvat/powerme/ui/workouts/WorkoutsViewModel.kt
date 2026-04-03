@@ -7,6 +7,7 @@ import com.omerhedvat.powerme.data.database.RoutineDao
 import com.omerhedvat.powerme.data.database.RoutineExerciseDao
 import com.omerhedvat.powerme.data.database.RoutineExerciseNameRow
 import com.omerhedvat.powerme.data.database.RoutineExerciseWithName
+import com.omerhedvat.powerme.data.repository.RoutineRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,7 +28,8 @@ data class RoutineWithSummary(
 @HiltViewModel
 class WorkoutsViewModel @Inject constructor(
     private val routineDao: RoutineDao,
-    private val routineExerciseDao: RoutineExerciseDao
+    private val routineExerciseDao: RoutineExerciseDao,
+    private val routineRepository: RoutineRepository
 ) : ViewModel() {
 
     private val _routineDetails = MutableStateFlow<List<RoutineExerciseWithName>>(emptyList())
@@ -107,6 +109,18 @@ class WorkoutsViewModel @Inject constructor(
     fun createEmptyRoutine(name: String) {
         viewModelScope.launch {
             routineDao.insertRoutine(Routine(name = name, isCustom = true))
+        }
+    }
+
+    fun duplicateRoutine(routine: Routine) {
+        viewModelScope.launch {
+            routineRepository.duplicateRoutine(routine.id)
+        }
+    }
+
+    fun createExpressRoutine(routine: Routine) {
+        viewModelScope.launch {
+            routineRepository.createExpressRoutine(routine.id)
         }
     }
 }

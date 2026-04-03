@@ -10,8 +10,17 @@ data class RoutineExerciseWithName(
     val sets: Int,
     val reps: Int,
     val order: Int,
-    val supersetGroupId: String?
+    val supersetGroupId: String?,
+    val setTypesJson: String = ""
 )
+
+/** Working sets = total sets minus WARMUP-typed slots. Falls back to raw [sets] for legacy rows. */
+val RoutineExerciseWithName.workingSets: Int get() {
+    if (setTypesJson.isBlank()) return sets
+    return setTypesJson.split(",").count { type ->
+        runCatching { SetType.valueOf(type) }.getOrNull() != SetType.WARMUP
+    }
+}
 
 @Dao
 interface RoutineExerciseDao {
@@ -41,7 +50,7 @@ interface RoutineExerciseDao {
 
     @Query("""
         SELECT re.exerciseId, e.name AS exerciseName, e.muscleGroup, e.equipmentType,
-               re.sets, re.reps, re.`order`, re.supersetGroupId
+               re.sets, re.reps, re.`order`, re.supersetGroupId, re.setTypesJson
         FROM routine_exercises re
         JOIN exercises e ON re.exerciseId = e.id
         WHERE re.routineId = :routineId
@@ -57,4 +66,10 @@ interface RoutineExerciseDao {
 
     @Query("UPDATE routine_exercises SET reps = :reps, defaultWeight = :weight WHERE routineId = :routineId AND exerciseId = :exerciseId")
     suspend fun updateRepsAndWeight(routineId: Long, exerciseId: Long, reps: Int, weight: String)
+
+    @Query("UPDATE routine_exercises SET setTypesJson = :setTypesJson WHERE routineId = :routineId AND exerciseId = :exerciseId")
+    suspend fun updateSetTypesJson(routineId: Long, exerciseId: Long, setTypesJson: String)
+
+    @Query("UPDATE routine_exercises SET setWeightsJson = :setWeightsJson, setRepsJson = :setRepsJson WHERE routineId = :routineId AND exerciseId = :exerciseId")
+    suspend fun updateSetWeightsAndReps(routineId: Long, exerciseId: Long, setWeightsJson: String, setRepsJson: String)
 }

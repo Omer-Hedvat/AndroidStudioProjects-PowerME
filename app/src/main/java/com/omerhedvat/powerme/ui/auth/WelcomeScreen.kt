@@ -44,7 +44,7 @@ fun WelcomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(id = R.drawable.logo),
+                painter = painterResource(id = R.drawable.ic_powerme_logo_source),
                 contentDescription = "PowerME Logo",
                 modifier = Modifier
                     .fillMaxWidth(0.6f)

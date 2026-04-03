@@ -43,7 +43,8 @@ class HistoryViewModelTest {
         setCount: Int = 0,
         timestamp: Long = id * 1000L,
         durationSeconds: Int = 3600,
-        totalVolume: Double = 1000.0
+        totalVolume: Double = 1000.0,
+        hasPR: Int = 0
     ) = WorkoutExerciseNameRow(
         id = id,
         routineId = null,
@@ -52,9 +53,12 @@ class HistoryViewModelTest {
         totalVolume = totalVolume,
         notes = null,
         isCompleted = true,
+        startTimeMs = 0L,
+        endTimeMs = 0L,
         exerciseName = exerciseName,
         routineName = routineName,
-        setCount = setCount
+        setCount = setCount,
+        hasPR = hasPR
     )
 
     @Before
@@ -197,6 +201,81 @@ class HistoryViewModelTest {
             assertEquals(3, summaries[1].setCount)
         }
 
+    // ── hasPR mapping ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `hasPR true when row hasPR is 1`() = runTest(testDispatcher) {
+        val rows = listOf(makeRow(id = 1L, exerciseName = "Squat", hasPR = 1))
+        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
+        val viewModel = HistoryViewModel(workoutRepository)
+        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
+        advanceUntilIdle()
+        job.cancel()
+        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+        assertTrue(summaries[0].hasPR)
+    }
+
+    @Test
+    fun `hasPR false when row hasPR is 0`() = runTest(testDispatcher) {
+        val rows = listOf(makeRow(id = 1L, exerciseName = "Squat", hasPR = 0))
+        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
+        val viewModel = HistoryViewModel(workoutRepository)
+        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
+        advanceUntilIdle()
+        job.cancel()
+        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+        assertEquals(false, summaries[0].hasPR)
+    }
+
+    @Test
+    fun `hasPR taken from first row in group - true when first row has hasPR 1`() = runTest(testDispatcher) {
+        // Multi-exercise workout: first row has hasPR=1, second has hasPR=0
+        val rows = listOf(
+            makeRow(id = 1L, exerciseName = "Squat",       hasPR = 1),
+            makeRow(id = 1L, exerciseName = "Bench Press", hasPR = 0)
+        )
+        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
+        val viewModel = HistoryViewModel(workoutRepository)
+        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
+        advanceUntilIdle()
+        job.cancel()
+        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+        assertEquals(1, summaries.size)
+        assertTrue(summaries[0].hasPR)
+    }
+
+    @Test
+    fun `hasPR false when all rows in group have hasPR 0`() = runTest(testDispatcher) {
+        val rows = listOf(
+            makeRow(id = 1L, exerciseName = "Squat",       hasPR = 0),
+            makeRow(id = 1L, exerciseName = "Bench Press", hasPR = 0)
+        )
+        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
+        val viewModel = HistoryViewModel(workoutRepository)
+        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
+        advanceUntilIdle()
+        job.cancel()
+        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+        assertEquals(false, summaries[0].hasPR)
+    }
+
+    @Test
+    fun `hasPR defaults to false when not provided`() = runTest(testDispatcher) {
+        val rows = listOf(makeRow(id = 1L, exerciseName = "Deadlift"))
+        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
+        val viewModel = HistoryViewModel(workoutRepository)
+        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
+        advanceUntilIdle()
+        job.cancel()
+        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+        assertEquals(false, summaries[0].hasPR)
+    }
+
     /**
      * Case 5: exerciseName is null — exerciseNames list must be empty (null filtered out).
      */
@@ -220,5 +299,37 @@ class HistoryViewModelTest {
         val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
         assertEquals(1, summaries.size)
         assertTrue(summaries[0].exerciseNames.isEmpty())
+    }
+
+    // ── Month group ordering ────────────────────────────────────────────────────
+
+    /**
+     * Groups must be sorted most-recent month first regardless of input order.
+     * Uses epoch-ms timestamps far enough apart to land in different months.
+     */
+    @Test
+    fun `month groups are sorted most-recent first`() = runTest(testDispatcher) {
+        // Jan 2024 workout (older) — id=1, timestamp smaller
+        // Mar 2024 workout (newer) — id=2, timestamp larger
+        val jan = 1_704_067_200_000L  // 2024-01-01 00:00 UTC
+        val mar = 1_709_251_200_000L  // 2024-03-01 00:00 UTC
+        val rows = listOf(
+            makeRow(id = 1L, exerciseName = "Squat", timestamp = jan),
+            makeRow(id = 2L, exerciseName = "Squat", timestamp = mar)
+        )
+        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
+
+        val viewModel = HistoryViewModel(workoutRepository)
+        val results = mutableListOf<List<HistoryGroup>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.groups.collect { results.add(it) }
+        }
+        advanceUntilIdle()
+        job.cancel()
+
+        val groups = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+        assertEquals(2, groups.size)
+        // Most-recent group (March) must come first
+        assertTrue(groups[0].workouts.first().timestamp > groups[1].workouts.first().timestamp)
     }
 }

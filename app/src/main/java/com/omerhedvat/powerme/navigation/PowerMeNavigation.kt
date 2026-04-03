@@ -1,8 +1,22 @@
 package com.omerhedvat.powerme.navigation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -10,8 +24,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -136,7 +150,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(StremioBackground),
+                .background(StremioBackground)
+                .systemBarsPadding(),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(modifier = Modifier.size(40.dp))
@@ -144,12 +159,49 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         return
     }
 
+    // Handle Maximization logic: if state changes to !minimized and we are NOT on workout route, navigate there
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    LaunchedEffect(workoutState.isMinimized) {
+        if (!workoutState.isMinimized && workoutState.isActive && currentRoute != Routes.WORKOUT) {
+            navController.navigate(Routes.WORKOUT)
+        }
+    }
+
+    // Edit guard dialog — shown when user tries to edit a routine while a workout is active
+    if (workoutState.showEditGuard) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { workoutViewModel.clearEditGuard() },
+            title = { androidx.compose.material3.Text("Workout in Progress") },
+            text = { androidx.compose.material3.Text("You have an active workout in progress. Finish or cancel it before editing a routine.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    workoutViewModel.clearEditGuard()
+                    navController.navigate(Routes.WORKOUT)
+                }) { androidx.compose.material3.Text("Go to Workout") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { workoutViewModel.clearEditGuard() }) {
+                    androidx.compose.material3.Text("Cancel")
+                }
+            }
+        )
+    }
+
     NavHost(
         navController = navController,
         startDestination = startRoute!!
     ) {
-        // Auth screens (no bottom nav)
-        composable(Routes.AUTH_WELCOME) {
+        // ... (auth routes unchanged)
+        
+        composable(
+            route = Routes.AUTH_WELCOME,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
             WelcomeScreen(
                 onSignedIn = {
                     navController.navigate(Screen.Workouts.route) {
@@ -165,7 +217,13 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             )
         }
 
-        composable(Routes.AUTH_FORGOT_PASSWORD) {
+        composable(
+            route = Routes.AUTH_FORGOT_PASSWORD,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
             val authViewModel: AuthViewModel = hiltViewModel(
                 navController.getBackStackEntry(Routes.AUTH_WELCOME)
             )
@@ -175,7 +233,13 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             )
         }
 
-        composable(Routes.AUTH_PROFILE_SETUP) {
+        composable(
+            route = Routes.AUTH_PROFILE_SETUP,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
             ProfileSetupScreen(
                 onProfileSaved = {
                     navController.navigate(Screen.Workouts.route) {
@@ -185,88 +249,38 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             )
         }
 
-        // Full-screen workout (launched from Workouts/Exercises tab)
-        composable(Routes.WORKOUT) {
+        // Full-screen workout
+        composable(
+            route = Routes.WORKOUT,
+            enterTransition = { slideInVertically(tween(350, easing = FastOutSlowInEasing)) { it } },
+            exitTransition = { slideOutVertically(tween(350)) { it } },
+            popEnterTransition = { slideInVertically(tween(350, easing = FastOutSlowInEasing)) { it } },
+            popExitTransition = { slideOutVertically(tween(350)) { it } }
+        ) {
             ActiveWorkoutScreen(
                 onWorkoutFinished = {
                     navController.navigate(Screen.Workouts.route) {
                         popUpTo(Routes.WORKOUT) { inclusive = true }
                     }
                 },
+                onMinimize = { navController.popBackStack() },
                 viewModel = workoutViewModel
             )
         }
 
-        // Settings (launched from top-bar icon)
-        composable(Routes.SETTINGS) {
-            SettingsScreen(onNavigateToGymSetup = { navController.navigate(Routes.GYM_SETUP) })
-        }
-
-        // GYM Setup (full-screen, no scaffold)
-        composable(Routes.GYM_SETUP) {
-            GymSetupScreen(
-                onBack = { navController.popBackStack() },
-                onSaved = { id -> navController.navigate("gym_inventory/$id") }
-            )
-        }
-
-        // GYM Inventory summary (shown after saving a gym profile)
+        // Main app tabs — each wrapped in MainAppScaffold with minimized bar awareness
         composable(
-            route = Routes.GYM_INVENTORY,
-            arguments = listOf(navArgument("profileId") { type = NavType.LongType })
-        ) { backStackEntry ->
-            val profileId = backStackEntry.arguments?.getLong("profileId") ?: return@composable
-            GymInventoryScreen(
-                profileId = profileId,
-                onDone = { navController.popBackStack() }
-            )
-        }
-
-        // War Room (launched from top-bar Forum icon — not a bottom tab)
-        composable(Routes.WAR_ROOM) {
-            val chatViewModel: ChatViewModel = hiltViewModel()
-            DisposableEffect(Unit) {
-                onDispose { chatViewModel.dismissAllOverlays() }
-            }
-            MainAppScaffold(
-                navController = navController,
-                currentScreen = null,
-                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
-            ) {
-                WarRoomChatScreen(
-                    viewModel = chatViewModel,
-                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
-                    onDismissApiKeyDialog = { navController.popBackStack() }
-                )
-            }
-        }
-
-        // Template builder (full-screen, no scaffold)
-        composable(
-            route = Routes.TEMPLATE_BUILDER,
-            arguments = listOf(navArgument("routineId") { type = NavType.LongType })
+            route = Screen.Workouts.route,
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(200)) },
+            popExitTransition = { fadeOut(tween(200)) }
         ) {
-            TemplateBuilderScreen(navController = navController)
-        }
-
-        // Exercise picker (full-screen, no scaffold, no bottom nav)
-        composable(Routes.EXERCISE_PICKER) {
-            ExercisesScreen(
-                pickerMode = true,
-                onExercisesSelected = { ids ->
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("selected_exercises", ArrayList(ids))
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // Main app tabs — each wrapped in MainAppScaffold
-        composable(Screen.Workouts.route) {
             MainAppScaffold(
                 navController = navController,
                 currentScreen = Screen.Workouts,
+                workoutState = workoutState,
+                onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
                 WorkoutsScreen(
@@ -283,16 +297,26 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                     onCreateRoutine = { navController.navigate("template_builder/-1") },
                     onEditRoutine = { routineId ->
                         workoutViewModel.startEditMode(routineId)
-                        navController.navigate(Routes.WORKOUT)
+                        if (!workoutViewModel.workoutState.value.showEditGuard) {
+                            navController.navigate(Routes.WORKOUT)
+                        }
                     }
                 )
             }
         }
 
-        composable(Screen.Exercises.route) {
+        composable(
+            route = Screen.Exercises.route,
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(200)) },
+            popExitTransition = { fadeOut(tween(200)) }
+        ) {
             MainAppScaffold(
                 navController = navController,
                 currentScreen = Screen.Exercises,
+                workoutState = workoutState,
+                onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
                 ExercisesScreen(
@@ -301,30 +325,54 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             }
         }
 
-        composable(Screen.Tools.route) {
+        composable(
+            route = Screen.Tools.route,
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(200)) },
+            popExitTransition = { fadeOut(tween(200)) }
+        ) {
             MainAppScaffold(
                 navController = navController,
                 currentScreen = Screen.Tools,
+                workoutState = workoutState,
+                onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
                 ToolsScreen()
             }
         }
 
-        composable(Screen.Trends.route) {
+        composable(
+            route = Screen.Trends.route,
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(200)) },
+            popExitTransition = { fadeOut(tween(200)) }
+        ) {
             MainAppScaffold(
                 navController = navController,
                 currentScreen = Screen.Trends,
+                workoutState = workoutState,
+                onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
                 MetricsScreen()
             }
         }
 
-        composable(Screen.History.route) {
+        composable(
+            route = Screen.History.route,
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(200)) },
+            popExitTransition = { fadeOut(tween(200)) }
+        ) {
             MainAppScaffold(
                 navController = navController,
                 currentScreen = Screen.History,
+                workoutState = workoutState,
+                onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
                 HistoryScreen(
@@ -336,8 +384,108 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         }
 
         composable(
+            route = Routes.SETTINGS,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            SettingsScreen(
+                onNavigateToGymSetup = { navController.navigate(Routes.GYM_SETUP) },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.GYM_SETUP,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            GymSetupScreen(
+                onBack = { navController.popBackStack() },
+                onSaved = { id -> navController.navigate("gym_inventory/$id") }
+            )
+        }
+
+        composable(
+            route = Routes.GYM_INVENTORY,
+            arguments = listOf(navArgument("profileId") { type = NavType.LongType }),
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) { backStackEntry ->
+            val profileId = backStackEntry.arguments?.getLong("profileId") ?: return@composable
+            GymInventoryScreen(
+                profileId = profileId,
+                onDone = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.WAR_ROOM,
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(200)) },
+            popExitTransition = { fadeOut(tween(200)) }
+        ) {
+            val chatViewModel: ChatViewModel = hiltViewModel()
+            DisposableEffect(Unit) {
+                onDispose { chatViewModel.dismissAllOverlays() }
+            }
+            MainAppScaffold(
+                navController = navController,
+                currentScreen = null,
+                workoutState = workoutState,
+                onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+            ) {
+                WarRoomChatScreen(
+                    viewModel = chatViewModel,
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                    onDismissApiKeyDialog = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Routes.TEMPLATE_BUILDER,
+            arguments = listOf(navArgument("routineId") { type = NavType.LongType }),
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            TemplateBuilderScreen(navController = navController)
+        }
+
+        composable(
+            route = Routes.EXERCISE_PICKER,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            ExercisesScreen(
+                pickerMode = true,
+                onExercisesSelected = { ids ->
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("selected_exercises", ArrayList(ids))
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(
             route = Routes.WORKOUT_DETAIL,
-            arguments = listOf(navArgument("workoutId") { type = NavType.LongType })
+            arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
             WorkoutDetailScreen(onNavigateBack = { navController.popBackStack() })
         }
@@ -349,19 +497,22 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
 fun MainAppScaffold(
     navController: androidx.navigation.NavHostController,
     currentScreen: Screen?,
+    workoutState: com.omerhedvat.powerme.ui.workout.ActiveWorkoutState,
+    onMaximizeWorkout: () -> Unit,
     onSettingsClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
     val tabs = listOf(Screen.Workouts, Screen.History, Screen.Exercises, Screen.Tools, Screen.Trends)
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = {
                     Image(
-                        painter = painterResource(id = R.drawable.logo),
+                        painter = painterResource(id = R.drawable.ic_powerme_logo_source),
                         contentDescription = "PowerME",
-                        modifier = Modifier.height(36.dp),
+                        modifier = Modifier.height(36.dp).aspectRatio(1f),
                         contentScale = ContentScale.Fit
                     )
                 },
@@ -376,49 +527,125 @@ fun MainAppScaffold(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
-                )
+                ),
+                windowInsets = TopAppBarDefaults.windowInsets
             )
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-
-                tabs.forEach { screen ->
-                    NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = { Text(screen.title) },
-                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                        onClick = {
-                            // D4: If currently on War Room, pop it so DisposableEffect fires
-                            if (currentDestination?.route == Routes.WAR_ROOM) {
-                                navController.popBackStack()
-                            }
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.background,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                            unselectedTextColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                        )
+            Column(modifier = Modifier.navigationBarsPadding()) {
+                // Minimized Workout Bar
+                AnimatedVisibility(
+                    visible = (workoutState.isActive || workoutState.isEditMode) && workoutState.isMinimized,
+                    enter = slideInVertically(tween(300)) { it },
+                    exit = slideOutVertically(tween(300)) { it }
+                ) {
+                    MinimizedWorkoutBar(
+                        workoutName = workoutState.workoutName,
+                        elapsedSeconds = if (workoutState.isEditMode) -1 else workoutState.elapsedSeconds,
+                        onClick = onMaximizeWorkout
                     )
+                }
+                
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    windowInsets = NavigationBarDefaults.windowInsets
+                ) {
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentDestination = navBackStackEntry?.destination
+
+                    tabs.forEach { screen ->
+                        NavigationBarItem(
+                            icon = { Icon(screen.icon, contentDescription = screen.title) },
+                            label = { Text(screen.title) },
+                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            onClick = {
+                                if (currentDestination?.route == Routes.WAR_ROOM) {
+                                    navController.popBackStack()
+                                }
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.background,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                unselectedTextColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                            )
+                        )
+                    }
                 }
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
             content()
+        }
+    }
+}
+
+@Composable
+private fun MinimizedWorkoutBar(
+    workoutName: String,
+    elapsedSeconds: Int,
+    onClick: () -> Unit
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clickable(onClick = onClick)
+            .drawBehind {
+                drawRect(
+                    color = primaryColor,
+                    topLeft = Offset.Zero,
+                    size = Size(4.dp.toPx(), size.height)
+                )
+            },
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 20.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = workoutName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                if (elapsedSeconds >= 0) {
+                    val m = (elapsedSeconds % 3600) / 60
+                    val s = elapsedSeconds % 60
+                    Text(
+                        text = "%02d:%02d".format(m, s),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = com.omerhedvat.powerme.ui.theme.JetBrainsMono
+                    )
+                } else {
+                    Text(
+                        text = "Edit Mode",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Maximize")
         }
     }
 }

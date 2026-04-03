@@ -7,6 +7,20 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private fun String.splitCsv(count: Int): List<String> {
+    if (isEmpty()) return emptyList()
+    val parts = split(",")
+    return List(count) { i -> parts.getOrNull(i)?.trim() ?: "" }
+}
+
+private fun String.splitCsvTypes(count: Int): List<SetType> {
+    if (isEmpty()) return emptyList()
+    val parts = split(",")
+    return List(count) { i ->
+        parts.getOrNull(i)?.let { runCatching { SetType.valueOf(it.trim()) }.getOrNull() } ?: SetType.NORMAL
+    }
+}
+
 data class WorkoutBootstrap(
     val workoutId: Long,
     val ghostMap: Map<Long, List<WorkoutSet>>,
@@ -69,8 +83,9 @@ class WorkoutRepository @Inject constructor(
     }
 
     suspend fun createEmptyWorkout(routineId: Long?): Long {
+        val now = System.currentTimeMillis()
         return workoutDao.insertWorkout(
-            Workout(routineId = routineId, timestamp = System.currentTimeMillis(), durationSeconds = 0, totalVolume = 0.0)
+            Workout(routineId = routineId, timestamp = now, durationSeconds = 0, totalVolume = 0.0, startTimeMs = now)
         )
     }
 
@@ -83,16 +98,21 @@ class WorkoutRepository @Inject constructor(
             val now = System.currentTimeMillis()
             val routineExercises = routineExerciseDao.getForRoutine(routineId)
             val workoutId = workoutDao.insertWorkout(
-                Workout(routineId = routineId, timestamp = now, durationSeconds = 0, totalVolume = 0.0)
+                Workout(routineId = routineId, timestamp = now, durationSeconds = 0, totalVolume = 0.0, startTimeMs = now)
             )
             val sets = routineExercises.flatMap { re ->
+                val storedWeights = re.setWeightsJson.splitCsv(re.sets)
+                val storedReps = re.setRepsJson.splitCsv(re.sets)
+                val storedTypes = re.setTypesJson.splitCsvTypes(re.sets)
                 (1..re.sets).map { i ->
                     WorkoutSet(
                         workoutId = workoutId,
                         exerciseId = re.exerciseId,
                         setOrder = i,
-                        weight = 0.0,
-                        reps = 0,
+                        weight = storedWeights.getOrNull(i - 1)?.toDoubleOrNull()
+                            ?: re.defaultWeight.toDoubleOrNull() ?: 0.0,
+                        reps = storedReps.getOrNull(i - 1)?.toIntOrNull() ?: re.reps,
+                        setType = storedTypes.getOrNull(i - 1) ?: SetType.NORMAL,
                         supersetGroupId = re.supersetGroupId
                     )
                 }

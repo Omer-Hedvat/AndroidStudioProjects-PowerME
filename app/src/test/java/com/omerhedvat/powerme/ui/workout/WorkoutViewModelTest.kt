@@ -710,6 +710,8 @@ class WorkoutViewModelTest {
                 setupRoutineWorkout(defaultWeight = "")
                 whenever(mockRoutineExerciseDao.updateSets(any(), any(), any())).thenReturn(Unit)
                 whenever(mockRoutineExerciseDao.updateRepsAndWeight(any(), any(), any(), any())).thenReturn(Unit)
+                whenever(mockRoutineExerciseDao.updateSetTypesJson(any(), any(), any())).thenReturn(Unit)
+                whenever(mockRoutineExerciseDao.updateSetWeightsAndReps(any(), any(), any(), any())).thenReturn(Unit)
             }
 
             viewModel.startWorkoutFromRoutine(1L)
@@ -928,12 +930,16 @@ class WorkoutViewModelTest {
             viewModel.startWorkoutFromRoutine(1L)
             runCurrent()
 
-            // Add 3rd set → structural change
+            // Add 3rd set → structural change (3 vs 2 in snapshot)
             viewModel.addSet(1L)
             runCurrent()
 
-            // Set reps to match snapshot (10) so repsChanged = false; leave weight blank
+            // Set reps on ALL sets to match snapshot (10) so repsChanged = false; leave weight blank
             viewModel.onRepsChanged(1L, 1, "10")
+            runCurrent()
+            viewModel.onRepsChanged(1L, 2, "10")
+            runCurrent()
+            viewModel.onRepsChanged(1L, 3, "10")
             runCurrent()
 
             // Complete all 3 sets (no weight entered → weightChanged = false)
@@ -970,6 +976,10 @@ class WorkoutViewModelTest {
 
             viewModel.startEditMode(99L)
             runCurrent()
+            // withContext(Dispatchers.IO) runs on a real thread; give it time to complete
+            // then drain the re-queued continuation on testDispatcher.
+            Thread.sleep(100)
+            runCurrent()
 
             val state = viewModel.workoutState.value
             assertTrue("isActive should be true", state.isActive)
@@ -997,6 +1007,8 @@ class WorkoutViewModelTest {
 
         viewModel.startEditMode(99L)
         runCurrent()
+        Thread.sleep(100)
+        runCurrent()
 
         viewModel.saveRoutineEdits()
         runCurrent()
@@ -1023,6 +1035,127 @@ class WorkoutViewModelTest {
         assertFalse("editModeSaved should be false after cancel", state.editModeSaved)
     }
 
+    // -------------------------------------------------------------------------
+    // Per-set-type rest timer duration tests (Step D)
+    // -------------------------------------------------------------------------
+
+    /** Helper: start workout, add exercise with given restDurationSeconds, add [setCount] sets. */
+    private suspend fun setupExerciseWithSets(
+        exerciseId: Long,
+        restSeconds: Int,
+        setCount: Int,
+        setIds: List<Long>
+    ) {
+        val exercise = Exercise(
+            id = exerciseId, name = "Test Ex", muscleGroup = "Chest",
+            equipmentType = "Barbell", restDurationSeconds = restSeconds
+        )
+        whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        whenever(mockWorkoutRepository.createWorkoutSet(any()))
+            .thenReturn(setIds[0], *setIds.drop(1).toTypedArray())
+        whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+        whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+
+        viewModel.startWorkout(0L)
+        viewModel.addExercise(exercise)
+        repeat(setCount - 1) { viewModel.addSet(exerciseId) }
+    }
+
+    @Test
+    fun `completeSet WARMUP to WARMUP uses 30s rest`() = runTest(testDispatcher) {
+        runBlocking { setupExerciseWithSets(30L, 90, 2, listOf(300L, 301L)) }
+        runCurrent()
+
+        viewModel.selectSetType(30L, 1, SetType.WARMUP)
+        viewModel.selectSetType(30L, 2, SetType.WARMUP)
+        runCurrent()
+
+        viewModel.completeSet(30L, 1)
+        runCurrent()
+
+        val totalSeconds = viewModel.workoutState.value.restTimer.totalSeconds
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertEquals("WARMUP→WARMUP rest should be 30s", 30, totalSeconds)
+    }
+
+    @Test
+    fun `completeSet WARMUP to NORMAL uses exercise default rest`() = runTest(testDispatcher) {
+        runBlocking { setupExerciseWithSets(31L, 90, 2, listOf(310L, 311L)) }
+        runCurrent()
+
+        viewModel.selectSetType(31L, 1, SetType.WARMUP)
+        // set 2 stays NORMAL (default)
+        runCurrent()
+
+        viewModel.completeSet(31L, 1)
+        runCurrent()
+
+        val totalSeconds = viewModel.workoutState.value.restTimer.totalSeconds
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertEquals("WARMUP→NORMAL rest should use exercise default (90s)", 90, totalSeconds)
+    }
+
+    @Test
+    fun `completeSet NORMAL to DROP uses 0s rest`() = runTest(testDispatcher) {
+        runBlocking { setupExerciseWithSets(32L, 90, 2, listOf(320L, 321L)) }
+        runCurrent()
+
+        // set 1 stays NORMAL, set 2 = DROP
+        viewModel.selectSetType(32L, 2, SetType.DROP)
+        runCurrent()
+
+        viewModel.completeSet(32L, 1)
+        runCurrent()
+
+        val totalSeconds = viewModel.workoutState.value.restTimer.totalSeconds
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertEquals("NORMAL→DROP rest should be 0s", 0, totalSeconds)
+    }
+
+    @Test
+    fun `completeSet DROP to NORMAL uses 0s rest`() = runTest(testDispatcher) {
+        runBlocking { setupExerciseWithSets(33L, 90, 2, listOf(330L, 331L)) }
+        runCurrent()
+
+        viewModel.selectSetType(33L, 1, SetType.DROP)
+        // set 2 stays NORMAL
+        runCurrent()
+
+        viewModel.completeSet(33L, 1)
+        runCurrent()
+
+        val totalSeconds = viewModel.workoutState.value.restTimer.totalSeconds
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertEquals("DROP→NORMAL rest should be 0s", 0, totalSeconds)
+    }
+
+    @Test
+    fun `completeSet FAILURE to NORMAL uses exercise default rest`() = runTest(testDispatcher) {
+        runBlocking { setupExerciseWithSets(34L, 120, 2, listOf(340L, 341L)) }
+        runCurrent()
+
+        viewModel.selectSetType(34L, 1, SetType.FAILURE)
+        // set 2 stays NORMAL
+        runCurrent()
+
+        viewModel.completeSet(34L, 1)
+        runCurrent()
+
+        val totalSeconds = viewModel.workoutState.value.restTimer.totalSeconds
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertEquals("FAILURE→NORMAL rest should use exercise default (120s)", 120, totalSeconds)
+    }
+
     @Test
     fun `addSet in edit mode skips DB insert and assigns negative fake id`() =
         runTest(testDispatcher) {
@@ -1032,6 +1165,8 @@ class WorkoutViewModelTest {
             }
 
             viewModel.startEditMode(99L)
+            runCurrent()
+            Thread.sleep(100)
             runCurrent()
 
             val initialSetCount = viewModel.workoutState.value.exercises.first().sets.size
@@ -1050,4 +1185,153 @@ class WorkoutViewModelTest {
             runCurrent()
         }
 
+    // -------------------------------------------------------------------------
+    // Step 5 — collapseAllExcept / reorderExercise
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `collapseAllExcept collapses all other exercises and expands the target`() =
+        runTest(testDispatcher) {
+            val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+            val ex2 = Exercise(id = 2L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
+            val ex3 = Exercise(id = 3L, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
+            runBlocking {
+                whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(10L)
+            }
+
+            viewModel.startWorkout(0L)
+            runCurrent()
+            viewModel.addExercise(ex1)
+            runCurrent()
+            viewModel.addExercise(ex2)
+            runCurrent()
+            viewModel.addExercise(ex3)
+            runCurrent()
+
+            viewModel.collapseAllExcept(2L)
+
+            val collapsed = viewModel.workoutState.value.collapsedExerciseIds
+            assertTrue("Exercise 1 should be collapsed", 1L in collapsed)
+            assertFalse("Exercise 2 (target) should NOT be collapsed", 2L in collapsed)
+            assertTrue("Exercise 3 should be collapsed", 3L in collapsed)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    @Test
+    fun `reorderExercise moves exercise from one index to another`() =
+        runTest(testDispatcher) {
+            val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+            val ex2 = Exercise(id = 2L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
+            val ex3 = Exercise(id = 3L, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
+            runBlocking {
+                whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(10L)
+            }
+
+            viewModel.startWorkout(0L)
+            runCurrent()
+            viewModel.addExercise(ex1)
+            runCurrent()
+            viewModel.addExercise(ex2)
+            runCurrent()
+            viewModel.addExercise(ex3)
+            runCurrent()
+
+            // Move index 0 (Squat) to index 2 (end)
+            viewModel.reorderExercise(0, 2)
+
+            val exercises = viewModel.workoutState.value.exercises
+            assertEquals("Bench Press should now be first", 2L, exercises[0].exercise.id)
+            assertEquals("Deadlift should be second", 3L, exercises[1].exercise.id)
+            assertEquals("Squat should be last", 1L, exercises[2].exercise.id)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    // -------------------------------------------------------------------------
+    // Step 7 — Routine sync diff engine
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `finishWorkout ad-hoc workout produces no sync prompt`() = runTest(testDispatcher) {
+        // Ad-hoc workout: startWorkout(0L) sets routineId=0 and routineSnapshot=[]
+        viewModel.startWorkout(0L)
+        runCurrent()
+
+        viewModel.finishWorkout()
+        runCurrent()
+
+        assertNull(
+            "Ad-hoc workout should never trigger sync prompt",
+            viewModel.workoutState.value.pendingRoutineSync
+        )
+        assertNotNull(viewModel.workoutState.value.pendingWorkoutSummary)
+    }
+
+    @Test
+    fun `finishWorkout identical to routine produces no sync prompt`() = runTest(testDispatcher) {
+        // Routine: 2 sets, reps=10, defaultWeight="80"
+        runBlocking { setupRoutineWorkout(defaultWeight = "80") }
+
+        viewModel.startWorkoutFromRoutine(1L)
+        runCurrent()
+
+        // Complete exactly 2 sets with same weight/reps as routine
+        viewModel.onWeightChanged(1L, 1, "80")
+        runCurrent()
+        viewModel.onRepsChanged(1L, 1, "10")
+        runCurrent()
+        viewModel.onWeightChanged(1L, 2, "80")
+        runCurrent()
+        viewModel.onRepsChanged(1L, 2, "10")
+        runCurrent()
+        viewModel.completeSet(1L, 1)
+        runCurrent()
+        viewModel.completeSet(1L, 2)
+        runCurrent()
+
+        viewModel.finishWorkout()
+        runCurrent()
+
+        assertNull(
+            "Identical workout should not trigger sync prompt",
+            viewModel.workoutState.value.pendingRoutineSync
+        )
+    }
+
+    @Test
+    fun `finishWorkout with only weight change sets pendingRoutineSync to VALUES`() =
+        runTest(testDispatcher) {
+            // Routine: 2 sets, reps=10, defaultWeight="80"
+            runBlocking { setupRoutineWorkout(defaultWeight = "80") }
+
+            viewModel.startWorkoutFromRoutine(1L)
+            runCurrent()
+
+            // Change weight to 90, keep reps=10, complete both sets → set count unchanged
+            viewModel.onWeightChanged(1L, 1, "90")
+            runCurrent()
+            viewModel.onRepsChanged(1L, 1, "10")
+            runCurrent()
+            viewModel.onWeightChanged(1L, 2, "90")
+            runCurrent()
+            viewModel.onRepsChanged(1L, 2, "10")
+            runCurrent()
+            viewModel.completeSet(1L, 1)
+            runCurrent()
+            viewModel.completeSet(1L, 2)
+            runCurrent()
+
+            viewModel.finishWorkout()
+            runCurrent()
+
+            assertEquals(
+                RoutineSyncType.VALUES,
+                viewModel.workoutState.value.pendingRoutineSync
+            )
+        }
 }
