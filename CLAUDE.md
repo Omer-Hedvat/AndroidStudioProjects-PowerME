@@ -9,7 +9,7 @@
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
 - Database: Room (v30, 16 entities, 14 DAOs)
-- AI: Google Gemini (War Room chat + action parsing)
+- AI: Google Gemini (action parsing + exercise enrichment; War Room chat permanently removed in v2)
 - Auth/Backend: Firebase Auth + Firestore
 - Health: Health Connect API (`androidx.health.connect:connect-client:1.1.0-rc01`)
 - Charts: Vico (Material 3)
@@ -27,9 +27,7 @@
 - Nav tab order: Workouts / History / Exercises / Tools / Trends (Workouts first)
 - Exercise library (150+ exercises, YouTube demos via native Intent, muscle groups, equipment types)
 - Multi-select muscle group filter + equipment filter chips in Exercises tab (AND-combined filtering). Full spec in `EXERCISES_SPEC.md §4`.
-- AI "War Room" chat (Gemini) with action parsing (create routines, update weight, switch gym, update injuries)
-- War Room overlay auto-dismissed via DisposableEffect on nav away; user-selected model respected (AppSettingsDataStore)
-- War Room clear fully resets Gemini in-memory session (no stale context)
+- Gemini action parsing (create routines, update weight, switch gym, update injuries) via `ActionParser` + `ActionExecutor`; War Room chat UI permanently removed in v2
 - Gemini model list auto-refreshes every 24h on app start; GymSetupViewModel defers AI buttons until models loaded
 - Firebase Auth with email verification + full onboarding flow
 - User profile (age, height, weight, gender, goals, chronotype, occupation)
@@ -41,7 +39,7 @@
 - Injury / medical ledger (red-list / yellow-list exercises)
 - Performance metrics, trends, and charts
 - State history auditing trail
-- DataStore preferences (plates config, timers, language, modelsLastFetched)
+- DataStore preferences (plates config, timers, language, modelsLastFetched, keepScreenOn, enrichmentModel)
 - Clocks tab (Stopwatch, Timer, Tabata, EMOM) with countdown beeps, skip-last-rest, pre-finish alerts, input validation; TABATA and EMOM use persistent side-by-side Start+Reset buttons (always visible, PlayArrow/Pause icons); STOPWATCH and COUNTDOWN use icon-labeled toggle+reset layout
 - StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository, BoazPerformanceAnalyzer (V2 stub). Full spec in `HISTORY_ANALYTICS_SPEC.md`.
 - ExercisesScreen: tap opens ExerciseDetailSheet (ModalBottomSheet) with Form Cues (muted gold banner) + YouTube TextButton. Full spec in `EXERCISES_SPEC.md §5–§6`.
@@ -52,7 +50,6 @@
 - Auth flow: Welcome → Profile Setup
 - Main scaffold: 5 bottom tabs (**Exercises**, **History**, **Workouts**, **Clocks**, **Trends**)
 - Overlays: Settings, Gym Setup → Gym Inventory, Active Workout
-- War Room route exists but the TopAppBar Forum button is hidden (AI de-coupling phase)
 
 **Database:** Room v30 — migrations covered from v6 → v30. Seeded on startup with 150+ master exercises.
 - v16 adds `supersetGroupId TEXT` column to `workout_sets`
@@ -198,8 +195,8 @@ Fix `RoutineSyncType` diff engine in `WorkoutViewModel.finishWorkout()` / `Worko
 - Add new entities to `DatabaseModule.kt` and the `@Database` annotation entity list.
 - Use `@TypeConverter` for complex types (lists, enums, custom objects stored as JSON).
 
-### AI / Gemini (War Room)
-- New AI capabilities should be reflected in `WAR_ROOM_ACTIONS_SPEC.md`.
+### AI / Gemini (Action Parsing)
+- War Room chat UI was permanently removed in v2. The `ui/chat/` package retains only `UserContext.kt` (domain types).
 - New action types go in the `ActionBlock` sealed class, `ActionParser`, and `ActionExecutor` — all three must stay in sync.
 - Keep system prompts focused. Do not bloat the context sent to Gemini.
 

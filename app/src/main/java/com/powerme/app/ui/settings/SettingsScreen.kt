@@ -188,15 +188,6 @@ fun SettingsScreen(
                                 Text("Loading available models…", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                             }
                         } else if (uiState.availableModels.isNotEmpty()) {
-                            Text("War Room Model", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), fontWeight = FontWeight.Medium)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            ModelDropdown(
-                                models = uiState.availableModels,
-                                selected = uiState.selectedWarRoomModel,
-                                onSelect = viewModel::setWarRoomModel
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
                             Text("Enrichment Model (Flash preferred)", fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f), fontWeight = FontWeight.Medium)
                             Spacer(modifier = Modifier.height(4.dp))
                             ModelDropdown(
@@ -208,37 +199,6 @@ fun SettingsScreen(
                             Text("Save a valid API key to load available models.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         }
                     }
-                }
-            }
-
-            // ── Language ────────────────────────────────────────────
-            item {
-                SettingsCard(title = "Response Language") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("Hebrew", "English").forEach { lang ->
-                            val isSelected = uiState.language == lang
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { viewModel.updateLanguage(lang) },
-                                label = { Text(lang) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                    selectedLabelColor = MaterialTheme.colorScheme.surface,
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    labelColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Committee will respond in ${uiState.language} by default.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
                 }
             }
 
@@ -385,6 +345,12 @@ fun SettingsScreen(
                             colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.surface, checkedTrackColor = MaterialTheme.colorScheme.primary)
                         )
                     }
+                }
+            }
+
+            // ── Display & Workout ──────────────────────────────────────
+            item {
+                SettingsCard(title = "Display & Workout") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,

@@ -45,7 +45,6 @@
 | `workout_detail/{workoutId}` | Push | `workoutId: Long` | Screen-scoped | Accessed from History tab |
 | `template_builder/{routineId}` | Push | `routineId: Long` | Screen-scoped | `routineId = -1` sentinel = new routine (see below) |
 | `exercise_picker` | Push | — | Screen-scoped | Returns result via `savedStateHandle` |
-| `warroom` | Overlay-tab | — | Screen-scoped | TopAppBar entry hidden; reachable programmatically |
 
 ### `template_builder` Sentinel Value
 
@@ -324,22 +323,19 @@ Column(modifier = Modifier.navigationBarsPadding()) {
 
 ---
 
-## 12. Hidden / Archived Routes
+## 12. Deprecated Routes
 
-### warroom
+### warroom — Permanently Removed (v2)
 
-The `warroom` route is registered in `NavHost` but its entry point (TopAppBar Forum button) is currently hidden as part of the AI de-coupling phase.
+War Room / AI Chat was permanently deprecated and removed in v2 to reduce APK size and memory footprint.
 
-**Rules:**
-- Do NOT delete the `warroom` composable from `NavHost`. It remains reachable programmatically.
-- The `warroom` composable **must** implement a `DisposableEffect(Unit)` that calls `chatViewModel.dismissAllOverlays()` on disposal. This prevents War Room overlay state (e.g. API key dialogs) from leaking when the user navigates away.
+The following have been deleted:
+- `Routes.WAR_ROOM` constant
+- `warroom` composable from `NavHost`
+- `ChatViewModel.kt`, `WarRoomChatScreen.kt`, `ContextInjector.kt`
+- `warRoomModel` / `setWarRoomModel` from `AppSettingsDataStore`
+- `selectedWarRoomModel` / `setWarRoomModel()` from `SettingsViewModel`
+- "War Room Model" dropdown from `SettingsScreen`
+- `resolveWarRoomModel()` from `ModelRouter`
 
-```kotlin
-composable(Routes.WAR_ROOM) {
-    val chatViewModel: ChatViewModel = hiltViewModel()
-    DisposableEffect(Unit) {
-        onDispose { chatViewModel.dismissAllOverlays() }
-    }
-    // ...
-}
-```
+`UserContext.kt` (containing `GoalDocument`, `MedicalRestrictionsDoc`, `YellowEntry`, `TrainingPhase`) is **retained** — these domain types are still referenced by `ActionExecutor`, `WorkoutViewModel`, `StatePatchManager`, `GoalDocumentManager`, and `MedicalLedgerRepository`.

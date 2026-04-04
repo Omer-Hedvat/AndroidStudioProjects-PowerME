@@ -55,10 +55,7 @@ data class SettingsUiState(
     // Model discovery
     val availableModels: List<GeminiModel> = emptyList(),
     val isFetchingModels: Boolean = false,
-    val selectedWarRoomModel: String = "gemini-2.0-flash",
     val selectedEnrichmentModel: String = "gemini-1.5-flash",
-    // Language
-    val language: String = "Hebrew",
     // Account deletion
     val showDeleteAccountDialog: Boolean = false,
     val isDeletingAccount: Boolean = false,
@@ -119,18 +116,8 @@ class SettingsViewModel @Inject constructor(
 
     private fun loadAppSettings() {
         viewModelScope.launch {
-            appSettingsDataStore.warRoomModel.collect { model ->
-                _uiState.update { it.copy(selectedWarRoomModel = model) }
-            }
-        }
-        viewModelScope.launch {
             appSettingsDataStore.enrichmentModel.collect { model ->
                 _uiState.update { it.copy(selectedEnrichmentModel = model) }
-            }
-        }
-        viewModelScope.launch {
-            appSettingsDataStore.language.collect { lang ->
-                _uiState.update { it.copy(language = lang) }
             }
         }
         viewModelScope.launch {
@@ -165,8 +152,7 @@ class SettingsViewModel @Inject constructor(
                         it.copy(
                             availablePlates = plateStates,
                             restTimerAudioEnabled = settings.restTimerAudioEnabled,
-                            restTimerHapticsEnabled = settings.restTimerHapticsEnabled,
-                            language = settings.language
+                            restTimerHapticsEnabled = settings.restTimerHapticsEnabled
                         )
                     }
                 }
@@ -232,25 +218,10 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(apiKey = "", hasApiKey = false, showSuccessMessage = false) }
     }
 
-    fun setWarRoomModel(modelId: String) {
-        viewModelScope.launch {
-            appSettingsDataStore.setWarRoomModel(modelId)
-            _uiState.update { it.copy(selectedWarRoomModel = modelId) }
-        }
-    }
-
     fun setEnrichmentModel(modelId: String) {
         viewModelScope.launch {
             appSettingsDataStore.setEnrichmentModel(modelId)
             _uiState.update { it.copy(selectedEnrichmentModel = modelId) }
-        }
-    }
-
-    fun updateLanguage(language: String) {
-        viewModelScope.launch {
-            appSettingsDataStore.setLanguage(language)
-            userSettingsDao.updateLanguage(language)
-            _uiState.update { it.copy(language = language) }
         }
     }
 

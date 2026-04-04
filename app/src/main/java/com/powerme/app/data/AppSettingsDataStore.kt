@@ -24,9 +24,6 @@ class AppSettingsDataStore @Inject constructor(
         it[THEME_MODE_KEY]?.let { name -> ThemeMode.entries.firstOrNull { e -> e.name == name } } ?: ThemeMode.LIGHT
     }
     val language: Flow<String> = ctx.dataStore.data.map { it[LANGUAGE_KEY] ?: "Hebrew" }
-    val warRoomModel: Flow<String> = ctx.dataStore.data.map {
-        it[WAR_ROOM_MODEL_KEY] ?: "gemini-2.0-flash"
-    }
     val enrichmentModel: Flow<String> = ctx.dataStore.data.map {
         it[ENRICHMENT_MODEL_KEY] ?: "gemini-1.5-flash"
     }
@@ -37,7 +34,6 @@ class AppSettingsDataStore @Inject constructor(
 
     suspend fun setThemeMode(value: ThemeMode) = ctx.dataStore.edit { it[THEME_MODE_KEY] = value.name }
     suspend fun setLanguage(value: String) = ctx.dataStore.edit { it[LANGUAGE_KEY] = value }
-    suspend fun setWarRoomModel(value: String) = ctx.dataStore.edit { it[WAR_ROOM_MODEL_KEY] = value }
     suspend fun setEnrichmentModel(value: String) = ctx.dataStore.edit { it[ENRICHMENT_MODEL_KEY] = value }
     suspend fun setKeepScreenOn(value: Boolean) = ctx.dataStore.edit { it[KEEP_SCREEN_ON_KEY] = value }
     suspend fun setModelsLastFetched(ts: Long) = ctx.dataStore.edit { it[MODELS_LAST_FETCHED_KEY] = ts }
@@ -47,7 +43,6 @@ class AppSettingsDataStore @Inject constructor(
     companion object {
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         val LANGUAGE_KEY = stringPreferencesKey("language")
-        val WAR_ROOM_MODEL_KEY = stringPreferencesKey("war_room_model")
         val ENRICHMENT_MODEL_KEY = stringPreferencesKey("enrichment_model")
         val KEEP_SCREEN_ON_KEY = booleanPreferencesKey("keep_screen_on")
         val MODELS_LAST_FETCHED_KEY = longPreferencesKey("models_last_fetched")

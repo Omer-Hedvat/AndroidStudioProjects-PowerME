@@ -44,8 +44,6 @@ import com.powerme.app.ui.auth.AuthViewModel
 import com.powerme.app.ui.auth.ForgotPasswordScreen
 import com.powerme.app.ui.auth.ProfileSetupScreen
 import com.powerme.app.ui.auth.WelcomeScreen
-import com.powerme.app.ui.chat.ChatViewModel
-import com.powerme.app.ui.chat.WarRoomChatScreen
 import com.powerme.app.ui.gyms.GymInventoryScreen
 import com.powerme.app.ui.exercises.ExercisesScreen
 import com.powerme.app.ui.gyms.GymSetupScreen
@@ -85,7 +83,6 @@ private object Routes {
     const val AUTH_FORGOT_PASSWORD = "auth_forgot_password"
     const val WORKOUT = "workout"
     const val SETTINGS = "settings"
-    const val WAR_ROOM = "warroom"
     const val GYM_SETUP = "gym_setup"
     const val GYM_INVENTORY = "gym_inventory/{profileId}"
     const val WORKOUT_DETAIL = "workout_detail/{workoutId}"
@@ -174,7 +171,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { workoutViewModel.clearEditGuard() },
             title = { androidx.compose.material3.Text("Workout in Progress") },
-            text = { androidx.compose.material3.Text("You have an active workout in progress. Finish or cancel it before editing a routine.") },
+            text = { androidx.compose.material3.Text("You have an active workout in progress. You must finish or cancel it before editing templates.") },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     workoutViewModel.clearEditGuard()
@@ -425,32 +422,6 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         }
 
         composable(
-            route = Routes.WAR_ROOM,
-            enterTransition = { fadeIn(tween(200)) },
-            exitTransition = { fadeOut(tween(200)) },
-            popEnterTransition = { fadeIn(tween(200)) },
-            popExitTransition = { fadeOut(tween(200)) }
-        ) {
-            val chatViewModel: ChatViewModel = hiltViewModel()
-            DisposableEffect(Unit) {
-                onDispose { chatViewModel.dismissAllOverlays() }
-            }
-            MainAppScaffold(
-                navController = navController,
-                currentScreen = null,
-                workoutState = workoutState,
-                onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
-                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
-            ) {
-                WarRoomChatScreen(
-                    viewModel = chatViewModel,
-                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
-                    onDismissApiKeyDialog = { navController.popBackStack() }
-                )
-            }
-        }
-
-        composable(
             route = Routes.TEMPLATE_BUILDER,
             arguments = listOf(navArgument("routineId") { type = NavType.LongType }),
             enterTransition = { slideInHorizontally(tween(300)) { it } },
@@ -549,7 +520,7 @@ fun MainAppScaffold(
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.primary,
-                    windowInsets = NavigationBarDefaults.windowInsets
+                    windowInsets = WindowInsets(0)
                 ) {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
@@ -560,9 +531,6 @@ fun MainAppScaffold(
                             label = { Text(screen.title) },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             onClick = {
-                                if (currentDestination?.route == Routes.WAR_ROOM) {
-                                    navController.popBackStack()
-                                }
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
                                         saveState = true

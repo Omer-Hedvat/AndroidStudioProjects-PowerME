@@ -35,14 +35,6 @@ class ModelRouter @Inject constructor(
 
     var availableModelIds: Set<String> = emptySet()
 
-    fun resolveWarRoomModel(userOverride: String?): String {
-        val preferred = userOverride ?: THINKING_CHAIN.first()
-        return if (availableModelIds.isEmpty()) preferred
-        else THINKING_CHAIN.firstOrNull { it == preferred && it in availableModelIds }
-            ?: THINKING_CHAIN.firstOrNull { it in availableModelIds }
-            ?: FALLBACK_MODEL
-    }
-
     fun resolveEnrichmentModel(userOverride: String?): String {
         val preferred = userOverride ?: ENRICHMENT_CHAIN.first()
         return if (availableModelIds.isEmpty()) preferred
