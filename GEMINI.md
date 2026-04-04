@@ -14,7 +14,7 @@
     - **Timer/Success:** `TimerGreen` (#34D399)
 
 ## 2. User Context (Safety & Biomechanics)
-- **User:** Omer Hedvat (38y).
+- **User:** the developer (38y).
 - **Height:** **181.5cm** (Longer femurs → specific torso lean and stance width cues required).
 - **Injuries:** **L4-L5 (Lower Back)**, **Medial Epicondylitis (Elbow)**.
 - **Mandate:** All exercise `setupNotes` or AI suggestions must prioritize spinal neutrality and elbow-friendly grips. Avoid heavy spinal compression or extreme pulling angles.

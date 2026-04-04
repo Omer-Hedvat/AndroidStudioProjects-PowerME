@@ -4,7 +4,7 @@
 Complete v7 → v10 transformation with validation-driven development, prioritizing data safety and test coverage before feature rollout.
 
 ## User Context
-- **Name**: Omer Hedvat
+- **Name**: the developer
 - **Age**: 38 years
 - **Height**: 181.5cm (longer femurs → biomechanical adjustments)
 - **Injuries**: L4-L5 (Lower Back), Medial Epicondylitis (Elbow)
@@ -24,7 +24,7 @@ Complete v7 → v10 transformation with validation-driven development, prioritiz
 ### 1.1 Unit Testing - ActionParserTest.kt ⭐ START HERE
 **Goal**: Prove ActionParser can reliably extract JSON from noisy Gemini responses
 
-**Location**: `/app/src/test/java/com/omerhedvat/powerme/actions/ActionParserTest.kt`
+**Location**: `/app/src/test/java/com/powerme/app/actions/ActionParserTest.kt`
 
 **Test Cases** (10 scenarios):
 1. ✅ **Plain JSON** - `{"action": "update_weight", "weightKg": 92.0}`
@@ -59,7 +59,7 @@ Complete v7 → v10 transformation with validation-driven development, prioritiz
 ### 1.2 Migration Guard - PreMigrationValidator.kt
 **Goal**: Ensure zero data loss during v7 → v10 migrations
 
-**Location**: `/app/src/main/java/com/omerhedvat/powerme/data/database/PreMigrationValidator.kt`
+**Location**: `/app/src/main/java/com/powerme/app/data/database/PreMigrationValidator.kt`
 
 **Validation Checks**:
 ```kotlin
@@ -110,7 +110,7 @@ SELECT COUNT(*) FROM user_biometrics; -- Expect 1 (singleton)
 ### 1.3 SQL Console Security - SQLSafetyValidator.kt
 **Goal**: Prevent accidental data destruction through SQL console
 
-**Location**: `/app/src/main/java/com/omerhedvat/powerme/ui/settings/SQLSafetyValidator.kt`
+**Location**: `/app/src/main/java/com/powerme/app/ui/settings/SQLSafetyValidator.kt`
 
 **Security Rules**:
 1. ✅ **Allow**: SELECT statements only
@@ -144,7 +144,7 @@ User Query → Trim whitespace → Check starts with SELECT
 ### 1.4 Debug Logging - GeminiResponseLogger.kt
 **Goal**: Visibility into raw Gemini responses before parsing
 
-**Location**: `/app/src/main/java/com/omerhedvat/powerme/util/GeminiResponseLogger.kt`
+**Location**: `/app/src/main/java/com/powerme/app/util/GeminiResponseLogger.kt`
 
 **Log Levels**:
 ```kotlin
@@ -298,7 +298,7 @@ if (BuildConfig.DEBUG && parsedActions.isNotEmpty()) {
 implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.0")
 ```
 
-**Location**: `/app/src/main/java/com/omerhedvat/powerme/ui/components/YouTubePlayerBottomSheet.kt`
+**Location**: `/app/src/main/java/com/powerme/app/ui/components/YouTubePlayerBottomSheet.kt`
 
 **UI Flow**:
 1. Exercise card shows play icon (bright if videoId present, dim if null)
@@ -352,7 +352,7 @@ fun YouTubePlayerBottomSheet(
 ### 3.3 Magic Add Dialog - MagicAddDialog.kt
 **Goal**: Gemini-powered exercise creation
 
-**Location**: `/app/src/main/java/com/omerhedvat/powerme/ui/components/MagicAddDialog.kt`
+**Location**: `/app/src/main/java/com/powerme/app/ui/components/MagicAddDialog.kt`
 
 **UI Flow**:
 1. User taps "Magic Add" button
@@ -391,7 +391,7 @@ If exercise not found, return: {"error": "Exercise not recognized"}
 ### 4.1 Robust Statistics - RobustStatistics.kt
 **Goal**: Modified Z-score (MAD-based) for small dataset outlier detection
 
-**Location**: `/app/src/main/java/com/omerhedvat/powerme/analytics/RobustStatistics.kt`
+**Location**: `/app/src/main/java/com/powerme/app/analytics/RobustStatistics.kt`
 
 **Problem**: Standard Z-scores are sensitive to outliers in small samples (n=4-12 workouts/month)
 
@@ -435,7 +435,7 @@ object RobustStatistics {
 ### 4.2 Visual Badges - ZScoreBadge.kt
 **Goal**: Color-coded statistical indicators in History UI
 
-**Location**: `/app/src/main/java/com/omerhedvat/powerme/ui/components/ZScoreBadge.kt`
+**Location**: `/app/src/main/java/com/powerme/app/ui/components/ZScoreBadge.kt`
 
 **Design**:
 ```
@@ -458,7 +458,7 @@ object RobustStatistics {
 ### 4.3 Injury Tracker UI - InjuryTrackerCard.kt
 **Goal**: Manual injury severity tracking (1-10 scale)
 
-**Location**: `/app/src/main/java/com/omerhedvat/powerme/ui/settings/InjuryTrackerCard.kt`
+**Location**: `/app/src/main/java/com/powerme/app/ui/settings/InjuryTrackerCard.kt`
 
 **UI Components**:
 - Joint name (from TargetJoint enum)
@@ -514,40 +514,40 @@ User adjusts slider → ViewModel updates InjuryTracker
 ## CRITICAL FILES INVENTORY
 
 ### Testing Infrastructure (NEW)
-- `/app/src/test/java/com/omerhedvat/powerme/actions/ActionParserTest.kt`
-- `/app/src/main/java/com/omerhedvat/powerme/data/database/PreMigrationValidator.kt`
-- `/app/src/main/java/com/omerhedvat/powerme/ui/settings/SQLSafetyValidator.kt`
-- `/app/src/main/java/com/omerhedvat/powerme/util/GeminiResponseLogger.kt`
+- `/app/src/test/java/com/powerme/app/actions/ActionParserTest.kt`
+- `/app/src/main/java/com/powerme/app/data/database/PreMigrationValidator.kt`
+- `/app/src/main/java/com/powerme/app/ui/settings/SQLSafetyValidator.kt`
+- `/app/src/main/java/com/powerme/app/util/GeminiResponseLogger.kt`
 
 ### Database Layer (UPDATED)
-- `/app/src/main/java/com/omerhedvat/powerme/data/database/PowerMeDatabase.kt` - v10
-- `/app/src/main/java/com/omerhedvat/powerme/data/database/GymProfile.kt` - NEW
-- `/app/src/main/java/com/omerhedvat/powerme/data/database/InjuryTracker.kt` - NEW
-- `/app/src/main/java/com/omerhedvat/powerme/data/database/UserBiometrics.kt` - NEW
-- `/app/src/main/java/com/omerhedvat/powerme/di/DatabaseModule.kt` - Add migrations 8→9→10
+- `/app/src/main/java/com/powerme/app/data/database/PowerMeDatabase.kt` - v10
+- `/app/src/main/java/com/powerme/app/data/database/GymProfile.kt` - NEW
+- `/app/src/main/java/com/powerme/app/data/database/InjuryTracker.kt` - NEW
+- `/app/src/main/java/com/powerme/app/data/database/UserBiometrics.kt` - NEW
+- `/app/src/main/java/com/powerme/app/di/DatabaseModule.kt` - Add migrations 8→9→10
 
 ### Actions Framework (COMPLETED)
-- `/app/src/main/java/com/omerhedvat/powerme/actions/ActionBlock.kt` ✅
-- `/app/src/main/java/com/omerhedvat/powerme/actions/ActionParser.kt` ✅
-- `/app/src/main/java/com/omerhedvat/powerme/actions/ActionExecutor.kt` ⚠️ Needs completion
-- `/app/src/main/java/com/omerhedvat/powerme/actions/ActionResult.kt` ✅
+- `/app/src/main/java/com/powerme/app/actions/ActionBlock.kt` ✅
+- `/app/src/main/java/com/powerme/app/actions/ActionParser.kt` ✅
+- `/app/src/main/java/com/powerme/app/actions/ActionExecutor.kt` ⚠️ Needs completion
+- `/app/src/main/java/com/powerme/app/actions/ActionResult.kt` ✅
 
 ### War Room (UPDATED)
-- `/app/src/main/java/com/omerhedvat/powerme/ui/chat/ChatViewModel.kt` ✅
-- `/app/src/main/java/com/omerhedvat/powerme/ui/chat/ContextInjector.kt` ✅
-- `/app/src/main/java/com/omerhedvat/powerme/ui/chat/WarRoomChatScreen.kt` ✅
+- `/app/src/main/java/com/powerme/app/ui/chat/ChatViewModel.kt` ✅
+- `/app/src/main/java/com/powerme/app/ui/chat/ContextInjector.kt` ✅
+- `/app/src/main/java/com/powerme/app/ui/chat/WarRoomChatScreen.kt` ✅
 
 ### Content & UI (NEW)
 - `/app/src/main/res/raw/master_exercises.json` - 150+ exercises
-- `/app/src/main/java/com/omerhedvat/powerme/data/database/MasterExerciseSeeder.kt`
-- `/app/src/main/java/com/omerhedvat/powerme/ui/components/YouTubePlayerBottomSheet.kt`
-- `/app/src/main/java/com/omerhedvat/powerme/ui/components/MagicAddDialog.kt`
-- `/app/src/main/java/com/omerhedvat/powerme/ui/components/ZScoreBadge.kt`
-- `/app/src/main/java/com/omerhedvat/powerme/ui/settings/InjuryTrackerCard.kt`
+- `/app/src/main/java/com/powerme/app/data/database/MasterExerciseSeeder.kt`
+- `/app/src/main/java/com/powerme/app/ui/components/YouTubePlayerBottomSheet.kt`
+- `/app/src/main/java/com/powerme/app/ui/components/MagicAddDialog.kt`
+- `/app/src/main/java/com/powerme/app/ui/components/ZScoreBadge.kt`
+- `/app/src/main/java/com/powerme/app/ui/settings/InjuryTrackerCard.kt`
 
 ### Analytics (UPDATED)
-- `/app/src/main/java/com/omerhedvat/powerme/analytics/RobustStatistics.kt` - NEW
-- `/app/src/main/java/com/omerhedvat/powerme/analytics/WeeklyInsightsCalculator.kt` - Update to use MAD
+- `/app/src/main/java/com/powerme/app/analytics/RobustStatistics.kt` - NEW
+- `/app/src/main/java/com/powerme/app/analytics/WeeklyInsightsCalculator.kt` - Update to use MAD
 
 ---
 

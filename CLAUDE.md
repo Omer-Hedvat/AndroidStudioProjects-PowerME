@@ -8,7 +8,7 @@
 - Language: Kotlin 2.0.21
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
-- Database: Room (v30, 16 entities, 15 DAOs)
+- Database: Room (v30, 16 entities, 14 DAOs)
 - AI: Google Gemini (War Room chat + action parsing)
 - Auth/Backend: Firebase Auth + Firestore
 - Health: Health Connect API (`androidx.health.connect:connect-client:1.1.0-rc01`)
@@ -16,7 +16,7 @@
 - Drag-and-drop: `sh.calvin.reorderable:reorderable-compose:2.4.3`
 - Build: Gradle Kotlin DSL, KSP, min SDK 26, target SDK 35
 
-**Package:** `com.omerhedvat.powerme`
+**Package:** `com.powerme.app`
 
 **Main Features Implemented:**
 - Workout routine creation and management
@@ -72,14 +72,14 @@
 - v29 Per-Set Weight/Reps Persistence: MIGRATION_28_29 — adds `setWeightsJson TEXT NOT NULL DEFAULT ''` and `setRepsJson TEXT NOT NULL DEFAULT ''` to `routine_exercises`; stores per-set weights and reps as comma-separated strings (e.g. `"80,85,90"`, `"10,8,6"`); `startEditMode()` deserializes via `String.toEditModeValues()`; `saveRoutineEdits()` serializes sorted by `setOrder`; `defaultWeight`+`reps` kept in sync with set 1 for Diff Engine compatibility
 - v30 Workout Timestamps: MIGRATION_29_30 — adds `startTimeMs INTEGER NOT NULL DEFAULT 0` and `endTimeMs INTEGER NOT NULL DEFAULT 0` to `workouts`; `WorkoutRepository.createEmptyWorkout()` + `instantiateWorkoutFromRoutine()` set `startTimeMs = System.currentTimeMillis()`; `WorkoutViewModel.finishWorkout()` sets `endTimeMs`; `HistoryCard` uses `durationMsComputed` (precise ms diff or fallback to `durationSeconds`)
 - ExercisesScreen filter chips now DB-driven (SELECT DISTINCT muscleGroup/equipmentType via ExerciseDao + ExerciseRepository + ExercisesViewModel.muscleGroupFilters/equipmentFilters StateFlows); hardcoded MUSCLE_GROUPS/EQUIPMENT_FILTERS constants removed
-- util/MuscleGroups.kt: new object with 8 canonical group string constants (LEGS, BACK, CORE, CHEST, SHOULDERS, FULL_BODY, ARMS, CARDIO)
+- Canonical muscle groups (8): Legs, Back, Core, Chest, Shoulders, Full Body, Arms, Cardio (MuscleGroups.kt deleted — constants were unused; DB queries provide filter data)
 
 
 **SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides parseDecimal() (locale-aware, accepts commas+periods), parseReps() (integer only), isLeakedMetric() for runtime checks, MIGRATION_SQL const val for Room @Query and Migration (v17→v18), and MIGRATION_SQL_V19 for the "181.5 cm:" prefix cleanse (v18→v19). No inline try-catch in ViewModels or Composables (ProjectMap §3).
 
 **Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
 
-**Unit Test Coverage (src/test/, 12 files, 225 tests total — all passing):**
+**Unit Test Coverage (src/test/, 12 files, ~210 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -89,8 +89,9 @@
 - `util/GeminiResponseLoggerTest.kt`
 - `util/SurgicalValidatorTest.kt` — 18 tests (parseDecimal, parseReps, isLeakedMetric)
 - `util/PlateCalculatorTest.kt` — 13 tests (calculatePlates, parseAvailablePlates, formatPlateBreakdown)
-- `analytics/StatisticalEngineTest.kt` — 22 tests (mean, stdDev, zScore, quartiles, IQR, outliers, Pearson, 1RM, Bayesian 1RM, rateOfChange)
+- `analytics/StatisticalEngineTest.kt` — 13 tests (mean, stdDev, zScore, Pearson, 1RM, Bayesian 1RM, rateOfChange — outlier/quartile tests removed with dead code)
 - `ui/history/HistoryViewModelTest.kt` — 12 tests
+- `ui/exercises/ExerciseFilterTest.kt` — 7 tests (canonical equipment/muscle-group validation, no-duplicates, legacy value exclusion)
 - `ui/workout/WorkoutViewModelTest.kt` — 32 tests (includes 2 completeSet toggle tests + 5 rest timer/override tests + 5 per-set-type rest timer tests + 5 cascade/routine-sync tests + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode + 1 helper)
 
 ---
@@ -211,11 +212,13 @@ Fix `RoutineSyncType` diff engine in `WorkoutViewModel.finishWorkout()` / `Worko
 - Reusable UI elements go in `ui/components`.
 
 ### Specs & Documentation
-- If implementing a feature that has a corresponding `*_SPEC.md` file, read it before writing any code.
-- If a spec is outdated relative to the implementation, note it in the spec file.
-- **`WORKOUT_SPEC.md` is mandatory reading before any workout or routine change.** It defines the state machine, rendering priority, and technical invariants that prevent the recurring regressions in `ActiveWorkoutScreen`.
-- **After implementing any workout or routine feature — update `WORKOUT_SPEC.md`** to reflect the new behaviour, state transitions, UI components, or invariants introduced.
-- **If a user instruction conflicts with anything documented in `WORKOUT_SPEC.md` — stop and explicitly ask the user to confirm which behaviour they want before writing any code.** Then update the spec to reflect the decision. Never silently resolve a spec conflict by guessing.
+- **Mandatory Alignment:** Before initiating any change to functionality, UX, or UI, you MUST verify alignment with the relevant `.md` specification files. These documents are the authoritative source of truth for system behavior and design standards.
+- **Continuous Documentation:** Every addition, modification, or removal of app functionality, UI elements, or UX patterns must be immediately recorded in the corresponding `.md` file to maintain an accurate system blueprint.
+- **Conflict Resolution:** If a user request directly contradicts an established specification in an `.md` file, you MUST stop and explicitly ask for clarification before proceeding with any code changes. Never silently override documented logic or invariants.
+- **Technical Invariants:**
+    - `WORKOUT_SPEC.md` is mandatory reading before any workout or routine change. It defines the state machine, rendering priority, and technical invariants that prevent regressions.
+    - After implementing any feature defined by a spec, update that spec to reflect the final implementation details, state transitions, or UI components introduced.
+    - If a spec is found to be outdated relative to the current implementation, note it and update it immediately.
 
 ### Testing
 - **Writing and running tests is a mandatory step after any business-logic change — not optional, not deferred.** Do not consider a feature or fix complete until tests are written AND pass.

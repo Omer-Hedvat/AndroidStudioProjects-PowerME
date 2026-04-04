@@ -9,11 +9,11 @@ plugins {
 }
 
 android {
-    namespace = "com.omerhedvat.powerme"
+    namespace = "com.powerme.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.omerhedvat.powerme"
+        applicationId = "com.powerme.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
