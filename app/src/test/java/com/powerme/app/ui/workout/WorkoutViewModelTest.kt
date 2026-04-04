@@ -611,7 +611,7 @@ class WorkoutViewModelTest {
 
         val sets = viewModel.workoutState.value.exercises.first().sets
         assertEquals("Set 1 should be 60", "60", sets.find { it.setOrder == 1 }?.weight)
-        assertEquals("Completed set 2 should stay empty", "", sets.find { it.setOrder == 2 }?.weight ?: "")
+        assertEquals("Completed set 2 should keep its original weight", "0", sets.find { it.setOrder == 2 }?.weight ?: "")
 
         viewModel.cancelWorkout()
         runCurrent()
