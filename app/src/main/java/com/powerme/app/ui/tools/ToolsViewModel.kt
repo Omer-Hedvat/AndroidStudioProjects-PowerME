@@ -31,7 +31,8 @@ data class ToolsUiState(
     val restSeconds: Int = 10,
     val emomRoundSeconds: Int = 60,
     val emomTotalRounds: Int = 5,
-    val countdownInputSeconds: Int = 60,
+    val countdownMinutes: Int = 1,
+    val countdownSeconds: Int = 0,
     val isRunning: Boolean = false,
     // Text fields to avoid integer deletion bug
     val emomRoundSecondsText: String = "60",
@@ -39,7 +40,6 @@ data class ToolsUiState(
     val workSecondsText: String = "20",
     val restSecondsText: String = "10",
     val totalRoundsText: String = "8",
-    val countdownText: String = "60",
     // TABATA skip last rest
     val tabataSkipLastRest: Boolean = false,
     // EMOM skip last rest
@@ -84,14 +84,20 @@ class ToolsViewModel @Inject constructor(
     fun updateTotalRoundsText(text: String) {
         _uiState.update { it.copy(totalRoundsText = text, totalRounds = text.toIntOrNull() ?: it.totalRounds) }
     }
-    fun updateCountdownText(text: String) {
-        _uiState.update { it.copy(countdownText = text, countdownInputSeconds = text.toIntOrNull() ?: it.countdownInputSeconds) }
-    }
     fun updateEmomWarnAtSecondsText(text: String) {
         _uiState.update { it.copy(emomWarnAtSecondsText = text) }
     }
     fun updateCountdownWarnAtSecondsText(text: String) {
         _uiState.update { it.copy(countdownWarnAtSecondsText = text) }
+    }
+    fun updateCountdownMinutes(minutes: Int) {
+        _uiState.update { it.copy(countdownMinutes = minutes.coerceIn(0, 59)) }
+    }
+    fun updateCountdownSeconds(seconds: Int) {
+        _uiState.update { it.copy(countdownSeconds = seconds.coerceIn(0, 59)) }
+    }
+    fun setCountdownPreset(totalSeconds: Int) {
+        _uiState.update { it.copy(countdownMinutes = totalSeconds / 60, countdownSeconds = totalSeconds % 60) }
     }
     fun toggleEmomSkipLastRest() {
         _uiState.update { it.copy(emomSkipLastRest = !it.emomSkipLastRest) }
@@ -116,12 +122,13 @@ class ToolsViewModel @Inject constructor(
         val work = state.workSecondsText.toIntOrNull()?.takeIf { it > 0 } ?: state.workSeconds
         val rest = state.restSecondsText.toIntOrNull()?.takeIf { it > 0 } ?: state.restSeconds
         val rounds = state.totalRoundsText.toIntOrNull()?.takeIf { it > 0 } ?: state.totalRounds
-        val countdown = state.countdownText.toIntOrNull()?.takeIf { it > 0 } ?: state.countdownInputSeconds
+        val countdownTotal = (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 } ?: 60
+        val (cdMins, cdSecs) = countdownTotal / 60 to countdownTotal % 60
 
         _uiState.update { it.copy(
             emomRoundSeconds = emomRound, emomTotalRounds = emomTotal,
             workSeconds = work, restSeconds = rest, totalRounds = rounds,
-            countdownInputSeconds = countdown, isRunning = true
+            countdownMinutes = cdMins, countdownSeconds = cdSecs, isRunning = true
         ) }
 
         wakeLockManager.acquire()
@@ -240,10 +247,11 @@ class ToolsViewModel @Inject constructor(
     }
 
     private suspend fun runCountdown() {
-        var remaining = if (_uiState.value.displaySeconds > 0) _uiState.value.displaySeconds
-        else _uiState.value.countdownInputSeconds
+        val state = _uiState.value
+        var remaining = if (state.displaySeconds > 0) state.displaySeconds
+        else (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 } ?: 60
 
-        val warnAt = _uiState.value.countdownWarnAtSecondsText.toIntOrNull()
+        val warnAt = state.countdownWarnAtSecondsText.toIntOrNull()
         var warnedThisRound = false
 
         _uiState.update { it.copy(phase = TimerPhase.WORK) }
@@ -252,9 +260,9 @@ class ToolsViewModel @Inject constructor(
             _uiState.update { it.copy(displaySeconds = remaining) }
             if (warnAt != null && remaining == warnAt && !warnedThisRound) {
                 warnedThisRound = true
-                restTimerNotifier.playWarningBeep()
+                restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
             }
-            if (remaining == 2 || remaining == 1) restTimerNotifier.playWarningBeep()
+            if (remaining == 2 || remaining == 1) restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
             delay(1000L)
             remaining--
         }

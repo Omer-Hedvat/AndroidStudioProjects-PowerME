@@ -3,6 +3,9 @@ package com.powerme.app.ui.tools
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -22,6 +25,7 @@ import com.powerme.app.ui.theme.JetBrainsMono
 import com.powerme.app.ui.theme.MonoTextStyle
 import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.ui.theme.TimerRed
+import kotlinx.coroutines.launch
 
 @Composable
 fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
@@ -264,6 +268,22 @@ private fun TimerDisplay(state: ToolsUiState) {
     val minutes = displayValue / 60
     val seconds = displayValue % 60
 
+    // Compute progress (1f=full, 0f=done). Null means no progress line.
+    val progress: Float? = when {
+        state.phase == TimerPhase.IDLE -> null
+        state.mode == TimerMode.STOPWATCH -> null
+        state.mode == TimerMode.COUNTDOWN -> {
+            val total = (state.countdownMinutes * 60 + state.countdownSeconds).coerceAtLeast(1)
+            state.displaySeconds.toFloat() / total
+        }
+        state.mode == TimerMode.EMOM -> state.displaySeconds.toFloat() / state.emomRoundSeconds.coerceAtLeast(1)
+        state.mode == TimerMode.TABATA && state.phase == TimerPhase.WORK ->
+            state.displaySeconds.toFloat() / state.workSeconds.coerceAtLeast(1)
+        state.mode == TimerMode.TABATA && state.phase == TimerPhase.REST ->
+            state.displaySeconds.toFloat() / state.restSeconds.coerceAtLeast(1)
+        else -> null
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -301,6 +321,15 @@ private fun TimerDisplay(state: ToolsUiState) {
                     fontSize = 14.sp,
                     color = textColor.copy(alpha = 0.7f),
                     fontFamily = JetBrainsMono
+                )
+            }
+            if (progress != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = TimerGreen,
+                    trackColor = TimerGreen.copy(alpha = 0.2f)
                 )
             }
         }
@@ -362,10 +391,12 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
             }
         }
         TimerMode.COUNTDOWN -> {
-            TimerConfigField(
-                label = "Duration (seconds)",
-                value = state.countdownText,
-                onValueChange = viewModel::updateCountdownText
+            CountdownRoulettePicker(
+                minutes = state.countdownMinutes,
+                seconds = state.countdownSeconds,
+                onMinutesChanged = viewModel::updateCountdownMinutes,
+                onSecondsChanged = viewModel::updateCountdownSeconds,
+                onPreset = viewModel::setCountdownPreset
             )
             Spacer(modifier = Modifier.height(8.dp))
             TimerConfigField(
@@ -376,6 +407,127 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
         }
         TimerMode.STOPWATCH -> {
             // No config needed for stopwatch
+        }
+    }
+}
+
+@Composable
+private fun WheelPicker(
+    range: IntRange,
+    selected: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val itemHeightDp = 48.dp
+    val visibleItems = 3
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val snapBehavior = rememberSnapFlingBehavior(listState)
+
+    // Scroll to selected item on external state change (e.g. preset tap)
+    LaunchedEffect(selected) {
+        val index = (selected - range.first).coerceIn(0, range.last - range.first)
+        listState.scrollToItem(index)
+    }
+
+    // Report settled center item to ViewModel
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress) {
+            val centerIndex = listState.firstVisibleItemIndex
+            onSelected(range.first + centerIndex)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .width(64.dp)
+            .height(itemHeightDp * visibleItems),
+        contentAlignment = Alignment.Center
+    ) {
+        // Highlight bar behind center item
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(itemHeightDp)
+                .background(
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    MaterialTheme.shapes.small
+                )
+        )
+        LazyColumn(
+            state = listState,
+            flingBehavior = snapBehavior,
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            items(range.last - range.first + 1) { idx ->
+                val value = range.first + idx
+                val isCurrent = value == selected
+                Box(
+                    modifier = Modifier
+                        .width(64.dp)
+                        .height(itemHeightDp)
+                        .clickable {
+                            coroutineScope.launch { listState.animateScrollToItem(idx) }
+                            onSelected(value)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "%02d".format(value),
+                        style = MonoTextStyle.copy(
+                            fontSize = 22.sp,
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isCurrent) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CountdownRoulettePicker(
+    minutes: Int,
+    seconds: Int,
+    onMinutesChanged: (Int) -> Unit,
+    onSecondsChanged: (Int) -> Unit,
+    onPreset: (Int) -> Unit
+) {
+    val presets = listOf(30 to "0:30", 60 to "1:00", 90 to "1:30", 120 to "2:00")
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            WheelPicker(range = 0..59, selected = minutes, onSelected = onMinutesChanged)
+            Text(
+                text = ":",
+                style = MonoTextStyle.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+            WheelPicker(range = 0..59, selected = seconds, onSelected = onSecondsChanged)
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            presets.forEach { (totalSecs, label) ->
+                SuggestionChip(
+                    onClick = { onPreset(totalSecs) },
+                    label = { Text(label, style = MonoTextStyle.copy(fontSize = 12.sp)) },
+                    modifier = Modifier.weight(1f),
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        labelColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
         }
     }
 }
