@@ -107,6 +107,7 @@ Read the relevant spec before touching files in that domain.
 | `HISTORY_ANALYTICS_SPEC.md` | ✅ Complete | HistoryScreen layout, StatisticalEngine (Epley/Bayesian 1RM, Volume, dynamic PRs), WeeklyInsightsAnalyzer, WorkoutDetailScreen data contract + retroactive edit flow, BoazPerformanceAnalyzer (V2 stub) |
 | `NAVIGATION_SPEC.md` | ✅ Complete | Route map (16 routes), auth decision tree, WorkoutViewModel scope, minimize/maximize state machine, transitions, MainAppScaffold + MainActivity contracts |
 | `THEME_SPEC.md` | ✅ Complete | Pro Tracker v4.0 palette (all tokens), DarkColorScheme, LightColorScheme (draft), ThemeMode system, typography (Barlow + BarlowCondensed + JetBrainsMono), semantic color contexts, WCAG contrast audit, token rules |
+| `TOOLS_SPEC.md` | ✅ Complete | Clocks tab — Stopwatch, Countdown, Tabata, EMOM timer modes, audio/haptic alerts, wake lock, input validation, phase state machine |
 | `HEALTH_CONNECT_SPEC.md` | 📋 Planned | Permission declaration, sync logic (sleep, HRV, RHR, steps, weight, body fat, height), dual-sink write pattern, anomaly detection |
 | `WAR_ROOM_ACTIONS_SPEC.md` | ⚠️ Archive only | Gemini action parsing, ActionBlock, ActionParser, ActionExecutor — stub in `archive/docs/`; no root-level spec yet |
 | `GYM_PROFILES_SPEC.md` | ⚠️ Archive only | Gym setup, equipment entry, dumbbell range slider, GymInventoryScreen — stub in `archive/docs/`; no root-level spec yet |

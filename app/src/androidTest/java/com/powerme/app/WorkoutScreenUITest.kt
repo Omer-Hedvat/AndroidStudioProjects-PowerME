@@ -91,7 +91,8 @@ class WorkoutScreenUITest {
             }
         }
         composeTestRule.onNodeWithText("Very Light").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Max Effort").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Hard — 2 reps in reserve").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Maximum Effort").assertIsDisplayed()
     }
 
     @Test

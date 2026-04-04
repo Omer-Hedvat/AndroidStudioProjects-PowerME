@@ -1568,8 +1568,8 @@ fun RpePickerSheet(
     val rpeValues = (60..100 step 5).toList()
     val anchorLabels = mapOf(
         60 to "Very Light",
-        80 to "Hard",
-        100 to "Max Effort"
+        80 to "Hard — 2 reps in reserve",
+        100 to "Maximum Effort"
     )
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -1602,8 +1602,8 @@ fun RpePickerSheet(
                                 fontSize = 9.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                 textAlign = TextAlign.Center,
-                                maxLines = 2,
-                                modifier = Modifier.width(56.dp)
+                                maxLines = 3,
+                                modifier = Modifier.width(64.dp)
                             )
                         }
                     }

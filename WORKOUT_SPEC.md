@@ -32,7 +32,7 @@ Theme: **"Pro-Tracker" Dark Mode** — high-contrast, OLED-optimised.
 `ActiveWorkoutState` in `WorkoutViewModel` drives everything. The screen renders exactly **one** state at a time. The priority hierarchy is:
 
 ```
-Loading > Edit Mode > Active Workout > Awaiting Routine Sync > Summary > Idle
+Loading > Edit Mode > Active Workout > Summary > Idle
 ```
 
 | Priority | State | Condition |
@@ -40,19 +40,17 @@ Loading > Edit Mode > Active Workout > Awaiting Routine Sync > Summary > Idle
 | 1 | **Loading** | Data not yet ready (future: skeleton UI) |
 | 2 | **Edit Mode** | `isEditMode = true` |
 | 3 | **Active Workout** | `isActive = true` |
-| 4 | **Awaiting Routine Sync** | `isActive=false`, `pendingRoutineSync ≠ null` |
-| 5 | **Summary** | `isActive=false`, `pendingWorkoutSummary ≠ null`, `pendingRoutineSync = null` |
-| 6 | **Idle** | All flags false/null |
+| 4 | **Summary** | `isActive=false`, `pendingWorkoutSummary ≠ null` |
+| 5 | **Idle** | All flags false/null |
 
 **Concurrent modifier flags (do not occupy a priority slot):**
 - `isReorderMode: Boolean = false` — can be `true` simultaneously with `isActive` or `isEditMode`. It is a UI sub-mode, not a separate top-level state. When `true`, the exercise list switches to drag-handle rows; no other rendering priority changes.
 
 **Rendering order in `ActiveWorkoutScreen`** (overlays checked first):
-1. `StandaloneTimerOverlay` — fullscreen overlay when `standaloneTimer.isActive`
-2. `PostWorkoutSummarySheet` — when `pendingWorkoutSummary != null && pendingRoutineSync == null`
-3. `RoutineSync AlertDialog` — when `pendingRoutineSync != null`
-4. `LaunchedEffect(editModeSaved)` — fires `onWorkoutFinished()` when `editModeSaved=true`
-5. Main content `when` branch — IDLE / LIVE+EDIT
+1. `StandaloneTimerSheet` — `ModalBottomSheet` opened via timer icon; does NOT block main content
+2. `PostWorkoutSummarySheet` — when `pendingWorkoutSummary != null` (contains inline sync CTAs)
+3. `LaunchedEffect(editModeSaved)` — fires `onWorkoutFinished()` when `editModeSaved=true`
+4. Main content `when` branch — IDLE / LIVE+EDIT
 
 **Hard rule: Never add a new `ActiveWorkoutState` flag without updating this table and the rendering order above.**
 
@@ -80,7 +78,7 @@ Exercises loaded from `WorkoutBootstrap` — a repository-level mapper function 
 Key interactions:
 - **PREV column** — shows `{weight}×{reps}@{rpe}` from the last chronological completed session for that specific exercise, **regardless of which routine it belonged to** (global scope — do not filter by `routineId`). Displays `—` if no prior data.
 - **Complete a set** → checkmark turns TimerGreen → rest timer starts automatically.
-- **FINISH WORKOUT** → runs the Diff Engine → routine sync dialogs if needed → summary sheet.
+- **FINISH WORKOUT** → runs the Diff Engine → summary sheet with inline sync CTAs.
 
 ### Phase B′ — Edit Mode (Template Modification)
 
@@ -151,14 +149,69 @@ See Section 7 for full detail. Summary:
 
 ```
 [↓ minimize | ✕ cancel-edit]  [Workout Name]  [elapsed mm:ss]  [⏱ timer icon]
+─────────────── LinearProgressIndicator (TimerGreen, 2–4dp) ───────────────
 ```
 
 - **Minimize (↓):** Routes user back to Workouts tab. Does NOT discard the workout. `WorkoutViewModel` stays alive (shared at NavHost scope).
 - **Cancel Edit (✕):** Only in edit mode. Calls `cancelEditMode()` → resets state.
 - **Elapsed Timer:** Hidden in edit mode.
-- **Timer Icon:** Opens `StandaloneTimerConfigSheet`.
-  - **V1 MVP (current):** A grid of 4 `OutlinedButton`s (60s · 90s · 120s · 180s) and a custom manual input row (two `OutlinedTextField`s: minutes + seconds). No other controls.
-  - **V2 Target:** Interactive circular 6-minute dial (full rotation = 360s). Drag to set. Active state: dial shows progress, controls switch to [−30s · Skip · +30s]. Do not implement V2 until the V1 layout is shipped and stable.
+- **Timer Icon:** Opens `StandaloneTimerSheet` — a `ModalBottomSheet` containing the full Countdown Roulette UI. The user never leaves the active workout context.
+
+#### StandaloneTimerSheet
+
+The sheet mirrors the Countdown UI from the Clocks tab (TOOLS_SPEC.md §7):
+
+```
+┌─────────────────────────────────────┐
+│         ┌─────┐   ┌─────┐          │
+│         │ MM  │ : │ SS  │          │  ← Roulette wheel picker
+│         └─────┘   └─────┘          │
+│                                     │
+│   [0:30]  [1:00]  [1:30]  [2:00]   │  ← SuggestionChip presets
+│                                     │
+│   [ ▶ START ]          [ CANCEL ]   │  ← controls (IDLE)
+│   [ ⏸ PAUSE ]          [ CANCEL ]   │  ← controls (running)
+└─────────────────────────────────────┘
+```
+
+- **Wheels:** Identical spec to TOOLS_SPEC.md §7 Countdown Roulette Picker (MM 0–59, SS 0–59, MonoTextStyle, snap on release).
+- **Presets:** Same 4 `SuggestionChip`s (`0:30`, `1:00`, `1:30`, `2:00`). Snap & Wait — no auto-start.
+- **Controls:**
+  - IDLE: `[START]` (primary) + disabled Cancel.
+  - Running: `[PAUSE]` (secondary) + `[CANCEL]` (error outlined).
+  - Paused: `[RESUME]` (primary) + `[CANCEL]`.
+- **Sheet dismissal while running:** The sheet can be dismissed (swiped down) without stopping the timer. The progress line on the TopAppBar continues to show countdown status.
+
+#### Strict Independence
+
+`standaloneTimerState` is **completely independent** of per-set rest timers (`restTimerState`). They run in parallel:
+
+| Action | Effect on Standalone Timer | Effect on Rest Timer |
+|--------|---------------------------|---------------------|
+| Start standalone timer | Starts standalone countdown | No effect |
+| Complete a set | No effect | Starts rest countdown |
+| Cancel standalone timer | Stops standalone countdown | No effect |
+| Rest timer finishes | No effect | Clears rest state |
+
+Neither timer cancels, pauses, or otherwise affects the other. They are separate coroutine jobs with separate state fields.
+
+#### Progress Line
+
+When `standaloneTimerState.isRunning == true`, a `LinearProgressIndicator` is rendered directly beneath the TopAppBar:
+
+- **Height:** 3dp (within 2–4dp range).
+- **Color:** `TimerGreen` (`#34D399`).
+- **Track color:** `surfaceVariant` at 0.3α.
+- **Animation:** Starts at `progress = 1.0f` (full bar) and linearly decreases to `0.0f` over the total countdown duration. Formula: `progress = remainingSeconds.toFloat() / totalSeconds.toFloat()`. Animated via `animateFloatAsState` with `LinearEasing` tween per tick.
+- **Visibility:** The progress line is invisible when no standalone timer is running. It appears instantly on START and disappears instantly on completion or cancellation.
+
+#### Completion Feedback
+
+When the standalone timer reaches `00:00`:
+
+1. **Haptic:** Two short vibrations (50ms on, 100ms gap, 50ms on) via `VibrationEffect.createWaveform`.
+2. **Audio:** A distinct finish chime routed through `RestTimerNotifier` using `AlertType.FINISH`.
+3. **UI:** The `TimerGreen` progress line disappears. The `StandaloneTimerSheet` (if open) resets wheels to the last-used duration and shows IDLE controls.
 
 ### 4.2 LazyColumn Content
 
@@ -391,7 +444,9 @@ A sequence of `W > W > R > R > R > D > D` results in:
 
 Triggered by tapping the **passive** (TimerGreen divider) rest separator. It is an `AlertDialog` with the following layout:
 
-- **Input:** Type-in only (two `OutlinedTextField` fields: **minutes** + **seconds**). No fixed presets are provided.
+- **Input:** Two numeric input boxes: **[MM]** : **[SS]**. Users type the minutes and seconds explicitly.
+- **Visuals:** Simple numeric fields. The 'Interactive Circular Dial' is **DEFERRED / CLOCKS-ONLY** and must not be used for exercise rest configuration.
+- **Presets:** No fixed presets are provided in this dialog.
 - Validation: total duration must be between 0 and 599 seconds inclusive. Invalid input prevents confirmation.
 - Buttons: **CONFIRM** · **CANCEL**.
 - On CONFIRM: calls `updateLocalRestTime(exerciseId, setOrder, totalSeconds)` → stored in `restTimeOverrides: Map<"${exerciseId}_${setOrder}", Int>`. This per-set override takes precedence over the exercise-level default for that specific set.
@@ -458,64 +513,47 @@ Detection runs in `finishWorkout()` by comparing `ActiveExercise` state against 
 
 > **Current implementation note:** `confirmUpdateBoth()` currently performs structure + values in one call. The triple-action dialog (with the separate "Update Values" option) is the intended UX target and should be implemented when the dialog is next touched.
 
-### 7.3 UX Flow (re-routed)
+### 7.3 UX Flow (Inline Sync CTA)
 
-The blocking pre-summary `AlertDialog` has been removed. The Diff Engine result is now deferred to the summary sheet:
+The sync process is fully integrated into the `PostWorkoutSummarySheet`. There are no blocking pre-summary dialogs or secondary sync buttons. The Diff Engine result is presented as a set of **Inline Sync CTAs** at the bottom of the summary sheet, appearing only if changes were detected.
 
 ```
-finishWorkout()
-    │
-    ├─ Diff Engine detects changes → passes RoutineSyncType inside WorkoutSummary
-    │
-    ▼
 PostWorkoutSummarySheet (always shown immediately after tapping FINISH WORKOUT)
     │
-    ├─ pendingRoutineSync = null    ─── shows normally (no sync section)
+    ├─ No changes detected ─── [Done] (closes summary)
     │
-    └─ pendingRoutineSync ≠ null    ─── shows secondary CTA: [Sync Session to Template]
+    └─ Changes detected ────── Shows Inline Sync CTAs based on diff:
            │
-           ├─ [Sync Session to Template] tapped
-           │       ▼
-           │   Sync AlertDialog (STRUCTURE / VALUES / BOTH)
-           │       │
-           │       ├─ [Confirm] → confirm*() → dismiss dialog → summary remains open
-           │       └─ [Skip]   → dismissRoutineSync() → summary remains open
-           │
-           └─ [Done] → dismissWorkoutSummary() → onWorkoutFinished()
+           ├─ VALUES only     ─── [Update Values] · [Keep Original]
+           ├─ STRUCTURE only  ─── [Update Routine] · [Keep Original]
+           └─ BOTH            ─── [Update Both] · [Update Values] · [Keep Original]
 ```
 
-**Key principle:** The user must never be forced to resolve a sync prompt while in post-workout fatigue. The sync is opt-in from the summary. Skipping sync (by tapping [Done] without ever touching the sync button) is equivalent to the old "Skip" — the routine template is left untouched.
+**Key principle:** The user resolves the sync directly within the summary view. Tapping a sync button (e.g., [Update Both]) performs the write and then updates the UI to show a "Routine Updated" confirmation state (or simply hides the buttons). Tapping [Done] without tapping a sync button is equivalent to "Keep Original" — the routine template is left untouched.
 
-> **`WorkoutSummary` gains a `pendingRoutineSync: RoutineSyncType?` field.** `finishWorkout()` passes the detected sync type into the summary object rather than setting it as a separate state blocker. The old `pendingRoutineSync` field on `ActiveWorkoutState` may be repurposed or removed — it must no longer gate the appearance of the summary sheet.
+> **`WorkoutSummary` gains a `pendingRoutineSync: RoutineSyncType?` field.** `finishWorkout()` passes the detected sync type into the summary object. The summary sheet renders the corresponding buttons in its footer area, above the final [Done] button.
 
-### 7.3b Value-Change Prompt in Summary Sheet
+### 7.3b Value-Change Inline Prompt
 
-When the Diff Engine detects `RoutineSyncType.VALUES` (weight/reps differ from stored defaults), a **secondary non-blocking "Update routine defaults?" card** is shown inside `PostWorkoutSummarySheet`.
+When the Diff Engine detects `RoutineSyncType.VALUES` (weight/reps differ from stored defaults), the **[Update Values]** CTA is shown at the bottom of the `PostWorkoutSummarySheet`.
 
-- Tapping the card/button shows a confirmation: *"Update your routine's default weights and reps to match today's workout?"* → **[Update]** · **[Keep Current]**
-- This prompt is **non-blocking** — the user can tap **[Done]** on the summary sheet without ever engaging with it. Dismissing the summary is equivalent to "Keep Current".
-- This is a lighter-weight path than the structural sync dialog. It does not block the summary or prevent navigation away.
+- Tapping **[Update Values]** immediately writes the new defaults to the routine template.
+- This prompt is **non-blocking** — the user can tap **[Done]** on the summary sheet without ever engaging with the sync buttons.
+- This is the standard path for all sync types: inline, optional, and integrated into the summary footer.
 
 ### 7.4 ViewModel Methods
 
 | Method | Effect |
 |---|---|
-| `confirmUpdateRoutineValues()` | Writes weight/reps defaults, clears `pendingRoutineSync` |
-| `confirmUpdateRoutineStructure()` | Rewrites exercise/set structure, clears `pendingRoutineSync` |
-| `confirmUpdateBoth()` | Does both above in sequence, clears `pendingRoutineSync` |
-| `dismissRoutineSync()` | Clears `pendingRoutineSync` with no writes |
+| `confirmUpdateRoutineValues()` | Writes weight/reps defaults, updates summary UI state |
+| `confirmUpdateRoutineStructure()` | Rewrites exercise/set structure, updates summary UI state |
+| `confirmUpdateBoth()` | Does both above in sequence, updates summary UI state |
 
-**Snackbar feedback:** After each `confirm*()` call completes, a snackbar message is emitted:
-
-| Method | Snackbar message |
-|---|---|
-| `confirmUpdateRoutineValues()` | "Routine defaults updated" |
-| `confirmUpdateRoutineStructure()` | "Routine structure updated" |
-| `confirmUpdateBoth()` | "Routine defaults updated" |
+**Snackbar feedback:** After each `confirm*()` call completes, a snackbar message is emitted: "Routine updated".
 
 ### 7.5 Implementation Invariant
 
-The `AlertDialog`s must render **outside** the `isActive` branch of the main content `when`. They are shown when `isActive=false` — placing them inside the active-workout branch means they will never appear.
+The `PostWorkoutSummarySheet` is the sole owner of the sync UI. No `AlertDialog`s or intermediate screens should be used to resolve the routine sync. The logic for determining which buttons to show lives in the ViewModel and is passed to the sheet via the `WorkoutSummary` state.
 
 ---
 
@@ -819,7 +857,7 @@ It is **not** placed in the `TopAppBar`. The TopAppBar contains only: minimize/c
 | Value | Label |
 |---|---|
 | 6.0 | "Very Light" |
-| 8.0 | "Hard (2 reps in reserve)" |
+| 8.0 | "Hard — 2 reps in reserve" |
 | 10.0 | "Maximum Effort" |
 
 These labels are rendered as small muted text below or beside the corresponding chip, not as separate rows. They are informational only — they do not change the selection behaviour.
@@ -1215,10 +1253,10 @@ The **PREV column is replaced by an e1RM column** in this screen. Each set's e1R
 
 ## 27. Technical Invariants (Claude must not violate)
 
-1. **State priority:** UI renders one state at a time per the hierarchy `Loading > EditMode > ActiveWorkout > RoutineSync > Summary > Idle`. Never allow overlapping states.
+1. **State priority:** UI renders one state at a time per the hierarchy `Loading > EditMode > ActiveWorkout > Summary > Idle`. Never allow overlapping states.
 2. **Swipe coupling — set deletes both, rest deletes only rest:** The set row swipe deletes the set AND hides the rest separator below it (coupling via `deleteSet()` callback adding the rest key to `hiddenRestSeparators`). The rest separator swipe deletes only the rest separator. Both still use **separate `SwipeToDismissBox` instances** — never group into a single shared box. The coupling is in the callback, not the Compose tree.
 3. **Navigation via `LaunchedEffect`:** Any `ActiveWorkoutState` flag that triggers navigation must do so through a `LaunchedEffect`, not inside a composable branch that might not render.
-4. **Sync dialogs outside `isActive` branch:** Routine sync `AlertDialog`s render at the top of the composable body, not inside the active-workout content branch (they fire when `isActive=false`).
+4. **Sync UI in summary:** The routine sync process must be handled exclusively within the `PostWorkoutSummarySheet` using inline CTAs. No separate blocking `AlertDialog`s should be used for this flow.
 5. **Atomic routine writes:** `saveRoutineEdits()` must use `database.withTransaction { }` — never bare sequential DAO calls.
 6. **State cleanup on disposal:** `cancelEditMode()` must be invoked in a `DisposableEffect` on `ActiveWorkoutScreen` exit to prevent `isEditMode=true` leaking into the next session.
 7. **Iron Vault off in edit mode:** Never write to `workout_sets` when `isEditMode=true`. Only `routine_exercises` is a valid write target in edit mode, and only on explicit Save.

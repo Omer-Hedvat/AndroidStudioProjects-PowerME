@@ -15,8 +15,9 @@ Routine                    ──1→N─→  Workout
 
 ### `routines` table
 ```
-id (PK autoGen) | name | lastPerformed | isCustom | isArchived
+id (PK String / UUID) | name | lastPerformed | isCustom | isArchived
 ```
+- **The UUID Shift**: Transitioned from INTEGER to UUID String to prevent ID collisions during multi-device cloud sync.
 - `isArchived` added v20 (soft-delete; still appears in history, just hidden from active list)
 - `lastPerformed` updated by `RoutineDao.updateLastPerformed()` when `finishWorkout()` is called
 
@@ -36,9 +37,10 @@ id (PK) | routineId (FK→routines CASCADE) | exerciseId (FK→exercises CASCADE
 
 ### `workouts` table
 ```
-id (PK) | routineId (FK→routines SET_NULL, nullable) | timestamp
+id (PK String / UUID) | routineId (FK→routines SET_NULL, nullable) | timestamp
         | durationSeconds | totalVolume | notes | isCompleted
 ```
+- **The UUID Shift**: Transitioned from INTEGER to UUID String to prevent ID collisions during multi-device cloud sync.
 - **SET_NULL** (not CASCADE): if Routine is deleted, Workout row survives with `routineId = null` — orphan protection
 - `isCompleted = false` during active workout; set to `true` in `finishWorkout()` — **settled-data gate**
 - History tab ONLY shows rows where `isCompleted = 1`
@@ -47,12 +49,13 @@ id (PK) | routineId (FK→routines SET_NULL, nullable) | timestamp
 
 ### `workout_sets` table
 ```
-id (PK) | workoutId (FK→workouts CASCADE) | exerciseId (FK→exercises CASCADE)
+id (PK) | workoutId (FK→workouts CASCADE) | exerciseId (FK→exercises RESTRICT)
         | setOrder | weight | reps | rpe | setType | setNotes
         | distance | timeSeconds | startTime | endTime | restDuration
         | supersetGroupId | isCompleted
 ```
 - **CASCADE**: deleting a Workout deletes all its WorkoutSet rows
+- **RESTRICT**: The relationship `exercises ← workout_sets` is restricted. Exercises must never be hard-deleted if they have historical sets attached. Use the `isArchived` flag (v20) to hide them from the UI while preserving the integrity of the user's training history.
 - `isCompleted` (v22, Iron Vault): per-set completion flag, separate from `Workout.isCompleted`
 - Skeleton rows created upfront with `weight=0, reps=0, isCompleted=false`
 - `finishWorkout()` deletes all rows where `isCompleted=false` (cleanup of untouched skeletons)
@@ -154,13 +157,24 @@ Each card in HistoryScreen shows:
 ```
 exercises ←──── routine_exercises ────→ routines
     ↑                                       ↑
-    │ (CASCADE)                    (SET_NULL, nullable)
+    │ (RESTRICT)                   (SET_NULL, nullable)
     └────── workout_sets ─────→ workouts
                (CASCADE)
 ```
 
 | Delete | Effect |
 |--------|--------|
-| Exercise | All RoutineExercise + WorkoutSet rows deleted |
+| Exercise | **RESTRICT**: Deletion blocked if historical sets exist. Use soft-delete/archiving. |
 | Routine | All RoutineExercise rows deleted; `Workout.routineId → null` (history preserved) |
 | Workout | All WorkoutSet rows deleted |
+
+---
+
+## §6 — Performance & Scalability
+
+The following Indexes (@Index in Room) are **REQUIRED** to prevent UI stuttering as the history grows:
+
+- `workout_sets(workoutId)`: Accelerates loading details for a specific workout.
+- `workout_sets(exerciseId)`: Powers exercise-specific history and PR tracking.
+- `workouts(timestamp DESC)`: Optimizes the primary History tab sorting.
+- `routine_set_slots(routineExerciseId)`: Essential for rapid routine instantiation.

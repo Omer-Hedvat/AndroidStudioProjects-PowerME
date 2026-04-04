@@ -29,10 +29,10 @@ The Exercise Library is a searchable, filterable catalog of 150+ exercises. It o
 
 | Mode | Route | Entry | Purpose |
 |---|---|---|---|
-| **Browse** | `exercises` | Bottom nav tab (Exercises, position 1) | View library, open detail sheet, play YouTube demo |
+| **Browse** | `exercises` | Bottom nav tab (Exercises, position 1) | View library, open detail sheet, view exercise animation |
 | **Picker** | `exercise_picker` | `[+ ADD EXERCISE]` in active workout or TemplateBuilderScreen | Multi-select exercises to add to a routine or active workout |
 
-All exercise lookups are **offline-first**. No network dependency exists for the core catalog. YouTube demo links and Gemini enrichment are additive and gracefully degraded.
+All exercise lookups are **offline-first**. No network dependency exists for the core catalog. Exercise demo animations are bundled as Animated WebP assets loaded via Coil — zero network calls.
 
 ---
 
@@ -239,7 +239,7 @@ When `activeGymProfileId` is non-null, the ViewModel loads the corresponding `Gy
 - Once `MasterExerciseSeeder` completes and the first DB query returns, the progress indicator is replaced by the list.
 
 ### 5.4 What Does NOT Appear on the Card
-- Play/video icons — video is only in the detail sheet.
+- Animation previews — exercise animations appear only in the detail sheet.
 - Form cues — only in the detail sheet.
 - Set count or weight history — only in the detail sheet History tab.
 
@@ -258,7 +258,7 @@ Triggered from browse mode FAB `[+ Add Exercise]` or from ActiveWorkout `[+ ADD 
 2. **Select existing** — tapping a result calls `onExerciseAdded(exercise)` immediately. No network call.
 3. **"Create new: '{query}'"** row — shown when results < 25 AND state is not Loading. Tapping triggers `MagicAddViewModel.searchExercise(name)` → Gemini enrichment.
 4. **Loading state** — spinner; text field disabled.
-5. **Result card** — enriched exercise preview (muscle group, equipment, rest timer, YouTube video, form cues).
+5. **Result card** — enriched exercise preview (muscle group, equipment, rest timer, form cues).
 6. **`[ADD]` button** — `MagicAddViewModel.saveExercise(exercise)` → `exerciseRepository.insertExercise(exercise)` with `isCustom = true`. Auto-dismisses on save.
 
 **Gemini Prompt Contract:**
@@ -268,7 +268,6 @@ Return ONLY valid JSON:
 {
   "muscleGroup": "one of: Legs, Chest, Back, Shoulders, Arms, Core, Cardio, Full Body",
   "equipmentType": "one of: Barbell, Dumbbells, Cable, Machine, Bodyweight, Resistance Bands, Pull-up Bar, Kettlebell",
-  "youtubeVideoId": "11-char YouTube ID — or null",
   "setupNotes": "3-4 sentence form cue",
   "restDurationSeconds": 90
 }
@@ -335,14 +334,14 @@ When `isCustom == true`, **long-pressing** an `ExerciseCard` in browse mode (ins
 | `equipmentType` | `String` | Equipment required |
 | `exerciseType` | `ExerciseType` | STRENGTH, CARDIO, etc. |
 | `setupNotes` | `String?` | Form cues (displayed in Form Cues banner) |
-| `youtubeVideoId` | `String?` | 11-char YouTube video ID |
+| `youtubeVideoId` | `String?` | **Deprecated.** Superseded by offline Animated WebP assets. Retained for schema stability only — not rendered in UI. |
 | `restDurationSeconds` | `Int` | Default rest duration (90s) |
 | `barType` | `BarType` | STANDARD, EZ, etc. |
 | `isFavorite` | `Boolean` | User-starred |
 | `isCustom` | `Boolean` | User-created via MagicAdd or CreateExerciseSheet |
 | `familyId` | `String?` | Exercise family grouping |
 | `searchName` | `String` | Pre-normalized for search (DB v25+) |
-| `instructionsUrl` | `String?` | Legacy; superseded by `youtubeVideoId` |
+| `instructionsUrl` | `String?` | **Deprecated.** Legacy field — not rendered in UI. |
 | `committeeNotes` | `String?` | Internal annotation field |
 
 ### 7.2 Active Context Fields [V2 — Requires DB Migration]
@@ -351,7 +350,7 @@ Optimized for mid-workout, low-cognitive-load rendering.
 
 | Field | Type | Notes |
 |---|---|---|
-| `videoSnippetPath` | `String?` | Local `.mp4` asset path (e.g., `assets/exercise_clips/bench_press.mp4`) |
+| ~~`videoSnippetPath`~~ | — | **Removed.** Replaced by convention-based asset path: `assets/exercise_animations/{searchName}.webp`. No DB column needed. |
 | `actionCues` | `String?` | Max 3 punchy physiological directives, newline-delimited |
 | `breathingMechanics` | `String?` | Format: `Inhale: [Phase] \| Exhale: [Phase]` |
 
@@ -394,72 +393,82 @@ For catalog deep-dives and pre-workout study.
 
 Sheet visibility driven by `var selectedExercise by remember { mutableStateOf<Exercise?>(null) }` at the `ExercisesScreen` composable level (screen-scoped — see §10.4).
 
-### 8.2 Header (Always Visible)
+### 8.2 Hero Animation
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Exercise Name (headlineMedium)                  │
+│                                                  │
+│          [Looping Animated WebP]                 │
+│          (aspect ratio: 4:3, rounded 12.dp)      │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+- **Source:** Local asset at `assets/exercise_animations/{searchName}.webp`. Convention-based path — no DB column needed.
+- **Loader:** Coil `AsyncImage` composable with an `ImageLoader` configured with `coil-gif` decoder (provides Animated WebP support). Zero network calls.
+- **Looping:** Coil's GIF/WebP decoder loops by default. No manual replay logic needed.
+- **Fallback:** If the asset file is missing, display a muted placeholder illustration (`Icons.Default.FitnessCenter` centered on a `surfaceVariant` background, 200.dp height).
+- **Size constraint:** `fillMaxWidth()`, fixed height 200.dp, `ContentScale.Fit`, `clip(RoundedCornerShape(12.dp))`.
+
+### 8.3 Title & Tags
+
+```
+┌──────────────────────────────────────────────────┐
+│  Exercise Name (headlineMedium, primary)         │
 │  [Muscle Chip]  [Equipment Chip]  ☆ (Favorite)  │
 │                            [Replace] or [Add]    │
 └──────────────────────────────────────────────────┘
 ```
 
+- **Exercise Name:** `headlineMedium`, `MaterialTheme.colorScheme.primary`.
+- **Muscle Chip:** `SuggestionChip`, `primaryContainer` background.
+- **Equipment Chip:** `SuggestionChip`, `secondaryContainer` background. Label uses `toEquipmentDisplayName()`.
 - **Favorite Toggle:** `IconButton` with `Icons.Default.Star` (filled, `primaryContainer`) / `Icons.Default.StarBorder`. Calls `ExercisesViewModel.toggleFavorite(exercise)` → `ExerciseDao.updateFavorite()`.
 - **Contextual Action Button:** Shown only when opened from an active workout context. **Replace** or **Add** action. Hidden in browse-only and picker contexts.
 
-### 8.3 Tabs
+### 8.4 Form Cues Banner
 
-Three tabs: **Info · History · Records**
-
-#### Tab 1: Info
-
-**Media Block [V2]:**
-- `AndroidView` wrapping `ExoPlayer`: `REPEAT_MODE_ONE`, `volume = 0f` (muted), `playWhenReady = true`, `useController = false`.
-- Overlay: discrete Play/Pause `IconButton` bottom-left of video surface.
-- Player released in `DisposableEffect { onDispose { player.release() } }`.
-- **Fallback (current behavior):** If `videoSnippetPath == null`, show `[Watch Demo]` `TextButton` → `vnd.youtube:{youtubeVideoId}` intent, fallback to `https://youtu.be/{youtubeVideoId}` in browser.
-
-**Form Cues Banner (Implemented):**
 - Gold banner background (`Color(0xFF5A4D1A)`), pin icon, `setupNotes` text.
 - Visible by default when `setupNotes != null`.
 - Toggled via Info icon in the header area.
 
-**Active Context Block [V2]:**
-- `actionCues`: Bulleted list, `bodyMedium`. Max 3 items. Label: "Action Cues".
-- `breathingMechanics`: Single muted line. Label: "Breathing".
+### 8.5 Recent History
 
-**Static Context Block [V2]:**
-- `setupConfiguration`: Single-line text row. Label: "Setup".
-- `targetTempo`: Displayed as `X - X - X - X` with digit labels (Eccentric / Pause / Concentric / Pause). Label: "Tempo".
-- `executionSteps`: Numbered list, `bodySmall`. Label: "Execution".
-- `commonFaults`: 2-item list with ⚠ icon. Label: "Common Faults".
-- `substituteExerciseIds`: Up to 3 exercise name chips with inline `[Swap]` action. Label: "Substitutes".
-
-#### Tab 2: History [V2]
-
-Vertical timeline (`LazyColumn`) of all completed sessions containing this exercise, grouped by date.
+Compact list of the last 3–5 completed sessions for this exercise.
 
 ```
-March 12, 2026
-  Set 1: 80 kg × 8   e1RM: 106 kg
-  Set 2: 80 kg × 7   e1RM: 103 kg
-  [→ View Full Workout]
+┌──────────────────────────────────────────────────┐
+│  Recent History                                  │
+│  ─────────────────────────────────────────────── │
+│  Mar 28  ·  3×8 @ 80 kg                         │
+│  Mar 25  ·  4×6 @ 85 kg                         │
+│  Mar 21  ·  3×10 @ 75 kg                        │
+│                                                  │
+│  [View All History →]                            │
+└──────────────────────────────────────────────────┘
 ```
 
-- **Data source:** `WorkoutSetDao` joining `workout_sets` → `workouts` (filter `isCompleted = 1`), grouped by `workoutId`.
-- **Per-set e1RM:** Epley formula: `weight × (1 + reps / 30)`.
-- **[→ View Full Workout]:** Navigates to `WorkoutDetailScreen` for that workout.
+- **Data source:** `WorkoutSetDao` joining `workout_sets` → `workouts` (filter `isCompleted = 1`), grouped by `workoutId`, ordered by date descending, LIMIT 5.
+- **Row format:** Date (`bodyMedium`, `onSurfaceVariant`) · Sets×Reps @ Weight (`bodyMedium`, `onSurface`).
+- **"View All History":** `TextButton` navigating to a dedicated exercise history screen showing all sessions with per-set detail and e1RM calculations.
+- **Empty state:** "No history yet" text in `bodySmall`, `onSurfaceVariant`.
 
-#### Tab 3: Records [V2]
+### 8.6 Alternatives Card
 
-| Record | Value | Date |
-|---|---|---|
-| Heaviest Weight | Max `weight` across all sets | — |
-| Best e1RM (Epley) | Max `weight × (1 + reps/30)` | — |
-| Max Session Volume | Max `Σ(weight × reps)` in a single session | — |
+```
+┌──────────────────────────────────────────────────┐
+│  Alternatives                   (surfaceVariant) │
+│  ─────────────────────────────────────────────── │
+│  [Incline DB Press]  [Cable Fly]  [Push-Up]     │
+└──────────────────────────────────────────────────┘
+```
 
-- **Data source:** Same `WorkoutSetDao` queries as History tab, aggregated.
-- V2 note: Vico line chart for e1RM progression reserved for a future release.
+- **Container:** `Card` with `surfaceVariant` background, 12.dp corner radius, 16.dp padding.
+- **Data source:** `ExerciseDao` query: `SELECT * FROM exercises WHERE muscleGroup = :muscleGroup AND id != :currentId ORDER BY RANDOM() LIMIT 3`.
+- **Rendering:** Each alternative as a clickable `AssistChip` showing the exercise name.
+- **Tap behaviour:** Tapping an alternative chip updates `selectedExercise` to that exercise, swapping the entire detail sheet context in-place. The sheet does NOT close and reopen — it re-renders with the new exercise data.
+- **UX rationale:** Critical for gym environments where equipment is occupied — users can quickly find an alternative without leaving the sheet.
+- **Empty state:** If fewer than 2 alternatives exist for the muscle group, hide the entire card.
 
 ---
 
@@ -476,7 +485,7 @@ March 12, 2026
 
 ## 10. Technical Invariants
 
-1. **Offline First** — Zero network dependency for exercise lookups. Video snippets (V2) will be local assets; no streaming.
+1. **Offline First** — Zero network dependency for exercise lookups. Exercise demo animations are bundled Animated WebP files loaded from `assets/exercise_animations/` via Coil (`coil-gif` decoder). No streaming, no ExoPlayer, no YouTube SDK.
 
 2. **Debounced Search** — Strict 300 ms debounce via `debounce(300)` on a `StateFlow<String>` in `ExercisesViewModel`. Not in Compose.
 
@@ -492,6 +501,8 @@ March 12, 2026
 
 8. **Equipment Matching Is Case-Insensitive** — DB may store mixed-case; comparisons use `.equals(..., ignoreCase = true)`.
 
-9. **No Play Icon on ExerciseCard** — Video and YouTube links appear only inside `ExerciseDetailSheet`.
+9. **No Animation Preview on ExerciseCard** — Animated WebP demos appear only inside `ExerciseDetailSheet`. Cards show static data only.
 
-10. **ExoPlayer Lifecycle** — Player must be released in `DisposableEffect { onDispose { player.release() } }`.
+10. **Coil WebP Dependency** — `io.coil-kt:coil-compose` + `io.coil-kt:coil-gif` are required dependencies for hero animations. No ExoPlayer or YouTube SDK in the dependency graph.
+
+11. **APK Size Discipline** — All exercise animations must be highly compressed Animated WebP files. Target < 150 KB per animation. Total animation asset budget < 25 MB to prevent APK bloat.
