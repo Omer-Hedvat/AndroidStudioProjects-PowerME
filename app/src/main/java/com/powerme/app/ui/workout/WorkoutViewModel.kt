@@ -177,6 +177,14 @@ class WorkoutViewModel @Inject constructor(
 
     private val restTimerNotifier = RestTimerNotifier(context)
 
+    private val settingsState: StateFlow<com.powerme.app.data.database.UserSettings?> =
+        userSettingsDao.getSettings()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = null
+            )
+
     // --- WorkoutTimerService binding ---
     private var timerService: WorkoutTimerService? = null
     private var serviceBound = false
@@ -394,6 +402,10 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun startWorkoutFromRoutine(routineId: Long) {
+        if (_workoutState.value.isMinimized || _workoutState.value.isActive) {
+            maximizeWorkout()
+            return
+        }
         viewModelScope.launch {
             val bootstrap = workoutRepository.instantiateWorkoutFromRoutine(routineId)
             val routineExercises = routineExerciseDao.getForRoutine(routineId)
@@ -448,6 +460,10 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun startWorkout(routineId: Long = 0L) {
+        if (_workoutState.value.isMinimized || _workoutState.value.isActive) {
+            maximizeWorkout()
+            return
+        }
         viewModelScope.launch {
             val id = workoutRepository.createEmptyWorkout(routineId.takeIf { it > 0L })
             _workoutState.update {
@@ -1370,25 +1386,20 @@ class WorkoutViewModel @Inject constructor(
     // Called by the service on the main thread for every countdown tick.
     private fun onTimerTick(remaining: Int) {
         if (remaining == 2 || remaining == 1) {
-            viewModelScope.launch {
-                val settings = userSettingsDao.getSettingsOnce()
-                if (settings?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
-            }
+            if (settingsState.value?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
         }
     }
 
     // Called by the service on the main thread when the countdown reaches zero naturally.
     private fun onTimerFinish() {
-        viewModelScope.launch {
-            val settings = userSettingsDao.getSettingsOnce()
-            if (settings != null) {
-                restTimerNotifier.notifyEnd(
-                    audioEnabled = settings.restTimerAudioEnabled,
-                    hapticsEnabled = settings.restTimerHapticsEnabled
-                )
-            }
-            _workoutState.update { it.copy(restTimer = RestTimerState()) }
+        val settings = settingsState.value
+        if (settings != null) {
+            restTimerNotifier.notifyEnd(
+                audioEnabled = settings.restTimerAudioEnabled,
+                hapticsEnabled = settings.restTimerHapticsEnabled
+            )
         }
+        _workoutState.update { it.copy(restTimer = RestTimerState()) }
     }
 
     /**
@@ -1449,11 +1460,10 @@ class WorkoutViewModel @Inject constructor(
                 for (i in restDuration downTo 0) {
                     _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
                     if (i == 2 || i == 1) {
-                        val settings = userSettingsDao.getSettingsOnce()
-                        if (settings?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
+                        if (settingsState.value?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
                     }
                     if (i == 0) {
-                        val settings = userSettingsDao.getSettingsOnce()
+                        val settings = settingsState.value
                         if (settings != null) {
                             restTimerNotifier.notifyEnd(
                                 audioEnabled = settings.restTimerAudioEnabled,
@@ -1695,11 +1705,10 @@ class WorkoutViewModel @Inject constructor(
                 for (i in durationSeconds downTo 0) {
                     _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
                     if (i == 2 || i == 1) {
-                        val settings = userSettingsDao.getSettingsOnce()
-                        if (settings?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
+                        if (settingsState.value?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
                     }
                     if (i == 0) {
-                        val settings = userSettingsDao.getSettingsOnce()
+                        val settings = settingsState.value
                         if (settings != null) {
                             restTimerNotifier.notifyEnd(
                                 audioEnabled = settings.restTimerAudioEnabled,
