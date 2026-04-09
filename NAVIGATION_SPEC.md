@@ -175,7 +175,7 @@ A second workout cannot be started while `isMinimized = true`. `startWorkoutFrom
 
 **Condition:** `(isActive || isEditMode) && isMinimized`
 
-**Visible on:** All routes wrapped by `MainAppScaffold` — the 5 bottom tabs (`workouts`, `history`, `exercises`, `tools`, `trends`) and `warroom`.
+**Visible on:** All routes wrapped by `MainAppScaffold` — the 5 bottom tabs (`workouts`, `history`, `exercises`, `tools`, `trends`).
 
 **Hidden on:** Auth routes (`auth_welcome`, `auth_profile_setup`, `auth_forgot_password`) and all push screens (`settings`, `gym_setup`, `gym_inventory`, `workout_detail`, `template_builder`, `exercise_picker`). These routes do not host `MainAppScaffold`.
 
@@ -250,8 +250,6 @@ navController.navigate(screen.route) {
 
 **Tab order:** Workouts · History · Exercises · Clocks (Tools) · Trends
 
-**warroom override:** When the current destination is `warroom`, the tab bar must call `navController.popBackStack()` first before navigating to the target tab. Failing to do this leaves `warroom` in the back stack behind the tab.
-
 ---
 
 ## 9. Nav Transition Animations
@@ -325,17 +323,4 @@ Column(modifier = Modifier.navigationBarsPadding()) {
 
 ## 12. Deprecated Routes
 
-### warroom — Permanently Removed (v2)
-
-War Room / AI Chat was permanently deprecated and removed in v2 to reduce APK size and memory footprint.
-
-The following have been deleted:
-- `Routes.WAR_ROOM` constant
-- `warroom` composable from `NavHost`
-- `ChatViewModel.kt`, `WarRoomChatScreen.kt`, `ContextInjector.kt`
-- `warRoomModel` / `setWarRoomModel` from `AppSettingsDataStore`
-- `selectedWarRoomModel` / `setWarRoomModel()` from `SettingsViewModel`
-- "War Room Model" dropdown from `SettingsScreen`
-- `resolveWarRoomModel()` from `ModelRouter`
-
-`UserContext.kt` (containing `GoalDocument`, `MedicalRestrictionsDoc`, `YellowEntry`, `TrainingPhase`) is **retained** — these domain types are still referenced by `ActionExecutor`, `WorkoutViewModel`, `StatePatchManager`, `GoalDocumentManager`, and `MedicalLedgerRepository`.
+No currently deprecated routes.

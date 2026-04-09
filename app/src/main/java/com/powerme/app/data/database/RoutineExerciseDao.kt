@@ -25,10 +25,10 @@ val RoutineExerciseWithName.workingSets: Int get() {
 @Dao
 interface RoutineExerciseDao {
     @Query("SELECT * FROM routine_exercises WHERE routineId = :routineId ORDER BY `order` ASC")
-    suspend fun getForRoutine(routineId: Long): List<RoutineExercise>
+    suspend fun getForRoutine(routineId: String): List<RoutineExercise>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(routineExercise: RoutineExercise): Long
+    suspend fun insert(routineExercise: RoutineExercise)    // returns Unit — caller pre-generates UUID
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(routineExercises: List<RoutineExercise>)
@@ -37,16 +37,16 @@ interface RoutineExerciseDao {
     suspend fun delete(routineExercise: RoutineExercise)
 
     @Query("DELETE FROM routine_exercises WHERE routineId = :routineId AND exerciseId = :exerciseId")
-    suspend fun deleteByRoutineAndExercise(routineId: Long, exerciseId: Long)
+    suspend fun deleteByRoutineAndExercise(routineId: String, exerciseId: Long)
 
     @Query("UPDATE routine_exercises SET `order` = :order WHERE id = :id")
-    suspend fun updateOrder(id: Long, order: Int)
+    suspend fun updateOrder(id: String, order: Int)
 
     @Query("SELECT stickyNote FROM routine_exercises WHERE routineId = :routineId AND exerciseId = :exerciseId")
-    suspend fun getStickyNote(routineId: Long, exerciseId: Long): String?
+    suspend fun getStickyNote(routineId: String, exerciseId: Long): String?
 
     @Query("UPDATE routine_exercises SET stickyNote = :note WHERE routineId = :routineId AND exerciseId = :exerciseId")
-    suspend fun updateStickyNote(routineId: Long, exerciseId: Long, note: String?)
+    suspend fun updateStickyNote(routineId: String, exerciseId: Long, note: String?)
 
     @Query("""
         SELECT re.exerciseId, e.name AS exerciseName, e.muscleGroup, e.equipmentType,
@@ -56,20 +56,20 @@ interface RoutineExerciseDao {
         WHERE re.routineId = :routineId
         ORDER BY re.`order` ASC
     """)
-    suspend fun getExercisesWithNamesForRoutine(routineId: Long): List<RoutineExerciseWithName>
+    suspend fun getExercisesWithNamesForRoutine(routineId: String): List<RoutineExerciseWithName>
 
     @Query("DELETE FROM routine_exercises WHERE routineId = :routineId")
-    suspend fun deleteAllForRoutine(routineId: Long)
+    suspend fun deleteAllForRoutine(routineId: String)
 
     @Query("UPDATE routine_exercises SET sets = :sets WHERE routineId = :routineId AND exerciseId = :exerciseId")
-    suspend fun updateSets(routineId: Long, exerciseId: Long, sets: Int)
+    suspend fun updateSets(routineId: String, exerciseId: Long, sets: Int)
 
     @Query("UPDATE routine_exercises SET reps = :reps, defaultWeight = :weight WHERE routineId = :routineId AND exerciseId = :exerciseId")
-    suspend fun updateRepsAndWeight(routineId: Long, exerciseId: Long, reps: Int, weight: String)
+    suspend fun updateRepsAndWeight(routineId: String, exerciseId: Long, reps: Int, weight: String)
 
     @Query("UPDATE routine_exercises SET setTypesJson = :setTypesJson WHERE routineId = :routineId AND exerciseId = :exerciseId")
-    suspend fun updateSetTypesJson(routineId: Long, exerciseId: Long, setTypesJson: String)
+    suspend fun updateSetTypesJson(routineId: String, exerciseId: Long, setTypesJson: String)
 
     @Query("UPDATE routine_exercises SET setWeightsJson = :setWeightsJson, setRepsJson = :setRepsJson WHERE routineId = :routineId AND exerciseId = :exerciseId")
-    suspend fun updateSetWeightsAndReps(routineId: Long, exerciseId: Long, setWeightsJson: String, setRepsJson: String)
+    suspend fun updateSetWeightsAndReps(routineId: String, exerciseId: Long, setWeightsJson: String, setRepsJson: String)
 }

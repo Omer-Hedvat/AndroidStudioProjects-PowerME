@@ -10,4 +10,3 @@
 1. **Dashboard:** Summary of current week vs "The Committee's" goals.
 2. **Log:** The active workout logger (Main screen).
 3. **History:** Calendar view of past sessions.
-4. **War Room:** The multi-persona AI chat interface.

@@ -155,27 +155,27 @@ See Section 7 for full detail. Summary:
 - **Minimize (↓):** Routes user back to Workouts tab. Does NOT discard the workout. `WorkoutViewModel` stays alive (shared at NavHost scope).
 - **Cancel Edit (✕):** Only in edit mode. Calls `cancelEditMode()` → resets state.
 - **Elapsed Timer:** Hidden in edit mode.
-- **Timer Icon:** Opens `StandaloneTimerSheet` — a `ModalBottomSheet` containing the full Countdown Roulette UI. The user never leaves the active workout context.
+- **Timer Icon:** Opens `StandaloneTimerSheet` — a `ModalBottomSheet` containing the full Countdown UI. The user never leaves the active workout context.
 
 #### StandaloneTimerSheet
 
 The sheet mirrors the Countdown UI from the Clocks tab (TOOLS_SPEC.md §7):
 
 ```
-┌─────────────────────────────────────┐
-│         ┌─────┐   ┌─────┐          │
-│         │ MM  │ : │ SS  │          │  ← Roulette wheel picker
-│         └─────┘   └─────┘          │
-│                                     │
-│   [0:30]  [1:00]  [1:30]  [2:00]   │  ← SuggestionChip presets
-│                                     │
-│   [ ▶ START ]          [ CANCEL ]   │  ← controls (IDLE)
-│   [ ⏸ PAUSE ]          [ CANCEL ]   │  ← controls (running)
-└─────────────────────────────────────┘
+┌──────────────────────────────┐
+│            (  )              │  ← Handle at top (0:00)
+│         /        \           │
+│        |  01:00   |          │  ← Time display in center (mm:ss)
+│         \        /           │
+│            ____              │
+│                              │
+│  [0:30] [1:00] [1:30] [2:00] │  ← SuggestionChip presets
+└──────────────────────────────┘
 ```
 
-- **Wheels:** Identical spec to TOOLS_SPEC.md §7 Countdown Roulette Picker (MM 0–59, SS 0–59, MonoTextStyle, snap on release).
-- **Presets:** Same 4 `SuggestionChip`s (`0:30`, `1:00`, `1:30`, `2:00`). Snap & Wait — no auto-start.
+- **Interactive Circular Dial:** Identical spec to TOOLS_SPEC.md §7. One full 360° rotation equals 6 minutes (360 seconds). Drag handle around the circle to set duration. Value snaps to 5-second intervals.
+- **Dial Center:** Displays the configured time in `mm:ss` format using monospace font.
+- **Presets:** Same 4 `SuggestionChip`s (`0:30`, `1:00`, `1:30`, `2:00`). Snap & Wait — tapping a preset instantly snaps the dial to the corresponding value but does **NOT** auto-start the timer.
 - **Controls:**
   - IDLE: `[START]` (primary) + disabled Cancel.
   - Running: `[PAUSE]` (secondary) + `[CANCEL]` (error outlined).
@@ -195,15 +195,17 @@ The sheet mirrors the Countdown UI from the Clocks tab (TOOLS_SPEC.md §7):
 
 Neither timer cancels, pauses, or otherwise affects the other. They are separate coroutine jobs with separate state fields.
 
-#### Progress Line
+#### Global Progress Line
 
-When `standaloneTimerState.isRunning == true`, a `LinearProgressIndicator` is rendered directly beneath the TopAppBar:
+A `LinearProgressIndicator` is rendered directly beneath the TopAppBar to show active timer progress.
 
-- **Height:** 3dp (within 2–4dp range).
+- **Shared Behavior:** This line is shared between the **Standalone timer** and per-set **Rest Timers**.
+- **Priority Rule:** If both timers are running simultaneously, the **Rest Timer** takes priority and its progress is displayed on the bar. Once the priority timer finishes or is cancelled, the bar reverts to showing the secondary timer's progress (if active).
+- **Height:** 3dp.
 - **Color:** `TimerGreen` (`#34D399`).
 - **Track color:** `surfaceVariant` at 0.3α.
 - **Animation:** Starts at `progress = 1.0f` (full bar) and linearly decreases to `0.0f` over the total countdown duration. Formula: `progress = remainingSeconds.toFloat() / totalSeconds.toFloat()`. Animated via `animateFloatAsState` with `LinearEasing` tween per tick.
-- **Visibility:** The progress line is invisible when no standalone timer is running. It appears instantly on START and disappears instantly on completion or cancellation.
+- **Visibility:** The progress line is invisible when no timer (Standalone or Rest) is running. It appears instantly when a priority timer starts and disappears when all active timers are finished or cancelled.
 
 #### Completion Feedback
 
@@ -242,11 +244,11 @@ When the standalone timer reaches `00:00`:
 └────────────────────────────────────────────────┘
 ```
 
-- **SS spine:** 4dp secondary-colored vertical bar on left edge, only when `supersetGroupId != null`.
+- **SS spine:** 4dp colored vertical bar on left edge, only when `supersetGroupId != null`. Color is determined by `supersetColor(groupId)` — a stable hash of the UUID mapped to a 8-color palette (Pink, Green, Yellow, Orange, Cyan, Purple, Deep Orange, Light Blue). Different superset groups get visually distinct colors.
 - **[^] chevron:** Collapses/expands the set list (`isCollapsed` via `rememberSaveable`).
 - **[⋮ hub]:** Opens `ManagementHubSheet` (8 actions).
 - **Collapsed timer badge:** When `isCollapsed = true` AND this exercise's rest timer is active (`activeTimerExerciseId == exerciseId`), inject a small live `mm:ss` countdown chip/badge into the card header row — placed after the sets-count label. This ensures the user sees the running countdown even when the card is collapsed. The badge uses primary color text on a `primaryContainer` background, monospace font. It disappears when the timer finishes or the card is expanded.
-- **Live exercise reorder:** Clicking or holding any `ExerciseCard` header triggers drag-to-reorder for the exercise list. Uses `Modifier.draggableHandle` from `reorderable-compose`; calls `reorderExercise(fromIdx, toIdx)` in `WorkoutViewModel` on drop. Only available in **live workout** mode — edit mode uses `TemplateBuilderScreen`'s independent reorder (§17.3).
+- **Exercise reorder (drag handle):** A `DragHandle` icon is always visible in the `ExerciseCard` header. Uses `Modifier.draggableHandle(onDragStarted = { collapseAll() })` from `reorderable-compose`; calls `reorderExercise(fromIdx, toIdx)` on drop. Available in **both live workout and edit mode**. When drag starts, `collapseAll()` fires — all cards collapse to compact rows automatically. Superset selection mode also uses `ReorderableItem` + `draggableHandle` so exercises can be reordered while selecting superset members.
 
 ### 4.4 Set Row (Strength — `WorkoutSetRow`)
 
@@ -386,9 +388,9 @@ Reorder mode allows the user to drag-and-drop exercises within the active workou
 
 **Exit:** Reorder mode exits automatically when the drag gesture is released. There is no explicit "Done" button — releasing the drag handle is the exit trigger.
 
-**Availability:** Only during **live workout** (`isActive = true`). Edit mode uses `TemplateBuilderScreen`'s independent reorder (§17.3). `isReorderMode` cannot be `true` when `isEditMode = true`.
+**Availability:** During **both live workout** (`isActive = true`) and **edit mode** (`isEditMode = true`). In edit mode, reordering updates `routine_exercises` order on save (via `saveRoutineEdits()`). `isReorderMode` can be `true` simultaneously with either `isActive` or `isEditMode`.
 
-**State field:** `isReorderMode: Boolean = false` added to `ActiveWorkoutState`. Can be `true` simultaneously with `isActive = true`.
+**State field:** `isReorderMode: Boolean = false` added to `ActiveWorkoutState`. Can be `true` simultaneously with `isActive = true` or `isEditMode = true`.
 
 ### 4.10 Collapsible Exercise Cards
 
@@ -410,9 +412,13 @@ Each `ExerciseCard` header row includes a **chevron toggle** (▲/▼) to collap
 
 Rest timers are per-set. The system has three layers:
 
-1. **Exercise default** (`Exercise.restDuration`) — set in Management Hub.
+1. **Exercise defaults (3 fields, v32):**
+   - `Exercise.restDurationSeconds` — work/normal set rest
+   - `Exercise.warmupRestSeconds` — warmup set rest (default: 30s)
+   - `Exercise.dropSetRestSeconds` — drop set rest (default: 0s = no rest)
+   Set via Management Hub → "Set Rest Timers" → `UpdateRestTimersDialog`. Persisted to `exercises` table via `ExerciseDao.updateRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds)`.
 2. **Per-set override** (`restTimeOverrides: Map<"${exerciseId}_${setOrder}", Int>`) — set by tapping the passive separator.
-3. **Effective rest** = override if present, else exercise default.
+3. **Effective rest** = override if present, else exercise default for the set type.
 
 Timer lifecycle:
 - `completeSet()` → `startRestTimer(exerciseId, setOrder)` → stamps `RestTimerState.exerciseId/setOrder`.
@@ -425,20 +431,20 @@ Timer lifecycle:
 ### 5.1 Rest Logic & Types
 
 There are 3 types of rest periods:
-- **Warmup rest (WR):** Used between warmup sets.
-- **Work rest (RR):** Used between work sets (Normal, Failure).
+- **Warmup rest (WUR):** Used between warmup sets.
+- **Work rest (WR):** Used between work sets (Normal, Failure).
 - **Drop rest (DR):** Used between drop sets.
 
 **Rest Sequence Logic:**
-- Between two Warmup sets (W > W) → **WR**
-- Between the last Warmup set and the first Work set (W > R) → **RR** (Warmup-to-working rest is always 2:00 / RR default)
-- Between two Work sets (R > R) → **RR**
+- Between two Warmup sets (W > W) → **WUR**
+- Between the last Warmup set and the first Work set (W > R) → **WR** (Warmup-to-working rest is always 2:00 / WR default)
+- Between two Work sets (R > R) → **WR**
 - Between the last Work set and the first Drop set (R > D) → **DR**
 - Between two Drop sets (D > D) → **DR**
 
 **Example:**
 A sequence of `W > W > R > R > R > D > D` results in:
-`W > WR > W > RR > R > RR > R > RR > R > DR > D > DR > D`
+`W > WUR > W > WR > R > WR > R > WR > R > DR > D > DR > D`
 
 ### 5.2 RestTimePickerDialog
 
@@ -460,15 +466,16 @@ Triggered by tapping the **passive** (TimerGreen divider) rest separator. It is 
 
 ### 6.1 Pairing
 
-- Enter superset mode via Management Hub → "Superset" → `enterSupersetSelectMode()`.
-- **Interaction:** Clicking 'create superset' opens a list of all exercises currently in the workout with checkboxes for selection and a **'Sync'** button.
-- User selects 2+ exercises and taps 'Sync'.
-- `commitSupersetSelection()` assigns a shared `supersetGroupId` (UUID).
+- Enter superset mode via Management Hub → "Create Superset" → `enterSupersetSelectMode(fromExerciseId)`.
+- **Interaction:** All exercise cards collapse to compact `SupersetSelectRow` rows (checkbox + name + muscle chip + Link icon if already in a superset). A CAB at the top shows Cancel + title + Sync button (enabled ≥ 2 selected).
+- If the triggering exercise is already in a superset, its group members are pre-selected (enabling modification or break).
+- User selects 2+ exercises and taps Sync.
+- `commitSupersetSelection()` assigns a shared `supersetGroupId` (UUID). Exercises deselected from a prior group lose their groupId.
 - **Sync Defaults:**
     a. Work/drop rests are set to **0** for all exercises in the superset except for the **last one** (which retains its default or override rest).
     b. Exercises are ordered sequentially as they appear in the superset.
 - `supersetGroupId` stored on both `ActiveExercise` (in-memory) and `workout_sets` (DB).
-- Visual: 4dp secondary spine on left edge of card.
+- Visual: 4dp colored spine on left edge of card. Color is from `supersetColor(supersetGroupId)` — different groups get distinct palette colors (not hardcoded secondary).
 - Remove: Management Hub → "Remove from Superset" → `removeFromSuperset(exerciseId)`. If only one partner remains after removal, that partner's groupId is also cleared.
 
 ### 6.2 Turn-Based Alternation
@@ -575,6 +582,7 @@ Opened via the `⋮` (`MoreVert`) `IconButton` in the top-right corner of the `E
 
 **Add Session Note**
 - Opens an inline text field injected **between the column headers and the first `WorkoutSetRow`**.
+- When a non-blank session note is saved, it is displayed as **italic muted text** (`bodySmall`, `onSurface.copy(alpha=0.6f)`) between the column headers and the first set row.
 - Session notes appear in **history only**, NOT in the routine template.
 - ViewModel: `updateExerciseSessionNote(exerciseId, note)`
 
@@ -583,17 +591,16 @@ Opened via the `⋮` (`MoreVert`) `IconButton` in the top-right corner of the `E
 - Persistent — saved to `routine_exercises.stickyNote`. Appears in the **routine template** and displayed as a gold banner (FormCuesGold `#5A4D1A`) with a pin icon on every future session.
 - ViewModel: `updateExerciseStickyNote(exerciseId, note)`
 
-**Add Warmup Sets**
-- Prepends **3 WARMUP-type `ActiveSet` rows** at `setOrder` 1, 2, 3.
-- Shifts all existing working sets down by 3 (re-sequences `setOrder`).
-- The 3 new rows are pre-configured with `SetType.WARMUP`.
-- **Hard invariant:** A 2:00 rest separator is automatically injected between the last WARMUP set and the first NORMAL working set, regardless of global rest defaults.
-- ViewModel: `addWarmupSetsToExercise(exerciseId)`
-
-**Add / Replace Rest Timer**
-- Opens `UpdateRestTimersDialog` — min/sec fields for configuring the exercise-level default rest duration.
-- Persists via `ExerciseDao.updateRestDuration(exerciseId, seconds)`.
-- Per-set overrides (via tapping the passive separator) take precedence over this default.
+**Set Rest Timers** *(previously "Add / Replace Rest Timer")*
+- Opens `UpdateRestTimersDialog` — an `AlertDialog` with three labeled rows:
+  - **Work set** — rest after NORMAL/FAILURE sets
+  - **Warm up** — rest after WARMUP sets (default: 0:30)
+  - **Drop set** — rest after DROP sets (default: 0:00)
+- Each row has a `M:SS` text input (BasicTextField styled as a pill).
+- Title: "Update rest timers". Subtitle: "Completed timers will not be affected.\nDurations will be saved for next time."
+- Confirm button: **UPDATE REST TIMERS** → `updateExerciseRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds)`.
+- Persists all three values to `exercises` table (v32 DB fields: `restDurationSeconds`, `warmupRestSeconds`, `dropSetRestSeconds`).
+- Per-set overrides (via tapping the passive separator) take precedence over these defaults.
 
 **Replace Exercise**
 - Navigates to `ExercisesScreen` in selection mode (or opens `MagicAddDialog`).
@@ -601,9 +608,14 @@ Opened via the `⋮` (`MoreVert`) `IconButton` in the top-right corner of the `E
 - ViewModel: `replaceExercise(oldExerciseId, newExercise)`
 
 **Create Superset**
-- Opens the superset multi-select CAB (Contextual Action Bar) listing all exercises currently in `ActiveWorkoutState`.
-- Selecting 2+ exercises and committing assigns a shared `supersetGroupId` UUID.
-- The UI renders their sets interleaved: Ex A Set 1, Ex B Set 1, Ex A Set 2, Ex B Set 2 (turn-based alternation via `activeSupersetExerciseId`).
+- Calls `enterSupersetSelectMode(fromExerciseId)` → sets `isSupersetSelectMode = true` in `ActiveWorkoutState`.
+- **Pre-selection:** If the triggering exercise is already in a superset group (`supersetGroupId != null`), all members of that group are pre-selected in `supersetCandidateIds` — enabling the user to modify or break the superset.
+- **UI while `isSupersetSelectMode = true`:** All `ExerciseCard` items are replaced by compact `SupersetSelectRow` rows:
+  - Layout: `[Checkbox]` | exercise name | muscle group chip | `[Link icon]` (if already in any superset)
+  - Tapping a row toggles selection via `toggleSupersetCandidate(exerciseId)`.
+  - A Contextual Action Bar shows: **Cancel** + title "Select exercises for superset" + **Sync icon** (enabled when ≥ 2 are selected).
+- Tapping Sync calls `commitSupersetSelection()` → assigns a shared `supersetGroupId` UUID to all selected exercises; deselected members of a former group lose their `supersetGroupId` (superset broken if < 2 remain).
+- The UI renders selected exercises' sets interleaved: Ex A Set 1, Ex B Set 1, Ex A Set 2, Ex B Set 2 (turn-based alternation via `activeSupersetExerciseId`).
 - When already in a superset: option changes to **Remove from Superset** → `removeFromSuperset(exerciseId)`.
 
 **Remove Exercise**
@@ -891,7 +903,7 @@ The entry point for the workout journey. Manages routine browsing, workout resum
 [Start Empty Workout]             ← OutlinedButton
 [Routines label + Add (+) icon]
 ["Show Archived" FilterChip]      ← top-right of the Routines row; default OFF
-[Empty state]                     ← "No routines yet — ask the War Room to build one"
+[Empty state]                     ← "No routines yet"
 [2-column RoutineCard grid]       ← filtered by chip state (see §16.2a)
 [RoutineOverviewSheet]            ← shown when a card is tapped
 ```
@@ -993,6 +1005,8 @@ Triggered by long-pressing any `DraftExerciseRow`. While active:
 - Supports both create (`routineId=-1`, inserts new `Routine` row first) and edit (overwrites existing `routine_exercises`).
 - On completion calls `onDone()` → navigates back.
 
+> **Spec Debt (DB v29):** The current delete-all + insert-all approach wipes per-set sync data (`setTypesJson`, `setWeightsJson`, `setRepsJson`, `defaultWeight`) for exercises that are structurally unchanged during a re-save. These fields are populated by the Routine Sync diff engine at workout completion. A future update should carry these fields through `DraftExercise` and round-trip them on save for exercises that existed in the previous revision.
+
 ---
 
 ## 18. Warmup System
@@ -1028,7 +1042,7 @@ WarmupPrescriptionCard displayed
 
 ### 18.3 `addWarmupSetsToExercise(exerciseId)`
 
-Separate from the warmup prescription. Accessible via Management Hub → "Warmup Sets":
+Separate from the warmup prescription. **Not accessible via the Management Hub** (the "Warmup Sets" item was removed from the hub). Available via code/other paths:
 - Prepends **3 WARMUP-type sets** to the exercise.
 - Shifts all existing working sets down by 3 (re-sequences `setOrder`).
 - Iron Vault persists the new sets immediately.
@@ -1230,7 +1244,7 @@ Full injury ledger specification lives in `INJURY_CONTEXT_SPEC.md` and `INJURY_T
 
 Mirrors the `ActiveWorkoutScreen` ExerciseCard structure:
 - Same column grid (SET | PREV→**e1RM** | WEIGHT | REPS | RPE | ✓)
-- Superset spine (4dp secondary bar) rendered where applicable
+- Superset spine (4dp palette-colored bar, per `supersetColor(groupId)`) rendered where applicable
 - Set type badge (W / D / F prefix) shown in SET column
 - Set notes rendered inline below each set row if present
 - **Set count shown in the header/totals row excludes WARMUP sets.** Total = NORMAL + FAILURE + DROP completed sets only.
@@ -1277,9 +1291,10 @@ The **PREV column is replaced by an e1RM column** in this screen. Each set's e1R
 22. **Touch targets ≥ 48dp:** SET badge column and CHECK column in `WorkoutSetRow` must use `Modifier.minimumInteractiveComponentSize()`. RPE column clickable area must fill the full row height and column width.
 23. **Keyboard types are explicit at call site:** Weight inputs pass `KeyboardType.Decimal`; reps inputs pass `KeyboardType.Number`. These are set at the `WorkoutSetRow` call site, not as defaults in `WorkoutInputField`.
 24. **SwipeToDismissBox state reset:** Each `SwipeToDismissBox` (set and rest) must have a `LaunchedEffect(swipeState.currentValue)` that calls `swipeState.snapTo(Default)` when `currentValue == EndToStart` and the composable is still in composition. This prevents the red delete background from lingering as a ghost after deletion.
-25. **Reorder mode hides set rows, not exercises:** When `isReorderMode = true`, only the set rows, rest separators, and card footers are hidden (via `AnimatedVisibility`). Exercise cards themselves remain visible as compact drag rows. Do not navigate away, dismiss sheets, or change `isActive` state when entering reorder mode.
+25. **Reorder mode hides set rows, not exercises:** When `isReorderMode = true`, only the set rows, rest separators, and card footers are hidden (via `AnimatedVisibility`). Exercise cards themselves remain visible as compact drag rows. Do not navigate away, dismiss sheets, or change `isActive` state when entering reorder mode. Reorder mode is available in **both live workout and edit mode** — `isReorderMode` can be `true` simultaneously with either `isActive = true` or `isEditMode = true`.
 26. **Collapsed card timer badge:** When a card is collapsed (`isCollapsed = true`) and its rest timer is active (`activeTimerExerciseId == exerciseId`), the collapsed header must show the live `mm:ss` countdown badge. Collapsing a card must **never** stop, reset, or interfere with the rest timer in any way.
 27. **Pre-fill priority order for workout start:** When `startWorkoutFromRoutine()` builds the set list, each set's initial weight and reps follow: (1) previous session data via `getPreviousSessionSets()`, (2) `routine_exercises.defaultWeight`/`reps`, (3) empty. Never pre-fill from a source lower in priority when a higher-priority source has data.
+28. **Global Progress Line priority:** The Rest Timer takes precedence over the Standalone Timer on the TopAppBar progress line. Reverts to showing the secondary timer's progress if it remains active after the priority timer finishes.
 
 ---
 
@@ -1311,7 +1326,7 @@ Once v28 is active:
 - `startWorkoutFromRoutine()` reads from `routine_set_slots` to build the initial `ActiveSet` list. Each slot maps to one `ActiveSet` with its own `defaultWeight`, `reps`, `setType`, and `restTimeSeconds`.
 - The Diff Engine (`finishWorkout()`) compares session sets against `routine_set_slots` rows (not aggregate `.sets` count).
 - Edit mode writes back to `routine_set_slots` on Save — per-slot granularity.
-- The `Add Warmup Sets` Management Hub action populates slot type `WARMUP` for the new leading slots.
+- The `addWarmupSetsToExercise()` function populates slot type `WARMUP` for the new leading slots. This action is no longer accessible from the Management Hub directly (removed in QA round 1).
 
 ### 28.3 Migration Notes for DB_UPGRADE.md
 

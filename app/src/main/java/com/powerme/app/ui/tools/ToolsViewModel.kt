@@ -44,10 +44,10 @@ data class ToolsUiState(
     val tabataSkipLastRest: Boolean = false,
     // EMOM skip last rest
     val emomSkipLastRest: Boolean = false,
-    // EMOM warning sound
-    val emomWarnAtSecondsText: String = "",
-    // COUNTDOWN pre-finish alert
-    val countdownWarnAtSecondsText: String = ""
+    // Warn-before-finish fields (all countdown modes)
+    val tabataWarnAtSecondsText: String = "2",
+    val emomWarnAtSecondsText: String = "2",
+    val countdownWarnAtSecondsText: String = "2"
 )
 
 @HiltViewModel
@@ -83,6 +83,9 @@ class ToolsViewModel @Inject constructor(
     }
     fun updateTotalRoundsText(text: String) {
         _uiState.update { it.copy(totalRoundsText = text, totalRounds = text.toIntOrNull() ?: it.totalRounds) }
+    }
+    fun updateTabataWarnAtSecondsText(text: String) {
+        _uiState.update { it.copy(tabataWarnAtSecondsText = text) }
     }
     fun updateEmomWarnAtSecondsText(text: String) {
         _uiState.update { it.copy(emomWarnAtSecondsText = text) }
@@ -195,6 +198,7 @@ class ToolsViewModel @Inject constructor(
         var round        = state.currentRound
         val totalRounds  = state.totalRounds
         val skipLastRest = state.tabataSkipLastRest
+        val warnAt       = state.tabataWarnAtSecondsText.toIntOrNull()
 
         while (round < totalRounds) {
             val isLastRound = round == totalRounds - 1
@@ -203,8 +207,13 @@ class ToolsViewModel @Inject constructor(
             _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = round + 1) }
             restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
             var workRemaining = _uiState.value.workSeconds
+            var warnedWork = false
             while (workRemaining > 0 && _uiState.value.isRunning) {
                 _uiState.update { it.copy(displaySeconds = workRemaining) }
+                if (warnAt != null && workRemaining == warnAt && !warnedWork) {
+                    warnedWork = true
+                    restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
+                }
                 if (workRemaining == 2 || workRemaining == 1) {
                     restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
                 }
@@ -219,8 +228,13 @@ class ToolsViewModel @Inject constructor(
                 _uiState.update { it.copy(phase = TimerPhase.REST) }
                 restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
                 var restRemaining = _uiState.value.restSeconds
+                var warnedRest = false
                 while (restRemaining > 0 && _uiState.value.isRunning) {
                     _uiState.update { it.copy(displaySeconds = restRemaining) }
+                    if (warnAt != null && restRemaining == warnAt && !warnedRest) {
+                        warnedRest = true
+                        restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
+                    }
                     if (restRemaining == 2 || restRemaining == 1) {
                         restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
                     }

@@ -9,8 +9,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
@@ -19,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -42,6 +46,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showApiKey by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     // Health Connect permission launcher
     val hcPermissionLauncher = rememberLauncherForActivityResult(
@@ -51,6 +56,13 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(Unit) { viewModel.fetchModelsIfNeeded() }
+
+    // Cloud restore toast
+    LaunchedEffect(uiState.cloudRestoreMessage) {
+        val msg = uiState.cloudRestoreMessage ?: return@LaunchedEffect
+        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+        viewModel.dismissCloudRestoreMessage()
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().navigationBarsPadding(),
@@ -259,13 +271,24 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val weightTfv = remember { mutableStateOf(TextFieldValue(uiState.weightInput)) }
+                        LaunchedEffect(uiState.weightInput) {
+                            if (weightTfv.value.text != uiState.weightInput) weightTfv.value = TextFieldValue(uiState.weightInput)
+                        }
                         OutlinedTextField(
-                            value = uiState.weightInput,
-                            onValueChange = viewModel::updateWeightInput,
+                            value = weightTfv.value,
+                            onValueChange = { newTfv -> weightTfv.value = newTfv; viewModel.updateWeightInput(newTfv.text) },
                             label = { Text("Weight (kg)", fontSize = 12.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { bodyFatFocusRequester.requestFocus() }),
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .onFocusChanged { state ->
+                                    if (state.isFocused) {
+                                        val t = weightTfv.value.text
+                                        weightTfv.value = weightTfv.value.copy(selection = TextRange(0, t.length))
+                                    }
+                                },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
@@ -274,13 +297,25 @@ fun SettingsScreen(
                             ),
                             singleLine = true
                         )
+                        val bodyFatTfv = remember { mutableStateOf(TextFieldValue(uiState.bodyFatInput)) }
+                        LaunchedEffect(uiState.bodyFatInput) {
+                            if (bodyFatTfv.value.text != uiState.bodyFatInput) bodyFatTfv.value = TextFieldValue(uiState.bodyFatInput)
+                        }
                         OutlinedTextField(
-                            value = uiState.bodyFatInput,
-                            onValueChange = viewModel::updateBodyFatInput,
+                            value = bodyFatTfv.value,
+                            onValueChange = { newTfv -> bodyFatTfv.value = newTfv; viewModel.updateBodyFatInput(newTfv.text) },
                             label = { Text("Body Fat (%)", fontSize = 12.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
-                            modifier = Modifier.weight(1f).focusRequester(bodyFatFocusRequester),
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(bodyFatFocusRequester)
+                                .onFocusChanged { state ->
+                                    if (state.isFocused) {
+                                        val t = bodyFatTfv.value.text
+                                        bodyFatTfv.value = bodyFatTfv.value.copy(selection = TextRange(0, t.length))
+                                    }
+                                },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
@@ -291,13 +326,25 @@ fun SettingsScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
+                    val heightTfv = remember { mutableStateOf(TextFieldValue(uiState.heightInput)) }
+                    LaunchedEffect(uiState.heightInput) {
+                        if (heightTfv.value.text != uiState.heightInput) heightTfv.value = TextFieldValue(uiState.heightInput)
+                    }
                     OutlinedTextField(
-                        value = uiState.heightInput,
-                        onValueChange = viewModel::updateHeightInput,
+                        value = heightTfv.value,
+                        onValueChange = { newTfv -> heightTfv.value = newTfv; viewModel.updateHeightInput(newTfv.text) },
                         label = { Text("Height (cm)", fontSize = 12.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
-                        modifier = Modifier.fillMaxWidth().focusRequester(heightFocusRequester),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(heightFocusRequester)
+                            .onFocusChanged { state ->
+                                if (state.isFocused) {
+                                    val t = heightTfv.value.text
+                                    heightTfv.value = heightTfv.value.copy(selection = TextRange(0, t.length))
+                                }
+                            },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
@@ -412,6 +459,39 @@ fun SettingsScreen(
                     }
                     uiState.exportSuccessMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
                     uiState.exportErrorMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+                }
+            }
+
+            // ── Cloud Sync ───────────────────────────────────────────
+            item {
+                SettingsCard(title = "Cloud Sync") {
+                    if (!uiState.isSignedIn) {
+                        Text(
+                            text = "Sign in to enable cloud restore",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    } else {
+                        Text(
+                            text = "Restore workouts and routines from your cloud backup. Uses last-write-wins conflict resolution.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (uiState.isRestoringFromCloud) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                Text("Restoring from cloud…")
+                            }
+                        } else {
+                            Button(
+                                onClick = viewModel::restoreFromCloud,
+                                enabled = !uiState.isRestoringFromCloud
+                            ) {
+                                Text("Restore from Cloud")
+                            }
+                        }
+                    }
                 }
             }
 

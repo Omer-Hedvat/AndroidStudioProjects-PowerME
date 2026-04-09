@@ -10,6 +10,7 @@ import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.RoutineExercise
 import com.powerme.app.data.database.RoutineExerciseDao
 import com.powerme.app.data.repository.ExerciseRepository
+import com.powerme.app.data.sync.FirestoreSyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 import javax.inject.Inject
 
 data class DraftExercise(
@@ -34,10 +36,11 @@ class TemplateBuilderViewModel @Inject constructor(
     private val routineExerciseDao: RoutineExerciseDao,
     private val exerciseRepository: ExerciseRepository,
     private val database: PowerMeDatabase,
+    private val firestoreSyncManager: FirestoreSyncManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    val routineId: Long = savedStateHandle.get<Long>("routineId") ?: -1L
+    val routineId: String = savedStateHandle.get<String>("routineId") ?: "new"
 
     private val _routineName = MutableStateFlow("")
     val routineName: StateFlow<String> = _routineName.asStateFlow()
@@ -49,7 +52,7 @@ class TemplateBuilderViewModel @Inject constructor(
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
     init {
-        if (routineId > 0L) {
+        if (routineId != "new" && routineId.isNotBlank()) {
             viewModelScope.launch {
                 val routine = routineDao.getRoutineById(routineId)
                 if (routine != null) {
@@ -125,33 +128,40 @@ class TemplateBuilderViewModel @Inject constructor(
             _isSaving.value = true
             try {
                 val drafts = _draftExercises.value
-                database.withTransaction {
-                    val rid: Long
-                    if (routineId > 0L) {
+                val rid: String = database.withTransaction {
+                    if (routineId != "new" && routineId.isNotBlank()) {
                         val existing = routineDao.getRoutineById(routineId)
                         if (existing != null) {
-                            routineDao.updateRoutine(existing.copy(name = _routineName.value.trim()))
-                        }
-                        rid = routineId
-                    } else {
-                        rid = routineDao.insertRoutine(
-                            Routine(name = _routineName.value.trim(), isCustom = true)
-                        )
-                    }
-                    routineExerciseDao.deleteAllForRoutine(rid)
-                    routineExerciseDao.insertAll(
-                        drafts.mapIndexed { i, d ->
-                            RoutineExercise(
-                                routineId = rid,
-                                exerciseId = d.exerciseId,
-                                sets = d.sets,
-                                reps = 10,
-                                restTime = 90,
-                                order = i
+                            routineDao.updateRoutine(
+                                existing.copy(name = _routineName.value.trim(), updatedAt = System.currentTimeMillis())
                             )
                         }
-                    )
+                        routineId
+                    } else {
+                        val newId = UUID.randomUUID().toString()
+                        val now = System.currentTimeMillis()
+                        routineDao.insertRoutine(
+                            Routine(id = newId, name = _routineName.value.trim(), isCustom = true, updatedAt = now)
+                        )
+                        newId
+                    }.also { r ->
+                        routineExerciseDao.deleteAllForRoutine(r)
+                        routineExerciseDao.insertAll(
+                            drafts.mapIndexed { i, d ->
+                                RoutineExercise(
+                                    id = UUID.randomUUID().toString(),
+                                    routineId = r,
+                                    exerciseId = d.exerciseId,
+                                    sets = d.sets,
+                                    reps = 10,
+                                    restTime = 90,
+                                    order = i
+                                )
+                            }
+                        )
+                    }
                 }
+                firestoreSyncManager.pushRoutine(rid)
                 withContext(Dispatchers.Main) { onDone() }
             } finally {
                 _isSaving.value = false

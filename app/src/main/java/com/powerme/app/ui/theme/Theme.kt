@@ -9,41 +9,41 @@ import androidx.compose.ui.graphics.Color
 import com.powerme.app.data.ThemeMode
 
 private val LightColorScheme = lightColorScheme(
-    primary          = StremioViolet,
-    secondary        = StremioMagenta,
-    tertiary         = StremioViolet,
+    primary          = LightPrimary,       // #6B3FA0 — WCAG AA on white
+    secondary        = LightSecondary,     // #7D3B65
+    tertiary         = LightPrimary,
     background       = Slate50,
     surface          = Slate100,
-    surfaceVariant   = StremioCloudGrey,
+    surfaceVariant   = Color(0xFFEDE7F6),  // Light violet tint for chips/rows
     onPrimary        = LightBackground,
-    onSecondary      = StremioViolet,
+    onSecondary      = LightBackground,
     onTertiary       = LightBackground,
     onBackground     = Slate900,
     onSurface        = Slate900,
     onSurfaceVariant = Slate900,
-    error            = StremioError,
+    error            = LightError,         // #B3261E — M3 standard
     onError          = LightBackground
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary             = StremioViolet,           // #A061FF — accent only
-    onPrimary           = StremioBackground,       // #000000 — black on purple
-    primaryContainer    = Color(0xFF3D1A8F),        // deep purple (FABs, filled chips)
-    onPrimaryContainer  = Color(0xFFEDD9FF),        // light lavender
-    secondary           = StremioMagenta,
-    onSecondary         = StremioBackground,
-    tertiary            = StremioViolet,
-    onTertiary          = StremioBackground,
-    background          = StremioBackground,       // #000000
-    surface             = StremioSurface,          // #121212
-    surfaceVariant      = StremioSurfaceVar,       // #1E1E1E
-    surfaceTint         = StremioBackground,       // neutralizes M3 purple tint on elevated surfaces
-    onBackground        = StremioCloudGrey,        // #FFFFFF
-    onSurface           = StremioCloudGrey,        // #FFFFFF
-    onSurfaceVariant    = StremioSubGrey,          // #A0A0A0 — medium emphasis
-    outline             = ProOutline,              // #3D3D3D neutral borders
-    error               = StremioError,
-    onError             = StremioBackground
+    primary             = ProViolet,            // #9B7DDB — desaturated lavender-violet
+    onPrimary           = ProBackground,        // #0F0D13
+    primaryContainer    = Color(0xFF2D2052),    // muted deep purple
+    onPrimaryContainer  = Color(0xFFE0D4F0),   // muted lavender
+    secondary           = ProMagenta,           // #9E6B8A — dusty rose
+    onSecondary         = ProBackground,
+    tertiary            = ProViolet,
+    onTertiary          = ProBackground,
+    background          = ProBackground,        // #0F0D13
+    surface             = ProSurface,           // #1C1A24
+    surfaceVariant      = ProSurfaceVar,        // #28253A
+    surfaceTint         = ProBackground,        // suppress M3 purple elevation tint
+    onBackground        = ProCloudGrey,         // #E8E4F0 — lavender off-white
+    onSurface           = ProCloudGrey,         // #E8E4F0
+    onSurfaceVariant    = ProSubGrey,           // #9E99AB — medium emphasis
+    outline             = ProOutline,           // #3A3650 — purple-tinted borders
+    error               = ProError,             // #E05555 — desaturated red
+    onError             = ProBackground
 )
 
 @Composable

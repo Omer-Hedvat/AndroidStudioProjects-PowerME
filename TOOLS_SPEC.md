@@ -48,6 +48,7 @@ enum class TimerPhase { IDLE, WORK, REST }
 | `workSeconds` | 20 | `workSecondsText = "20"` |
 | `restSeconds` | 10 | `restSecondsText = "10"` |
 | `totalRounds` | 8 | `totalRoundsText = "8"` |
+| `tabataWarnAtSecondsText` | "2" | Warn-before-finish field |
 | `tabataSkipLastRest` | false | Switch toggle |
 
 ### EMOM Config
@@ -55,7 +56,7 @@ enum class TimerPhase { IDLE, WORK, REST }
 |----------|---------|------------|
 | `emomRoundSeconds` | 60 | `emomRoundSecondsText = "60"` |
 | `emomTotalRounds` | 5 | `emomTotalRoundsText = "5"` |
-| `emomWarnAtSecondsText` | "" | Optional warning threshold |
+| `emomWarnAtSecondsText` | "2" | Warn-before-finish field |
 | `emomSkipLastRest` | false | — |
 
 ### COUNTDOWN Config
@@ -63,7 +64,7 @@ enum class TimerPhase { IDLE, WORK, REST }
 |----------|------|---------|-------|
 | `countdownMinutes` | Int | 1 | Wheel picker value (0–59) |
 | `countdownSeconds` | Int | 0 | Wheel picker value (0–59) |
-| `countdownWarnAtSecondsText` | String | "" | Optional pre-finish alert |
+| `countdownWarnAtSecondsText` | String | "2" | Warn-before-finish field |
 
 The paired text-field pattern (Dual-Property below) does NOT apply to Countdown. Minutes and seconds are set exclusively via the Roulette wheel picker or preset chips — there are no free-text fields for the countdown duration.
 
@@ -84,13 +85,13 @@ startTimer() → val work = "".toIntOrNull()?.takeIf { it > 0 } ?: 20
 3. Runs indefinitely until `pauseTimer()`
 
 ### Countdown (`runCountdown`)
-1. Resolve `remaining` from `displaySeconds` (resume) or `countdownMinutes * 60 + countdownSeconds` (fresh start; falls back to 60s if total is 0)
+1. Resolve `remaining` from `displaySeconds` (resume) or `countdownTotalSeconds` (fresh start; falls back to 60s if total is 0)
 2. Parse optional `countdownWarnAtSecondsText`
 3. Phase → WORK
 4. Loop: display → warn check → delay 1s → decrement
 5. Warning threshold → `triggerAudioAlert(AlertType.WARNING)`; last 2 seconds → `triggerAudioAlert(AlertType.COUNTDOWN_TICK)`
 6. On `remaining == 0` → `finishTimer()`
-- **Pause/Resume:** always resumes from `displaySeconds` (remaining time). Only Reset/Stop reverts to configured `countdownMinutes * 60 + countdownSeconds`.
+- **Pause/Resume:** always resumes from `displaySeconds` (remaining time). Only Reset/Stop reverts to configured `countdownTotalSeconds`.
 
 ### Tabata (`runTabata`)
 Per round:
@@ -99,7 +100,7 @@ Per round:
 3. Skip-last-rest: if enabled AND last round → skip REST phase entirely
 4. After all rounds → `finishTimer()`
 
-Last-2-second `COUNTDOWN_TICK` beeps fire in both WORK and REST phases.
+Last-2-second `COUNTDOWN_TICK` beeps fire in both WORK and REST phases. `tabataWarnAtSecondsText` fires a `WARNING` alert once per phase when remaining == warnAt (both WORK and REST phases).
 
 ### EMOM (`runEmom`)
 Per round:
@@ -118,7 +119,7 @@ Alerts dispatched via `RestTimerNotifier` (ToneGenerator on `STREAM_ALARM` — b
 | AlertType | Audio | Haptic | Triggered By |
 |-----------|-------|--------|-------------|
 | `ROUND_START` | 600ms beep | Phase pattern (150-150-150-500ms) | TABATA/EMOM round start |
-| `WARNING` | 2 × 150ms beeps | Short pulse × 2 | EMOM/COUNTDOWN pre-configured warning |
+| `WARNING` | 2 × 150ms beeps | Short pulse × 2 | TABATA/EMOM/COUNTDOWN pre-configured warning |
 | `COUNTDOWN_TICK` | 200ms beep | Short pulse (50ms) | Last 2 seconds of any phase |
 | `FINISH` | 150+150+800ms beeps | Phase pattern | Phase completion |
 
@@ -137,14 +138,14 @@ Alerts dispatched via `RestTimerNotifier` (ToneGenerator on `STREAM_ALARM` — b
 
 ### Screen Structure
 ```
-Column(fillMaxSize, padding=16dp, SpaceBetween)
-├── Box(weight=1f)
+Column(fillMaxSize, padding=16dp)
+├── Column(weight=1f, verticalScroll)        // scrollable content area
 │   ├── TimerModeGrid()          // visible when IDLE && !running
-│   └── Mode label (14sp mono)   // visible when running
-├── Box(weight=1f)
+│   ├── Mode label (14sp mono)   // visible when running
+│   ├── Spacer(16dp)
 │   ├── TimerDisplay()           // always visible
 │   └── ConfigInputs()           // visible when IDLE && !running
-└── Row                          // control buttons
+└── Row                          // control buttons (pinned at bottom)
 ```
 
 ### TimerModeGrid (2×2 card grid)
@@ -155,10 +156,10 @@ Column(fillMaxSize, padding=16dp, SpaceBetween)
 | Tabata | Timer | "Work / Rest" |
 | EMOM | Repeat | "Every Minute" |
 
-**ModeCard:** 80dp height. Selected: primary bg, onPrimary text. Unselected: surface bg, muted text.
+**ModeCard:** 64dp height, 16dp icon. Selected: primary bg, onPrimary text. Unselected: surface bg, muted text.
 
 ### TimerDisplay
-- **Timer text:** 72sp, Bold, `MonoTextStyle` (JetBrainsMono + `tnum`), format `%02d:%02d`
+- **Timer text:** 56sp, Bold, `MonoTextStyle` (JetBrainsMono + `tnum`), format `%02d:%02d`, box padding 16dp
 - **Round counter** (TABATA/EMOM only): 18sp, MonoTextStyle, 0.8α
   - TABATA: `"Round X / Y"`
   - EMOM: `"Round X / Y"`
@@ -174,47 +175,52 @@ Column(fillMaxSize, padding=16dp, SpaceBetween)
 
 ### ConfigInputs
 - **Stopwatch:** none
-- **Countdown:** MM:SS Roulette Picker (see below) + Alert before finish (optional `TimerConfigField`)
-- **Tabata:** Work (sec) + Rest (sec) + Rounds + Skip-last-rest Switch
-- **EMOM:** Round Duration (sec) + Number of Rounds + Warn at X sec (optional)
+- **Countdown:** MM:SS Roulette Picker + "Warn before finish (sec)" `TimerConfigField` (default "2")
+- **Tabata:** Work (sec) + Rest (sec) + Rounds + "Warn before finish (sec)" (default "2") + Skip-last-rest Switch
+- **EMOM:** Round Duration (sec) + Number of Rounds + "Warn before finish (sec)" (default "2")
+
+All "Warn before finish" fields share the same label text and fire a `WARNING` alert when `remaining == warnAt`.
 
 `TimerConfigField`: `OutlinedTextField`, digit-only filter, `surfaceVariant` bg, primary border (focused) / 0.4α (unfocused), MonoTextStyle.
 
-#### Countdown Roulette Picker
+#### Interactive Circular Dial
 
 ```
 ┌──────────────────────────────┐
-│     ┌─────┐   ┌─────┐       │
-│     │ MM  │ : │ SS  │       │  ← dual-wheel picker
-│     └─────┘   └─────┘       │
+│            (  )              │  ← Handle at top (0:00)
+│         /        \           │
+│        |  01:00   |          │  ← Time display in center
+│         \        /           │
+│            ____              │
 │                              │
-│  [0:30] [1:00] [1:30] [2:00]│  ← SuggestionChip row
+│  [0:30] [1:00] [1:30] [2:00] │  ← SuggestionChip row
 └──────────────────────────────┘
 ```
 
-**Wheels:**
-- Minutes wheel: `00` to `59`, vertical scroll, snaps to nearest value on release.
-- Seconds wheel: `00` to `59`, same behavior.
-- Separator: a static `:` label between the two wheels, vertically centered.
-- Typography: wheel items use `MonoTextStyle` (JetBrainsMono), selected item highlighted at full opacity with `primary` color, neighbors faded to 0.3α.
+**Behavior:**
+- **Rotation:** One full 360° rotation equals 6 minutes (360 seconds).
+- **Drag Interaction:** Drag the handle around the circle to set duration.
+- **Display:** Time is shown in `mm:ss` format in the center of the dial.
+- **Snapping:** The value snaps to 5-second intervals during dragging for precision.
+- **Visuals:** A circular track with a draggable handle. The track may fill as the duration increases.
 
-**Quick Presets:** A centered `Row` of 4 `SuggestionChip`s placed directly below the Roulette:
+**Quick Presets:** A centered `Row` of 4 `SuggestionChip`s placed directly below the dial:
 - Labels: `0:30`, `1:00`, `1:30`, `2:00`
-- Tap behavior (**Snap & Wait**): Tapping a preset instantly snaps both wheels to the corresponding values (e.g. `1:30` → minutes wheel to `01`, seconds wheel to `30`). It does **NOT** auto-start the timer. The user must press the main START button.
-- Chip style: `SuggestionChip`, `surfaceVariant` container, `onSurface` label. No selected state — chips are stateless triggers.
+- Tap behavior (**Snap & Wait**): Tapping a preset instantly snaps the dial to the corresponding value. It does **NOT** auto-start the timer.
+- Chip style: `SuggestionChip`, `surfaceVariant` container, `onSurface` label. Stateless triggers.
 
-**Start resolution:** `startTimer()` reads `countdownMinutes * 60 + countdownSeconds`. If total is 0, falls back to 60s.
+**Start resolution:** `startTimer()` reads the `countdownTotalSeconds` set by the dial. If total is 0, falls back to 60s.
 
 ### Control Buttons
 
 **TABATA & EMOM:** Side-by-side persistent layout
-- `Button` (Start/Pause) — weight 1f, 56dp, primary/secondary color toggle
-- `OutlinedButton` (Reset) — weight 1f, 56dp
+- `Button` (Start/Pause) — weight 1f, 48dp, primary/secondary color toggle
+- `OutlinedButton` (Reset) — weight 1f, 48dp
 - Spacing: 12dp
 
 **STOPWATCH & COUNTDOWN:** Fixed-width icon-labeled
-- `Button` (Start/Pause) — 140dp, 56dp
-- `OutlinedButton` (Reset) — 120dp, 56dp
+- `Button` (Start/Pause) — 140dp, 48dp
+- `OutlinedButton` (Reset) — 120dp, 48dp
 - Spacing: 16dp
 
 Icons: `PlayArrow`/`Pause` (toggle), `Refresh` (reset).
@@ -242,7 +248,7 @@ Any  ──resetTimer()──→ IDLE
 3. **Start coercion:** `text.toIntOrNull()?.takeIf { it > 0 } ?: fallback`
 4. **Optional fields:** empty → feature disabled (no warning/alert)
 5. **No error messages shown** — invalid input silently falls back to defaults
-6. **Countdown (Roulette):** No text validation needed — wheel values are inherently bounded (0–59). Zero-total fallback handled in `startTimer()`.
+6. **Countdown (Dial):** No text validation needed — dial values are inherently bounded by the 360° rotation (max 6:00). Snaps to 5-second intervals. Zero-total fallback handled in `startTimer()`.
 
 ---
 

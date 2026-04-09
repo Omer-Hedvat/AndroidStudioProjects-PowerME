@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,7 +46,7 @@ class ActionExecutor @Inject constructor(
      * @param activeWorkoutId The ID of the currently active workout (required for UpdateWeight)
      * @return ActionResult indicating success or failure
      */
-    suspend fun execute(action: ActionBlock, activeWorkoutId: Long?): ActionResult {
+    suspend fun execute(action: ActionBlock, activeWorkoutId: String?): ActionResult {
         return when (action) {
             is ActionBlock.UpdateWeight -> executeUpdateWeight(action, activeWorkoutId)
             is ActionBlock.UpdateInjury -> executeUpdateInjury(action)
@@ -61,7 +62,7 @@ class ActionExecutor @Inject constructor(
      */
     private suspend fun executeUpdateWeight(
         action: ActionBlock.UpdateWeight,
-        activeWorkoutId: Long?
+        activeWorkoutId: String?
     ): ActionResult {
         try {
             if (activeWorkoutId == null) {
@@ -215,15 +216,17 @@ class ActionExecutor @Inject constructor(
             }
 
             // Save routine to DB
-            val routineId = routineDao.insertRoutine(
-                Routine(name = action.routineName, isCustom = true)
+            val routineId = UUID.randomUUID().toString()
+            val now = System.currentTimeMillis()
+            routineDao.insertRoutine(
+                Routine(id = routineId, name = action.routineName, isCustom = true, updatedAt = now)
             )
 
             // Save routine_exercises entries linking routine to each matched exercise
             matchedExercises.filterNotNull().forEachIndexed { index, (_, matchedName) ->
                 val exercise = allExercises.firstOrNull { it.name == matchedName }
                 if (exercise != null) {
-                    routineExerciseDao.insert(RoutineExercise(routineId = routineId, exerciseId = exercise.id, order = index))
+                    routineExerciseDao.insert(RoutineExercise(id = UUID.randomUUID().toString(), routineId = routineId, exerciseId = exercise.id, order = index))
                 }
             }
 

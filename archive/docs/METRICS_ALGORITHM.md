@@ -5,7 +5,7 @@
 - **Goal**: Identify statistical anomalies in workout and health data to prevent injuries and optimize hypertrophy.
 
 ## 2. Weekly Outlier Detection Logic
-Boaz must analyze the following metrics every 7 days or upon request in the War Room:
+Boaz must analyze the following metrics every 7 days or upon request:
 
 ### A. Volume-Load Anomalies
 - **Calculation**: $VolumeLoad = \sum (Weight \cdot Reps)$

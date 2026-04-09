@@ -9,7 +9,7 @@ interface WarmupLogDao {
     suspend fun getLast10Warmups(): List<WarmupLog>
 
     @Query("SELECT * FROM warmup_log WHERE workoutId = :workoutId ORDER BY timestamp ASC")
-    fun getWarmupsForWorkout(workoutId: Long): Flow<List<WarmupLog>>
+    fun getWarmupsForWorkout(workoutId: String): Flow<List<WarmupLog>>
 
     @Query("SELECT * FROM warmup_log ORDER BY timestamp DESC")
     fun getAllWarmups(): Flow<List<WarmupLog>>

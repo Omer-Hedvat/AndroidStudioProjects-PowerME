@@ -67,6 +67,9 @@ interface ExerciseDao {
     @Query("UPDATE exercises SET restDurationSeconds = :seconds WHERE id = :exerciseId")
     suspend fun updateRestDuration(exerciseId: Long, seconds: Int)
 
+    @Query("UPDATE exercises SET restDurationSeconds = :workSeconds, warmupRestSeconds = :warmupSeconds, dropSetRestSeconds = :dropSeconds WHERE id = :exerciseId")
+    suspend fun updateRestTimers(exerciseId: Long, workSeconds: Int, warmupSeconds: Int, dropSeconds: Int)
+
     @Query("SELECT DISTINCT muscleGroup FROM exercises ORDER BY muscleGroup ASC")
     suspend fun getDistinctMuscleGroups(): List<String>
 

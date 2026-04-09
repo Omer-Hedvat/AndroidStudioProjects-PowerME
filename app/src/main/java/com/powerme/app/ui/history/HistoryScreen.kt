@@ -28,7 +28,7 @@ import java.util.Locale
 
 @Composable
 fun HistoryScreen(
-    onWorkoutClick: (Long) -> Unit = {},
+    onWorkoutClick: (String) -> Unit = {},
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val groups by viewModel.groups.collectAsState()

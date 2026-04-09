@@ -4,10 +4,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Polymorphic sealed class representing actions that can be executed by the War Room AI.
- *
- * Each action type corresponds to a specific database operation that Gemini can trigger
- * through natural language commands.
+ * Polymorphic sealed class representing actions that Gemini can trigger through
+ * natural language commands. Each action type maps to a specific database operation.
  */
 @Serializable
 sealed class ActionBlock {

@@ -8,6 +8,7 @@ import android.os.IBinder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.Routine
 import com.powerme.app.data.database.RoutineDao
@@ -66,7 +67,7 @@ private fun String.toEditModeValues(count: Int, default: String): List<String> {
 }
 
 data class ActiveSet(
-    val id: Long = 0,
+    val id: String = "",
     val setOrder: Int,
     val weight: String = "",
     val reps: String = "",
@@ -126,8 +127,8 @@ data class DeletedSetClipboard(
 
 data class ActiveWorkoutState(
     val isActive: Boolean = false,
-    val workoutId: Long? = null,
-    val routineId: Long = 0L,
+    val workoutId: String? = null,
+    val routineId: String = "",
     val startTime: Long? = null,
     val exercises: List<ExerciseWithSets> = emptyList(),
     val availableExercises: List<Exercise> = emptyList(),
@@ -172,6 +173,7 @@ class WorkoutViewModel @Inject constructor(
     private val boazPerformanceAnalyzer: BoazPerformanceAnalyzer,
     private val stateHistoryRepository: StateHistoryRepository,
     private val appSettingsDataStore: AppSettingsDataStore,
+    private val firestoreSyncManager: FirestoreSyncManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -390,7 +392,7 @@ class WorkoutViewModel @Inject constructor(
                 it.copy(
                     isActive = true,
                     workoutId = activeWorkout.id,
-                    routineId = activeWorkout.routineId ?: 0L,
+                    routineId = activeWorkout.routineId ?: "",
                     startTime = activeWorkout.timestamp,
                     exercises = exercises,
                     workoutName = name,
@@ -401,7 +403,7 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun startWorkoutFromRoutine(routineId: Long) {
+    fun startWorkoutFromRoutine(routineId: String) {
         if (_workoutState.value.isMinimized || _workoutState.value.isActive) {
             maximizeWorkout()
             return
@@ -459,13 +461,13 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun startWorkout(routineId: Long = 0L) {
+    fun startWorkout(routineId: String = "") {
         if (_workoutState.value.isMinimized || _workoutState.value.isActive) {
             maximizeWorkout()
             return
         }
         viewModelScope.launch {
-            val id = workoutRepository.createEmptyWorkout(routineId.takeIf { it > 0L })
+            val id = workoutRepository.createEmptyWorkout(routineId.takeIf { it.isNotBlank() })
             _workoutState.update {
                 it.copy(
                     isActive = true,
@@ -481,7 +483,7 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun startEditMode(routineId: Long) {
+    fun startEditMode(routineId: String) {
         if (_workoutState.value.isActive && !_workoutState.value.isEditMode) {
             _workoutState.update { it.copy(showEditGuard = true) }
             return
@@ -497,7 +499,7 @@ class WorkoutViewModel @Inject constructor(
                     val repsList = re.setRepsJson.toEditModeValues(re.sets, if (re.reps > 0) re.reps.toString() else "")
                     val activeSets = (1..re.sets).map { i ->
                         ActiveSet(
-                            id = -i.toLong(),
+                            id = "edit_$i",
                             setOrder = i,
                             weight = weights[i - 1],
                             reps = repsList[i - 1],
@@ -558,6 +560,7 @@ class WorkoutViewModel @Inject constructor(
                 } else {
                     routineExerciseDao.insert(
                         RoutineExercise(
+                            id = UUID.randomUUID().toString(),
                             routineId = routineId,
                             exerciseId = exerciseId,
                             sets = ex.sets.size,
@@ -572,6 +575,14 @@ class WorkoutViewModel @Inject constructor(
                     )
                 }
             }
+            // Bump updatedAt and push routine to Firestore
+            val now = System.currentTimeMillis()
+            val existing = routineDao.getRoutineById(routineId)
+            if (existing != null) {
+                routineDao.updateRoutine(existing.copy(updatedAt = now))
+            }
+            firestoreSyncManager.pushRoutine(routineId)
+
             _workoutState.update {
                 ActiveWorkoutState(
                     availableExercises = it.availableExercises,
@@ -621,7 +632,7 @@ class WorkoutViewModel @Inject constructor(
 
             // Load sticky note from DB (only when a routine is active)
             val routineId = _workoutState.value.routineId
-            val sticky = if (routineId > 0L) {
+            val sticky = if (routineId.isNotBlank()) {
                 try { routineExerciseDao.getStickyNote(routineId, exercise.id) } catch (_: Exception) { null }
             } else null
 
@@ -629,7 +640,9 @@ class WorkoutViewModel @Inject constructor(
             val workoutId = _workoutState.value.workoutId
             val setsWithIds = if (workoutId != null) {
                 initialSets.map { activeSet ->
+                    val setId = UUID.randomUUID().toString()
                     val ws = WorkoutSet(
+                        id = setId,
                         workoutId = workoutId,
                         exerciseId = exercise.id,
                         setOrder = activeSet.setOrder,
@@ -637,8 +650,8 @@ class WorkoutViewModel @Inject constructor(
                         reps = activeSet.reps.toIntOrNull() ?: 0,
                         setType = activeSet.setType
                     )
-                    val dbId = workoutRepository.createWorkoutSet(ws)
-                    activeSet.copy(id = dbId)
+                    workoutRepository.createWorkoutSet(ws)
+                    activeSet.copy(id = setId)
                 }
             } else {
                 initialSets
@@ -675,8 +688,9 @@ class WorkoutViewModel @Inject constructor(
                 newRepsStr = lastSet?.reps ?: ""
                 newSetType = SetType.NORMAL
             }
+            val newSetId = if (state.isEditMode) "edit_${System.nanoTime()}" else UUID.randomUUID().toString()
             var newSet = ActiveSet(
-                id = if (state.isEditMode) -(System.nanoTime()) else 0L,
+                id = newSetId,
                 setOrder = newSetOrder,
                 weight = newWeightStr,
                 reps = newRepsStr,
@@ -686,6 +700,7 @@ class WorkoutViewModel @Inject constructor(
             val workoutId = state.workoutId
             if (workoutId != null) {
                 val ws = WorkoutSet(
+                    id = newSetId,
                     workoutId = workoutId,
                     exerciseId = exerciseId,
                     setOrder = newSetOrder,
@@ -693,8 +708,7 @@ class WorkoutViewModel @Inject constructor(
                     reps = newRepsStr.toIntOrNull() ?: 0,
                     setType = newSetType
                 )
-                val dbId = workoutSetDao.insertSet(ws)
-                newSet = newSet.copy(id = dbId)
+                workoutSetDao.insertSet(ws)
             }
 
             _workoutState.update { s ->
@@ -814,7 +828,7 @@ class WorkoutViewModel @Inject constructor(
             val set = _workoutState.value.exercises
                 .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
                 ?: return@launch
-            if (set.id <= 0L) return@launch
+            if (set.id.isBlank() || set.id.startsWith("edit_")) return@launch
             val weight = SurgicalValidator.parseDecimal(set.weight)
                 .let { if (it is SurgicalValidator.ValidationResult.Valid) it.value else null }
                 ?: return@launch
@@ -842,7 +856,7 @@ class WorkoutViewModel @Inject constructor(
         if (!isEditMode) {
             val updatedSet = _workoutState.value.exercises
                 .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-            if (updatedSet != null && updatedSet.id > 0L) {
+            if (updatedSet != null && updatedSet.id.isNotBlank() && !updatedSet.id.startsWith("edit_")) {
                 viewModelScope.launch { workoutSetDao.updateSetCompleted(updatedSet.id, updatedSet.isCompleted) }
             }
             if (wasCompleted) {
@@ -854,7 +868,7 @@ class WorkoutViewModel @Inject constructor(
                     ?.filter { !it.isCompleted && it.setOrder > setOrder }
                     ?.minByOrNull { it.setOrder }
                 val override = if (completedSet != null && ex != null) {
-                    computeRestDuration(completedSet.setType, nextSet?.setType, ex.exercise.restDurationSeconds)
+                    computeRestDuration(completedSet.setType, nextSet?.setType, ex.exercise)
                 } else null
                 startRestTimer(exerciseId, setOrder, override)
             }
@@ -881,7 +895,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (set != null && set.id > 0L) {
+        if (set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
             viewModelScope.launch { workoutSetDao.updateRpe(set.id, rpe) }
         }
     }
@@ -912,7 +926,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (set != null && set.id > 0L) {
+        if (set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
             viewModelScope.launch {
                 workoutSetDao.updateCardioSet(
                     set.id,
@@ -951,7 +965,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (set != null && set.id > 0L) {
+        if (set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
             viewModelScope.launch {
                 workoutSetDao.updateTimedSet(
                     set.id,
@@ -972,7 +986,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val setToDelete = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (setToDelete != null && setToDelete.id > 0L) {
+        if (setToDelete != null && setToDelete.id.isNotBlank() && !setToDelete.id.startsWith("edit_")) {
             viewModelScope.launch { workoutSetDao.deleteSetById(setToDelete.id) }
         }
         // Save clipboard entry before deletion
@@ -1025,7 +1039,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val updated = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (updated != null && updated.id > 0L) {
+        if (updated != null && updated.id.isNotBlank() && !updated.id.startsWith("edit_")) {
             viewModelScope.launch { workoutSetDao.updateSetType(updated.id, setType) }
         }
     }
@@ -1065,21 +1079,24 @@ class WorkoutViewModel @Inject constructor(
                 workoutDao.updateWorkout(
                     Workout(
                         id = workoutId,
-                        routineId = state.routineId.takeIf { it > 0L },
+                        routineId = state.routineId.takeIf { it.isNotBlank() },
                         timestamp = state.startTime!!,
                         durationSeconds = durationSeconds,
                         totalVolume = totalVolume,
                         notes = state.notes.ifBlank { null },
                         isCompleted = true,
                         startTimeMs = state.startTime!!,
-                        endTimeMs = endTime
+                        endTimeMs = endTime,
+                        updatedAt = endTime
                     )
                 )
                 // Clean up skeleton rows the user never filled in
                 workoutSetDao.deleteIncompleteSetsByWorkout(workoutId)
+                // Push to Firestore (fire-and-forget; SDK queues when offline)
+                firestoreSyncManager.pushWorkout(workoutId)
 
                 // Update lastPerformed on the routine (Risk 4 fix)
-                if (state.routineId > 0L) {
+                if (state.routineId.isNotBlank()) {
                     routineDao.updateLastPerformed(state.routineId, endTime)
                 }
 
@@ -1116,7 +1133,7 @@ class WorkoutViewModel @Inject constructor(
 
                 // Routine sync: detect changes vs snapshot captured at workout start
                 val snapshot = state.routineSnapshot
-                if (snapshot.isNotEmpty() && state.routineId > 0L) {
+                if (snapshot.isNotEmpty() && state.routineId.isNotBlank()) {
                     val currentExerciseIds = state.exercises.map { it.exercise.id }
                     val snapshotExerciseIds = snapshot.map { it.exerciseId }
 
@@ -1190,6 +1207,11 @@ class WorkoutViewModel @Inject constructor(
                     routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
                 }
             }
+            val routine = routineDao.getRoutineById(state.routineId)
+            if (routine != null) {
+                routineDao.updateRoutine(routine.copy(updatedAt = System.currentTimeMillis()))
+                firestoreSyncManager.pushRoutine(state.routineId)
+            }
             resolveRoutineSync()
             _workoutState.update { it.copy(snackbarMessage = "Routine structure updated") }
         }
@@ -1210,6 +1232,11 @@ class WorkoutViewModel @Inject constructor(
                 val repsJson = completedSets.joinToString(",") { it.reps }
                 routineExerciseDao.updateSetTypesJson(state.routineId, ex.exercise.id, typesJson)
                 routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
+            }
+            val routine = routineDao.getRoutineById(state.routineId)
+            if (routine != null) {
+                routineDao.updateRoutine(routine.copy(updatedAt = System.currentTimeMillis()))
+                firestoreSyncManager.pushRoutine(state.routineId)
             }
             resolveRoutineSync()
             _workoutState.update { it.copy(snackbarMessage = "Routine defaults updated") }
@@ -1235,6 +1262,11 @@ class WorkoutViewModel @Inject constructor(
                 routineExerciseDao.updateSetTypesJson(state.routineId, ex.exercise.id, typesJson)
                 routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
             }
+            val routine = routineDao.getRoutineById(state.routineId)
+            if (routine != null) {
+                routineDao.updateRoutine(routine.copy(updatedAt = System.currentTimeMillis()))
+                firestoreSyncManager.pushRoutine(state.routineId)
+            }
             resolveRoutineSync()
             _workoutState.update { it.copy(snackbarMessage = "Routine structure and defaults updated") }
         }
@@ -1257,7 +1289,9 @@ class WorkoutViewModel @Inject constructor(
             val sets = workoutSetDao.getSetsForWorkout(workoutId).first()
                 .filter { it.isCompleted }
             if (sets.isEmpty()) return@launch
-            val newRoutineId = routineDao.insertRoutine(Routine(name = routineName, isCustom = true))
+            val newRoutineId = UUID.randomUUID().toString()
+            val now = System.currentTimeMillis()
+            routineDao.insertRoutine(Routine(id = newRoutineId, name = routineName, isCustom = true, updatedAt = now))
             val grouped = sets.groupBy { it.exerciseId }.entries.toList()
             val routineExercises = grouped.mapIndexed { index, (exerciseId, exSets) ->
                 val sortedSets = exSets.sortedBy { it.setOrder }
@@ -1271,6 +1305,7 @@ class WorkoutViewModel @Inject constructor(
                 }
                 val setRepsJson = sortedSets.joinToString(",") { it.reps.toString() }
                 RoutineExercise(
+                    id = UUID.randomUUID().toString(),
                     routineId = newRoutineId,
                     exerciseId = exerciseId,
                     sets = exSets.size,
@@ -1285,6 +1320,7 @@ class WorkoutViewModel @Inject constructor(
                 )
             }
             routineExerciseDao.insertAll(routineExercises)
+            firestoreSyncManager.pushRoutine(newRoutineId)
             _workoutState.update { it.copy(snackbarMessage = "Saved as \"$routineName\"") }
         }
     }
@@ -1404,13 +1440,13 @@ class WorkoutViewModel @Inject constructor(
 
     /**
      * Returns the rest duration in seconds for the transition between two set types.
-     * Falls back to [defaultSeconds] (the exercise's configured rest time) when no override applies.
+     * Uses per-exercise warmupRestSeconds and dropSetRestSeconds (configurable via "Set Rest Timers").
      */
-    private fun computeRestDuration(completed: SetType, next: SetType?, defaultSeconds: Int): Int = when (completed) {
-        SetType.DROP    -> 0
-        SetType.FAILURE -> defaultSeconds
-        SetType.WARMUP  -> if (next == SetType.WARMUP) 30 else defaultSeconds
-        SetType.NORMAL  -> if (next == SetType.DROP) 0 else defaultSeconds
+    private fun computeRestDuration(completed: SetType, next: SetType?, exercise: com.powerme.app.data.database.Exercise): Int = when (completed) {
+        SetType.DROP    -> exercise.dropSetRestSeconds
+        SetType.FAILURE -> exercise.restDurationSeconds
+        SetType.WARMUP  -> if (next == SetType.WARMUP) exercise.warmupRestSeconds else exercise.restDurationSeconds
+        SetType.NORMAL  -> if (next == SetType.DROP) exercise.dropSetRestSeconds else exercise.restDurationSeconds
     }
 
     fun startRestTimer(exerciseId: Long, setOrder: Int? = null, overrideSeconds: Int? = null) {
@@ -1594,7 +1630,7 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val routineId = _workoutState.value.routineId
-                if (routineId > 0L) {
+                if (routineId.isNotBlank()) {
                     routineExerciseDao.updateStickyNote(routineId, exerciseId, note)
                 }
                 _workoutState.update { state ->
@@ -1626,6 +1662,30 @@ class WorkoutViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _workoutState.update { it.copy(snackbarMessage = "Failed to update rest timer") }
+            }
+        }
+    }
+
+    /** Update all three rest timer durations (work, warmup, drop) for an exercise and persist. */
+    fun updateExerciseRestTimers(exerciseId: Long, workSeconds: Int, warmupSeconds: Int, dropSeconds: Int) {
+        viewModelScope.launch {
+            try {
+                exerciseDao.updateRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds)
+                _workoutState.update { state ->
+                    state.copy(
+                        exercises = state.exercises.map { ex ->
+                            if (ex.exercise.id == exerciseId)
+                                ex.copy(exercise = ex.exercise.copy(
+                                    restDurationSeconds = workSeconds,
+                                    warmupRestSeconds = warmupSeconds,
+                                    dropSetRestSeconds = dropSeconds
+                                ))
+                            else ex
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                _workoutState.update { it.copy(snackbarMessage = "Failed to update rest timers") }
             }
         }
     }
@@ -1751,9 +1811,18 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    /** Enter multi-select mode for creating a superset across N exercises. */
-    fun enterSupersetSelectMode() {
-        _workoutState.update { it.copy(isSupersetSelectMode = true, supersetCandidateIds = emptySet()) }
+    /** Enter multi-select mode for creating a superset across N exercises.
+     *  If the triggering exercise is already part of a superset group, pre-selects that group
+     *  so the user can modify it. */
+    fun enterSupersetSelectMode(fromExerciseId: Long? = null) {
+        val state = _workoutState.value
+        val preSelected: Set<Long> = if (fromExerciseId != null) {
+            val groupId = state.exercises.find { it.exercise.id == fromExerciseId }?.supersetGroupId
+            if (groupId != null) {
+                state.exercises.filter { it.supersetGroupId == groupId }.map { it.exercise.id }.toSet()
+            } else setOf(fromExerciseId)
+        } else emptySet()
+        _workoutState.update { it.copy(isSupersetSelectMode = true, supersetCandidateIds = preSelected) }
     }
 
     /** Toggle an exercise in/out of the superset candidate set. */
@@ -1791,6 +1860,13 @@ class WorkoutViewModel @Inject constructor(
                 list.add(toIndex, item)
             }
             state.copy(exercises = list)
+        }
+    }
+
+    fun collapseAll() {
+        _workoutState.update { state ->
+            val allIds = state.exercises.map { it.exercise.id }.toSet()
+            state.copy(collapsedExerciseIds = allIds)
         }
     }
 

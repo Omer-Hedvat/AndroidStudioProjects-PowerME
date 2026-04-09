@@ -5,10 +5,11 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "routines")
 data class Routine(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    @PrimaryKey
+    val id: String,                        // UUID string — no autoGenerate; caller pre-generates
     val name: String,
     val lastPerformed: Long? = null,
     val isCustom: Boolean = false,
-    val isArchived: Boolean = false      // v20 — soft-archive
+    val isArchived: Boolean = false,       // v20 — soft-archive
+    val updatedAt: Long = 0L              // v31 — LWW timestamp for Firestore sync
 )

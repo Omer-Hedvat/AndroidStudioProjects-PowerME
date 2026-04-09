@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.analytics.StatisticalEngine
+import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.Workout
@@ -19,7 +20,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SetDisplayRow(
-    val id: Long,
+    val id: String,
     val setOrder: Int,
     val setType: com.powerme.app.data.database.SetType,
     val weight: Double,
@@ -48,7 +49,7 @@ data class WorkoutDetailUiState(
     val expandedExerciseIds: Set<Long> = emptySet(),
     val isLoading: Boolean = true,
     val isEditMode: Boolean = false,
-    val pendingEdits: Map<Long, PendingEdit> = emptyMap(),
+    val pendingEdits: Map<String, PendingEdit> = emptyMap(),
     val isSaving: Boolean = false
 )
 
@@ -57,10 +58,11 @@ class WorkoutDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val workoutDao: WorkoutDao,
     private val workoutSetDao: WorkoutSetDao,
-    private val database: PowerMeDatabase
+    private val database: PowerMeDatabase,
+    private val firestoreSyncManager: FirestoreSyncManager
 ) : ViewModel() {
 
-    private val workoutId: Long = checkNotNull(savedStateHandle["workoutId"])
+    private val workoutId: String = checkNotNull(savedStateHandle["workoutId"])
 
     private val _uiState = MutableStateFlow(WorkoutDetailUiState())
     val uiState: StateFlow<WorkoutDetailUiState> = _uiState.asStateFlow()
@@ -108,13 +110,13 @@ class WorkoutDetailViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isEditMode = false, pendingEdits = emptyMap())
     }
 
-    fun updatePendingWeight(setId: Long, weight: String) {
+    fun updatePendingWeight(setId: String, weight: String) {
         val edits = _uiState.value.pendingEdits.toMutableMap()
         edits[setId] = (edits[setId] ?: PendingEdit("", "")).copy(weight = weight)
         _uiState.value = _uiState.value.copy(pendingEdits = edits)
     }
 
-    fun updatePendingReps(setId: Long, reps: String) {
+    fun updatePendingReps(setId: String, reps: String) {
         val edits = _uiState.value.pendingEdits.toMutableMap()
         edits[setId] = (edits[setId] ?: PendingEdit("", "")).copy(reps = reps)
         _uiState.value = _uiState.value.copy(pendingEdits = edits)
@@ -136,6 +138,11 @@ class WorkoutDetailViewModel @Inject constructor(
                     workoutSetDao.updateWeightReps(setId, weight, reps)
                 }
             }
+            val workout = workoutDao.getWorkoutById(workoutId)
+            if (workout != null) {
+                workoutDao.updateWorkout(workout.copy(updatedAt = System.currentTimeMillis()))
+                firestoreSyncManager.pushWorkout(workoutId)
+            }
             load()
             _uiState.value = _uiState.value.copy(isEditMode = false, pendingEdits = emptyMap(), isSaving = false)
         }
@@ -143,7 +150,10 @@ class WorkoutDetailViewModel @Inject constructor(
 
     fun deleteSession(onDeleted: () -> Unit) {
         viewModelScope.launch {
-            workoutDao.deleteWorkoutById(workoutId)
+            val workout = workoutDao.getWorkoutById(workoutId) ?: run { onDeleted(); return@launch }
+            val now = System.currentTimeMillis()
+            workoutDao.updateWorkout(workout.copy(isArchived = true, updatedAt = now))
+            firestoreSyncManager.pushWorkout(workoutId)
             onDeleted()
         }
     }

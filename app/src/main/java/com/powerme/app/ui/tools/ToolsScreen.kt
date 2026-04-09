@@ -13,10 +13,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,18 +31,30 @@ import com.powerme.app.ui.theme.TimerRed
 import kotlinx.coroutines.launch
 
 @Composable
-fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
+fun ToolsScreen(
+    initialMode: TimerMode? = null,
+    viewModel: ToolsViewModel = hiltViewModel()
+) {
     val state by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(initialMode) {
+        if (initialMode != null) viewModel.setMode(initialMode)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ── 2×2 Mode Grid (shown when idle and no active timer) ──────
-        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        // Content area — mode grid + timer display + config inputs
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // ── 2×2 Mode Grid (shown when idle and no active timer) ──────
             if (state.phase == TimerPhase.IDLE && !state.isRunning) {
                 TimerModeGrid(
                     selectedMode = state.mode,
@@ -61,16 +76,14 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
-        }
 
-        // Timer display + config inputs
-        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                TimerDisplay(state = state)
-                if (!state.isRunning && state.phase == TimerPhase.IDLE) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    ConfigInputs(state = state, viewModel = viewModel)
-                }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Timer display + config inputs
+            TimerDisplay(state = state)
+            if (!state.isRunning && state.phase == TimerPhase.IDLE) {
+                Spacer(modifier = Modifier.height(12.dp))
+                ConfigInputs(state = state, viewModel = viewModel)
             }
         }
 
@@ -92,7 +105,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                         containerColor = if (state.isRunning) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    modifier = Modifier.weight(1f).height(56.dp)
+                    modifier = Modifier.weight(1f).height(48.dp)
                 ) {
                     Icon(
                         imageVector = if (state.isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -108,7 +121,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                 OutlinedButton(
                     onClick = viewModel::resetTimer,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.weight(1f).height(56.dp)
+                    modifier = Modifier.weight(1f).height(48.dp)
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Reset")
                     Spacer(modifier = Modifier.width(4.dp))
@@ -128,7 +141,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                         containerColor = if (state.isRunning) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    modifier = Modifier.width(140.dp).height(56.dp)
+                    modifier = Modifier.width(140.dp).height(48.dp)
                 ) {
                     Icon(
                         imageVector = if (state.isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -144,7 +157,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                 OutlinedButton(
                     onClick = viewModel::resetTimer,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.width(120.dp).height(56.dp)
+                    modifier = Modifier.width(120.dp).height(48.dp)
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Reset")
                     Spacer(modifier = Modifier.width(4.dp))
@@ -202,7 +215,7 @@ private fun ModeCard(
 ) {
     Card(
         modifier = modifier
-            .height(80.dp)
+            .height(64.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
@@ -225,7 +238,7 @@ private fun ModeCard(
                 imageVector = icon,
                 contentDescription = label,
                 tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -288,14 +301,14 @@ private fun TimerDisplay(state: ToolsUiState) {
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor, MaterialTheme.shapes.large)
-            .padding(32.dp),
+            .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "%02d:%02d".format(minutes, seconds),
                 style = MonoTextStyle.copy(
-                    fontSize = 72.sp,
+                    fontSize = 56.sp,
                     fontWeight = FontWeight.Bold,
                     color = textColor
                 ),
@@ -353,7 +366,7 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             TimerConfigField(
-                label = "Warn at X seconds remaining (optional)",
+                label = "Warn before finish (sec)",
                 value = state.emomWarnAtSecondsText,
                 onValueChange = viewModel::updateEmomWarnAtSecondsText
             )
@@ -375,6 +388,12 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 label = "Rounds",
                 value = state.totalRoundsText,
                 onValueChange = viewModel::updateTotalRoundsText
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TimerConfigField(
+                label = "Warn before finish (sec)",
+                value = state.tabataWarnAtSecondsText,
+                onValueChange = viewModel::updateTabataWarnAtSecondsText
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -400,7 +419,7 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             TimerConfigField(
-                label = "Alert before finish (sec, optional)",
+                label = "Warn before finish (sec)",
                 value = state.countdownWarnAtSecondsText,
                 onValueChange = viewModel::updateCountdownWarnAtSecondsText
             )
@@ -418,7 +437,7 @@ private fun WheelPicker(
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val itemHeightDp = 48.dp
+    val itemHeightDp = 36.dp
     val visibleItems = 3
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -538,14 +557,29 @@ private fun TimerConfigField(
     value: String,
     onValueChange: (String) -> Unit
 ) {
+    val tfv = remember { mutableStateOf(TextFieldValue(value)) }
+    LaunchedEffect(value) {
+        if (tfv.value.text != value) tfv.value = TextFieldValue(value)
+    }
     OutlinedTextField(
-        value = value,
-        onValueChange = { newText ->
-            if (newText.isEmpty() || newText.all { it.isDigit() }) onValueChange(newText)
+        value = tfv.value,
+        onValueChange = { newTfv ->
+            val newText = newTfv.text
+            if (newText.isEmpty() || newText.all { it.isDigit() }) {
+                tfv.value = newTfv
+                onValueChange(newText)
+            }
         },
         label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { state ->
+                if (state.isFocused) {
+                    val t = tfv.value.text
+                    tfv.value = tfv.value.copy(selection = TextRange(0, t.length))
+                }
+            },
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,

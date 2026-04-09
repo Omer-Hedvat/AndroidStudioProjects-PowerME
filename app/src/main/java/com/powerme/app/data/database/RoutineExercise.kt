@@ -15,9 +15,10 @@ import androidx.room.PrimaryKey
     indices = [Index(value = ["routineId"]), Index(value = ["exerciseId"])]
 )
 data class RoutineExercise(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val routineId: Long,
-    val exerciseId: Long,
+    @PrimaryKey
+    val id: String,                        // UUID string — no autoGenerate; caller pre-generates
+    val routineId: String,
+    val exerciseId: Long,                  // exercises table not migrated — stays Long
     val sets: Int = 3,
     val reps: Int = 10,
     val restTime: Int = 90,          // seconds

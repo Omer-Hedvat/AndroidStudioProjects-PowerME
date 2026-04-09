@@ -27,10 +27,10 @@ import androidx.room.PrimaryKey
     ]
 )
 data class WorkoutSet(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
-    val workoutId: Long,
-    val exerciseId: Long,
+    @PrimaryKey
+    val id: String,                        // UUID string — no autoGenerate; caller pre-generates
+    val workoutId: String,
+    val exerciseId: Long,                  // exercises table not migrated — stays Long
     val setOrder: Int,
     val weight: Double,
     val reps: Int,

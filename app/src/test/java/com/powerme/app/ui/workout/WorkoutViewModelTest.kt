@@ -3,6 +3,7 @@ package com.powerme.app.ui.workout
 import android.content.Context
 import com.powerme.app.analytics.BoazPerformanceAnalyzer
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.database.ExerciseDao
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.SetType
@@ -44,6 +45,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -98,6 +100,7 @@ class WorkoutViewModelTest {
     private lateinit var mockBoazPerformanceAnalyzer: BoazPerformanceAnalyzer
     private lateinit var mockStateHistoryRepository: StateHistoryRepository
     private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
+    private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
     private lateinit var mockContext: Context
 
     private lateinit var viewModel: WorkoutViewModel
@@ -120,6 +123,7 @@ class WorkoutViewModelTest {
         mockBoazPerformanceAnalyzer = mock()
         mockStateHistoryRepository = mock()
         mockAppSettingsDataStore = mock()
+        mockFirestoreSyncManager = mock()
         mockContext = mock()
 
         // Non-suspend property stubs (used at ViewModel construction time)
@@ -137,7 +141,7 @@ class WorkoutViewModelTest {
             whenever(mockMedicalLedgerRepository.getRestrictionsDoc()).thenReturn(null)
 
             // startWorkout (used by tests 2b–2f)
-            whenever(mockWorkoutRepository.createEmptyWorkout(null)).thenReturn(1L)
+            whenever(mockWorkoutRepository.createEmptyWorkout(null)).thenReturn("workout-1")
 
             // finishWorkout suspend calls
             whenever(mockWorkoutDao.updateWorkout(any())).thenReturn(Unit)
@@ -149,7 +153,7 @@ class WorkoutViewModelTest {
             whenever(mockWorkoutDao.deleteWorkoutById(any())).thenReturn(Unit)
 
             // addSet suspend call — must be stubbed or the coroutine parks forever
-            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(1L)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
 
             // deleteSetById — used by the updated deleteSet()
             whenever(mockWorkoutSetDao.deleteSetById(any())).thenReturn(Unit)
@@ -173,6 +177,7 @@ class WorkoutViewModelTest {
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
             stateHistoryRepository = mockStateHistoryRepository,
             appSettingsDataStore = mockAppSettingsDataStore,
+            firestoreSyncManager = mockFirestoreSyncManager,
             context = mockContext
         )
     }
@@ -202,13 +207,13 @@ class WorkoutViewModelTest {
 
     @Test
     fun `startWorkoutFromRoutine sets workoutName to routine name`() = vmTest {
-        val routine = Routine(id = 42L, name = "Push Day")
-        whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine(42L))
-            .thenReturn(WorkoutBootstrap(workoutId = 100L, ghostMap = emptyMap(), workoutSets = emptyList()))
-        whenever(mockRoutineExerciseDao.getForRoutine(42L)).thenReturn(emptyList())
-        whenever(mockRoutineDao.getRoutineById(42L)).thenReturn(routine)
+        val routine = Routine(id = "42", name = "Push Day")
+        whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("42"))
+            .thenReturn(WorkoutBootstrap(workoutId = "100", ghostMap = emptyMap(), workoutSets = emptyList()))
+        whenever(mockRoutineExerciseDao.getForRoutine("42")).thenReturn(emptyList())
+        whenever(mockRoutineDao.getRoutineById("42")).thenReturn(routine)
 
-        viewModel.startWorkoutFromRoutine(42L)
+        viewModel.startWorkoutFromRoutine("42")
         runCurrent()  // drain init tasks + startWorkoutFromRoutine; timer parked at delay(1000)
 
         assertEquals("Push Day", viewModel.workoutState.value.workoutName)
@@ -226,7 +231,7 @@ class WorkoutViewModelTest {
     @Test
     fun `startWorkout with zero routineId sets workoutName to Empty Workout`() =
         vmTest {
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()  // drain init tasks + startWorkout; timer parked
 
             assertEquals("Empty Workout", viewModel.workoutState.value.workoutName)
@@ -243,7 +248,7 @@ class WorkoutViewModelTest {
     @Test
     fun `elapsed timer increments elapsedSeconds each second after startWorkout`() =
         vmTest {
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()  // drain init tasks + startWorkout; timer now at delay(1000)
 
             // advanceTimeBy uses exclusive upper-bound semantics: tasks at time < currentTime+N
@@ -267,7 +272,7 @@ class WorkoutViewModelTest {
     @Test
     fun `finishWorkout populates pendingWorkoutSummary and clears isActive`() =
         vmTest {
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()
 
             // finishWorkout() synchronously cancels elapsedTimerJob, then launches its coroutine
@@ -291,7 +296,7 @@ class WorkoutViewModelTest {
     @Test
     fun `dismissWorkoutSummary clears pendingWorkoutSummary and resets isActive`() =
         vmTest {
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()
             viewModel.finishWorkout()
             runCurrent()
@@ -311,7 +316,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `elapsed timer stops incrementing after cancelWorkout`() = vmTest {
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         advanceTimeBy(2_000)
@@ -341,11 +346,11 @@ class WorkoutViewModelTest {
         )
         runBlocking {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(5L)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
         }
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
@@ -371,11 +376,11 @@ class WorkoutViewModelTest {
         )
         runBlocking {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(6L)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
         }
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
@@ -401,7 +406,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `updateLocalRestTime stored in overrides`() = vmTest {
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.updateLocalRestTime(exerciseId = 5L, setOrder = 2, newSeconds = 120)
@@ -415,7 +420,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `deleteLocalRestTime removes key from overrides`() = vmTest {
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.updateLocalRestTime(exerciseId = 5L, setOrder = 2, newSeconds = 120)
@@ -430,7 +435,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `pauseRestTimer sets isPaused true`() = vmTest {
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         // Manually set an active restTimer in state
@@ -463,11 +468,11 @@ class WorkoutViewModelTest {
         )
         runBlocking {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(7L)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockExerciseDao.updateRestDuration(any(), any())).thenReturn(Unit)
         }
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
@@ -486,7 +491,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `resumeRestTimer does nothing if not paused`() = vmTest {
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         // Calling resumeRestTimer when timer is not paused should be a no-op
@@ -512,11 +517,11 @@ class WorkoutViewModelTest {
             )
             runBlocking {
                 whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(10L, 11L, 12L)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
                 whenever(mockWorkoutSetDao.updateWeightReps(any(), any(), any())).thenReturn(Unit)
             }
 
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()
 
             viewModel.addExercise(exercise)
@@ -549,11 +554,11 @@ class WorkoutViewModelTest {
             )
             runBlocking {
                 whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(20L, 21L)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
                 whenever(mockWorkoutSetDao.updateWeightReps(any(), any(), any())).thenReturn(Unit)
             }
 
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()
 
             viewModel.addExercise(exercise)
@@ -586,12 +591,12 @@ class WorkoutViewModelTest {
         )
         runBlocking {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(30L, 31L)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateWeightReps(any(), any(), any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
         }
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
@@ -625,11 +630,11 @@ class WorkoutViewModelTest {
             )
             runBlocking {
                 whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(40L, 41L)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
                 whenever(mockWorkoutSetDao.updateWeightReps(any(), any(), any())).thenReturn(Unit)
             }
 
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()
 
             viewModel.addExercise(exercise)
@@ -654,7 +659,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `dismissRoutineSync clears pendingRoutineSync`() = vmTest {
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         // Inject a non-null routineSnapshot and pendingRoutineSync via finishWorkout path
@@ -670,18 +675,18 @@ class WorkoutViewModelTest {
     // Helper: sets up startWorkoutFromRoutine with 1 exercise (id=1L), 2 sets, reps=10, weight=""
     private suspend fun setupRoutineWorkout(defaultWeight: String = "") {
         val exercise = Exercise(id = 1L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
-        val routineExercise = RoutineExercise(routineId = 1L, exerciseId = 1L, sets = 2, reps = 10, defaultWeight = defaultWeight)
-        val ws1 = WorkoutSet(id = 101L, workoutId = 100L, exerciseId = 1L, setOrder = 1, weight = 0.0, reps = 0)
-        val ws2 = WorkoutSet(id = 102L, workoutId = 100L, exerciseId = 1L, setOrder = 2, weight = 0.0, reps = 0)
-        whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine(1L))
-            .thenReturn(WorkoutBootstrap(workoutId = 100L, ghostMap = emptyMap(), workoutSets = listOf(ws1, ws2)))
-        whenever(mockRoutineExerciseDao.getForRoutine(1L)).thenReturn(listOf(routineExercise))
-        whenever(mockRoutineExerciseDao.getStickyNote(1L, 1L)).thenReturn(null)
+        val routineExercise = RoutineExercise(id = "re-1", routineId = "1", exerciseId = 1L, sets = 2, reps = 10, defaultWeight = defaultWeight)
+        val ws1 = WorkoutSet(id = "101", workoutId = "100", exerciseId = 1L, setOrder = 1, weight = 0.0, reps = 0)
+        val ws2 = WorkoutSet(id = "102", workoutId = "100", exerciseId = 1L, setOrder = 2, weight = 0.0, reps = 0)
+        whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("1"))
+            .thenReturn(WorkoutBootstrap(workoutId = "100", ghostMap = emptyMap(), workoutSets = listOf(ws1, ws2)))
+        whenever(mockRoutineExerciseDao.getForRoutine("1")).thenReturn(listOf(routineExercise))
+        whenever(mockRoutineExerciseDao.getStickyNote("1", 1L)).thenReturn(null)
         whenever(mockExerciseRepository.getExerciseById(1L)).thenReturn(exercise)
-        whenever(mockRoutineDao.getRoutineById(1L)).thenReturn(Routine(id = 1L, name = "Test Routine"))
+        whenever(mockRoutineDao.getRoutineById("1")).thenReturn(Routine(id = "1", name = "Test Routine"))
         whenever(mockRoutineDao.updateLastPerformed(any(), any())).thenReturn(Unit)
         // addSet stub for the 3rd set added in tests
-        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(103L)
+        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
         whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
         whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
         whenever(mockWorkoutSetDao.updateWeightReps(any(), any(), any())).thenReturn(Unit)
@@ -692,7 +697,7 @@ class WorkoutViewModelTest {
         vmTest {
             runBlocking { setupRoutineWorkout(defaultWeight = "") }
 
-            viewModel.startWorkoutFromRoutine(1L)
+            viewModel.startWorkoutFromRoutine("1")
             runCurrent()
 
             // Add 3rd set → structural change (3 completed vs snapshot.sets = 2)
@@ -732,7 +737,7 @@ class WorkoutViewModelTest {
                 whenever(mockRoutineExerciseDao.updateSetWeightsAndReps(any(), any(), any(), any())).thenReturn(Unit)
             }
 
-            viewModel.startWorkoutFromRoutine(1L)
+            viewModel.startWorkoutFromRoutine("1")
             runCurrent()
 
             viewModel.addSet(1L)
@@ -757,8 +762,8 @@ class WorkoutViewModelTest {
             runCurrent()
 
             assertNull(viewModel.workoutState.value.pendingRoutineSync)
-            verify(mockRoutineExerciseDao).updateSets(1L, 1L, 3)
-            verify(mockRoutineExerciseDao).updateRepsAndWeight(1L, 1L, 10, "80")
+            verify(mockRoutineExerciseDao).updateSets("1", 1L, 3)
+            verify(mockRoutineExerciseDao).updateRepsAndWeight("1", 1L, 10, "80")
         }
 
     // -------------------------------------------------------------------------
@@ -772,11 +777,11 @@ class WorkoutViewModelTest {
         )
         runBlocking {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(50L)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
         }
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
@@ -792,7 +797,7 @@ class WorkoutViewModelTest {
 
         val setsAfter = viewModel.workoutState.value.exercises.first().sets
         assertEquals(SetType.WARMUP, setsAfter.first().setType)
-        verify(mockWorkoutSetDao).updateSetType(50L, SetType.WARMUP)
+        verify(mockWorkoutSetDao).updateSetType(any(), eq(SetType.WARMUP))
 
         viewModel.cancelWorkout()
         runCurrent()
@@ -810,12 +815,12 @@ class WorkoutViewModelTest {
         )
         runBlocking {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(60L)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.deleteSetById(any())).thenReturn(Unit)
         }
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
@@ -851,13 +856,13 @@ class WorkoutViewModelTest {
         )
         runBlocking {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(70L, 71L)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.deleteSetById(any())).thenReturn(Unit)
-            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(71L)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
         }
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
@@ -893,7 +898,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `deleteRestSeparator adds key to hiddenRestSeparators`() = vmTest {
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.deleteRestSeparator(exerciseId = 5L, setOrder = 2)
@@ -913,11 +918,11 @@ class WorkoutViewModelTest {
         )
         runBlocking {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(80L)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
         }
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
@@ -945,7 +950,7 @@ class WorkoutViewModelTest {
             // snap.defaultWeight = "" so any blank weight won't trigger value change
             runBlocking { setupRoutineWorkout(defaultWeight = "") }
 
-            viewModel.startWorkoutFromRoutine(1L)
+            viewModel.startWorkoutFromRoutine("1")
             runCurrent()
 
             // Add 3rd set → structural change (3 vs 2 in snapshot)
@@ -980,11 +985,11 @@ class WorkoutViewModelTest {
 
     private suspend fun setupEditModeRoutine() {
         val exercise = Exercise(id = 1L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
-        val routineExercise = RoutineExercise(routineId = 99L, exerciseId = 1L, sets = 3, reps = 8, defaultWeight = "60")
-        whenever(mockRoutineExerciseDao.getForRoutine(99L)).thenReturn(listOf(routineExercise))
-        whenever(mockRoutineExerciseDao.getStickyNote(99L, 1L)).thenReturn(null)
+        val routineExercise = RoutineExercise(id = "re-1", routineId = "99", exerciseId = 1L, sets = 3, reps = 8, defaultWeight = "60")
+        whenever(mockRoutineExerciseDao.getForRoutine("99")).thenReturn(listOf(routineExercise))
+        whenever(mockRoutineExerciseDao.getStickyNote("99", 1L)).thenReturn(null)
         whenever(mockExerciseRepository.getExerciseById(1L)).thenReturn(exercise)
-        whenever(mockRoutineDao.getRoutineById(99L)).thenReturn(Routine(id = 99L, name = "My Routine"))
+        whenever(mockRoutineDao.getRoutineById("99")).thenReturn(Routine(id = "99", name = "My Routine"))
     }
 
     @Test
@@ -992,7 +997,7 @@ class WorkoutViewModelTest {
         vmTest {
             runBlocking { setupEditModeRoutine() }
 
-            viewModel.startEditMode(99L)
+            viewModel.startEditMode("99")
             runCurrent()
             // withContext(Dispatchers.IO) runs on a real thread; give it time to complete
             // then drain the re-queued continuation on testDispatcher.
@@ -1021,9 +1026,12 @@ class WorkoutViewModelTest {
             setupEditModeRoutine()
             whenever(mockRoutineExerciseDao.updateSets(any(), any(), any())).thenReturn(Unit)
             whenever(mockRoutineExerciseDao.updateRepsAndWeight(any(), any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineExerciseDao.updateSetTypesJson(any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineExerciseDao.updateSetWeightsAndReps(any(), any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineDao.updateRoutine(any())).thenReturn(Unit)
         }
 
-        viewModel.startEditMode(99L)
+        viewModel.startEditMode("99")
         runCurrent()
         Thread.sleep(100)
         runCurrent()
@@ -1041,7 +1049,7 @@ class WorkoutViewModelTest {
     fun `cancelEditMode resets state completely`() = vmTest {
         runBlocking { setupEditModeRoutine() }
 
-        viewModel.startEditMode(99L)
+        viewModel.startEditMode("99")
         runCurrent()
 
         viewModel.cancelEditMode()
@@ -1061,27 +1069,25 @@ class WorkoutViewModelTest {
     private suspend fun setupExerciseWithSets(
         exerciseId: Long,
         restSeconds: Int,
-        setCount: Int,
-        setIds: List<Long>
+        setCount: Int
     ) {
         val exercise = Exercise(
             id = exerciseId, name = "Test Ex", muscleGroup = "Chest",
             equipmentType = "Barbell", restDurationSeconds = restSeconds
         )
         whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-        whenever(mockWorkoutRepository.createWorkoutSet(any()))
-            .thenReturn(setIds[0], *setIds.drop(1).toTypedArray())
+        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
         whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
         whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
 
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         viewModel.addExercise(exercise)
         repeat(setCount - 1) { viewModel.addSet(exerciseId) }
     }
 
     @Test
     fun `completeSet WARMUP to WARMUP uses 30s rest`() = vmTest {
-        runBlocking { setupExerciseWithSets(30L, 90, 2, listOf(300L, 301L)) }
+        runBlocking { setupExerciseWithSets(30L, 90, 2) }
         runCurrent()
 
         viewModel.selectSetType(30L, 1, SetType.WARMUP)
@@ -1100,7 +1106,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `completeSet WARMUP to NORMAL uses exercise default rest`() = vmTest {
-        runBlocking { setupExerciseWithSets(31L, 90, 2, listOf(310L, 311L)) }
+        runBlocking { setupExerciseWithSets(31L, 90, 2) }
         runCurrent()
 
         viewModel.selectSetType(31L, 1, SetType.WARMUP)
@@ -1119,7 +1125,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `completeSet NORMAL to DROP uses 0s rest`() = vmTest {
-        runBlocking { setupExerciseWithSets(32L, 90, 2, listOf(320L, 321L)) }
+        runBlocking { setupExerciseWithSets(32L, 90, 2) }
         runCurrent()
 
         // set 1 stays NORMAL, set 2 = DROP
@@ -1138,7 +1144,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `completeSet DROP to NORMAL uses 0s rest`() = vmTest {
-        runBlocking { setupExerciseWithSets(33L, 90, 2, listOf(330L, 331L)) }
+        runBlocking { setupExerciseWithSets(33L, 90, 2) }
         runCurrent()
 
         viewModel.selectSetType(33L, 1, SetType.DROP)
@@ -1157,7 +1163,7 @@ class WorkoutViewModelTest {
 
     @Test
     fun `completeSet FAILURE to NORMAL uses exercise default rest`() = vmTest {
-        runBlocking { setupExerciseWithSets(34L, 120, 2, listOf(340L, 341L)) }
+        runBlocking { setupExerciseWithSets(34L, 120, 2) }
         runCurrent()
 
         viewModel.selectSetType(34L, 1, SetType.FAILURE)
@@ -1182,7 +1188,7 @@ class WorkoutViewModelTest {
                 // Ensure insertSet is never called — test verifies this below
             }
 
-            viewModel.startEditMode(99L)
+            viewModel.startEditMode("99")
             runCurrent()
             Thread.sleep(100)
             runCurrent()
@@ -1194,7 +1200,7 @@ class WorkoutViewModelTest {
             val sets = viewModel.workoutState.value.exercises.first().sets
             assertEquals("Set count should increase by 1", initialSetCount + 1, sets.size)
             val newSet = sets.last()
-            assertTrue("Fake ID should be negative in edit mode", newSet.id < 0L)
+            assertTrue("Fake ID should have edit_ prefix in edit mode", newSet.id.startsWith("edit_"))
 
             // insertSet must NOT have been called (workoutId is null → guard skips it)
             org.mockito.kotlin.verifyNoInteractions(mockWorkoutSetDao)
@@ -1215,10 +1221,10 @@ class WorkoutViewModelTest {
             val ex3 = Exercise(id = 3L, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
             runBlocking {
                 whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(10L)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             }
 
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()
             viewModel.addExercise(ex1)
             runCurrent()
@@ -1239,6 +1245,31 @@ class WorkoutViewModelTest {
         }
 
     @Test
+    fun `collapseAll collapses every exercise in the workout`() =
+        vmTest {
+            val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+            val ex2 = Exercise(id = 2L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
+            runBlocking {
+                whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            }
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.addExercise(ex1)
+            runCurrent()
+            viewModel.addExercise(ex2)
+            runCurrent()
+
+            viewModel.collapseAll()
+
+            val collapsed = viewModel.workoutState.value.collapsedExerciseIds
+            assertTrue("Exercise 1 should be collapsed", 1L in collapsed)
+            assertTrue("Exercise 2 should be collapsed", 2L in collapsed)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    @Test
     fun `reorderExercise moves exercise from one index to another`() =
         vmTest {
             val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
@@ -1246,10 +1277,10 @@ class WorkoutViewModelTest {
             val ex3 = Exercise(id = 3L, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
             runBlocking {
                 whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(10L)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             }
 
-            viewModel.startWorkout(0L)
+            viewModel.startWorkout("")
             runCurrent()
             viewModel.addExercise(ex1)
             runCurrent()
@@ -1277,7 +1308,7 @@ class WorkoutViewModelTest {
     @Test
     fun `finishWorkout ad-hoc workout produces no sync prompt`() = vmTest {
         // Ad-hoc workout: startWorkout(0L) sets routineId=0 and routineSnapshot=[]
-        viewModel.startWorkout(0L)
+        viewModel.startWorkout("")
         runCurrent()
 
         viewModel.finishWorkout()
@@ -1295,7 +1326,7 @@ class WorkoutViewModelTest {
         // Routine: 2 sets, reps=10, defaultWeight="80"
         runBlocking { setupRoutineWorkout(defaultWeight = "80") }
 
-        viewModel.startWorkoutFromRoutine(1L)
+        viewModel.startWorkoutFromRoutine("1")
         runCurrent()
 
         // Complete exactly 2 sets with same weight/reps as routine
@@ -1327,7 +1358,7 @@ class WorkoutViewModelTest {
             // Routine: 2 sets, reps=10, defaultWeight="80"
             runBlocking { setupRoutineWorkout(defaultWeight = "80") }
 
-            viewModel.startWorkoutFromRoutine(1L)
+            viewModel.startWorkoutFromRoutine("1")
             runCurrent()
 
             // Change weight to 90, keep reps=10, complete both sets → set count unchanged

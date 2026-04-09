@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -25,7 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.ImeAction
@@ -61,6 +65,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.drawBehind
 import java.util.ArrayList
+import kotlin.math.abs
+
+// Superset spine/icon color palette — one stable color per supersetGroupId (hash-indexed)
+private val SupersetPalette = listOf(
+    Color(0xFFE91E8C),  // Pink
+    Color(0xFF4CAF50),  // Green
+    Color(0xFFFFEB3B),  // Yellow
+    Color(0xFFFF9800),  // Orange
+    Color(0xFF00BCD4),  // Cyan
+    Color(0xFF9C27B0),  // Purple
+    Color(0xFFFF5722),  // Deep Orange
+    Color(0xFF03A9F4),  // Light Blue
+)
+private fun supersetColor(groupId: String?): Color =
+    if (groupId == null) Color.Transparent
+    else SupersetPalette[abs(groupId.hashCode()) % SupersetPalette.size]
 
 // Shared column weight distribution — applied identically to header row and WorkoutSetRow
 private const val SET_COL_WEIGHT    = 0.08f
@@ -74,6 +94,7 @@ private const val CHECK_COL_WEIGHT  = 0.10f
 fun ActiveWorkoutScreen(
     onWorkoutFinished: () -> Unit = {},
     onMinimize: () -> Unit = {},
+    onNavigateToTimer: () -> Unit = {},
     viewModel: WorkoutViewModel = hiltViewModel()
 ) {
     val workoutState by viewModel.workoutState.collectAsState()
@@ -253,7 +274,7 @@ fun ActiveWorkoutScreen(
                                 Icon(Icons.Default.Close, contentDescription = "Cancel edit", tint = MaterialTheme.colorScheme.error)
                             }
                         } else {
-                            IconButton(onClick = { showStandaloneTimerConfig = true }) {
+                            IconButton(onClick = onNavigateToTimer) {
                                 Icon(Icons.Default.Timer, contentDescription = "Timer", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -449,6 +470,27 @@ private fun LazyListScope.activeWorkoutListItems(
         val isSelected = workoutState.supersetCandidateIds.contains(exerciseWithSets.exercise.id)
         val isCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedExerciseIds
 
+        // Superset selection mode: collapsed selectable rows (with drag-to-reorder)
+        if (workoutState.isSupersetSelectMode) {
+            if (reorderableLazyListState != null) {
+                ReorderableItem(reorderableLazyListState, key = exerciseWithSets.exercise.id) { _ ->
+                    SupersetSelectRow(
+                        exerciseWithSets = exerciseWithSets,
+                        isSelected = isSelected,
+                        onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
+                        dragHandleModifier = Modifier.draggableHandle()
+                    )
+                }
+            } else {
+                SupersetSelectRow(
+                    exerciseWithSets = exerciseWithSets,
+                    isSelected = isSelected,
+                    onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) }
+                )
+            }
+            return@items
+        }
+
         if (reorderableLazyListState != null) {
             ReorderableItem(reorderableLazyListState, key = exerciseWithSets.exercise.id) { _ ->
                 ExerciseCard(
@@ -464,7 +506,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     isCollapsed = isCollapsed,
                     onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
                     onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
-                    dragHandleModifier = if (!isEditMode) Modifier.draggableHandle() else null,
+                    dragHandleModifier = Modifier.draggableHandle(onDragStarted = { viewModel.collapseAll() }),
                     onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
                     onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
                     onDeleteSet = { setOrder -> viewModel.deleteSet(exerciseWithSets.exercise.id, setOrder) },
@@ -478,9 +520,9 @@ private fun LazyListScope.activeWorkoutListItems(
                     onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
                     onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
                     onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
-                    onUpdateExerciseRestTimer = { seconds -> viewModel.updateExerciseRestTimer(exerciseWithSets.exercise.id, seconds) },
+                    onUpdateExerciseRestTimers = { work, warmup, drop -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop) },
                     onAddWarmupSets = { viewModel.addWarmupSetsToExercise(exerciseWithSets.exercise.id) },
-                    onEnterSupersetMode = { viewModel.enterSupersetSelectMode() },
+                    onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
                     onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
                     onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
                     onSelectSetType = { setOrder, type -> viewModel.selectSetType(exerciseWithSets.exercise.id, setOrder, type) },
@@ -519,9 +561,9 @@ private fun LazyListScope.activeWorkoutListItems(
                 onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
                 onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
                 onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
-                onUpdateExerciseRestTimer = { seconds -> viewModel.updateExerciseRestTimer(exerciseWithSets.exercise.id, seconds) },
+                onUpdateExerciseRestTimers = { work, warmup, drop -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop) },
                 onAddWarmupSets = { viewModel.addWarmupSetsToExercise(exerciseWithSets.exercise.id) },
-                onEnterSupersetMode = { viewModel.enterSupersetSelectMode() },
+                onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
                 onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
                 onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
                 onSelectSetType = { setOrder, type -> viewModel.selectSetType(exerciseWithSets.exercise.id, setOrder, type) },
@@ -614,7 +656,7 @@ private fun ExerciseCard(
     onRemoveExercise: () -> Unit,
     onUpdateSessionNote: (String) -> Unit,
     onUpdateStickyNote: (String) -> Unit,
-    onUpdateExerciseRestTimer: (Int) -> Unit,
+    onUpdateExerciseRestTimers: (workSeconds: Int, warmupSeconds: Int, dropSeconds: Int) -> Unit,
     onAddWarmupSets: () -> Unit,
     onEnterSupersetMode: () -> Unit,
     onRemoveFromSuperset: () -> Unit,
@@ -661,7 +703,7 @@ private fun ExerciseCard(
                     modifier = Modifier
                         .width(4.dp)
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.secondary)
+                        .background(supersetColor(exerciseWithSets.supersetGroupId))
                 )
             }
             Column(modifier = Modifier.weight(1f).padding(12.dp)) {
@@ -751,6 +793,16 @@ private fun ExerciseCard(
                             else -> StrengthHeader(isEditMode = isEditMode)
                         }
 
+                        if (!exerciseWithSets.sessionNote.isNullOrBlank()) {
+                            Text(
+                                text = exerciseWithSets.sessionNote!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 4.dp)
+                            )
+                        }
+
                         val exerciseId = exerciseWithSets.exercise.id
                         var showRestTimePickerForSet by remember { mutableStateOf<Int?>(null) }
 
@@ -759,7 +811,16 @@ private fun ExerciseCard(
                         val repsFrs = remember(setCount) { List(setCount) { FocusRequester() } }
 
                         exerciseWithSets.sets.forEachIndexed { index, set ->
-                            val effectiveRest = restTimeOverrides["${exerciseId}_${set.setOrder}"] ?: exerciseWithSets.exercise.restDurationSeconds
+                            val nextSetType = exerciseWithSets.sets.getOrNull(index + 1)?.setType
+                            val defaultRestForType = when (set.setType) {
+                                SetType.DROP    -> exerciseWithSets.exercise.dropSetRestSeconds
+                                SetType.FAILURE -> exerciseWithSets.exercise.restDurationSeconds
+                                SetType.WARMUP  -> if (nextSetType == SetType.WARMUP) exerciseWithSets.exercise.warmupRestSeconds
+                                                   else exerciseWithSets.exercise.restDurationSeconds
+                                SetType.NORMAL  -> if (nextSetType == SetType.DROP) exerciseWithSets.exercise.dropSetRestSeconds
+                                                   else exerciseWithSets.exercise.restDurationSeconds
+                            }
+                            val effectiveRest = restTimeOverrides["${exerciseId}_${set.setOrder}"] ?: defaultRestForType
                             val separatorKey = "${exerciseId}_${set.setOrder}"
                             val isThisTimerActive = (activeTimerExerciseId == exerciseId) && (activeTimerSetOrder == set.setOrder)
                             val isNotLastSet = index < exerciseWithSets.sets.size - 1
@@ -800,7 +861,20 @@ private fun ExerciseCard(
                         if (showRestTimePickerForSet != null) {
                             val setOrder = showRestTimePickerForSet!!
                             RestTimePickerDialog(
-                                currentSeconds = restTimeOverrides["${exerciseId}_${setOrder}"] ?: exerciseWithSets.exercise.restDurationSeconds,
+                                currentSeconds = restTimeOverrides["${exerciseId}_${setOrder}"] ?: run {
+                                    val setIdx = exerciseWithSets.sets.indexOfFirst { it.setOrder == setOrder }
+                                    val theSet = exerciseWithSets.sets.getOrNull(setIdx)
+                                    val nextType = exerciseWithSets.sets.getOrNull(setIdx + 1)?.setType
+                                    when (theSet?.setType) {
+                                        SetType.DROP    -> exerciseWithSets.exercise.dropSetRestSeconds
+                                        SetType.FAILURE -> exerciseWithSets.exercise.restDurationSeconds
+                                        SetType.WARMUP  -> if (nextType == SetType.WARMUP) exerciseWithSets.exercise.warmupRestSeconds
+                                                           else exerciseWithSets.exercise.restDurationSeconds
+                                        SetType.NORMAL  -> if (nextType == SetType.DROP) exerciseWithSets.exercise.dropSetRestSeconds
+                                                           else exerciseWithSets.exercise.restDurationSeconds
+                                        else -> exerciseWithSets.exercise.restDurationSeconds
+                                    }
+                                },
                                 onDismiss = { showRestTimePickerForSet = null },
                                 onConfirm = { onUpdateLocalRestTime(setOrder, it); showRestTimePickerForSet = null }
                             )
@@ -826,7 +900,6 @@ private fun ExerciseCard(
     if (showManagementHub) {
         ManagementHubSheet(
             onDismiss = { showManagementHub = false },
-            onAddWarmup = { onAddWarmupSets(); showManagementHub = false },
             onReplace = { showReplaceDialog = true; showManagementHub = false },
             onRemove = { onRemoveExercise(); showManagementHub = false },
             onSessionNote = { showSessionNoteDialog = true; showManagementHub = false },
@@ -908,11 +981,13 @@ private fun ExerciseCard(
     }
 
     if (showRestTimerSheet) {
-        ExerciseRestTimerSheet(
-            currentSeconds = exerciseWithSets.exercise.restDurationSeconds ?: 90,
+        UpdateRestTimersDialog(
+            workSeconds = exerciseWithSets.exercise.restDurationSeconds,
+            warmupSeconds = exerciseWithSets.exercise.warmupRestSeconds,
+            dropSeconds = exerciseWithSets.exercise.dropSetRestSeconds,
             onDismiss = { showRestTimerSheet = false },
-            onSelect = { seconds ->
-                onUpdateExerciseRestTimer(seconds)
+            onConfirm = { work, warmup, drop ->
+                onUpdateExerciseRestTimers(work, warmup, drop)
                 showRestTimerSheet = false
             }
         )
@@ -1041,44 +1116,190 @@ private fun StrengthHeader(isEditMode: Boolean = false) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExerciseRestTimerSheet(currentSeconds: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
-    val presets = listOf(30 to "30s", 60 to "1 min", 90 to "1:30", 120 to "2 min", 180 to "3 min", 240 to "4 min")
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("Rest Timer", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "Current: %d:%02d".format(currentSeconds / 60, currentSeconds % 60),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            presets.chunked(3).forEach { row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    row.forEach { (seconds, label) ->
-                        OutlinedButton(
-                            onClick = { onSelect(seconds) },
-                            modifier = Modifier.weight(1f),
-                            border = if (seconds == currentSeconds)
-                                ButtonDefaults.outlinedButtonBorder(enabled = true).copy(width = 2.dp)
-                            else ButtonDefaults.outlinedButtonBorder(enabled = true),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = if (seconds == currentSeconds)
-                                    MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface
+private fun UpdateRestTimersDialog(
+    workSeconds: Int,
+    warmupSeconds: Int,
+    dropSeconds: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (workSeconds: Int, warmupSeconds: Int, dropSeconds: Int) -> Unit
+) {
+    var workMinsTfv by remember { mutableStateOf(TextFieldValue((workSeconds / 60).toString())) }
+    var workSecsTfv by remember { mutableStateOf(TextFieldValue("%02d".format(workSeconds % 60))) }
+    var warmupMinsTfv by remember { mutableStateOf(TextFieldValue((warmupSeconds / 60).toString())) }
+    var warmupSecsTfv by remember { mutableStateOf(TextFieldValue("%02d".format(warmupSeconds % 60))) }
+    var dropMinsTfv by remember { mutableStateOf(TextFieldValue((dropSeconds / 60).toString())) }
+    var dropSecsTfv by remember { mutableStateOf(TextFieldValue("%02d".format(dropSeconds % 60))) }
+
+    fun toSeconds(mins: String, secs: String): Int {
+        val m = mins.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val s = secs.toIntOrNull()?.coerceIn(0, 59) ?: 0
+        return m * 60 + s
+    }
+
+    fun filteredTfv(newTfv: TextFieldValue): TextFieldValue {
+        val filtered = newTfv.text.filter { c -> c.isDigit() }.take(2)
+        return TextFieldValue(filtered, TextRange(filtered.length))
+    }
+
+    val mmSsBoxModifier: (TextFieldValue, (TextFieldValue) -> Unit) -> Modifier = { tfv, onSet ->
+        Modifier.onFocusChanged { state ->
+            if (state.isFocused) {
+                val t = tfv.text
+                onSet(tfv.copy(selection = TextRange(0, t.length)))
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Update rest timers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Completed timers will not be affected.\nDurations will be saved for next time.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                listOf(
+                    Triple("Work set",
+                        workMinsTfv to workSecsTfv,
+                        { m: TextFieldValue, s: TextFieldValue -> workMinsTfv = m; workSecsTfv = s }),
+                    Triple("Warm up",
+                        warmupMinsTfv to warmupSecsTfv,
+                        { m: TextFieldValue, s: TextFieldValue -> warmupMinsTfv = m; warmupSecsTfv = s }),
+                    Triple("Drop set",
+                        dropMinsTfv to dropSecsTfv,
+                        { m: TextFieldValue, s: TextFieldValue -> dropMinsTfv = m; dropSecsTfv = s })
+                ).forEach { (label, tfvPair, onUpdate) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            BasicTextField(
+                                value = tfvPair.first,
+                                onValueChange = { onUpdate(filteredTfv(it), tfvPair.second) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                ),
+                                modifier = mmSsBoxModifier(tfvPair.first) { onUpdate(it, tfvPair.second) },
+                                decorationBox = { inner ->
+                                    Box(
+                                        modifier = Modifier
+                                            .width(36.dp)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) { inner() }
+                                }
                             )
-                        ) { Text(label, fontSize = 13.sp) }
+                            Text(":", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 4.dp))
+                            BasicTextField(
+                                value = tfvPair.second,
+                                onValueChange = { onUpdate(tfvPair.first, filteredTfv(it)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                ),
+                                modifier = mmSsBoxModifier(tfvPair.second) { onUpdate(tfvPair.first, it) },
+                                decorationBox = { inner ->
+                                    Box(
+                                        modifier = Modifier
+                                            .width(36.dp)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) { inner() }
+                                }
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(
+                    toSeconds(workMinsTfv.text, workSecsTfv.text),
+                    toSeconds(warmupMinsTfv.text, warmupSecsTfv.text),
+                    toSeconds(dropMinsTfv.text, dropSecsTfv.text)
+                ) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text("UPDATE REST TIMERS", fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+            }
+        },
+        dismissButton = {}
+    )
+}
+
+/** Collapsed row shown for each exercise during superset selection mode. */
+@Composable
+private fun SupersetSelectRow(
+    exerciseWithSets: ExerciseWithSets,
+    isSelected: Boolean,
+    onToggle: () -> Unit,
+    dragHandleModifier: Modifier? = null
+) {
+    val isInSuperset = exerciseWithSets.supersetGroupId != null
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            else MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (dragHandleModifier != null) {
+                Icon(
+                    imageVector = Icons.Default.DragHandle,
+                    contentDescription = "Drag to reorder",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    modifier = dragHandleModifier
+                )
+            }
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggle() }
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = exerciseWithSets.exercise.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
+                exerciseWithSets.exercise.muscleGroup?.let {
+                    Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                }
+            }
+            if (isInSuperset) {
+                Icon(
+                    Icons.Default.Link,
+                    contentDescription = "In superset",
+                    tint = supersetColor(exerciseWithSets.supersetGroupId),
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }
@@ -1211,14 +1432,13 @@ private fun WarmupPrescriptionCard(prescription: com.powerme.app.warmup.WarmupPr
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ManagementHubSheet(onDismiss: () -> Unit, onAddWarmup: () -> Unit, onReplace: () -> Unit, onRemove: () -> Unit, onSessionNote: () -> Unit, onStickyNote: () -> Unit, onRestTimer: () -> Unit, onSuperset: () -> Unit, isInSuperset: Boolean) {
+private fun ManagementHubSheet(onDismiss: () -> Unit, onReplace: () -> Unit, onRemove: () -> Unit, onSessionNote: () -> Unit, onStickyNote: () -> Unit, onRestTimer: () -> Unit, onSuperset: () -> Unit, isInSuperset: Boolean) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 24.dp)) {
             val items = listOf(
                 Triple("Session Note", Icons.Default.Notes, onSessionNote),
                 Triple("Sticky Note", Icons.Default.PushPin, onStickyNote),
-                Triple("Warmup Sets", Icons.Default.FitnessCenter, onAddWarmup),
-                Triple("Rest Timer", Icons.Default.Timer, onRestTimer),
+                Triple("Set Rest Timers", Icons.Default.Timer, onRestTimer),
                 Triple("Replace Exercise", Icons.Default.Refresh, onReplace),
                 Triple(if (isInSuperset) "Remove from Superset" else "Superset", Icons.Default.Sync, onSuperset),
                 Triple("Remove Exercise", Icons.Default.Delete, onRemove)
@@ -1798,13 +2018,13 @@ fun PostWorkoutSummarySheet(
 
 @Composable
 fun RestTimePickerDialog(currentSeconds: Int, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
-    var minutes by remember { mutableStateOf((currentSeconds / 60).toString()) }
-    var seconds by remember { mutableStateOf((currentSeconds % 60).toString()) }
+    val minutesTfv = remember { mutableStateOf(TextFieldValue((currentSeconds / 60).toString())) }
+    val secondsTfv = remember { mutableStateOf(TextFieldValue((currentSeconds % 60).toString())) }
     val secondsFocusRequester = remember { FocusRequester() }
 
     fun confirm() {
-        val m = minutes.toIntOrNull() ?: 0
-        val s = seconds.toIntOrNull() ?: 0
+        val m = minutesTfv.value.text.toIntOrNull() ?: 0
+        val s = secondsTfv.value.text.toIntOrNull() ?: 0
         val total = m * 60 + s
         if (total in 0..599) onConfirm(total)
     }
@@ -1819,23 +2039,38 @@ fun RestTimePickerDialog(currentSeconds: Int, onDismiss: () -> Unit, onConfirm: 
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
-                    value = minutes,
-                    onValueChange = { minutes = it },
+                    value = minutesTfv.value,
+                    onValueChange = { minutesTfv.value = it },
                     label = { Text("Min") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { secondsFocusRequester.requestFocus() }),
                     singleLine = true,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .onFocusChanged { state ->
+                            if (state.isFocused) {
+                                val t = minutesTfv.value.text
+                                minutesTfv.value = minutesTfv.value.copy(selection = TextRange(0, t.length))
+                            }
+                        }
                 )
                 Text(":", style = MaterialTheme.typography.headlineMedium)
                 OutlinedTextField(
-                    value = seconds,
-                    onValueChange = { seconds = it },
+                    value = secondsTfv.value,
+                    onValueChange = { secondsTfv.value = it },
                     label = { Text("Sec") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { confirm() }),
                     singleLine = true,
-                    modifier = Modifier.weight(1f).focusRequester(secondsFocusRequester)
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(secondsFocusRequester)
+                        .onFocusChanged { state ->
+                            if (state.isFocused) {
+                                val t = secondsTfv.value.text
+                                secondsTfv.value = secondsTfv.value.copy(selection = TextRange(0, t.length))
+                            }
+                        }
                 )
             }
         },

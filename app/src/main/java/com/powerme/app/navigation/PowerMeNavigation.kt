@@ -51,7 +51,8 @@ import com.powerme.app.ui.history.HistoryScreen
 import com.powerme.app.ui.history.WorkoutDetailScreen
 import com.powerme.app.ui.metrics.MetricsScreen
 import com.powerme.app.ui.settings.SettingsScreen
-import com.powerme.app.ui.theme.StremioBackground
+import com.powerme.app.ui.theme.ProBackground
+import com.powerme.app.ui.tools.TimerMode
 import com.powerme.app.ui.tools.ToolsScreen
 import com.powerme.app.ui.workout.ActiveWorkoutScreen
 import com.powerme.app.ui.workouts.TemplateBuilderScreen
@@ -147,7 +148,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(StremioBackground)
+                .background(ProBackground)
                 .systemBarsPadding(),
             contentAlignment = Alignment.Center
         ) {
@@ -261,6 +262,10 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                     }
                 },
                 onMinimize = { navController.popBackStack() },
+                onNavigateToTimer = {
+                    navController.popBackStack()
+                    navController.navigate("${Screen.Tools.route}?mode=COUNTDOWN")
+                },
                 viewModel = workoutViewModel
             )
         }
@@ -282,7 +287,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             ) {
                 WorkoutsScreen(
                     onStartWorkout = { routineId ->
-                        if (routineId > 0L) {
+                        if (routineId.isNotBlank()) {
                             workoutViewModel.startWorkoutFromRoutine(routineId)
                         } else {
                             workoutViewModel.startWorkout()
@@ -291,7 +296,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                     },
                     isWorkoutActive = workoutState.isActive,
                     onResumeWorkout = { navController.navigate(Routes.WORKOUT) },
-                    onCreateRoutine = { navController.navigate("template_builder/-1") },
+                    onCreateRoutine = { navController.navigate("template_builder/new") },
                     onEditRoutine = { routineId ->
                         workoutViewModel.startEditMode(routineId)
                         if (!workoutViewModel.workoutState.value.showEditGuard) {
@@ -323,12 +328,15 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         }
 
         composable(
-            route = Screen.Tools.route,
+            route = "${Screen.Tools.route}?mode={mode}",
+            arguments = listOf(navArgument("mode") { type = NavType.StringType; nullable = true; defaultValue = null }),
             enterTransition = { fadeIn(tween(200)) },
             exitTransition = { fadeOut(tween(200)) },
             popEnterTransition = { fadeIn(tween(200)) },
             popExitTransition = { fadeOut(tween(200)) }
-        ) {
+        ) { backStackEntry ->
+            val modeArg = backStackEntry.arguments?.getString("mode")
+            val initialMode = modeArg?.let { runCatching { TimerMode.valueOf(it) }.getOrNull() }
             MainAppScaffold(
                 navController = navController,
                 currentScreen = Screen.Tools,
@@ -336,7 +344,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
-                ToolsScreen()
+                ToolsScreen(initialMode = initialMode)
             }
         }
 
@@ -423,7 +431,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
 
         composable(
             route = Routes.TEMPLATE_BUILDER,
-            arguments = listOf(navArgument("routineId") { type = NavType.LongType }),
+            arguments = listOf(navArgument("routineId") { type = NavType.StringType }),
             enterTransition = { slideInHorizontally(tween(300)) { it } },
             exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
             popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
@@ -452,7 +460,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
 
         composable(
             route = Routes.WORKOUT_DETAIL,
-            arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
+            arguments = listOf(navArgument("workoutId") { type = NavType.StringType }),
             enterTransition = { slideInHorizontally(tween(300)) { it } },
             exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
             popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },

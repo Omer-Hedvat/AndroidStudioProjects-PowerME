@@ -269,6 +269,174 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_30_31 = object : Migration(30, 31) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // UUID refactor: change PKs from INTEGER autoGenerate to TEXT (UUID) across
+            // routines, workouts, workout_sets, routine_exercises, and warmup_log.
+            // Also adds updatedAt (LWW timestamp) to routines and workouts, and
+            // isArchived (soft-delete flag) to workouts.
+            // Existing Long IDs are preserved as their TEXT equivalents ("1", "2", …)
+            // to maintain all FK relationships across tables.
+            // Order: parent tables first (routines), then children.
+            db.execSQL("PRAGMA foreign_keys = OFF")
+
+            // ── 1. routines ──────────────────────────────────────────────────────────
+            db.execSQL("""
+                CREATE TABLE routines_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    lastPerformed INTEGER,
+                    isCustom INTEGER NOT NULL DEFAULT 0,
+                    isArchived INTEGER NOT NULL DEFAULT 0,
+                    updatedAt INTEGER NOT NULL DEFAULT 0
+                )
+            """.trimIndent())
+            db.execSQL("""
+                INSERT INTO routines_new (id, name, lastPerformed, isCustom, isArchived, updatedAt)
+                SELECT CAST(id AS TEXT), name, lastPerformed, isCustom, isArchived, 0
+                FROM routines
+            """.trimIndent())
+            db.execSQL("DROP TABLE routines")
+            db.execSQL("ALTER TABLE routines_new RENAME TO routines")
+
+            // ── 2. workouts ──────────────────────────────────────────────────────────
+            db.execSQL("""
+                CREATE TABLE workouts_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    routineId TEXT,
+                    timestamp INTEGER NOT NULL,
+                    durationSeconds INTEGER NOT NULL,
+                    totalVolume REAL NOT NULL,
+                    notes TEXT,
+                    isCompleted INTEGER NOT NULL DEFAULT 0,
+                    startTimeMs INTEGER NOT NULL DEFAULT 0,
+                    endTimeMs INTEGER NOT NULL DEFAULT 0,
+                    updatedAt INTEGER NOT NULL DEFAULT 0,
+                    isArchived INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY(routineId) REFERENCES routines(id) ON DELETE SET NULL
+                )
+            """.trimIndent())
+            db.execSQL("""
+                INSERT INTO workouts_new
+                    (id, routineId, timestamp, durationSeconds, totalVolume, notes,
+                     isCompleted, startTimeMs, endTimeMs, updatedAt, isArchived)
+                SELECT CAST(id AS TEXT), CAST(routineId AS TEXT),
+                    timestamp, durationSeconds, totalVolume, notes,
+                    isCompleted, startTimeMs, endTimeMs, 0, 0
+                FROM workouts
+            """.trimIndent())
+            db.execSQL("DROP TABLE workouts")
+            db.execSQL("ALTER TABLE workouts_new RENAME TO workouts")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workouts_routineId ON workouts(routineId)")
+
+            // ── 3. workout_sets ──────────────────────────────────────────────────────
+            db.execSQL("""
+                CREATE TABLE workout_sets_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    workoutId TEXT NOT NULL,
+                    exerciseId INTEGER NOT NULL,
+                    setOrder INTEGER NOT NULL,
+                    weight REAL NOT NULL,
+                    reps INTEGER NOT NULL,
+                    rpe INTEGER,
+                    setType TEXT NOT NULL DEFAULT 'NORMAL',
+                    setNotes TEXT,
+                    distance REAL,
+                    timeSeconds INTEGER,
+                    startTime INTEGER,
+                    endTime INTEGER,
+                    restDuration INTEGER,
+                    supersetGroupId TEXT,
+                    isCompleted INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY(workoutId) REFERENCES workouts(id) ON DELETE CASCADE,
+                    FOREIGN KEY(exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL("""
+                INSERT INTO workout_sets_new
+                    (id, workoutId, exerciseId, setOrder, weight, reps, rpe, setType,
+                     setNotes, distance, timeSeconds, startTime, endTime, restDuration,
+                     supersetGroupId, isCompleted)
+                SELECT CAST(id AS TEXT), CAST(workoutId AS TEXT),
+                    exerciseId, setOrder, weight, reps, rpe, setType,
+                    setNotes, distance, timeSeconds, startTime, endTime, restDuration,
+                    supersetGroupId, isCompleted
+                FROM workout_sets
+            """.trimIndent())
+            db.execSQL("DROP TABLE workout_sets")
+            db.execSQL("ALTER TABLE workout_sets_new RENAME TO workout_sets")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workout_sets_workoutId ON workout_sets(workoutId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workout_sets_exerciseId ON workout_sets(exerciseId)")
+
+            // ── 4. routine_exercises ─────────────────────────────────────────────────
+            db.execSQL("""
+                CREATE TABLE routine_exercises_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    routineId TEXT NOT NULL,
+                    exerciseId INTEGER NOT NULL,
+                    sets INTEGER NOT NULL DEFAULT 3,
+                    reps INTEGER NOT NULL DEFAULT 10,
+                    restTime INTEGER NOT NULL DEFAULT 90,
+                    `order` INTEGER NOT NULL DEFAULT 0,
+                    supersetGroupId TEXT,
+                    stickyNote TEXT,
+                    defaultWeight TEXT NOT NULL DEFAULT '',
+                    setTypesJson TEXT NOT NULL DEFAULT '',
+                    setWeightsJson TEXT NOT NULL DEFAULT '',
+                    setRepsJson TEXT NOT NULL DEFAULT '',
+                    FOREIGN KEY(routineId) REFERENCES routines(id) ON DELETE CASCADE,
+                    FOREIGN KEY(exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL("""
+                INSERT INTO routine_exercises_new
+                    (id, routineId, exerciseId, sets, reps, restTime, `order`, supersetGroupId,
+                     stickyNote, defaultWeight, setTypesJson, setWeightsJson, setRepsJson)
+                SELECT CAST(id AS TEXT), CAST(routineId AS TEXT),
+                    exerciseId, sets, reps, restTime, `order`, supersetGroupId,
+                    stickyNote, defaultWeight, setTypesJson, setWeightsJson, setRepsJson
+                FROM routine_exercises
+            """.trimIndent())
+            db.execSQL("DROP TABLE routine_exercises")
+            db.execSQL("ALTER TABLE routine_exercises_new RENAME TO routine_exercises")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_routine_exercises_routineId ON routine_exercises(routineId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_routine_exercises_exerciseId ON routine_exercises(exerciseId)")
+
+            // ── 5. warmup_log (FK side-effect: workoutId TEXT) ───────────────────────
+            db.execSQL("""
+                CREATE TABLE warmup_log_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    workoutId TEXT,
+                    exerciseName TEXT NOT NULL,
+                    timestamp INTEGER NOT NULL,
+                    targetJoint TEXT NOT NULL,
+                    durationSeconds INTEGER,
+                    reps INTEGER,
+                    FOREIGN KEY(workoutId) REFERENCES workouts(id) ON DELETE SET NULL
+                )
+            """.trimIndent())
+            db.execSQL("""
+                INSERT INTO warmup_log_new
+                    (id, workoutId, exerciseName, timestamp, targetJoint, durationSeconds, reps)
+                SELECT id, CAST(workoutId AS TEXT),
+                    exerciseName, timestamp, targetJoint, durationSeconds, reps
+                FROM warmup_log
+            """.trimIndent())
+            db.execSQL("DROP TABLE warmup_log")
+            db.execSQL("ALTER TABLE warmup_log_new RENAME TO warmup_log")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_warmup_log_workoutId ON warmup_log(workoutId)")
+
+            db.execSQL("PRAGMA foreign_keys = ON")
+        }
+    }
+
+    private val MIGRATION_31_32 = object : Migration(31, 32) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE exercises ADD COLUMN warmupRestSeconds INTEGER NOT NULL DEFAULT 30")
+            db.execSQL("ALTER TABLE exercises ADD COLUMN dropSetRestSeconds INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     private val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix index name mismatch on exercise_muscle_groups:
@@ -613,7 +781,9 @@ object DatabaseModule {
                 MIGRATION_26_27,
                 MIGRATION_27_28,
                 MIGRATION_28_29,
-                MIGRATION_29_30
+                MIGRATION_29_30,
+                MIGRATION_30_31,
+                MIGRATION_31_32
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -788,4 +958,19 @@ object DatabaseModule {
         routineExerciseDao: RoutineExerciseDao,
         database: PowerMeDatabase
     ): RoutineRepository = RoutineRepository(routineDao, routineExerciseDao, database)
+
+    @Provides
+    @Singleton
+    fun provideFirestoreSyncManager(
+        firestore: FirebaseFirestore,
+        auth: FirebaseAuth,
+        database: PowerMeDatabase,
+        workoutDao: WorkoutDao,
+        workoutSetDao: WorkoutSetDao,
+        routineDao: RoutineDao,
+        routineExerciseDao: RoutineExerciseDao
+    ): com.powerme.app.data.sync.FirestoreSyncManager =
+        com.powerme.app.data.sync.FirestoreSyncManager(
+            firestore, auth, database, workoutDao, workoutSetDao, routineDao, routineExerciseDao
+        )
 }

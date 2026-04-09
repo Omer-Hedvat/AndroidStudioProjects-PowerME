@@ -9,7 +9,7 @@ import kotlin.math.abs
 
 @Serializable
 data class VolumeLoadAnomaly(
-    val workoutId: Long,
+    val workoutId: String,
     val timestamp: Long,
     val volumeLoad: Double,
     val zScore: Double,
@@ -49,7 +49,7 @@ class WeeklyInsightsAnalyzer {
 
     fun analyzeWeeklyPerformance(
         allWorkouts: List<Workout>,
-        allWorkoutSets: Map<Long, List<WorkoutSet>>,
+        allWorkoutSets: Map<String, List<WorkoutSet>>,
         exerciseNames: Map<Long, String>,
         healthStats: List<HealthStats>,
         bayesian1RMs: Map<Long, Double>
@@ -106,7 +106,7 @@ class WeeklyInsightsAnalyzer {
     private fun analyzeVolumeLoadAnomalies(
         lastWeekWorkouts: List<Workout>,
         lastFourWeeksWorkouts: List<Workout>,
-        allWorkoutSets: Map<Long, List<WorkoutSet>>,
+        allWorkoutSets: Map<String, List<WorkoutSet>>,
         healthStats: List<HealthStats>
     ): List<VolumeLoadAnomaly> {
         // Compute volume load (weight × reps) for every workout in the 4-week baseline
@@ -158,7 +158,7 @@ class WeeklyInsightsAnalyzer {
     private fun analyzeProgressionAnomalies(
         lastWeekWorkouts: List<Workout>,
         lastFourWeeksWorkouts: List<Workout>,
-        allWorkoutSets: Map<Long, List<WorkoutSet>>,
+        allWorkoutSets: Map<String, List<WorkoutSet>>,
         exerciseNames: Map<Long, String>,
         bayesian1RMs: Map<Long, Double>
     ): List<ProgressionAnomaly> {

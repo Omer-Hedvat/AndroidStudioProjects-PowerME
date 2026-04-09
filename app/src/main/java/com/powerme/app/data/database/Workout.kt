@@ -18,14 +18,16 @@ import androidx.room.PrimaryKey
     indices = [Index(value = ["routineId"])]
 )
 data class Workout(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
-    val routineId: Long?,
+    @PrimaryKey
+    val id: String,                        // UUID string — no autoGenerate; caller pre-generates
+    val routineId: String?,
     val timestamp: Long,
     val durationSeconds: Int,
     val totalVolume: Double,
     val notes: String? = null,
     val isCompleted: Boolean = false,
     val startTimeMs: Long = 0L,
-    val endTimeMs: Long = 0L
+    val endTimeMs: Long = 0L,
+    val updatedAt: Long = 0L,              // v31 — LWW timestamp for Firestore sync
+    val isArchived: Boolean = false        // v31 — soft delete flag
 )

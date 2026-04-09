@@ -4,8 +4,8 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 data class WorkoutSetWithExercise(
-    val id: Long,
-    val workoutId: Long,
+    val id: String,
+    val workoutId: String,
     val exerciseId: Long,
     val setOrder: Int,
     val weight: Double,
@@ -36,22 +36,23 @@ interface WorkoutSetDao {
         WHERE ws.workoutId = :workoutId AND ws.isCompleted = 1
         ORDER BY ws.exerciseId, ws.setOrder
     """)
-    suspend fun getSetsWithExerciseForWorkout(workoutId: Long): List<WorkoutSetWithExercise>
+    suspend fun getSetsWithExerciseForWorkout(workoutId: String): List<WorkoutSetWithExercise>
+
     @Query("SELECT * FROM workout_sets WHERE workoutId = :workoutId ORDER BY setOrder ASC")
-    fun getSetsForWorkout(workoutId: Long): Flow<List<WorkoutSet>>
+    fun getSetsForWorkout(workoutId: String): Flow<List<WorkoutSet>>
 
     @Query("""
         SELECT * FROM workout_sets
         WHERE workoutId = :workoutId AND exerciseId = :exerciseId
         ORDER BY setOrder ASC
     """)
-    fun getSetsForExerciseInWorkout(workoutId: Long, exerciseId: Long): Flow<List<WorkoutSet>>
+    fun getSetsForExerciseInWorkout(workoutId: String, exerciseId: Long): Flow<List<WorkoutSet>>
 
     @Query("SELECT * FROM workout_sets WHERE id = :setId")
-    suspend fun getSetById(setId: Long): WorkoutSet?
+    suspend fun getSetById(setId: String): WorkoutSet?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSet(workoutSet: WorkoutSet): Long
+    suspend fun insertSet(workoutSet: WorkoutSet)    // returns Unit — caller pre-generates UUID
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSets(workoutSets: List<WorkoutSet>)
@@ -63,31 +64,31 @@ interface WorkoutSetDao {
     suspend fun deleteSet(workoutSet: WorkoutSet)
 
     @Query("DELETE FROM workout_sets WHERE workoutId = :workoutId")
-    suspend fun deleteSetsForWorkout(workoutId: Long)
+    suspend fun deleteSetsForWorkout(workoutId: String)
 
     @Query("UPDATE workout_sets SET weight = :weight, reps = :reps WHERE id = :id")
-    suspend fun updateWeightReps(id: Long, weight: Double, reps: Int)
+    suspend fun updateWeightReps(id: String, weight: Double, reps: Int)
 
     @Query("UPDATE workout_sets SET isCompleted = :completed WHERE id = :id")
-    suspend fun updateSetCompleted(id: Long, completed: Boolean)
+    suspend fun updateSetCompleted(id: String, completed: Boolean)
 
     @Query("UPDATE workout_sets SET setType = :setType WHERE id = :id")
-    suspend fun updateSetType(id: Long, setType: SetType)
+    suspend fun updateSetType(id: String, setType: SetType)
 
     @Query("UPDATE workout_sets SET rpe = :rpe WHERE id = :id")
-    suspend fun updateRpe(id: Long, rpe: Int?)
+    suspend fun updateRpe(id: String, rpe: Int?)
 
     @Query("UPDATE workout_sets SET weight = :weight, timeSeconds = :timeSeconds, rpe = :rpe, isCompleted = :completed WHERE id = :id")
-    suspend fun updateTimedSet(id: Long, weight: Double, timeSeconds: Int, rpe: Int?, completed: Boolean)
+    suspend fun updateTimedSet(id: String, weight: Double, timeSeconds: Int, rpe: Int?, completed: Boolean)
 
     @Query("UPDATE workout_sets SET distance = :distance, timeSeconds = :timeSeconds, rpe = :rpe, isCompleted = :completed WHERE id = :id")
-    suspend fun updateCardioSet(id: Long, distance: Double, timeSeconds: Int, rpe: Int?, completed: Boolean)
+    suspend fun updateCardioSet(id: String, distance: Double, timeSeconds: Int, rpe: Int?, completed: Boolean)
 
     @Query("DELETE FROM workout_sets WHERE id = :setId")
-    suspend fun deleteSetById(setId: Long)
+    suspend fun deleteSetById(setId: String)
 
     @Query("DELETE FROM workout_sets WHERE workoutId = :workoutId AND isCompleted = 0")
-    suspend fun deleteIncompleteSetsByWorkout(workoutId: Long)
+    suspend fun deleteIncompleteSetsByWorkout(workoutId: String)
 
     @Query("""
         SELECT ws.* FROM workout_sets ws
@@ -96,6 +97,7 @@ interface WorkoutSetDao {
         AND w.timestamp < :currentTimestamp
         AND w.timestamp IS NOT NULL
         AND w.isCompleted = 1
+        AND w.isArchived = 0
         ORDER BY w.timestamp DESC, ws.setOrder ASC
         LIMIT 10
     """)

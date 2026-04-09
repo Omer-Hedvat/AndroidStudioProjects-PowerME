@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,26 +27,25 @@ import com.powerme.app.data.database.workingSets
 
 @Composable
 fun WorkoutsScreen(
-    onStartWorkout: (routineId: Long) -> Unit,
+    onStartWorkout: (routineId: String) -> Unit,
     isWorkoutActive: Boolean = false,
     onResumeWorkout: () -> Unit = {},
     onCreateRoutine: () -> Unit = {},
-    onEditRoutine: (Long) -> Unit = {},
+    onEditRoutine: (String) -> Unit = {},
     viewModel: WorkoutsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val activeRoutines by viewModel.activeRoutines.collectAsState()
-    val archivedRoutines by viewModel.archivedRoutines.collectAsState()
+    val visibleRoutines by viewModel.visibleRoutines.collectAsState()
+    val showArchived by viewModel.showArchived.collectAsState()
     val routineDetails by viewModel.routineDetails.collectAsState()
-    var showArchived by rememberSaveable { mutableStateOf(false) }
     var selectedRoutine by remember { mutableStateOf<RoutineWithSummary?>(null) }
-    var pendingExportId by remember { mutableStateOf<Long?>(null) }
+    var pendingExportId by remember { mutableStateOf<String?>(null) }
 
     // Fire Android share sheet once routine details are loaded for an export request
     LaunchedEffect(routineDetails) {
         val exportId = pendingExportId ?: return@LaunchedEffect
         if (routineDetails.isNotEmpty()) {
-            val routineName = (activeRoutines + archivedRoutines)
+            val routineName = visibleRoutines
                 .find { it.routine.id == exportId }?.routine?.name ?: "Routine"
             val text = routineDetails.joinToString("\n") { "${it.workingSets}×${it.reps} ${it.exerciseName}" }
             val intent = Intent(Intent.ACTION_SEND).apply {
@@ -94,7 +92,7 @@ fun WorkoutsScreen(
             }
             item {
                 OutlinedButton(
-                    onClick = { onStartWorkout(0L) },
+                    onClick = { onStartWorkout("") },
                     modifier = Modifier.fillMaxWidth(),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
@@ -121,8 +119,8 @@ fun WorkoutsScreen(
                     )
                     FilterChip(
                         selected = showArchived,
-                        onClick = { showArchived = !showArchived },
-                        label = { Text("Archived", fontSize = 12.sp) }
+                        onClick = { viewModel.toggleShowArchived() },
+                        label = { Text("Show Archived", fontSize = 12.sp) }
                     )
                     Spacer(Modifier.width(4.dp))
                     IconButton(onClick = { onCreateRoutine() }) {
@@ -135,92 +133,44 @@ fun WorkoutsScreen(
                 }
             }
 
-            if (!showArchived) {
-                // Active routines
-                if (activeRoutines.isEmpty()) {
-                    item {
-                        Text(
-                            text = "No routines yet — ask the War Room to build one",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
-                    }
-                } else {
-                    items(activeRoutines.chunked(2)) { row ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            row.forEach { summary ->
-                                RoutineCard(
-                                    summary = summary,
-                                    modifier = Modifier.weight(1f),
-                                    isWorkoutActive = isWorkoutActive,
-                                    onCardClick = {
-                                        selectedRoutine = summary
-                                        viewModel.loadRoutineDetails(summary.routine.id)
-                                    },
-                                    onEdit = {
-                                        onEditRoutine(summary.routine.id)
-                                    },
-                                    onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) },
-                                    onDuplicate = { viewModel.duplicateRoutine(summary.routine) },
-                                    onExpress = { viewModel.createExpressRoutine(summary.routine) },
-                                    onExportText = {
-                                        viewModel.clearRoutineDetails()
-                                        pendingExportId = summary.routine.id
-                                        viewModel.loadRoutineDetails(summary.routine.id)
-                                    },
-                                    onArchive = { viewModel.archiveRoutine(summary.routine) },
-                                    onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
-                                    onDelete = { viewModel.deleteRoutine(summary.routine) }
-                                )
-                            }
-                            if (row.size == 1) Spacer(Modifier.weight(1f))
-                        }
-                    }
+            if (visibleRoutines.isEmpty()) {
+                item {
+                    Text(
+                        text = if (showArchived) "No archived routines" else "No routines yet",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
                 }
             } else {
-                // Archived routines
-                if (archivedRoutines.isEmpty()) {
-                    item {
-                        Text(
-                            text = "No archived routines",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
-                    }
-                } else {
-                    items(archivedRoutines.chunked(2)) { row ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            row.forEach { summary ->
-                                RoutineCard(
-                                    summary = summary,
-                                    modifier = Modifier.weight(1f),
-                                    isWorkoutActive = isWorkoutActive,
-                                    onCardClick = {
-                                        selectedRoutine = summary
-                                        viewModel.loadRoutineDetails(summary.routine.id)
-                                    },
-                                    onEdit = { onEditRoutine(summary.routine.id) },
-                                    onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) },
-                                    onDuplicate = { viewModel.duplicateRoutine(summary.routine) },
-                                    onExpress = { viewModel.createExpressRoutine(summary.routine) },
-                                    onExportText = {
-                                        viewModel.clearRoutineDetails()
-                                        pendingExportId = summary.routine.id
-                                        viewModel.loadRoutineDetails(summary.routine.id)
-                                    },
-                                    onArchive = { viewModel.archiveRoutine(summary.routine) },
-                                    onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
-                                    onDelete = { viewModel.deleteRoutine(summary.routine) }
-                                )
-                            }
-                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                items(visibleRoutines.chunked(2)) { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        row.forEach { summary ->
+                            RoutineCard(
+                                summary = summary,
+                                modifier = Modifier.weight(1f),
+                                isWorkoutActive = isWorkoutActive,
+                                onCardClick = {
+                                    selectedRoutine = summary
+                                    viewModel.loadRoutineDetails(summary.routine.id)
+                                },
+                                onEdit = { onEditRoutine(summary.routine.id) },
+                                onRename = { newName -> viewModel.renameRoutine(summary.routine, newName) },
+                                onDuplicate = { viewModel.duplicateRoutine(summary.routine) },
+                                onExpress = { viewModel.createExpressRoutine(summary.routine) },
+                                onExportText = {
+                                    viewModel.clearRoutineDetails()
+                                    pendingExportId = summary.routine.id
+                                    viewModel.loadRoutineDetails(summary.routine.id)
+                                },
+                                onArchive = { viewModel.archiveRoutine(summary.routine) },
+                                onUnarchive = { viewModel.unarchiveRoutine(summary.routine) },
+                                onDelete = { viewModel.deleteRoutine(summary.routine) }
+                            )
                         }
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }

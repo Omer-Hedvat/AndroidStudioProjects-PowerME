@@ -3,9 +3,11 @@ package com.powerme.app.ui.settings
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.database.GymProfile
 import com.powerme.app.health.HealthConnectManager
@@ -75,7 +77,11 @@ data class SettingsUiState(
     val bodyMeasurementsFromHC: Boolean = false,
     val isSyncingFromHC: Boolean = false,
     val hcSyncError: String? = null,
-    val hcPermissionsMissing: Boolean = false
+    val hcPermissionsMissing: Boolean = false,
+    // Cloud Sync
+    val isSignedIn: Boolean = false,
+    val isRestoringFromCloud: Boolean = false,
+    val cloudRestoreMessage: String? = null
 )
 
 @HiltViewModel
@@ -89,6 +95,8 @@ class SettingsViewModel @Inject constructor(
     private val modelRouter: ModelRouter,
     private val healthConnectManager: HealthConnectManager,
     private val userSessionManager: UserSessionManager,
+    private val firestoreSyncManager: FirestoreSyncManager,
+    private val auth: FirebaseAuth,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -102,6 +110,7 @@ class SettingsViewModel @Inject constructor(
         loadAppSettings()
         observeMetricLogs()
         loadUserHeight()
+        _uiState.update { it.copy(isSignedIn = auth.currentUser != null) }
     }
 
     private fun loadUserHeight() {
@@ -390,6 +399,22 @@ class SettingsViewModel @Inject constructor(
 
     fun showDeleteAccountDialog() { _uiState.update { it.copy(showDeleteAccountDialog = true) } }
     fun dismissDeleteAccountDialog() { _uiState.update { it.copy(showDeleteAccountDialog = false) } }
+
+    fun restoreFromCloud() {
+        if (auth.currentUser == null) {
+            _uiState.update { it.copy(cloudRestoreMessage = "Sign in to restore from cloud") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRestoringFromCloud = true, cloudRestoreMessage = null) }
+            val result = firestoreSyncManager.pullFromCloud()
+            _uiState.update { it.copy(isRestoringFromCloud = false, cloudRestoreMessage = result.toUserMessage()) }
+        }
+    }
+
+    fun dismissCloudRestoreMessage() {
+        _uiState.update { it.copy(cloudRestoreMessage = null) }
+    }
 
     fun deleteAccount(onComplete: () -> Unit) {
         viewModelScope.launch {

@@ -5,6 +5,7 @@ import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.Routine
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.RoutineExerciseDao
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.floor
@@ -18,17 +19,20 @@ class RoutineRepository @Inject constructor(
     /**
      * Deep-copies a routine and all its exercises atomically.
      * Saved name: "[Original Name] (Copy)".
-     * Returns the new routine's id, or -1 if the source routine was not found.
+     * Returns the new routine's id, or "" if the source routine was not found.
      */
-    suspend fun duplicateRoutine(routineId: Long): Long {
+    suspend fun duplicateRoutine(routineId: String): String {
         return database.withTransaction {
-            val original = routineDao.getRoutineById(routineId) ?: return@withTransaction -1L
-            val newRoutineId = routineDao.insertRoutine(
-                Routine(name = "${original.name} (Copy)", isCustom = original.isCustom, lastPerformed = null)
+            val original = routineDao.getRoutineById(routineId) ?: return@withTransaction ""
+            val now = System.currentTimeMillis()
+            val newRoutineId = UUID.randomUUID().toString()
+            routineDao.insertRoutine(
+                Routine(id = newRoutineId, name = "${original.name} (Copy)",
+                    isCustom = original.isCustom, lastPerformed = null, updatedAt = now)
             )
             val exercises = routineExerciseDao.getForRoutine(routineId)
             routineExerciseDao.insertAll(
-                exercises.map { it.copy(id = 0, routineId = newRoutineId) }
+                exercises.map { it.copy(id = UUID.randomUUID().toString(), routineId = newRoutineId) }
             )
             newRoutineId
         }
@@ -40,22 +44,25 @@ class RoutineRepository @Inject constructor(
      *  2. Caps surviving exercises to a maximum of 2 sets each.
      *  3. Truncates setTypesJson/setWeightsJson/setRepsJson to the capped count.
      * Saved name: "[Original Name] - Express".
-     * Returns the new routine's id, or -1 if the source routine was not found.
+     * Returns the new routine's id, or "" if the source routine was not found.
      */
-    suspend fun createExpressRoutine(routineId: Long): Long {
+    suspend fun createExpressRoutine(routineId: String): String {
         return database.withTransaction {
-            val original = routineDao.getRoutineById(routineId) ?: return@withTransaction -1L
+            val original = routineDao.getRoutineById(routineId) ?: return@withTransaction ""
             val exercises = routineExerciseDao.getForRoutine(routineId).sortedBy { it.order }
             val dropCount = floor(exercises.size * 0.4).toInt()
             val surviving = exercises.dropLast(dropCount)
-            val newRoutineId = routineDao.insertRoutine(
-                Routine(name = "${original.name} - Express", isCustom = original.isCustom, lastPerformed = null)
+            val now = System.currentTimeMillis()
+            val newRoutineId = UUID.randomUUID().toString()
+            routineDao.insertRoutine(
+                Routine(id = newRoutineId, name = "${original.name} - Express",
+                    isCustom = original.isCustom, lastPerformed = null, updatedAt = now)
             )
             routineExerciseDao.insertAll(
                 surviving.mapIndexed { idx, re ->
                     val cappedSets = re.sets.coerceAtMost(2)
                     re.copy(
-                        id = 0,
+                        id = UUID.randomUUID().toString(),
                         routineId = newRoutineId,
                         order = idx,
                         sets = cappedSets,

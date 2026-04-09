@@ -14,7 +14,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.hilt.navigation.compose.hiltViewModel
 
 private val TRAINING_TARGET_OPTIONS = listOf(
@@ -195,7 +198,7 @@ fun ProfileSetupScreen(
                 if (uiState.isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
                 } else {
-                    Text("Enter the War Room", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Get Started", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
 
@@ -213,24 +216,60 @@ private fun ProfileTextField(
     onImeAction: () -> Unit = {},
     keyboardType: androidx.compose.ui.text.input.KeyboardType = androidx.compose.ui.text.input.KeyboardType.Text
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
-        modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
-        keyboardActions = KeyboardActions(
-            onNext = { onImeAction() },
-            onDone = { onImeAction() }
-        ),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-            cursorColor = MaterialTheme.colorScheme.primary
+    val isNumeric = keyboardType != androidx.compose.ui.text.input.KeyboardType.Text
+    if (isNumeric) {
+        val tfv = remember { mutableStateOf(TextFieldValue(value)) }
+        LaunchedEffect(value) {
+            if (tfv.value.text != value) tfv.value = TextFieldValue(value)
+        }
+        OutlinedTextField(
+            value = tfv.value,
+            onValueChange = { newTfv ->
+                tfv.value = newTfv
+                onValueChange(newTfv.text)
+            },
+            label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { state ->
+                    if (state.isFocused) {
+                        val t = tfv.value.text
+                        tfv.value = tfv.value.copy(selection = TextRange(0, t.length))
+                    }
+                },
+            keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
+            keyboardActions = KeyboardActions(
+                onNext = { onImeAction() },
+                onDone = { onImeAction() }
+            ),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                cursorColor = MaterialTheme.colorScheme.primary
+            )
         )
-    )
+    } else {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
+            keyboardActions = KeyboardActions(
+                onNext = { onImeAction() },
+                onDone = { onImeAction() }
+            ),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                cursorColor = MaterialTheme.colorScheme.primary
+            )
+        )
+    }
 }
 
 @Composable

@@ -13,7 +13,7 @@ class GoalDocumentManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val prefs: SharedPreferences by lazy {
-        context.getSharedPreferences("war_room_goals", Context.MODE_PRIVATE)
+        context.getSharedPreferences("powerme_goals", Context.MODE_PRIVATE)
     }
     private val json = Json { ignoreUnknownKeys = true }
 

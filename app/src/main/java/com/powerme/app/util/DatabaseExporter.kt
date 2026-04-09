@@ -83,7 +83,7 @@ class DatabaseExporter(
         }
 
         // Export workout sets
-        database.workoutSetDao().getSetsForWorkout(0).let { flow ->
+        database.workoutSetDao().getSetsForWorkout("").let { flow ->
             // Get all sets by querying directly
             val allSets = mutableListOf<WorkoutSet>()
             // We'll need to query the database differently

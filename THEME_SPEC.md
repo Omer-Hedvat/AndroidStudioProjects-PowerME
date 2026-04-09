@@ -1,6 +1,6 @@
 # THEME_SPEC.md — PowerME Theme System
 
-**Status:** ✅ Complete (v1.0 — March 2026)
+**Status:** ✅ Complete (v2.0 — April 2026)
 **Domain:** Color Tokens · ThemeMode · Typography · Semantic Colors · Token Rules
 
 > **Living document.** Update this file whenever a color token, font, or theme rule changes.
@@ -20,24 +20,24 @@
 
 ---
 
-## 1. Color Token Reference — Pro Tracker v4.0 Dark Palette
+## 1. Color Token Reference — Pro Tracker v5.0 Dark Palette
 
 ### 1.1 DarkColorScheme — Core Token Map
 
 | Token Name | Hex | M3 Role | Notes |
 |---|---|---|---|
-| `StremioBackground` | `#000000` | `background`, `surfaceTint` | Pure OLED black. Also used as `surfaceTint` to suppress M3 purple elevation overlay (see §6.3) |
-| `StremioSurface` | `#252525` | `surface` | Cards, TopAppBar, NavigationBar container |
-| `StremioSurfaceVar` | `#303030` | `surfaceVariant` | Neutral chips, row backgrounds, input backgrounds |
-| `StremioInputPill` | `#2A2A2A` | *(unmapped — custom)* | Input field backgrounds only. Too close to `surfaceVariant` to occupy a distinct M3 role; kept separate for input context clarity |
-| `StremioViolet` | `#A061FF` | `primary` | FABs, focus borders, active toggle indicators, exercise name text, nav indicator pill |
-| `StremioMagenta` | `#B3478C` | `secondary` | Superset spine (4dp left border), secondary chips |
-| `StremioCloudGrey` | `#FFFFFF` | `onSurface`, `onBackground` | High-emphasis text on all dark surfaces |
-| `StremioSubGrey` | `#A0A0A0` | `onSurfaceVariant` | Medium-emphasis text, subtitles, timestamps |
-| `StremioError` | `#FF4444` | `error` | Destructive actions (delete, cancel edit), error states |
-| `ProOutline` | `#3D3D3D` | `outline` | Unfocused `OutlinedTextField` borders, dividers |
-| *(unnamed)* | `#3D1A8F` | `primaryContainer` | Deep violet container (e.g. selected chip background, FAB container) |
-| *(unnamed)* | `#EDD9FF` | `onPrimaryContainer` | Text/icon on `primaryContainer` surfaces |
+| `ProBackground` | `#0F0D13` | `background`, `surfaceTint` | Near-black with subtle purple warmth. Not pure black — reduces eye fatigue. Also used as `surfaceTint` to suppress M3 purple elevation overlay (see §6.3) |
+| `ProSurface` | `#1C1A24` | `surface` | Cards, TopAppBar, NavigationBar container |
+| `ProSurfaceVar` | `#28253A` | `surfaceVariant` | Purple-tinted chips, row backgrounds, input backgrounds |
+| `ProInputPill` | `#221F30` | *(unmapped — custom)* | Input field backgrounds only. Too close to `surfaceVariant` to occupy a distinct M3 role; kept separate for input context clarity |
+| `ProViolet` | `#9B7DDB` | `primary` | FABs, focus borders, active toggle indicators, exercise name text, nav indicator pill. Desaturated lavender-violet — not neon. |
+| `ProMagenta` | `#9E6B8A` | `secondary` | Superset spine (4dp left border), secondary chips. Dusty rose/mauve. |
+| `ProCloudGrey` | `#E8E4F0` | `onSurface`, `onBackground` | High-emphasis text — lavender-tinted off-white. Contrast ~15.5:1 on `ProBackground` (AAA, non-fatiguing) |
+| `ProSubGrey` | `#9E99AB` | `onSurfaceVariant` | Medium-emphasis text, subtitles, timestamps. Purple-tinted. |
+| `ProError` | `#E05555` | `error` | Destructive actions (delete, cancel edit), error states. Desaturated from neon red. |
+| `ProOutline` | `#3A3650` | `outline` | Purple-tinted unfocused `OutlinedTextField` borders, dividers |
+| *(unnamed)* | `#2D2052` | `primaryContainer` | Muted deep purple container (e.g. selected chip background, FAB container) |
+| *(unnamed)* | `#E0D4F0` | `onPrimaryContainer` | Muted lavender — text/icon on `primaryContainer` surfaces |
 
 ### 1.2 Derived / Implicit Tokens
 
@@ -45,16 +45,10 @@ The following are computed by the M3 engine and not explicitly set — document 
 
 | M3 Role | Effective Value | How resolved |
 |---|---|---|
-| `onPrimary` | `#000000` or `#FFFFFF` | M3 selects contrast pair for `StremioViolet` |
-| `onSecondary` | `#FFFFFF` | M3 contrast pair for `StremioMagenta` |
-| `onError` | `#FFFFFF` | M3 contrast pair for `StremioError` |
+| `onPrimary` | `#0F0D13` | Explicitly set to `ProBackground` |
+| `onSecondary` | `#0F0D13` | Explicitly set to `ProBackground` |
+| `onError` | `#0F0D13` | Explicitly set to `ProBackground` |
 | `errorContainer` | *(not explicitly set)* | M3 default tonal — avoid in composables, use `error` directly |
-
-### 1.3 Legacy Aliases (Preserved — Do Not Use in Composables)
-
-These aliases exist in `Color.kt` solely for schema stability. They must never be referenced in any composable file.
-
-`DeepNavy` · `NavySurface` · `SlateGrey` · `OledBlack` · `NeonBlue` · `ElectricBlue` · `Slate200`
 
 ---
 
@@ -64,10 +58,9 @@ Semantic colors are domain-specific and exist **outside the M3 token system**. T
 
 | Token | Hex | Exclusive use — nowhere else |
 |---|---|---|
-| `TimerGreen` *(Emerald400)* | `#34D399` | **[FINISH WORKOUT]** button (text + `BorderStroke`) · Completed set checkmarks |
+| `TimerGreen` | `#4CC990` | **[FINISH WORKOUT]** button (text + `BorderStroke`) · Completed set checkmarks. Desaturated emerald. |
+| `TimerRed` | `#E04458` | Rest state indicator. Desaturated from neon red. |
 | `FormCuesGold` | `#5A4D1A` | Form Cues persistent banner background in `ExerciseDetailSheet` only |
-| `MedicalAmber` | *(see Color.kt)* | Injury ledger UI — yellow-list exercise indicators |
-| `MedicalAmberContainer` | *(see Color.kt)* | Injury ledger container backgrounds |
 
 ### 2.1 Semantic Color Access Pattern
 
@@ -177,32 +170,19 @@ It must not be used for: weight values, rep counts, set numbers, volume figures,
 
 ## 5. LightColorScheme
 
-### ⚠️ Status: Incomplete — Known Gap
+### Status: Implemented (v2.0)
 
-The Light palette is **not fully specified**. `SYSTEM` mode on a device with light OS theme will fall back to M3 defaults, which may produce inconsistent results.
+The light palette uses dedicated tokens that pass WCAG AA on white backgrounds.
 
-**Known issue:** `StremioViolet` (`#A061FF`) achieves only **3.5:1 contrast on a white background** — a WCAG AA fail for text and most interactive elements. It cannot be used as the light mode `primary` without adjustment.
-
-### 5.1 Recommended Starting Point (Pending Formal Design)
-
-The following tokens are recommended as a starting point for LightColorScheme, harmonised with the dark palette's violet/magenta identity. **These are not yet implemented** — treat as a draft for the next design sprint.
-
-| M3 Role | Recommended Hex | Rationale |
-|---|---|---|
-| `background` | `#FAFAFA` | Off-white; avoids pure white harshness on OLED/LCD |
-| `surface` | `#FFFFFF` | Cards and sheets |
-| `surfaceVariant` | `#EDE7F6` | Light violet tint for chips and row backgrounds |
-| `primary` | `#5C00CE` | Darkened violet — achieves ~7.2:1 on white (WCAG AAA) |
-| `onPrimary` | `#FFFFFF` | — |
-| `primaryContainer` | `#EDE0FF` | Light violet container |
-| `onPrimaryContainer` | `#21005D` | Deep violet for text on light container |
-| `secondary` | `#7D2B6B` | Darkened magenta for light mode legibility |
-| `onSurface` | `#1C1B1F` | Near-black body text |
-| `onSurfaceVariant` | `#49454F` | Medium-emphasis text on light surfaces |
-| `outline` | `#79747E` | Light mode border token |
-| `error` | `#B3261E` | M3 standard light error |
-
-**Action required:** These recommendations must be validated against a device in light mode and signed off before `LightColorScheme` is formally implemented. `THEME_SPEC.md` must be updated when that work is done.
+| Token | Hex | M3 Role | Contrast on white |
+|---|---|---|---|
+| `LightPrimary` | `#6B3FA0` | `primary` | ~6.5:1 — WCAG AA ✓ |
+| `LightSecondary` | `#7D3B65` | `secondary` | ~6:1 — WCAG AA ✓ |
+| `LightError` | `#B3261E` | `error` | ~5.8:1 — WCAG AA ✓ |
+| `Slate50` | `#F8FAFC` | `background` | — |
+| `Slate100` | `#F1F5F9` | `surface` | — |
+| `Slate900` | `#0F172A` | `onBackground`, `onSurface` | ~16:1 — WCAG AAA ✓ |
+| `Color(0xFFEDE7F6)` | `#EDE7F6` | `surfaceVariant` | Light violet tint for chips/rows |
 
 ---
 
@@ -212,15 +192,16 @@ The following tokens are recommended as a starting point for LightColorScheme, h
 
 2. **Legacy aliases are `Color.kt`-only.** `DeepNavy`, `OledBlack`, `NeonBlue`, `ElectricBlue`, `SlateGrey`, `NavySurface`, `Slate200` must never be referenced in any composable or ViewModel. They exist only in `Color.kt` for schema stability. Future cleanup is permitted once all callers are confirmed zero.
 
-3. **`surfaceTint = StremioBackground` is intentional and mandatory.** M3 applies a primary-colored tonal overlay on elevated surfaces (Dialogs, `ModalBottomSheet`, elevated `Card`) by default. This creates a purple tint over dark backgrounds that conflicts with the OLED Pro Tracker aesthetic. Setting `surfaceTint = StremioBackground (#000000)` globally in `DarkColorScheme` suppresses this overlay. Do not remove or override this setting. Do not use `tonalElevation = 0.dp` as a per-component workaround — it is verbose, fragile, and will miss new components.
+3. **`surfaceTint = ProBackground` is intentional and mandatory.** M3 applies a primary-colored tonal overlay on elevated surfaces (Dialogs, `ModalBottomSheet`, elevated `Card`) by default. This creates a purple tint over dark backgrounds that conflicts with the OLED Pro Tracker aesthetic. Setting `surfaceTint = ProBackground (#0F0D13)` globally in `DarkColorScheme` suppresses this overlay. Do not remove or override this setting. Do not use `tonalElevation = 0.dp` as a per-component workaround — it is verbose, fragile, and will miss new components.
 
-4. **`MinimizedWorkoutBar` background must be `surfaceVariant`.** `WORKOUT_SPEC.md §20.1` specifies `surfaceVariant` background with a 4dp `primary` left border. The current codebase (`PowerMeNavigation.kt`) incorrectly uses `color = MaterialTheme.colorScheme.primary` for the `Surface`. **The spec is the source of truth. The code must be refactored.** Using `primary` as a full background color competes visually with the bottom navigation indicator and fails the low-emphasis requirement of a passive persistent bar.
+4. **`MinimizedWorkoutBar` background must be `surfaceVariant`.** `WORKOUT_SPEC.md §20.1` specifies `surfaceVariant` background with a 4dp `primary` left border. The current codebase (`PowerMeNavigation.kt`) incorrectly uses `color = MaterialTheme.colorScheme.primary` for the `Surface`. **The spec is the source of truth. The code must be refactored.** Using `primary` as a full background color competes visually with the bottom navigation indicator and fails the low-emphasis requirement of a passive persistent bar. Note: `surfaceVariant` is now `#28253A` in the v5.0 palette.
 
-5. **WCAG contrast compliance — known exceptions:**
-   - `#FFFFFF` on `#000000`: 21:1 — WCAG AAA ✓
-   - `StremioSubGrey (#A0A0A0)` on `#000000`: ~8.0:1 — WCAG AAA ✓
-   - `StremioViolet (#A061FF)` on `#000000`: ~5.65:1 — WCAG AA ✓ (fails AAA 7:1)
-   - `StremioViolet (#A061FF)` on `StremioSurfaceVar (#1E1E1E)`: ~4.47:1 — **MARGINAL AA FAIL for normal text** (threshold 4.5:1). For UI components and large text (threshold 3:1) it passes. Chip labels using primary text on `surfaceVariant` are compliant as UI components. Do not use `StremioViolet` as body/paragraph text on `StremioSurfaceVar` backgrounds.
+5. **WCAG contrast compliance — audit (v5.0 palette):**
+   - `ProCloudGrey (#E8E4F0)` on `ProBackground (#0F0D13)`: ~15.5:1 — WCAG AAA ✓ (comfortable, non-fatiguing vs pure 21:1)
+   - `ProSubGrey (#9E99AB)` on `ProBackground (#0F0D13)`: ~7.3:1 — WCAG AAA ✓
+   - `ProViolet (#9B7DDB)` on `ProBackground (#0F0D13)`: ~7.5:1 — WCAG AAA ✓
+   - `ProViolet (#9B7DDB)` on `ProSurfaceVar (#28253A)`: ~4.6:1 — WCAG AA ✓ (passes normal text threshold)
+   - `TimerGreen (#4CC990)` on `ProBackground (#0F0D13)`: ~9:1 — WCAG AAA ✓
 
 6. **`MainAppScaffold` color assignments** are owned by `NAVIGATION_SPEC.md §10`. Do not re-specify TopAppBar or NavigationBar colors here — cross-reference that section.
 

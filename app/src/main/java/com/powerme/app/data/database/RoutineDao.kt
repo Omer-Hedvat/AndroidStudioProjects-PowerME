@@ -4,7 +4,7 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 data class RoutineExerciseNameRow(
-    val id: Long,
+    val id: String,
     val name: String,
     val lastPerformed: Long?,
     val isCustom: Boolean,
@@ -18,10 +18,10 @@ interface RoutineDao {
     fun getAllRoutines(): Flow<List<Routine>>
 
     @Query("SELECT * FROM routines WHERE id = :routineId")
-    suspend fun getRoutineById(routineId: Long): Routine?
+    suspend fun getRoutineById(routineId: String): Routine?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertRoutine(routine: Routine): Long
+    suspend fun insertRoutine(routine: Routine)  // returns Unit — caller pre-generates UUID
 
     @Update
     suspend fun updateRoutine(routine: Routine)
@@ -30,10 +30,10 @@ interface RoutineDao {
     suspend fun deleteRoutine(routine: Routine)
 
     @Query("UPDATE routines SET lastPerformed = :timestamp WHERE id = :routineId")
-    suspend fun updateLastPerformed(routineId: Long, timestamp: Long)
+    suspend fun updateLastPerformed(routineId: String, timestamp: Long)
 
     @Query("DELETE FROM routines WHERE id = :routineId")
-    suspend fun deleteRoutineById(routineId: Long)
+    suspend fun deleteRoutineById(routineId: String)
 
     @Query("""
         SELECT r.id, r.name, r.lastPerformed, r.isCustom, r.isArchived,

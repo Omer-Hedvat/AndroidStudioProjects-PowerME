@@ -26,7 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -237,10 +240,10 @@ private fun ExerciseDetailCard(
     group: ExerciseGroup,
     isExpanded: Boolean,
     isEditMode: Boolean = false,
-    pendingEdits: Map<Long, PendingEdit> = emptyMap(),
+    pendingEdits: Map<String, PendingEdit> = emptyMap(),
     onToggleExpansion: () -> Unit,
-    onWeightChanged: (Long, String) -> Unit = { _, _ -> },
-    onRepsChanged: (Long, String) -> Unit = { _, _ -> }
+    onWeightChanged: (String, String) -> Unit = { _, _ -> },
+    onRepsChanged: (String, String) -> Unit = { _, _ -> }
 ) {
     val rotation by animateFloatAsState(if (isExpanded) 180f else 0f, label = "rotation")
 
@@ -528,9 +531,16 @@ private fun BasicEditField(
     onValueChange: (String) -> Unit,
     keyboardType: KeyboardType
 ) {
+    val tfv = remember { mutableStateOf(TextFieldValue(value)) }
+    LaunchedEffect(value) {
+        if (tfv.value.text != value) tfv.value = TextFieldValue(value)
+    }
     OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = tfv.value,
+        onValueChange = { newTfv ->
+            tfv.value = newTfv
+            onValueChange(newTfv.text)
+        },
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(
             textAlign = TextAlign.Center,
@@ -543,7 +553,14 @@ private fun BasicEditField(
             focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
             unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent
         ),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { state ->
+                if (state.isFocused) {
+                    val t = tfv.value.text
+                    tfv.value = tfv.value.copy(selection = TextRange(0, t.length))
+                }
+            }
     )
 }
 

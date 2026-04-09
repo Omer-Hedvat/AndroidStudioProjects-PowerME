@@ -15,7 +15,11 @@ data class Exercise(
     val equipmentType: String,
     val instructionsUrl: String? = null,
     val committeeNotes: String? = null,
-    val restDurationSeconds: Int = 90, // Default 90s for isolation
+    val restDurationSeconds: Int = 90, // Default 90s for work/normal sets
+    @ColumnInfo(defaultValue = "30")
+    val warmupRestSeconds: Int = 30,   // Rest after warmup sets (v32)
+    @ColumnInfo(defaultValue = "0")
+    val dropSetRestSeconds: Int = 0,   // Rest after drop sets — 0 = no rest (v32)
     val exerciseType: ExerciseType = ExerciseType.STRENGTH,
     val setupNotes: String? = null, // Persistent form cues
     val barType: BarType = BarType.STANDARD,

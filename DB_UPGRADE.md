@@ -1,5 +1,33 @@
 # PowerME Database Upgrade Log
 
+## v31 — UUID String Primary Keys + Soft Delete + Firestore Sync
+
+**Migration:** `MIGRATION_30_31`
+
+### Changes
+
+**Entity PK type changes (Long → String)**
+- `Workout.id: String` (UUID), `routineId: String?`, `+updatedAt: Long`, `+isArchived: Boolean`
+- `WorkoutSet.id: String` (UUID), `workoutId: String`
+- `Routine.id: String` (UUID), `+updatedAt: Long` (was already present)
+- `RoutineExercise.id: String` (UUID), `routineId: String`
+- `WarmupLog.workoutId: String?` (FK side-effect only; PK stays INTEGER AUTOINCREMENT)
+
+**Migration strategy:** create-new-table → `INSERT … SELECT CAST(id AS TEXT)` → drop old → rename. Existing numeric IDs become `"1"`, `"2"`, etc. New records from the app get proper UUIDs.
+
+**`@Insert` methods now return `Unit`** — callers pre-generate UUIDs before inserting.
+
+**Added `AND isArchived = 0` filters** to `getAllCompletedWorkoutsWithExerciseNames()`, `getActiveWorkout()`, and `getAllWorkouts()` DAO queries.
+
+**New file: `data/sync/FirestoreSyncManager.kt`**
+- `pushWorkout(workoutId)` / `pushRoutine(routineId)` — fire-and-forget (no `.await()`); Firestore SDK queues offline
+- `pullFromCloud()` — LWW conflict resolution on `updatedAt`; handles `isArchived=true` tombstones
+- Firestore paths: `users/{uid}/workouts/{uuid}` (with embedded sets), `users/{uid}/routines/{uuid}` (with embedded exercises)
+
+**Soft deletes:** deleting a workout/routine sets `isArchived=true` + `updatedAt=now` + pushes to Firestore instead of hard-deleting.
+
+---
+
 ## v30 — Session Timestamps
 
 **Migration:** `MIGRATION_29_30`

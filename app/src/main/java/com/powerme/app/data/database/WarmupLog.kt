@@ -20,7 +20,7 @@ import androidx.room.PrimaryKey
 data class WarmupLog(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val workoutId: Long? = null,
+    val workoutId: String? = null,         // FK to workouts.id (now String) — v31
     val exerciseName: String,
     val timestamp: Long,
     val targetJoint: TargetJoint,

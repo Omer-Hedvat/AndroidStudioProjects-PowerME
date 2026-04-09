@@ -8,8 +8,8 @@
 - Language: Kotlin 2.0.21
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
-- Database: Room (v30, 16 entities, 14 DAOs)
-- AI: Google Gemini (action parsing + exercise enrichment; War Room chat permanently removed in v2)
+- Database: Room (v31, 16 entities, 14 DAOs)
+- AI: Google Gemini (action parsing + exercise enrichment)
 - Auth/Backend: Firebase Auth + Firestore
 - Health: Health Connect API (`androidx.health.connect:connect-client:1.1.0-rc01`)
 - Charts: Vico (Material 3)
@@ -27,7 +27,7 @@
 - Nav tab order: Workouts / History / Exercises / Tools / Trends (Workouts first)
 - Exercise library (150+ exercises, YouTube demos via native Intent, muscle groups, equipment types)
 - Multi-select muscle group filter + equipment filter chips in Exercises tab (AND-combined filtering). Full spec in `EXERCISES_SPEC.md §4`.
-- Gemini action parsing (create routines, update weight, switch gym, update injuries) via `ActionParser` + `ActionExecutor`; War Room chat UI permanently removed in v2
+- Gemini action parsing (create routines, update weight, switch gym, update injuries) via `ActionParser` + `ActionExecutor`
 - Gemini model list auto-refreshes every 24h on app start; GymSetupViewModel defers AI buttons until models loaded
 - Firebase Auth with email verification + full onboarding flow
 - User profile (age, height, weight, gender, goals, chronotype, occupation)
@@ -44,14 +44,14 @@
 - StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository, BoazPerformanceAnalyzer (V2 stub). Full spec in `HISTORY_ANALYTICS_SPEC.md`.
 - ExercisesScreen: tap opens ExerciseDetailSheet (ModalBottomSheet) with Form Cues (muted gold banner) + YouTube TextButton. Full spec in `EXERCISES_SPEC.md §5–§6`.
 
-**Color System:** Pro Tracker v4.0 palette. Current dark surface values: `StremioBackground=#000000`, `StremioSurface=#252525`, `StremioSurfaceVar=#303030`, `StremioInputPill=#2A2A2A`. Full token reference, ThemeMode system, typography, semantic colors, and token usage rules in `THEME_SPEC.md`.
+**Color System:** Pro Tracker v5.0 palette. Dark tokens: `ProBackground=#0F0D13`, `ProSurface=#1C1A24`, `ProSurfaceVar=#28253A`, `ProInputPill=#221F30`, `ProViolet=#9B7DDB` (primary), `ProMagenta=#9E6B8A` (secondary), `ProCloudGrey=#E8E4F0` (text), `ProError=#E05555`. Semantic: `TimerGreen=#4CC990`, `TimerRed=#E04458`, `FormCuesGold=#5A4D1A`. Full token reference, ThemeMode system, typography, semantic colors, and token usage rules in `THEME_SPEC.md`.
 
 **Navigation Structure:**
 - Auth flow: Welcome → Profile Setup
 - Main scaffold: 5 bottom tabs (**Exercises**, **History**, **Workouts**, **Clocks**, **Trends**)
 - Overlays: Settings, Gym Setup → Gym Inventory, Active Workout
 
-**Database:** Room v30 — migrations covered from v6 → v30. Seeded on startup with 150+ master exercises.
+**Database:** Room v32 — migrations covered from v6 → v32. Seeded on startup with 150+ master exercises.
 - v16 adds `supersetGroupId TEXT` column to `workout_sets`
 - v17 adds `stickyNote TEXT` column to `routine_exercise_cross_ref`
 - v18 data-only migration: clears leaked profile metrics from `exercises.setupNotes` (SurgicalValidator.MIGRATION_SQL)
@@ -68,6 +68,8 @@
 - v28 Set Type Persistence: MIGRATION_27_28 — adds `setTypesJson TEXT NOT NULL DEFAULT ''` to `routine_exercises`; stores per-set types as comma-separated SetType names (e.g. `"NORMAL,WARMUP,NORMAL"`); `startEditMode()` deserializes via `String.toEditModeSetTypes()`; `saveRoutineEdits()` serializes all set types sorted by `setOrder`
 - v29 Per-Set Weight/Reps Persistence: MIGRATION_28_29 — adds `setWeightsJson TEXT NOT NULL DEFAULT ''` and `setRepsJson TEXT NOT NULL DEFAULT ''` to `routine_exercises`; stores per-set weights and reps as comma-separated strings (e.g. `"80,85,90"`, `"10,8,6"`); `startEditMode()` deserializes via `String.toEditModeValues()`; `saveRoutineEdits()` serializes sorted by `setOrder`; `defaultWeight`+`reps` kept in sync with set 1 for Diff Engine compatibility
 - v30 Workout Timestamps: MIGRATION_29_30 — adds `startTimeMs INTEGER NOT NULL DEFAULT 0` and `endTimeMs INTEGER NOT NULL DEFAULT 0` to `workouts`; `WorkoutRepository.createEmptyWorkout()` + `instantiateWorkoutFromRoutine()` set `startTimeMs = System.currentTimeMillis()`; `WorkoutViewModel.finishWorkout()` sets `endTimeMs`; `HistoryCard` uses `durationMsComputed` (precise ms diff or fallback to `durationSeconds`)
+- v31 UUID String PKs + Firestore Sync: MIGRATION_30_31 — Workout/WorkoutSet/Routine/RoutineExercise PKs changed from Long→String (UUID); `WarmupLog.workoutId` FK also becomes String; create-copy-drop-rename migration preserves existing rows with string-cast IDs; `+updatedAt: Long` and `+isArchived: Boolean` on Workout/Routine; `AND isArchived = 0` filters in all list queries; new `data/sync/FirestoreSyncManager.kt` with fire-and-forget push (no `.await()`) and LWW pull; `finishWorkout()` + `saveRoutineEdits()` + `archiveRoutine()` + `deleteRoutine()` call push; Settings screen gains "Restore from Cloud" card with spinner + auth guard; soft deletes: `isArchived=true` instead of hard delete for workouts and routines
+- v32 Per-Type Rest Timers: MIGRATION_31_32 — adds `warmupRestSeconds INTEGER NOT NULL DEFAULT 30` and `dropSetRestSeconds INTEGER NOT NULL DEFAULT 0` to `exercises`; `computeRestDuration()` now reads from exercise entity instead of hardcoded values; new `updateExerciseRestTimers(work, warmup, drop)` ViewModel function + `ExerciseDao.updateRestTimers()`; kebab "Set Rest Timers" shows `UpdateRestTimersDialog` with three editable rows (Work set / Warm up / Drop set)
 - ExercisesScreen filter chips now DB-driven (SELECT DISTINCT muscleGroup/equipmentType via ExerciseDao + ExerciseRepository + ExercisesViewModel.muscleGroupFilters/equipmentFilters StateFlows); hardcoded MUSCLE_GROUPS/EQUIPMENT_FILTERS constants removed
 - Canonical muscle groups (8): Legs, Back, Core, Chest, Shoulders, Full Body, Arms, Cardio (MuscleGroups.kt deleted — constants were unused; DB queries provide filter data)
 
@@ -76,7 +78,7 @@
 
 **Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
 
-**Unit Test Coverage (src/test/, 12 files, ~210 tests total — all passing):**
+**Unit Test Coverage (src/test/, 12 files, 221 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -106,7 +108,6 @@ Read the relevant spec before touching files in that domain.
 | `THEME_SPEC.md` | ✅ Complete | Pro Tracker v4.0 palette (all tokens), DarkColorScheme, LightColorScheme (draft), ThemeMode system, typography (Barlow + BarlowCondensed + JetBrainsMono), semantic color contexts, WCAG contrast audit, token rules |
 | `TOOLS_SPEC.md` | ✅ Complete | Clocks tab — Stopwatch, Countdown, Tabata, EMOM timer modes, audio/haptic alerts, wake lock, input validation, phase state machine |
 | `HEALTH_CONNECT_SPEC.md` | 📋 Planned | Permission declaration, sync logic (sleep, HRV, RHR, steps, weight, body fat, height), dual-sink write pattern, anomaly detection |
-| `WAR_ROOM_ACTIONS_SPEC.md` | ⚠️ Archive only | Gemini action parsing, ActionBlock, ActionParser, ActionExecutor — stub in `archive/docs/`; no root-level spec yet |
 | `GYM_PROFILES_SPEC.md` | ⚠️ Archive only | Gym setup, equipment entry, dumbbell range slider, GymInventoryScreen — stub in `archive/docs/`; no root-level spec yet |
 | `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v30, schema changes |
 | `HANDOFF.md` | ✅ Session handoff | Phase 2 completion status, Steps E+F full spec, build/test commands, test patterns |
@@ -196,7 +197,7 @@ Fix `RoutineSyncType` diff engine in `WorkoutViewModel.finishWorkout()` / `Worko
 - Use `@TypeConverter` for complex types (lists, enums, custom objects stored as JSON).
 
 ### AI / Gemini (Action Parsing)
-- War Room chat UI was permanently removed in v2. The `ui/chat/` package retains only `UserContext.kt` (domain types).
+- The `ui/chat/` package contains only `UserContext.kt` (domain types used by ActionExecutor, WorkoutViewModel, StatePatchManager).
 - New action types go in the `ActionBlock` sealed class, `ActionParser`, and `ActionExecutor` — all three must stay in sync.
 - Keep system prompts focused. Do not bloat the context sent to Gemini.
 

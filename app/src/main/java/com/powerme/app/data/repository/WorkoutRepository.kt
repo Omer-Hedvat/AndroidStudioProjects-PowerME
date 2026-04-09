@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.powerme.app.data.database.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,9 +23,9 @@ private fun String.splitCsvTypes(count: Int): List<SetType> {
 }
 
 data class WorkoutBootstrap(
-    val workoutId: Long,
+    val workoutId: String,
     val ghostMap: Map<Long, List<WorkoutSet>>,
-    val workoutSets: List<WorkoutSet>   // carries DB-assigned IDs
+    val workoutSets: List<WorkoutSet>   // carries pre-generated UUID IDs
 )
 
 @Singleton
@@ -42,12 +43,12 @@ class WorkoutRepository @Inject constructor(
         return workoutDao.getAllCompletedWorkoutsWithExerciseNames()
     }
 
-    suspend fun getWorkoutById(workoutId: Long): Workout? {
+    suspend fun getWorkoutById(workoutId: String): Workout? {
         return workoutDao.getWorkoutById(workoutId)
     }
 
-    suspend fun insertWorkout(workout: Workout): Long {
-        return workoutDao.insertWorkout(workout)
+    suspend fun insertWorkout(workout: Workout) {
+        workoutDao.insertWorkout(workout)
     }
 
     suspend fun updateWorkout(workout: Workout) {
@@ -58,16 +59,16 @@ class WorkoutRepository @Inject constructor(
         workoutDao.deleteWorkout(workout)
     }
 
-    fun getSetsForWorkout(workoutId: Long): Flow<List<WorkoutSet>> {
+    fun getSetsForWorkout(workoutId: String): Flow<List<WorkoutSet>> {
         return workoutSetDao.getSetsForWorkout(workoutId)
     }
 
-    fun getSetsForExerciseInWorkout(workoutId: Long, exerciseId: Long): Flow<List<WorkoutSet>> {
+    fun getSetsForExerciseInWorkout(workoutId: String, exerciseId: Long): Flow<List<WorkoutSet>> {
         return workoutSetDao.getSetsForExerciseInWorkout(workoutId, exerciseId)
     }
 
-    suspend fun insertSet(workoutSet: WorkoutSet): Long {
-        return workoutSetDao.insertSet(workoutSet)
+    suspend fun insertSet(workoutSet: WorkoutSet) {
+        workoutSetDao.insertSet(workoutSet)
     }
 
     suspend fun insertSets(workoutSets: List<WorkoutSet>) {
@@ -82,23 +83,28 @@ class WorkoutRepository @Inject constructor(
         workoutSetDao.deleteSet(workoutSet)
     }
 
-    suspend fun createEmptyWorkout(routineId: Long?): Long {
+    suspend fun createEmptyWorkout(routineId: String?): String {
         val now = System.currentTimeMillis()
-        return workoutDao.insertWorkout(
-            Workout(routineId = routineId, timestamp = now, durationSeconds = 0, totalVolume = 0.0, startTimeMs = now)
+        val id = UUID.randomUUID().toString()
+        workoutDao.insertWorkout(
+            Workout(id = id, routineId = routineId, timestamp = now,
+                durationSeconds = 0, totalVolume = 0.0, startTimeMs = now, updatedAt = now)
         )
+        return id
     }
 
-    suspend fun createWorkoutSet(ws: WorkoutSet): Long {
-        return workoutSetDao.insertSet(ws)
+    suspend fun createWorkoutSet(ws: WorkoutSet) {
+        workoutSetDao.insertSet(ws)
     }
 
-    suspend fun instantiateWorkoutFromRoutine(routineId: Long): WorkoutBootstrap {
+    suspend fun instantiateWorkoutFromRoutine(routineId: String): WorkoutBootstrap {
         return database.withTransaction {
             val now = System.currentTimeMillis()
             val routineExercises = routineExerciseDao.getForRoutine(routineId)
-            val workoutId = workoutDao.insertWorkout(
-                Workout(routineId = routineId, timestamp = now, durationSeconds = 0, totalVolume = 0.0, startTimeMs = now)
+            val workoutId = UUID.randomUUID().toString()
+            workoutDao.insertWorkout(
+                Workout(id = workoutId, routineId = routineId, timestamp = now,
+                    durationSeconds = 0, totalVolume = 0.0, startTimeMs = now, updatedAt = now)
             )
             val sets = routineExercises.flatMap { re ->
                 val storedWeights = re.setWeightsJson.splitCsv(re.sets)
@@ -106,6 +112,7 @@ class WorkoutRepository @Inject constructor(
                 val storedTypes = re.setTypesJson.splitCsvTypes(re.sets)
                 (1..re.sets).map { i ->
                     WorkoutSet(
+                        id = UUID.randomUUID().toString(),
                         workoutId = workoutId,
                         exerciseId = re.exerciseId,
                         setOrder = i,
@@ -118,7 +125,7 @@ class WorkoutRepository @Inject constructor(
                 }
             }
             workoutSetDao.insertSets(sets)
-            // Query back to obtain DB-assigned IDs for Iron Vault wiring
+            // Query back to obtain the full inserted set list for Iron Vault wiring
             val workoutSets = workoutSetDao.getSetsForWorkout(workoutId).first()
             val ghostMap = routineExercises.associate { re ->
                 re.exerciseId to workoutSetDao.getPreviousSessionSets(re.exerciseId, now)

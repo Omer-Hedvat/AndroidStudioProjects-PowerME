@@ -46,7 +46,7 @@ class HistoryViewModelTest {
         totalVolume: Double = 1000.0,
         hasPR: Int = 0
     ) = WorkoutExerciseNameRow(
-        id = id,
+        id = id.toString(),
         routineId = null,
         timestamp = timestamp,
         durationSeconds = durationSeconds,
@@ -96,7 +96,7 @@ class HistoryViewModelTest {
 
             val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
             assertEquals(1, summaries.size)
-            assertEquals(1L, summaries[0].id)
+            assertEquals("1", summaries[0].id)
             assertEquals("Push Day", summaries[0].routineName)
             assertEquals(5, summaries[0].setCount)
             assertEquals(3600, summaries[0].durationSeconds)
@@ -193,10 +193,10 @@ class HistoryViewModelTest {
             val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
             assertEquals(2, summaries.size)
             // id=1 has higher timestamp — must come first
-            assertEquals(1L, summaries[0].id)
+            assertEquals("1", summaries[0].id)
             assertEquals("Push Day", summaries[0].routineName)
             assertEquals(5, summaries[0].setCount)
-            assertEquals(2L, summaries[1].id)
+            assertEquals("2", summaries[1].id)
             assertEquals("Pull Day", summaries[1].routineName)
             assertEquals(3, summaries[1].setCount)
         }

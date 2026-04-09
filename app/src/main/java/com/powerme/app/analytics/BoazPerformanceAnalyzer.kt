@@ -28,7 +28,7 @@ class BoazPerformanceAnalyzer @Inject constructor(
      * Calculates TUT = endTime - startTime per set.
      * Results are returned for injection into the next Delta Summary.
      */
-    suspend fun compare(workoutId: Long, routineId: Long?): List<PlannedVsActual> {
+    suspend fun compare(workoutId: String, routineId: String?): List<PlannedVsActual> {
         return try {
             val sets = workoutRepository.getSetsForWorkout(workoutId).first()
 

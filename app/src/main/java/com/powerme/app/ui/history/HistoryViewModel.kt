@@ -16,8 +16,8 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 data class WorkoutWithExerciseSummary(
-    val id: Long,
-    val routineId: Long?,
+    val id: String,
+    val routineId: String?,
     val timestamp: Long,
     val durationSeconds: Int,
     val totalVolume: Double,

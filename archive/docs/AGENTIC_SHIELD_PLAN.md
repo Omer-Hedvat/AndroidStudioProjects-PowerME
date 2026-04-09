@@ -472,7 +472,7 @@ object RobustStatistics {
 ```
 User adjusts slider → ViewModel updates InjuryTracker
 → ExerciseRepository filters contraindicated exercises
-→ War Room receives updated context
+→ ExerciseRepository propagates updated context
 ```
 
 ---
@@ -531,11 +531,6 @@ User adjusts slider → ViewModel updates InjuryTracker
 - `/app/src/main/java/com/powerme/app/actions/ActionParser.kt` ✅
 - `/app/src/main/java/com/powerme/app/actions/ActionExecutor.kt` ⚠️ Needs completion
 - `/app/src/main/java/com/powerme/app/actions/ActionResult.kt` ✅
-
-### War Room (UPDATED)
-- `/app/src/main/java/com/powerme/app/ui/chat/ChatViewModel.kt` ✅
-- `/app/src/main/java/com/powerme/app/ui/chat/ContextInjector.kt` ✅
-- `/app/src/main/java/com/powerme/app/ui/chat/WarRoomChatScreen.kt` ✅
 
 ### Content & UI (NEW)
 - `/app/src/main/res/raw/master_exercises.json` - 150+ exercises

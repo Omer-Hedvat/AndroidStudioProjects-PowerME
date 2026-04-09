@@ -42,9 +42,9 @@ class ActionExecutorTest {
     private lateinit var mockRoutineExerciseDao: RoutineExerciseDao
 
     private val testSet = WorkoutSet(
-        id = 1,
-        workoutId = 100,
-        exerciseId = 1,
+        id = "set-1",
+        workoutId = "workout-100",
+        exerciseId = 1L,
         setOrder = 1,
         weight = 80.0,
         reps = 10,
@@ -93,7 +93,7 @@ class ActionExecutorTest {
     @Test
     fun testUpdateWeightLastSetSuccess() = runTest {
         // Arrange: Active workout with one set
-        val activeWorkoutId = 100L
+        val activeWorkoutId = "workout-100"
         val sets = listOf(testSet)
         whenever(mockWorkoutRepository.getSetsForWorkout(activeWorkoutId)).thenReturn(flowOf(sets))
 
@@ -114,9 +114,9 @@ class ActionExecutorTest {
     @Test
     fun testUpdateWeightSpecificSetSuccess() = runTest {
         // Arrange: Active workout with multiple sets
-        val activeWorkoutId = 100L
-        val set1 = testSet.copy(id = 1, setOrder = 1)
-        val set2 = testSet.copy(id = 2, setOrder = 2)
+        val activeWorkoutId = "workout-100"
+        val set1 = testSet.copy(id = "set-1", setOrder = 1)
+        val set2 = testSet.copy(id = "set-2", setOrder = 2)
         val sets = listOf(set1, set2)
         whenever(mockWorkoutRepository.getSetsForWorkout(activeWorkoutId)).thenReturn(flowOf(sets))
 
@@ -154,7 +154,7 @@ class ActionExecutorTest {
     @Test
     fun testUpdateWeightNoSets() = runTest {
         // Arrange: Active workout but no sets
-        val activeWorkoutId = 100L
+        val activeWorkoutId = "workout-100"
         whenever(mockWorkoutRepository.getSetsForWorkout(activeWorkoutId)).thenReturn(flowOf(emptyList()))
 
         val action = ActionBlock.UpdateWeight(weightKg = 92.0)
@@ -174,7 +174,7 @@ class ActionExecutorTest {
     @Test
     fun testUpdateWeightSetNotFound() = runTest {
         // Arrange: Active workout with 1 set, but trying to update set 3
-        val activeWorkoutId = 100L
+        val activeWorkoutId = "workout-100"
         val sets = listOf(testSet)
         whenever(mockWorkoutRepository.getSetsForWorkout(activeWorkoutId)).thenReturn(flowOf(sets))
 

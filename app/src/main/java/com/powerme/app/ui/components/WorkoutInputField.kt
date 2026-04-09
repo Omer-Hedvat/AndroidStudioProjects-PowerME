@@ -33,6 +33,31 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.MutableState
+
+/**
+ * Returns a [TextFieldValue] state that syncs with [text] and selects all on focus.
+ * Use with [selectAllOnFocus] modifier.
+ */
+@Composable
+fun rememberSelectAllTextFieldValue(text: String): MutableState<TextFieldValue> {
+    val tfv = remember { mutableStateOf(TextFieldValue(text)) }
+    LaunchedEffect(text) {
+        if (tfv.value.text != text) tfv.value = TextFieldValue(text)
+    }
+    return tfv
+}
+
+/**
+ * Modifier that selects all text in [tfv] when the field gains focus.
+ */
+fun androidx.compose.ui.Modifier.selectAllOnFocus(tfv: MutableState<TextFieldValue>): androidx.compose.ui.Modifier =
+    this.onFocusChanged { state ->
+        if (state.isFocused) {
+            val t = tfv.value.text
+            tfv.value = tfv.value.copy(selection = TextRange(0, t.length))
+        }
+    }
 
 @Composable
 fun WorkoutInputField(

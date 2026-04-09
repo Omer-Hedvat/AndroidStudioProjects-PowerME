@@ -4,8 +4,8 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 data class WorkoutExerciseNameRow(
-    val id: Long,
-    val routineId: Long?,
+    val id: String,
+    val routineId: String?,
     val timestamp: Long,
     val durationSeconds: Int,
     val totalVolume: Double,
@@ -21,17 +21,17 @@ data class WorkoutExerciseNameRow(
 
 @Dao
 interface WorkoutDao {
-    @Query("SELECT * FROM workouts ORDER BY timestamp DESC")
+    @Query("SELECT * FROM workouts WHERE isArchived = 0 ORDER BY timestamp DESC")
     fun getAllWorkouts(): Flow<List<Workout>>
 
     @Query("SELECT * FROM workouts WHERE id = :workoutId")
-    suspend fun getWorkoutById(workoutId: Long): Workout?
+    suspend fun getWorkoutById(workoutId: String): Workout?
 
-    @Query("SELECT * FROM workouts WHERE routineId = :routineId ORDER BY timestamp DESC")
-    fun getWorkoutsForRoutine(routineId: Long): Flow<List<Workout>>
+    @Query("SELECT * FROM workouts WHERE routineId = :routineId AND isArchived = 0 ORDER BY timestamp DESC")
+    fun getWorkoutsForRoutine(routineId: String): Flow<List<Workout>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertWorkout(workout: Workout): Long
+    suspend fun insertWorkout(workout: Workout)  // returns Unit — caller pre-generates UUID
 
     @Update
     suspend fun updateWorkout(workout: Workout)
@@ -39,11 +39,13 @@ interface WorkoutDao {
     @Delete
     suspend fun deleteWorkout(workout: Workout)
 
-    @Query("SELECT * FROM workouts WHERE isCompleted = 0 LIMIT 1")
+    @Query("SELECT * FROM workouts WHERE isCompleted = 0 AND isArchived = 0 LIMIT 1")
     suspend fun getActiveWorkout(): Workout?
 
+    // Retained for rehydration cleanup of abandoned (never-completed) sessions only.
+    // User-initiated deletes use soft delete (isArchived = true) instead.
     @Query("DELETE FROM workouts WHERE id = :workoutId")
-    suspend fun deleteWorkoutById(workoutId: Long)
+    suspend fun deleteWorkoutById(workoutId: String)
 
     @Query("""
         SELECT w.id, w.routineId, w.timestamp, w.durationSeconds, w.totalVolume,
@@ -62,6 +64,7 @@ interface WorkoutDao {
                              WHERE ws4.exerciseId = ws3.exerciseId
                                AND ws4.isCompleted = 1
                                AND w4.isCompleted = 1
+                               AND w4.isArchived = 0
                                AND w4.timestamp < w.timestamp
                          )
                          OR
@@ -72,6 +75,7 @@ interface WorkoutDao {
                              WHERE ws4.exerciseId = ws3.exerciseId
                                AND ws4.isCompleted = 1
                                AND w4.isCompleted = 1
+                               AND w4.isArchived = 0
                                AND w4.timestamp < w.timestamp
                          )
                      )
@@ -82,7 +86,7 @@ interface WorkoutDao {
         ) ws ON ws.workoutId = w.id
         LEFT JOIN exercises e ON ws.exerciseId = e.id
         LEFT JOIN routines r ON r.id = w.routineId
-        WHERE w.isCompleted = 1
+        WHERE w.isCompleted = 1 AND w.isArchived = 0
         ORDER BY w.timestamp DESC
     """)
     fun getAllCompletedWorkoutsWithExerciseNames(): Flow<List<WorkoutExerciseNameRow>>
