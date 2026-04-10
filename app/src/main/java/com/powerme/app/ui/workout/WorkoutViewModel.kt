@@ -868,7 +868,8 @@ class WorkoutViewModel @Inject constructor(
                     ?.filter { !it.isCompleted && it.setOrder > setOrder }
                     ?.minByOrNull { it.setOrder }
                 val override = if (completedSet != null && ex != null) {
-                    computeRestDuration(completedSet.setType, nextSet?.setType, ex.exercise)
+                    _workoutState.value.restTimeOverrides["${exerciseId}_${setOrder}"]
+                        ?: computeRestDuration(completedSet.setType, nextSet?.setType, ex.exercise)
                 } else null
                 startRestTimer(exerciseId, setOrder, override)
             }

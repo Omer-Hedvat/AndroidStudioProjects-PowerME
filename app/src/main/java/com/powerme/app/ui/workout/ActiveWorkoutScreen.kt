@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
@@ -1124,12 +1126,13 @@ private fun UpdateRestTimersDialog(
     onDismiss: () -> Unit,
     onConfirm: (workSeconds: Int, warmupSeconds: Int, dropSeconds: Int) -> Unit
 ) {
-    var workMinsTfv by remember { mutableStateOf(TextFieldValue((workSeconds / 60).toString())) }
-    var workSecsTfv by remember { mutableStateOf(TextFieldValue("%02d".format(workSeconds % 60))) }
-    var warmupMinsTfv by remember { mutableStateOf(TextFieldValue((warmupSeconds / 60).toString())) }
-    var warmupSecsTfv by remember { mutableStateOf(TextFieldValue("%02d".format(warmupSeconds % 60))) }
-    var dropMinsTfv by remember { mutableStateOf(TextFieldValue((dropSeconds / 60).toString())) }
-    var dropSecsTfv by remember { mutableStateOf(TextFieldValue("%02d".format(dropSeconds % 60))) }
+    val workMinsTfv = remember { mutableStateOf(TextFieldValue((workSeconds / 60).toString())) }
+    val workSecsTfv = remember { mutableStateOf(TextFieldValue("%02d".format(workSeconds % 60))) }
+    val warmupMinsTfv = remember { mutableStateOf(TextFieldValue((warmupSeconds / 60).toString())) }
+    val warmupSecsTfv = remember { mutableStateOf(TextFieldValue("%02d".format(warmupSeconds % 60))) }
+    val dropMinsTfv = remember { mutableStateOf(TextFieldValue((dropSeconds / 60).toString())) }
+    val dropSecsTfv = remember { mutableStateOf(TextFieldValue("%02d".format(dropSeconds % 60))) }
+    val scope = rememberCoroutineScope()
 
     fun toSeconds(mins: String, secs: String): Int {
         val m = mins.toIntOrNull()?.coerceAtLeast(0) ?: 0
@@ -1142,11 +1145,14 @@ private fun UpdateRestTimersDialog(
         return TextFieldValue(filtered, TextRange(filtered.length))
     }
 
-    val mmSsBoxModifier: (TextFieldValue, (TextFieldValue) -> Unit) -> Modifier = { tfv, onSet ->
+    val mmSsBoxModifier: (MutableState<TextFieldValue>) -> Modifier = { tfvState ->
         Modifier.onFocusChanged { state ->
             if (state.isFocused) {
-                val t = tfv.text
-                onSet(tfv.copy(selection = TextRange(0, t.length)))
+                scope.launch {
+                    delay(100)
+                    val t = tfvState.value.text
+                    tfvState.value = tfvState.value.copy(selection = TextRange(0, t.length))
+                }
             }
         }
     }
@@ -1163,16 +1169,11 @@ private fun UpdateRestTimersDialog(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 listOf(
-                    Triple("Work set",
-                        workMinsTfv to workSecsTfv,
-                        { m: TextFieldValue, s: TextFieldValue -> workMinsTfv = m; workSecsTfv = s }),
-                    Triple("Warm up",
-                        warmupMinsTfv to warmupSecsTfv,
-                        { m: TextFieldValue, s: TextFieldValue -> warmupMinsTfv = m; warmupSecsTfv = s }),
-                    Triple("Drop set",
-                        dropMinsTfv to dropSecsTfv,
-                        { m: TextFieldValue, s: TextFieldValue -> dropMinsTfv = m; dropSecsTfv = s })
-                ).forEach { (label, tfvPair, onUpdate) ->
+                    Triple("Work set", workMinsTfv to workSecsTfv, Unit),
+                    Triple("Warm up", warmupMinsTfv to warmupSecsTfv, Unit),
+                    Triple("Drop set", dropMinsTfv to dropSecsTfv, Unit)
+                ).forEach { (label, tfvPair, _) ->
+                    val (minsState, secsState) = tfvPair
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1181,15 +1182,15 @@ private fun UpdateRestTimersDialog(
                         Text(label, style = MaterialTheme.typography.bodyMedium)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             BasicTextField(
-                                value = tfvPair.first,
-                                onValueChange = { onUpdate(filteredTfv(it), tfvPair.second) },
+                                value = minsState.value,
+                                onValueChange = { minsState.value = filteredTfv(it) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     textAlign = TextAlign.Center
                                 ),
-                                modifier = mmSsBoxModifier(tfvPair.first) { onUpdate(it, tfvPair.second) },
+                                modifier = mmSsBoxModifier(minsState),
                                 decorationBox = { inner ->
                                     Box(
                                         modifier = Modifier
@@ -1202,15 +1203,15 @@ private fun UpdateRestTimersDialog(
                             )
                             Text(":", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 4.dp))
                             BasicTextField(
-                                value = tfvPair.second,
-                                onValueChange = { onUpdate(tfvPair.first, filteredTfv(it)) },
+                                value = secsState.value,
+                                onValueChange = { secsState.value = filteredTfv(it) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     textAlign = TextAlign.Center
                                 ),
-                                modifier = mmSsBoxModifier(tfvPair.second) { onUpdate(tfvPair.first, it) },
+                                modifier = mmSsBoxModifier(secsState),
                                 decorationBox = { inner ->
                                     Box(
                                         modifier = Modifier
@@ -1229,9 +1230,9 @@ private fun UpdateRestTimersDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(
-                    toSeconds(workMinsTfv.text, workSecsTfv.text),
-                    toSeconds(warmupMinsTfv.text, warmupSecsTfv.text),
-                    toSeconds(dropMinsTfv.text, dropSecsTfv.text)
+                    toSeconds(workMinsTfv.value.text, workSecsTfv.value.text),
+                    toSeconds(warmupMinsTfv.value.text, warmupSecsTfv.value.text),
+                    toSeconds(dropMinsTfv.value.text, dropSecsTfv.value.text)
                 ) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
@@ -2021,6 +2022,7 @@ fun RestTimePickerDialog(currentSeconds: Int, onDismiss: () -> Unit, onConfirm: 
     val minutesTfv = remember { mutableStateOf(TextFieldValue((currentSeconds / 60).toString())) }
     val secondsTfv = remember { mutableStateOf(TextFieldValue((currentSeconds % 60).toString())) }
     val secondsFocusRequester = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
 
     fun confirm() {
         val m = minutesTfv.value.text.toIntOrNull() ?: 0
@@ -2049,8 +2051,11 @@ fun RestTimePickerDialog(currentSeconds: Int, onDismiss: () -> Unit, onConfirm: 
                         .weight(1f)
                         .onFocusChanged { state ->
                             if (state.isFocused) {
-                                val t = minutesTfv.value.text
-                                minutesTfv.value = minutesTfv.value.copy(selection = TextRange(0, t.length))
+                                scope.launch {
+                                    delay(100)
+                                    val t = minutesTfv.value.text
+                                    minutesTfv.value = minutesTfv.value.copy(selection = TextRange(0, t.length))
+                                }
                             }
                         }
                 )
@@ -2067,8 +2072,11 @@ fun RestTimePickerDialog(currentSeconds: Int, onDismiss: () -> Unit, onConfirm: 
                         .focusRequester(secondsFocusRequester)
                         .onFocusChanged { state ->
                             if (state.isFocused) {
-                                val t = secondsTfv.value.text
-                                secondsTfv.value = secondsTfv.value.copy(selection = TextRange(0, t.length))
+                                scope.launch {
+                                    delay(100)
+                                    val t = secondsTfv.value.text
+                                    secondsTfv.value = secondsTfv.value.copy(selection = TextRange(0, t.length))
+                                }
                             }
                         }
                 )
