@@ -14,10 +14,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import com.powerme.app.ui.components.rememberSelectAllState
 import androidx.hilt.navigation.compose.hiltViewModel
 
 private val TRAINING_TARGET_OPTIONS = listOf(
@@ -217,11 +216,10 @@ private fun ProfileTextField(
     keyboardType: androidx.compose.ui.text.input.KeyboardType = androidx.compose.ui.text.input.KeyboardType.Text
 ) {
     val isNumeric = keyboardType != androidx.compose.ui.text.input.KeyboardType.Text
+    // Always call rememberSelectAllState unconditionally (Compose rules: no conditional @Composable calls)
+    val (tfv, selectAllMod) = rememberSelectAllState(value)
+    val fieldModifier = if (isNumeric) Modifier.fillMaxWidth().then(selectAllMod) else Modifier.fillMaxWidth()
     if (isNumeric) {
-        val tfv = remember { mutableStateOf(TextFieldValue(value)) }
-        LaunchedEffect(value) {
-            if (tfv.value.text != value) tfv.value = TextFieldValue(value)
-        }
         OutlinedTextField(
             value = tfv.value,
             onValueChange = { newTfv ->
@@ -229,14 +227,7 @@ private fun ProfileTextField(
                 onValueChange(newTfv.text)
             },
             label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { state ->
-                    if (state.isFocused) {
-                        val t = tfv.value.text
-                        tfv.value = tfv.value.copy(selection = TextRange(0, t.length))
-                    }
-                },
+            modifier = fieldModifier,
             keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
             keyboardActions = KeyboardActions(
                 onNext = { onImeAction() },
@@ -255,7 +246,7 @@ private fun ProfileTextField(
             value = value,
             onValueChange = onValueChange,
             label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = fieldModifier,
             keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
             keyboardActions = KeyboardActions(
                 onNext = { onImeAction() },

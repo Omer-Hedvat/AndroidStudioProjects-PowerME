@@ -9,11 +9,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import com.powerme.app.ui.components.rememberSelectAllState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
@@ -271,24 +270,14 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val weightTfv = remember { mutableStateOf(TextFieldValue(uiState.weightInput)) }
-                        LaunchedEffect(uiState.weightInput) {
-                            if (weightTfv.value.text != uiState.weightInput) weightTfv.value = TextFieldValue(uiState.weightInput)
-                        }
+                        val (weightTfv, weightSelectMod) = rememberSelectAllState(uiState.weightInput)
                         OutlinedTextField(
                             value = weightTfv.value,
                             onValueChange = { newTfv -> weightTfv.value = newTfv; viewModel.updateWeightInput(newTfv.text) },
                             label = { Text("Weight (kg)", fontSize = 12.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { bodyFatFocusRequester.requestFocus() }),
-                            modifier = Modifier
-                                .weight(1f)
-                                .onFocusChanged { state ->
-                                    if (state.isFocused) {
-                                        val t = weightTfv.value.text
-                                        weightTfv.value = weightTfv.value.copy(selection = TextRange(0, t.length))
-                                    }
-                                },
+                            modifier = Modifier.weight(1f).then(weightSelectMod),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
@@ -297,25 +286,14 @@ fun SettingsScreen(
                             ),
                             singleLine = true
                         )
-                        val bodyFatTfv = remember { mutableStateOf(TextFieldValue(uiState.bodyFatInput)) }
-                        LaunchedEffect(uiState.bodyFatInput) {
-                            if (bodyFatTfv.value.text != uiState.bodyFatInput) bodyFatTfv.value = TextFieldValue(uiState.bodyFatInput)
-                        }
+                        val (bodyFatTfv, bodyFatSelectMod) = rememberSelectAllState(uiState.bodyFatInput)
                         OutlinedTextField(
                             value = bodyFatTfv.value,
                             onValueChange = { newTfv -> bodyFatTfv.value = newTfv; viewModel.updateBodyFatInput(newTfv.text) },
                             label = { Text("Body Fat (%)", fontSize = 12.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
-                            modifier = Modifier
-                                .weight(1f)
-                                .focusRequester(bodyFatFocusRequester)
-                                .onFocusChanged { state ->
-                                    if (state.isFocused) {
-                                        val t = bodyFatTfv.value.text
-                                        bodyFatTfv.value = bodyFatTfv.value.copy(selection = TextRange(0, t.length))
-                                    }
-                                },
+                            modifier = Modifier.weight(1f).focusRequester(bodyFatFocusRequester).then(bodyFatSelectMod),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
@@ -326,25 +304,14 @@ fun SettingsScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    val heightTfv = remember { mutableStateOf(TextFieldValue(uiState.heightInput)) }
-                    LaunchedEffect(uiState.heightInput) {
-                        if (heightTfv.value.text != uiState.heightInput) heightTfv.value = TextFieldValue(uiState.heightInput)
-                    }
+                    val (heightTfv, heightSelectMod) = rememberSelectAllState(uiState.heightInput)
                     OutlinedTextField(
                         value = heightTfv.value,
                         onValueChange = { newTfv -> heightTfv.value = newTfv; viewModel.updateHeightInput(newTfv.text) },
                         label = { Text("Height (cm)", fontSize = 12.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(heightFocusRequester)
-                            .onFocusChanged { state ->
-                                if (state.isFocused) {
-                                    val t = heightTfv.value.text
-                                    heightTfv.value = heightTfv.value.copy(selection = TextRange(0, t.length))
-                                }
-                            },
+                        modifier = Modifier.fillMaxWidth().focusRequester(heightFocusRequester).then(heightSelectMod),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),

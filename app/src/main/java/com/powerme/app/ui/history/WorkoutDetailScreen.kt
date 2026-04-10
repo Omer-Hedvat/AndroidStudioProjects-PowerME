@@ -26,10 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import com.powerme.app.ui.components.rememberSelectAllState
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -531,10 +530,7 @@ private fun BasicEditField(
     onValueChange: (String) -> Unit,
     keyboardType: KeyboardType
 ) {
-    val tfv = remember { mutableStateOf(TextFieldValue(value)) }
-    LaunchedEffect(value) {
-        if (tfv.value.text != value) tfv.value = TextFieldValue(value)
-    }
+    val (tfv, selectAllMod) = rememberSelectAllState(value)
     OutlinedTextField(
         value = tfv.value,
         onValueChange = { newTfv ->
@@ -553,14 +549,7 @@ private fun BasicEditField(
             focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
             unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent
         ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .onFocusChanged { state ->
-                if (state.isFocused) {
-                    val t = tfv.value.text
-                    tfv.value = tfv.value.copy(selection = TextRange(0, t.length))
-                }
-            }
+        modifier = Modifier.fillMaxWidth().then(selectAllMod)
     )
 }
 
