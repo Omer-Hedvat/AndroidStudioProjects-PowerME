@@ -380,9 +380,9 @@ class SettingsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isSavingMetrics = false,
-                    weightInput = "",
-                    bodyFatInput = "",
-                    heightInput = "",
+                    weightInput = weight?.let { w -> "%.1f".format(w) } ?: it.weightInput,
+                    bodyFatInput = bodyFat?.let { bf -> "%.1f".format(bf) } ?: it.bodyFatInput,
+                    heightInput = heightCm?.toInt()?.toString() ?: it.heightInput,
                     lastHeight = heightCm ?: it.lastHeight
                 )
             }
