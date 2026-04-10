@@ -15,9 +15,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +36,6 @@ import com.powerme.app.ui.theme.FormCuesGold
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ExercisesScreen(
-    onStartWorkout: () -> Unit = {},
     pickerMode: Boolean = false,
     onExercisesSelected: (List<Long>) -> Unit = {},
     viewModel: ExercisesViewModel = hiltViewModel()
@@ -218,7 +217,7 @@ fun ExercisesScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(uiState.exercises, key = { it.id }) { exercise ->
                         ExerciseCard(
@@ -246,28 +245,15 @@ fun ExercisesScreen(
 
         // FABs (hidden in picker mode)
         if (!pickerMode) {
-            Column(
+            FloatingActionButton(
+                onClick = { showMagicAddDialog = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.surface
             ) {
-                // Start Workout FAB
-                FloatingActionButton(
-                    onClick = onStartWorkout,
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Start Workout")
-                }
-                // Add Exercise FAB
-                FloatingActionButton(
-                    onClick = { showMagicAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.surface
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Exercise")
-                }
+                Icon(Icons.Default.Add, contentDescription = "Add Exercise")
             }
         }
     }
@@ -331,7 +317,7 @@ private fun ExerciseCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -342,24 +328,30 @@ private fun ExerciseCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SuggestionChip(
-                            onClick = {},
-                            label = { Text(exercise.muscleGroup, fontSize = 11.sp) },
-                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                labelColor = MaterialTheme.colorScheme.primary
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = exercise.muscleGroup,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
-                        )
-                        SuggestionChip(
-                            onClick = {},
-                            label = { Text(exercise.equipmentType, fontSize = 11.sp) },
-                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
-                                labelColor = MaterialTheme.colorScheme.secondary
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = exercise.equipmentType,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
-                        )
+                        }
                     }
                 }
             }
