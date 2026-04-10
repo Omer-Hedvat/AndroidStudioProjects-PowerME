@@ -421,7 +421,7 @@ Rest timers are per-set. The system has three layers:
 3. **Effective rest** = override if present, else exercise default for the set type.
 
 Timer lifecycle:
-- `completeSet()` → `startRestTimer(exerciseId, setOrder)` → stamps `RestTimerState.exerciseId/setOrder`.
+- `completeSet()` → resolves duration: checks `restTimeOverrides["${exerciseId}_${setOrder}"]` first; falls back to `computeRestDuration(completedSet.setType, nextSet?.setType, exercise)` → calls `startRestTimer(exerciseId, setOrder, override)` → stamps `RestTimerState.exerciseId/setOrder`.
 - `WorkoutTimerService` (ForegroundService) runs the countdown; survives backgrounding.
 - **ForegroundService lifecycle:** Starts when the first set is completed (or a manual standalone timer is started). Stops — calling `stopForeground(true)` — exclusively when `finishWorkout()` or `cancelWorkout()` resolves. No other code path stops the service. Communication from the service back to `WorkoutViewModel` uses a bound-service pattern: `WorkoutViewModel` binds to the service on workout start and receives timer tick broadcasts via a shared `StateFlow` bridge. The service never holds a direct ViewModel reference.
 - `RestTimerState.isPaused` — paused via `TimerControlsSheet` (-10s / ⏸ / +10s / Skip).
