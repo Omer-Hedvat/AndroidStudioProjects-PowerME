@@ -306,12 +306,26 @@ class SettingsViewModel @Inject constructor(
     private fun observeMetricLogs() {
         viewModelScope.launch {
             metricLogRepository.getByType(MetricType.WEIGHT).collect { entries ->
-                _uiState.update { it.copy(lastWeight = entries.lastOrNull()?.value) }
+                val latest = entries.lastOrNull()?.value
+                _uiState.update { state ->
+                    state.copy(
+                        lastWeight = latest,
+                        weightInput = if (state.weightInput.isEmpty() && latest != null)
+                            "%.1f".format(latest) else state.weightInput
+                    )
+                }
             }
         }
         viewModelScope.launch {
             metricLogRepository.getByType(MetricType.BODY_FAT).collect { entries ->
-                _uiState.update { it.copy(lastBodyFat = entries.lastOrNull()?.value) }
+                val latest = entries.lastOrNull()?.value
+                _uiState.update { state ->
+                    state.copy(
+                        lastBodyFat = latest,
+                        bodyFatInput = if (state.bodyFatInput.isEmpty() && latest != null)
+                            "%.1f".format(latest) else state.bodyFatInput
+                    )
+                }
             }
         }
     }

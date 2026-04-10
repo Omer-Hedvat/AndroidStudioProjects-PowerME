@@ -96,7 +96,7 @@ ExercisesUiState update → LazyColumn recomposes
 **Behaviour:**
 - Tapping an `ExerciseCard` opens `ExerciseDetailSheet` as a `ModalBottomSheet` (`skipPartiallyExpanded = true`). Driven by `var selectedExercise by remember { mutableStateOf<Exercise?>(null) }` at the `ExercisesScreen` composable level (screen-scoped — see §10.4).
 - No selection highlight or checkmark on cards.
-- FABs visible: **Start Workout** and **Add Exercise** (opens MagicAddDialog).
+- FAB visible: **Add Exercise** (opens MagicAddDialog). The Start Workout FAB has been removed from this tab.
 - `selectedExerciseIds` is always empty in this mode.
 
 ### 3.2 Picker Mode
@@ -110,7 +110,7 @@ ExercisesUiState update → LazyColumn recomposes
 - **Long press** on an `ExerciseCard` — opens `ExerciseDetailSheet` for inspection without altering selection.
 - Selected cards render with `primaryContainer` background tint and a checkmark icon overlay in the top-right corner.
 - **FAB:** `[Add X Exercises]` (X = `selectedExerciseIds.size`) — visible only when `selectedExerciseIds.isNotEmpty()`. On tap: calls `onExercisesSelected(selectedExerciseIds.toList())`, sets `savedStateHandle["selected_exercises"]`, pops back stack.
-- Default FABs (Start Workout, Add Exercise) are **hidden** in picker mode.
+- The Add Exercise FAB is **hidden** in picker mode.
 - Changing search query or filter chips must NOT clear `selectedExerciseIds`.
 
 **Return Contract:**
@@ -214,8 +214,8 @@ When `activeGymProfileId` is non-null, the ViewModel loads the corresponding `Gy
 ```
 
 - **Name:** `titleMedium`, `onSurface` color.
-- **Muscle Chip:** `SuggestionChip`, `primaryContainer` background.
-- **Equipment Chip:** `SuggestionChip`, `secondaryContainer` background. Label uses `toEquipmentDisplayName()`.
+- **Muscle Tag:** compact inline `Surface(shape = RoundedCornerShape(4.dp))` with `Text(fontSize = 11.sp)`, `primary @ 0.15α` background, `primary` text color.
+- **Equipment Tag:** compact inline `Surface(shape = RoundedCornerShape(4.dp))` with `Text(fontSize = 11.sp)`, `secondary @ 0.15α` background, `secondary` text color. Label uses `toEquipmentDisplayName()`.
 - **Checkmark overlay:** Picker mode only, when `exercise.id in selectedExerciseIds`. Top-right corner. Background: `primaryContainer`, icon: `Icons.Default.Check`.
 - **Missing Equipment tag:** Soft-lock only. `errorContainer` background chip.
 - **Soft-lock opacity:** `Modifier.alpha(if (isSoftLocked) 0.5f else 1.0f)`.

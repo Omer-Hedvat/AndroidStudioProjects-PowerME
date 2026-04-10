@@ -4,8 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,15 +36,14 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Content area — mode grid + timer display + config inputs
         Column(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ── 2×2 Mode Grid (shown when idle and no active timer) ──────
@@ -71,12 +69,12 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Timer display + config inputs
             TimerDisplay(state = state)
             if (!state.isRunning && state.phase == TimerPhase.IDLE) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 ConfigInputs(state = state, viewModel = viewModel)
             }
         }
@@ -89,7 +87,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp)
+                    .padding(top = 12.dp)
             ) {
                 Button(
                     onClick = {
@@ -176,12 +174,12 @@ private fun TimerModeGrid(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         modeInfo.chunked(2).forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 row.forEach { (mode, icon, desc) ->
                     ModeCard(
@@ -209,7 +207,7 @@ private fun ModeCard(
 ) {
     Card(
         modifier = modifier
-            .height(64.dp)
+            .height(52.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
@@ -302,7 +300,7 @@ private fun TimerDisplay(state: ToolsUiState) {
             Text(
                 text = "%02d:%02d".format(minutes, seconds),
                 style = MonoTextStyle.copy(
-                    fontSize = 56.sp,
+                    fontSize = 48.sp,
                     fontWeight = FontWeight.Bold,
                     color = textColor
                 ),
@@ -347,17 +345,24 @@ private fun TimerDisplay(state: ToolsUiState) {
 private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
     when (state.mode) {
         TimerMode.EMOM -> {
-            TimerConfigField(
-                label = "Round Duration (sec)",
-                value = state.emomRoundSecondsText,
-                onValueChange = viewModel::updateEmomRoundSecondsText
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TimerConfigField(
-                label = "Number of Rounds",
-                value = state.emomTotalRoundsText,
-                onValueChange = viewModel::updateEmomTotalRoundsText
-            )
+            // Round Duration and Number of Rounds side by side
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TimerConfigField(
+                    label = "Round (sec)",
+                    value = state.emomRoundSecondsText,
+                    onValueChange = viewModel::updateEmomRoundSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+                TimerConfigField(
+                    label = "Rounds",
+                    value = state.emomTotalRoundsText,
+                    onValueChange = viewModel::updateEmomTotalRoundsText,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             TimerConfigField(
                 label = "Warn before finish (sec)",
@@ -366,30 +371,37 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
             )
         }
         TimerMode.TABATA -> {
-            TimerConfigField(
-                label = "Work (seconds)",
-                value = state.workSecondsText,
-                onValueChange = viewModel::updateWorkSecondsText
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TimerConfigField(
-                label = "Rest (seconds)",
-                value = state.restSecondsText,
-                onValueChange = viewModel::updateRestSecondsText
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TimerConfigField(
-                label = "Rounds",
-                value = state.totalRoundsText,
-                onValueChange = viewModel::updateTotalRoundsText
-            )
+            // Work / Rest / Rounds in a single row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TimerConfigField(
+                    label = "Work (s)",
+                    value = state.workSecondsText,
+                    onValueChange = viewModel::updateWorkSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+                TimerConfigField(
+                    label = "Rest (s)",
+                    value = state.restSecondsText,
+                    onValueChange = viewModel::updateRestSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+                TimerConfigField(
+                    label = "Rounds",
+                    value = state.totalRoundsText,
+                    onValueChange = viewModel::updateTotalRoundsText,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             TimerConfigField(
                 label = "Warn before finish (sec)",
                 value = state.tabataWarnAtSecondsText,
                 onValueChange = viewModel::updateTabataWarnAtSecondsText
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -444,21 +456,22 @@ private fun WheelPicker(
     val coroutineScope = rememberCoroutineScope()
     val snapBehavior = rememberSnapFlingBehavior(listState)
 
-    // With visibleItems=3, the center slot is index 1 (middle of top/center/bottom).
-    // We add 1 padding item at top and bottom so the first/last real values can also
-    // reach the center slot. Real item at list index (idx+1); center = firstVisibleItemIndex+1.
+    // Padding items at top/bottom allow the first and last real values to reach the center slot.
+    // scrollToItem(k) makes list item k first visible → center slot holds item k+1 (the real value).
+    // So scrollToItem(selected - range.first) centers the selected value.
+    // After scrolling, firstVisibleItemIndex == (selected - range.first), so reporting
+    // range.first + firstVisibleItemIndex correctly recovers the centered value.
 
     // Scroll so selected item lands in center slot on external change (e.g. preset tap)
     LaunchedEffect(selected) {
         val index = (selected - range.first).coerceIn(0, range.last - range.first)
-        listState.scrollToItem(index) // index+0 → padding item at top scrolled past, real item in center
+        listState.scrollToItem(index)
     }
 
     // Report settled center item to ViewModel
     LaunchedEffect(listState.isScrollInProgress) {
         if (!listState.isScrollInProgress) {
-            // firstVisibleItemIndex 0 = top padding; real item at firstVisible+1 is in center
-            val centerIndex = (listState.firstVisibleItemIndex + 1 - 1)
+            val centerIndex = listState.firstVisibleItemIndex
                 .coerceIn(0, range.last - range.first)
             onSelected(range.first + centerIndex)
         }
@@ -566,7 +579,8 @@ private fun CountdownRoulettePicker(
 private fun TimerConfigField(
     label: String,
     value: String,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth()
 ) {
     val (tfv, selectAllMod) = rememberSelectAllState(value)
     OutlinedTextField(
@@ -580,7 +594,7 @@ private fun TimerConfigField(
         },
         label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.fillMaxWidth().then(selectAllMod),
+        modifier = modifier.then(selectAllMod),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
