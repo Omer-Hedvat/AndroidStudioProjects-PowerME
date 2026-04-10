@@ -9,17 +9,14 @@ import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.ThemeMode
-import com.powerme.app.data.database.GymProfile
-import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettings
 import com.powerme.app.data.database.UserSettingsDao
 import com.powerme.app.data.database.MetricType
-import com.powerme.app.data.repository.GymProfileRepository
 import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.health.HealthConnectManager
+import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.util.DatabaseExporter
-import com.powerme.app.util.GeminiModel
-import com.powerme.app.util.ModelRouter
 import com.powerme.app.util.SecurePreferencesManager
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.util.UserSessionManager
@@ -28,7 +25,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -37,11 +33,6 @@ import javax.inject.Inject
 data class PlateState(val weight: Double, val isEnabled: Boolean)
 
 data class SettingsUiState(
-    val apiKey: String = "",
-    val hasApiKey: Boolean = false,
-    val showSuccessMessage: Boolean = false,
-    val isValidatingKey: Boolean = false,
-    val keyValidationError: String? = null,
     val availablePlates: List<PlateState> = listOf(
         PlateState(25.0, true), PlateState(20.0, true), PlateState(15.0, true),
         PlateState(10.0, true), PlateState(5.0, true), PlateState(2.5, true),
@@ -52,12 +43,6 @@ data class SettingsUiState(
     val isExporting: Boolean = false,
     val exportSuccessMessage: String? = null,
     val exportErrorMessage: String? = null,
-    val gymProfiles: List<GymProfile> = emptyList(),
-    val activeGym: GymProfile? = null,
-    // Model discovery
-    val availableModels: List<GeminiModel> = emptyList(),
-    val isFetchingModels: Boolean = false,
-    val selectedEnrichmentModel: String = "gemini-1.5-flash",
     // Account deletion
     val showDeleteAccountDialog: Boolean = false,
     val isDeletingAccount: Boolean = false,
@@ -73,15 +58,16 @@ data class SettingsUiState(
     val keepScreenOn: Boolean = false,
     // Appearance
     val themeMode: ThemeMode = ThemeMode.LIGHT,
-    // Health Connect
-    val bodyMeasurementsFromHC: Boolean = false,
-    val isSyncingFromHC: Boolean = false,
-    val hcSyncError: String? = null,
-    val hcPermissionsMissing: Boolean = false,
     // Cloud Sync
     val isSignedIn: Boolean = false,
     val isRestoringFromCloud: Boolean = false,
-    val cloudRestoreMessage: String? = null
+    val cloudRestoreMessage: String? = null,
+    // Health Connect
+    val healthConnectAvailable: Boolean = false,
+    val healthConnectPermissionsGranted: Boolean = false,
+    val healthConnectSyncing: Boolean = false,
+    val healthConnectData: HealthConnectReadResult? = null,
+    val healthConnectError: String? = null
 )
 
 @HiltViewModel
@@ -89,28 +75,25 @@ class SettingsViewModel @Inject constructor(
     private val securePreferencesManager: SecurePreferencesManager,
     private val userSettingsDao: UserSettingsDao,
     private val database: PowerMeDatabase,
-    private val gymProfileRepository: GymProfileRepository,
     private val metricLogRepository: MetricLogRepository,
     private val appSettingsDataStore: AppSettingsDataStore,
-    private val modelRouter: ModelRouter,
-    private val healthConnectManager: HealthConnectManager,
     private val userSessionManager: UserSessionManager,
     private val firestoreSyncManager: FirestoreSyncManager,
     private val auth: FirebaseAuth,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
-        loadApiKey()
         loadUserSettings()
-        loadGymProfiles()
         loadAppSettings()
         observeMetricLogs()
         loadUserHeight()
         _uiState.update { it.copy(isSignedIn = auth.currentUser != null) }
+        checkHealthConnectStatus()
     }
 
     private fun loadUserHeight() {
@@ -124,11 +107,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun loadAppSettings() {
-        viewModelScope.launch {
-            appSettingsDataStore.enrichmentModel.collect { model ->
-                _uiState.update { it.copy(selectedEnrichmentModel = model) }
-            }
-        }
         viewModelScope.launch {
             appSettingsDataStore.keepScreenOn.collect { value ->
                 _uiState.update { it.copy(keepScreenOn = value) }
@@ -166,71 +144,6 @@ class SettingsViewModel @Inject constructor(
                     }
                 }
             }
-        }
-    }
-
-    private fun loadApiKey() {
-        val savedKey = securePreferencesManager.getApiKey()
-        _uiState.update {
-            it.copy(apiKey = savedKey ?: "", hasApiKey = securePreferencesManager.hasApiKey())
-        }
-    }
-
-    fun updateApiKey(newKey: String) { _uiState.update { it.copy(apiKey = newKey) } }
-
-    fun saveApiKey() {
-        val key = _uiState.value.apiKey.trim()
-        if (key.isBlank()) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isValidatingKey = true, keyValidationError = null) }
-            val isValid = modelRouter.validateKey(key)
-            if (isValid) {
-                securePreferencesManager.saveApiKey(key)
-                _uiState.update { it.copy(hasApiKey = true, showSuccessMessage = true, isValidatingKey = false) }
-                fetchModels(key)
-            } else {
-                _uiState.update {
-                    it.copy(isValidatingKey = false, keyValidationError = "Invalid API key — check your key at aistudio.google.com")
-                }
-            }
-        }
-    }
-
-    private suspend fun fetchModels(apiKey: String) {
-        _uiState.update { it.copy(isFetchingModels = true) }
-        try {
-            val models = modelRouter.fetchModels(apiKey)
-            _uiState.update { it.copy(availableModels = models, isFetchingModels = false) }
-        } catch (e: Exception) {
-            _uiState.update { it.copy(isFetchingModels = false) }
-        }
-    }
-
-    fun fetchModelsIfNeeded() {
-        val key = securePreferencesManager.getApiKey() ?: return
-        if (!_uiState.value.isFetchingModels) {
-            viewModelScope.launch {
-                val lastFetched = appSettingsDataStore.modelsLastFetched.first()
-                val stale = lastFetched == 0L ||
-                    System.currentTimeMillis() - lastFetched > 24 * 60 * 60 * 1000L
-                if (_uiState.value.availableModels.isEmpty() || stale) {
-                    fetchModels(key)
-                    appSettingsDataStore.setModelsLastFetched(System.currentTimeMillis())
-                }
-            }
-        }
-    }
-
-    fun clearApiKey() {
-        securePreferencesManager.clearApiKey()
-        _uiState.update { it.copy(apiKey = "", hasApiKey = false, showSuccessMessage = false) }
-    }
-
-    fun setEnrichmentModel(modelId: String) {
-        viewModelScope.launch {
-            appSettingsDataStore.setEnrichmentModel(modelId)
-            _uiState.update { it.copy(selectedEnrichmentModel = modelId) }
         }
     }
 
@@ -283,26 +196,6 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(exportSuccessMessage = null, exportErrorMessage = null) }
     }
 
-    private fun loadGymProfiles() {
-        viewModelScope.launch {
-            gymProfileRepository.getAllProfiles().collect { profiles ->
-                _uiState.update { it.copy(gymProfiles = profiles) }
-            }
-        }
-        viewModelScope.launch {
-            gymProfileRepository.getActiveProfile().collect { activeGym ->
-                _uiState.update { it.copy(activeGym = activeGym) }
-            }
-        }
-    }
-
-    fun switchToGym(gymName: String) {
-        viewModelScope.launch {
-            val profile = gymProfileRepository.getProfileByName(gymName)
-            if (profile != null) gymProfileRepository.setActiveProfile(profile.id)
-        }
-    }
-
     private fun observeMetricLogs() {
         viewModelScope.launch {
             metricLogRepository.getByType(MetricType.WEIGHT).collect { entries ->
@@ -330,40 +223,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun updateWeightInput(value: String) { _uiState.update { it.copy(weightInput = value, bodyMeasurementsFromHC = false) } }
-    fun updateBodyFatInput(value: String) { _uiState.update { it.copy(bodyFatInput = value, bodyMeasurementsFromHC = false) } }
+    fun updateWeightInput(value: String) { _uiState.update { it.copy(weightInput = value) } }
+    fun updateBodyFatInput(value: String) { _uiState.update { it.copy(bodyFatInput = value) } }
     fun updateHeightInput(value: String) {
         val result = SurgicalValidator.parseDecimal(value)
         if (result !is SurgicalValidator.ValidationResult.Invalid) {
-            _uiState.update { it.copy(heightInput = value, bodyMeasurementsFromHC = false) }
-        }
-    }
-
-    fun syncFromHealthConnect() {
-        if (!healthConnectManager.isAvailable()) {
-            _uiState.update { it.copy(hcSyncError = "Health Connect is not available on this device") }
-            return
-        }
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSyncingFromHC = true, hcSyncError = null, hcPermissionsMissing = false) }
-            val permissionsGranted = healthConnectManager.checkPermissionsGranted()
-            if (!permissionsGranted) {
-                _uiState.update { it.copy(isSyncingFromHC = false, hcPermissionsMissing = true) }
-                return@launch
-            }
-            val weight = healthConnectManager.getLatestWeight()
-            val bodyFat = healthConnectManager.getLatestBodyFat()
-            val height = healthConnectManager.getLatestHeight()
-            _uiState.update {
-                it.copy(
-                    isSyncingFromHC = false,
-                    weightInput = weight?.let { w -> "%.1f".format(w) } ?: it.weightInput,
-                    bodyFatInput = bodyFat?.let { bf -> "%.1f".format(bf) } ?: it.bodyFatInput,
-                    heightInput = height?.let { h -> h.toInt().toString() } ?: it.heightInput,
-                    bodyMeasurementsFromHC = weight != null || bodyFat != null || height != null,
-                    hcSyncError = if (weight == null && bodyFat == null && height == null) "No recent data found in Health Connect" else null
-                )
-            }
+            _uiState.update { it.copy(heightInput = value) }
         }
     }
 
@@ -428,6 +293,53 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissCloudRestoreMessage() {
         _uiState.update { it.copy(cloudRestoreMessage = null) }
+    }
+
+    private fun checkHealthConnectStatus() {
+        val available = healthConnectManager.isAvailable()
+        _uiState.update { it.copy(healthConnectAvailable = available) }
+        if (!available) return
+        viewModelScope.launch {
+            val granted = healthConnectManager.checkPermissionsGranted()
+            _uiState.update { it.copy(healthConnectPermissionsGranted = granted) }
+            if (granted) {
+                val data = healthConnectManager.readAllData()
+                _uiState.update { it.copy(healthConnectData = data) }
+            }
+        }
+    }
+
+    fun syncHealthConnect() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(healthConnectSyncing = true, healthConnectError = null) }
+            try {
+                val data = healthConnectManager.syncAndRead()
+                _uiState.update {
+                    it.copy(
+                        healthConnectSyncing = false,
+                        healthConnectData = data,
+                        healthConnectPermissionsGranted = true
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        healthConnectSyncing = false,
+                        healthConnectError = e.message ?: "Sync failed"
+                    )
+                }
+            }
+        }
+    }
+
+    fun onHealthConnectPermissionResult(granted: Set<String>) {
+        viewModelScope.launch {
+            val allGranted = healthConnectManager.checkPermissionsGranted()
+            _uiState.update { it.copy(healthConnectPermissionsGranted = allGranted) }
+            if (allGranted) {
+                syncHealthConnect()
+            }
+        }
     }
 
     fun deleteAccount(onComplete: () -> Unit) {

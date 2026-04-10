@@ -124,7 +124,7 @@ class RestTimerNotifier(private val context: Context) {
     }
 
     /** Pattern 1 — short sharp pulse (50 ms) for WARNING / COUNTDOWN_TICK */
-    private fun hapticShortPulse() {
+    fun hapticShortPulse() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))

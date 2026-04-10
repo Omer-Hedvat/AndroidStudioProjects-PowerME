@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import com.powerme.app.ui.components.rememberSelectAllState
+import com.powerme.app.ui.theme.PowerMeDefaults
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,7 +31,10 @@ import com.powerme.app.ui.theme.TimerRed
 import kotlinx.coroutines.launch
 
 @Composable
-fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
+fun ToolsScreen(
+    viewModel: ToolsViewModel = hiltViewModel(),
+    onTimerStarted: () -> Unit = {}
+) {
     val state by viewModel.uiState.collectAsState()
 
     Column(
@@ -91,7 +95,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
             ) {
                 Button(
                     onClick = {
-                        if (state.isRunning) viewModel.pauseTimer() else viewModel.startTimer()
+                        if (state.isRunning) viewModel.pauseTimer() else { viewModel.startTimer(); onTimerStarted() }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (state.isRunning) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
@@ -127,7 +131,7 @@ fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
             ) {
                 Button(
                     onClick = {
-                        if (state.isRunning) viewModel.pauseTimer() else viewModel.startTimer()
+                        if (state.isRunning) viewModel.pauseTimer() else { viewModel.startTimer(); onTimerStarted() }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (state.isRunning) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
@@ -599,7 +603,7 @@ private fun TimerConfigField(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
             focusedTextColor = MaterialTheme.colorScheme.onSurface,
             unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
             cursorColor = MaterialTheme.colorScheme.primary

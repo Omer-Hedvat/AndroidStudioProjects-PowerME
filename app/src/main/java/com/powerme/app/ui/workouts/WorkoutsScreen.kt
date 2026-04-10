@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.data.database.RoutineExerciseWithName
 import com.powerme.app.data.database.workingSets
+import com.powerme.app.ui.theme.PowerMeDefaults
 
 @Composable
 fun WorkoutsScreen(
@@ -275,7 +276,7 @@ private fun RoutineCard(
     Card(
         modifier = modifier.clickable { onCardClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = PowerMeDefaults.cardElevation()
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(

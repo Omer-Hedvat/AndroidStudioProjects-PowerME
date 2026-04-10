@@ -1,5 +1,6 @@
 package com.powerme.app.data.repository
 
+import com.powerme.app.data.database.SetType
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import kotlin.math.floor
@@ -134,5 +135,62 @@ class RoutineRepositoryTest {
     @Test
     fun `express - sets unchanged at 2 when original is 2`() {
         assertEquals(2, 2.coerceAtMost(2))
+    }
+
+    // ── selectExpressIndices — warmup preservation ─────────────────────────────
+
+    @Test
+    fun `selectExpressIndices - all NORMAL keeps first 2`() {
+        val indices = selectExpressIndices("NORMAL,NORMAL,NORMAL,NORMAL", 4)
+        assertEquals(listOf(0, 1), indices)
+    }
+
+    @Test
+    fun `selectExpressIndices - 2 warmups + 3 work keeps all warmups and first 2 work sets`() {
+        val indices = selectExpressIndices("WARMUP,WARMUP,NORMAL,NORMAL,NORMAL", 5)
+        // warmup at 0,1 + first 2 work at 2,3 → [0,1,2,3]
+        assertEquals(listOf(0, 1, 2, 3), indices)
+    }
+
+    @Test
+    fun `selectExpressIndices - 2 warmups + 1 work keeps all`() {
+        val indices = selectExpressIndices("WARMUP,WARMUP,NORMAL", 3)
+        assertEquals(listOf(0, 1, 2), indices)
+    }
+
+    @Test
+    fun `selectExpressIndices - all warmup keeps all warmup sets`() {
+        val indices = selectExpressIndices("WARMUP,WARMUP,WARMUP", 3)
+        assertEquals(listOf(0, 1, 2), indices)
+    }
+
+    @Test
+    fun `selectExpressIndices - blank setTypesJson treats all as NORMAL and caps to 2`() {
+        val indices = selectExpressIndices("", 4)
+        assertEquals(listOf(0, 1), indices)
+    }
+
+    @Test
+    fun `selectExpressIndices - DROP sets count as work sets`() {
+        val indices = selectExpressIndices("WARMUP,NORMAL,DROP,NORMAL,DROP", 5)
+        // warmup at 0, first 2 work (NORMAL at 1, DROP at 2) → [0,1,2]
+        assertEquals(listOf(0, 1, 2), indices)
+    }
+
+    // ── pickIndices ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `pickIndices selects entries at given indices`() {
+        assertEquals("WARMUP,NORMAL", "WARMUP,WARMUP,NORMAL,NORMAL".pickIndices(listOf(0, 2)))
+    }
+
+    @Test
+    fun `pickIndices blank string returns blank`() {
+        assertEquals("", "".pickIndices(listOf(0, 1)))
+    }
+
+    @Test
+    fun `pickIndices empty indices returns blank`() {
+        assertEquals("", "NORMAL,NORMAL".pickIndices(emptyList()))
     }
 }

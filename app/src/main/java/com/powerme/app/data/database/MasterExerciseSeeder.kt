@@ -38,7 +38,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "1.5"  // bumped: +75 exercises (Core, Shoulders, Chest, Legs, Arms, Full Body)
+        private const val CURRENT_VERSION = "1.6"  // bumped: consolidate equipment synonyms → Bench; Wall → Bodyweight
     }
 
     private val json = Json {

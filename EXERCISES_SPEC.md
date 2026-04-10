@@ -151,18 +151,15 @@ backEntry?.savedStateHandle?.remove<ArrayList<Long>>("selected_exercises")
 
 ### 4.3 Equipment Filter Chips
 
-- **Source:** `ExerciseDao.getDistinctEquipmentTypes()` → `SELECT DISTINCT equipmentType FROM exercises ORDER BY equipmentType`.
+- **Source:** `ExerciseDao.getDistinctEquipmentTypes()` → `SELECT DISTINCT equipmentType FROM exercises ORDER BY equipmentType ASC`.
+- Chip ordering is applied in `ExercisesViewModel.sortEquipmentTypes()`: **Barbell, Dumbbell, Bench, Bodyweight** appear first (in that order), remaining types sorted A-Z.
 - Same `FilterChip` row layout; `surfaceVariant` chip background.
-- Display names use `toEquipmentDisplayName()` extension function:
+- DB values are already in Title Case; no display-name mapping needed.
 
-| DB value | Display |
-|---|---|
-| `BARBELL` | `Barbell` |
-| `DUMBBELL` | `Dumbbell` |
-| `MACHINE` | `Machine` |
-| `CABLE` | `Cable` |
-| `BODYWEIGHT` | `Bodyweight` |
-| Any other | `.lowercase().replaceFirstChar { it.uppercaseChar() }` |
+**Canonical equipment types (post v33 consolidation):**
+`Ab Wheel`, `Barbell`, `Battle Ropes`, `Bench`, `Bodyweight`, `Cable`, `Dumbbell`, `EZ Bar`, `Jump Rope`, `Kettlebell`, `Landmine`, `Machine`, `Medicine Ball`, `Pull-up Bar`, `Resistance Band`, `Rings`, `Sled`, `Smith Machine`
+
+**Eliminated in v33:** `Bench/Chair`, `Bench/Couch`, `Bench/Floor`, `Box/Bench`, `Couch/Bench` (merged → `Bench`); `Wall` (reassigned → `Bodyweight`).
 
 - Comparison in ViewModel is **case-insensitive**: `exercise.equipmentType.trim().equals(filter, ignoreCase = true)`.
 - An **"All"** chip resets `activeEquipmentFilters`.

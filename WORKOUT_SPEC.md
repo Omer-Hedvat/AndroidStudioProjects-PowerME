@@ -336,7 +336,9 @@ Crossfades between two states:
 | **Active** (this set's timer is running) | Primary-tinted block with live `mm:ss` | Tap → `TimerControlsSheet` |
 | **Passive** | TimerGreen divider lines + duration label | Tap → `RestTimePickerDialog` |
 
-**Entrance animation:** When a rest separator transitions from hidden to visible (i.e., the set above it is just completed and the timer starts), it must animate in using `AnimatedVisibility` with a 200ms `slideInVertically` from the top. Simultaneously, the separator's background flashes briefly from `primary.copy(alpha = 0.4f)` back to its resting `primary.copy(alpha = 0.15f)` over 300ms. This draws the user's eye downward to confirm the timer has started without requiring them to scroll.
+**Entrance animation:** When a rest separator transitions from hidden to visible (i.e., the set above it is just completed and the timer starts), it must animate in using `AnimatedVisibility` with a 200ms `expandVertically`. Simultaneously, the separator's background flashes briefly from `primary.copy(alpha = 0.4f)` back to its resting `primary.copy(alpha = 0.15f)` over 300ms. This draws the user's eye downward to confirm the timer has started without requiring them to scroll.
+
+**Progress bar:** The `LinearProgressIndicator` fraction uses `RestTimerState.totalSeconds` (not the exercise's configured rest) as the denominator, so the bar remains accurate when the user adds or subtracts time via `TimerControlsSheet`. The first frame snaps to the initial fraction (no forward animation); subsequent second-ticks animate backwards over 1000ms with `LinearEasing` via `Animatable`.
 
 ### 4.6.1 TimerControlsSheet
 
@@ -568,7 +570,9 @@ The `PostWorkoutSummarySheet` is the sole owner of the sync UI. No `AlertDialog`
 
 Shown after routine sync is resolved. Displays:
 - Workout name, duration, total volume, set count, exercise list.
-- **Set count shown excludes WARMUP sets.** Total = count of NORMAL + FAILURE + DROP completed sets only. WARMUP sets are excluded from the displayed count.
+- **Set count shown excludes WARMUP sets.** Total = count of NORMAL + FAILURE + DROP completed sets only. WARMUP sets are excluded from the displayed count. Implementation: `finishWorkout()` filters `it.isCompleted && it.setType != SetType.WARMUP`.
+- **Volume excludes WARMUP sets.** WARMUP set volume is not counted in `totalVolume`. Same filter applied.
+- **Exercise list excludes exercises with 0 completed work sets.** An exercise only appears in `exerciseNames` if it has at least 1 completed non-warmup set.
 - **Save as Routine** button → `AlertDialog` (name input) → `saveWorkoutAsRoutine(name)` — creates a new `Routine` + `RoutineExercise` rows from all completed sets.
 - **Done** → `dismissWorkoutSummary()` + navigate away.
 
@@ -774,13 +778,17 @@ The PREV ghost label in the PREV column continues to show the last-session data 
 
 **New exercise, first set filled → cascade down:** When a user logs values in Set 1 of an exercise they have no history for (PREV is empty), and there are 2+ uncompleted sets below Set 1, the cascading fill described in §13.1 applies immediately.
 
-### 13.1 Cascading Fill (on Set 1 Edit)
+### 13.1 Cascading Fill (on Set 1 Edit) — Type-Group Isolated
 
-This cascade **only fires when the changed set is the exercise's first set** (`setOrder == minOrder`). Editing any other set produces no cascade, even if subsequent sets are blank.
+This cascade **only fires when the changed set is the first set of its type group**. Two groups exist:
+- **WARMUP group** — sets with `setType == SetType.WARMUP`
+- **WORK group** — sets with `setType != SetType.WARMUP` (NORMAL, DROP, FAILURE)
 
-**Trigger:** `onWeightChanged` or `onRepsChanged` in `WorkoutViewModel`, but only when editing the **first set** of the exercise (lowest `setOrder`).
+**Type isolation rule:** Changing a WARMUP set cascades only to other WARMUP sets. Changing the first WORK set cascades only to WORK sets (NORMAL + DROP + FAILURE). Values never cross group boundaries.
 
-**Cascade target:** All sets in the same exercise where:
+**Trigger:** `onWeightChanged` or `onRepsChanged` in `WorkoutViewModel`, but only when editing the **first set in its type group** (lowest `setOrder` within the same group).
+
+**Cascade target:** All sets in the same exercise AND same type group where:
 1. `isCompleted == false`
 2. The field's current value has **not** been manually edited by the user in this session (i.e., `isDirtyWeight == false` for the weight cascade, `isDirtyReps == false` for the reps cascade).
 
@@ -934,8 +942,9 @@ Compact card in a 2-column grid:
   4. **Create Express** *(Deterministic Truncation, no AI)* — Generates a time-optimized version:
      1. Deep-copy the original routine (same path as Duplicate).
      2. Drop the bottom `floor(exercises.size × 0.4)` exercises (cuts isolation/accessory work).
-     3. Cap `sets` to a maximum of `2` for each surviving exercise.
+     3. **Warmup-aware set cap:** Keep ALL warmup sets + cap work sets (NORMAL/DROP/FAILURE) to a maximum of `2`. Uses `selectExpressIndices()` to pick kept indices, then `pickIndices()` to extract corresponding entries from `setTypesJson`/`setWeightsJson`/`setRepsJson`.
      - Saved name: `[Original Name] - Express`. New: `WorkoutsViewModel.createExpressRoutine(routine, exercises)`.
+     - **Why:** Naively capping to `coerceAtMost(2)` would keep only warmup sets if a routine has 2+ warmups at the start, losing all work sets.
   5. **Export to Text** — Formats exercises as `{sets}×{reps} {name}` (one per line) and fires `Intent(Intent.ACTION_SEND).setType("text/plain")` (Android Share Sheet). No new ViewModel method required.
   6. **Archive / Unarchive** — Label switches dynamically based on `routine.isArchived`. Calls `WorkoutsViewModel.archiveRoutine()` / `unarchiveRoutine()` (existing methods). Archived routines are hidden from the default list view; visible only when "Show Archived" FilterChip is ON (§16.2a).
   7. **Delete** — `error` tint. Shows a confirmation dialog before calling `WorkoutsViewModel.deleteRoutine()`.

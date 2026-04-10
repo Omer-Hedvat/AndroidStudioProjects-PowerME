@@ -44,9 +44,7 @@ import com.powerme.app.ui.auth.AuthViewModel
 import com.powerme.app.ui.auth.ForgotPasswordScreen
 import com.powerme.app.ui.auth.ProfileSetupScreen
 import com.powerme.app.ui.auth.WelcomeScreen
-import com.powerme.app.ui.gyms.GymInventoryScreen
 import com.powerme.app.ui.exercises.ExercisesScreen
-import com.powerme.app.ui.gyms.GymSetupScreen
 import com.powerme.app.ui.history.HistoryScreen
 import com.powerme.app.ui.history.WorkoutDetailScreen
 import com.powerme.app.ui.metrics.MetricsScreen
@@ -56,16 +54,12 @@ import com.powerme.app.ui.tools.ToolsScreen
 import com.powerme.app.ui.workout.ActiveWorkoutScreen
 import com.powerme.app.ui.workouts.TemplateBuilderScreen
 import com.powerme.app.ui.workouts.WorkoutsScreen
-import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.ui.workout.WorkoutViewModel
-import com.powerme.app.util.ModelRouter
-import com.powerme.app.util.SecurePreferencesManager
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -83,8 +77,6 @@ private object Routes {
     const val AUTH_FORGOT_PASSWORD = "auth_forgot_password"
     const val WORKOUT = "workout"
     const val SETTINGS = "settings"
-    const val GYM_SETUP = "gym_setup"
-    const val GYM_INVENTORY = "gym_inventory/{profileId}"
     const val WORKOUT_DETAIL = "workout_detail/{workoutId}"
     const val TEMPLATE_BUILDER = "template_builder/{routineId}"
     const val EXERCISE_PICKER = "exercise_picker"
@@ -93,18 +85,11 @@ private object Routes {
 /** Handles startup auth/session check to determine the initial navigation route. */
 @HiltViewModel
 class AppStartupViewModel @Inject constructor(
-    private val userSessionManager: UserSessionManager,
-    private val modelRouter: ModelRouter,
-    private val securePreferencesManager: SecurePreferencesManager,
-    private val appSettingsDataStore: AppSettingsDataStore
+    private val userSessionManager: UserSessionManager
 ) : ViewModel() {
 
     private val _startRoute = MutableStateFlow<String?>(null)
     val startRoute: StateFlow<String?> = _startRoute.asStateFlow()
-
-    companion object {
-        private const val MODELS_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000L
-    }
 
     init {
         viewModelScope.launch {
@@ -117,21 +102,6 @@ class AppStartupViewModel @Inject constructor(
                 }
             }
         }
-        // Background model refresh — fire-and-forget, does not block startup
-        viewModelScope.launch {
-            val apiKey = securePreferencesManager.getApiKey() ?: return@launch
-            val lastFetched = appSettingsDataStore.modelsLastFetched.first()
-            val needsRefresh = lastFetched == 0L ||
-                System.currentTimeMillis() - lastFetched > MODELS_REFRESH_INTERVAL_MS
-            if (needsRefresh) {
-                try {
-                    modelRouter.fetchModels(apiKey)
-                    appSettingsDataStore.setModelsLastFetched(System.currentTimeMillis())
-                } catch (_: Exception) {
-                    // Silently skip; next app open will retry
-                }
-            }
-        }
     }
 }
 
@@ -141,6 +111,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val workoutViewModel: WorkoutViewModel = hiltViewModel()
     val workoutState by workoutViewModel.workoutState.collectAsState()
+    val clocksTimerState by workoutViewModel.clocksTimerState.collectAsState()
 
     // Show splash loading until startup check completes
     if (startRoute == null) {
@@ -282,7 +253,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 currentScreen = Screen.Workouts,
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
-                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                clocksTimerProgress = clocksTimerState?.progress
             ) {
                 WorkoutsScreen(
                     onStartWorkout = { routineId ->
@@ -318,7 +290,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 currentScreen = Screen.Exercises,
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
-                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                clocksTimerProgress = clocksTimerState?.progress
             ) {
                 ExercisesScreen()
             }
@@ -337,9 +310,16 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 currentScreen = Screen.Tools,
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
-                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                clocksTimerProgress = clocksTimerState?.progress
             ) {
-                ToolsScreen()
+                ToolsScreen(
+                    onTimerStarted = {
+                        if (workoutState.isActive && workoutState.isMinimized) {
+                            workoutViewModel.maximizeWorkout()
+                        }
+                    }
+                )
             }
         }
 
@@ -355,7 +335,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 currentScreen = Screen.Trends,
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
-                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                clocksTimerProgress = clocksTimerState?.progress
             ) {
                 MetricsScreen()
             }
@@ -373,7 +354,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 currentScreen = Screen.History,
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
-                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                clocksTimerProgress = clocksTimerState?.progress
             ) {
                 HistoryScreen(
                     onWorkoutClick = { workoutId ->
@@ -391,36 +373,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
             SettingsScreen(
-                onNavigateToGymSetup = { navController.navigate(Routes.GYM_SETUP) },
                 onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = Routes.GYM_SETUP,
-            enterTransition = { slideInHorizontally(tween(300)) { it } },
-            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
-            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
-            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
-        ) {
-            GymSetupScreen(
-                onBack = { navController.popBackStack() },
-                onSaved = { id -> navController.navigate("gym_inventory/$id") }
-            )
-        }
-
-        composable(
-            route = Routes.GYM_INVENTORY,
-            arguments = listOf(navArgument("profileId") { type = NavType.LongType }),
-            enterTransition = { slideInHorizontally(tween(300)) { it } },
-            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
-            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
-            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
-        ) { backStackEntry ->
-            val profileId = backStackEntry.arguments?.getLong("profileId") ?: return@composable
-            GymInventoryScreen(
-                profileId = profileId,
-                onDone = { navController.popBackStack() }
             )
         }
 
@@ -474,6 +427,7 @@ fun MainAppScaffold(
     workoutState: com.powerme.app.ui.workout.ActiveWorkoutState,
     onMaximizeWorkout: () -> Unit,
     onSettingsClick: () -> Unit,
+    clocksTimerProgress: Float? = null,
     content: @Composable () -> Unit
 ) {
     val tabs = listOf(Screen.Workouts, Screen.History, Screen.Exercises, Screen.Tools, Screen.Trends)
@@ -516,6 +470,7 @@ fun MainAppScaffold(
                     MinimizedWorkoutBar(
                         workoutName = workoutState.workoutName,
                         elapsedSeconds = if (workoutState.isEditMode) -1 else workoutState.elapsedSeconds,
+                        clocksTimerProgress = clocksTimerProgress,
                         onClick = onMaximizeWorkout
                     )
                 }
@@ -571,54 +526,68 @@ fun MainAppScaffold(
 private fun MinimizedWorkoutBar(
     workoutName: String,
     elapsedSeconds: Int,
+    clocksTimerProgress: Float? = null,
     onClick: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clickable(onClick = onClick)
-            .drawBehind {
-                drawRect(
-                    color = primaryColor,
-                    topLeft = Offset.Zero,
-                    size = Size(4.dp.toPx(), size.height)
-                )
-            },
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-    ) {
-        Row(
+    Column {
+        // Clocks countdown reverse progress bar (TimerGreen, shrinks right→left as time runs out)
+        if (clocksTimerProgress != null) {
+            LinearProgressIndicator(
+                progress = { clocksTimerProgress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp),
+                color = com.powerme.app.ui.theme.TimerGreen,
+                trackColor = com.powerme.app.ui.theme.TimerGreen.copy(alpha = 0.15f)
+            )
+        }
+        Surface(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 20.dp, end = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth()
+                .height(56.dp)
+                .clickable(onClick = onClick)
+                .drawBehind {
+                    drawRect(
+                        color = primaryColor,
+                        topLeft = Offset.Zero,
+                        size = Size(4.dp.toPx(), size.height)
+                    )
+                },
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         ) {
-            Column {
-                Text(
-                    text = workoutName,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                if (elapsedSeconds >= 0) {
-                    val m = (elapsedSeconds % 3600) / 60
-                    val s = elapsedSeconds % 60
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 20.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
                     Text(
-                        text = "%02d:%02d".format(m, s),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = com.powerme.app.ui.theme.JetBrainsMono
+                        text = workoutName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
                     )
-                } else {
-                    Text(
-                        text = "Edit Mode",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
+                    if (elapsedSeconds >= 0) {
+                        val m = (elapsedSeconds % 3600) / 60
+                        val s = elapsedSeconds % 60
+                        Text(
+                            text = "%02d:%02d".format(m, s),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = com.powerme.app.ui.theme.JetBrainsMono
+                        )
+                    } else {
+                        Text(
+                            text = "Edit Mode",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
                 }
+                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Maximize")
             }
-            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Maximize")
         }
     }
 }

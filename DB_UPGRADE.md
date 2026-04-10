@@ -1,5 +1,19 @@
 # PowerME Database Upgrade Log
 
+## v33 — Equipment Type Consolidation
+
+**Migration:** `MIGRATION_32_33`
+
+### Changes
+
+Data-only (no schema modifications):
+- `UPDATE exercises SET equipmentType = 'Bench' WHERE equipmentType IN ('Bench/Chair', 'Bench/Couch', 'Bench/Floor', 'Box/Bench', 'Couch/Bench')` — merges 7 exercises from 5 compound synonyms into single `Bench` type
+- `UPDATE exercises SET equipmentType = 'Bodyweight' WHERE equipmentType = 'Wall'` — reassigns Tibialis Raise (Wall) to Bodyweight
+- `MasterExerciseSeeder` bumped v1.5 → v1.6 (forces reseed from updated `master_exercises.json`)
+- Equipment filter chips now display with priority ordering: **Barbell, Dumbbell, Bench, Bodyweight** first, then remaining A-Z (applied in `ExercisesViewModel.sortEquipmentTypes()`)
+
+---
+
 ## v31 — UUID String Primary Keys + Soft Delete + Firestore Sync
 
 **Migration:** `MIGRATION_30_31`

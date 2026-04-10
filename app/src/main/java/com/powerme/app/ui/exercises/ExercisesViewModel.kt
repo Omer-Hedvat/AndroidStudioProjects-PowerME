@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -56,12 +57,21 @@ class ExercisesViewModel @Inject constructor(
 
     private fun loadFilterOptions() {
         viewModelScope.launch {
-            val muscles = exerciseRepository.getDistinctMuscleGroups()
-            _muscleGroupFilters.value = listOf("All") + muscles
-
-            val equipment = exerciseRepository.getDistinctEquipmentTypes()
-            _equipmentFilters.value = listOf("All") + equipment
+            val musclesDeferred = async { exerciseRepository.getDistinctMuscleGroups() }
+            val equipmentDeferred = async { exerciseRepository.getDistinctEquipmentTypes() }
+            _muscleGroupFilters.value = listOf("All") + musclesDeferred.await()
+            _equipmentFilters.value = listOf("All") + sortEquipmentTypes(equipmentDeferred.await())
         }
+    }
+
+    private fun sortEquipmentTypes(types: List<String>): List<String> {
+        val prioritized = PRIORITY_EQUIPMENT.filter { p -> types.any { it.equals(p, ignoreCase = true) } }
+        val remaining = types.filter { t -> PRIORITY_EQUIPMENT.none { it.equals(t, ignoreCase = true) } }
+        return prioritized + remaining.sorted()
+    }
+
+    companion object {
+        internal val PRIORITY_EQUIPMENT = listOf("Barbell", "Dumbbell", "Kettlebell", "Bench", "Bodyweight", "Cable")
     }
 
     fun onSearchQueryChanged(query: String) {

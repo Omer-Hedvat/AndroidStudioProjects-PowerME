@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.util.AlertType
+import com.powerme.app.util.ClocksTimerBridge
 import com.powerme.app.util.RestTimerNotifier
 import com.powerme.app.util.WakeLockManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,6 +55,7 @@ data class ToolsUiState(
 @HiltViewModel
 class ToolsViewModel @Inject constructor(
     private val wakeLockManager: WakeLockManager,
+    private val clocksTimerBridge: ClocksTimerBridge,
     @ApplicationContext context: Context,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -154,11 +156,13 @@ class ToolsViewModel @Inject constructor(
 
     fun pauseTimer() {
         timerJob?.cancel()
+        clocksTimerBridge.clear()
         _uiState.update { it.copy(isRunning = false) }
     }
 
     fun resetTimer() {
         timerJob?.cancel()
+        clocksTimerBridge.clear()
         wakeLockManager.release()
         _uiState.update {
             it.copy(
@@ -183,6 +187,7 @@ class ToolsViewModel @Inject constructor(
             var warnedThisRound = false
             while (remaining > 0 && _uiState.value.isRunning) {
                 _uiState.update { it.copy(displaySeconds = remaining) }
+                clocksTimerBridge.update(remaining, roundDuration)
                 if (warnAt != null && remaining == warnAt && !warnedThisRound) {
                     warnedThisRound = true
                     restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
@@ -212,10 +217,12 @@ class ToolsViewModel @Inject constructor(
             // ── WORK phase ───────────────────────────────────────────────────
             _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = round + 1) }
             restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
-            var workRemaining = _uiState.value.workSeconds
+            val workTotal = _uiState.value.workSeconds
+            var workRemaining = workTotal
             var warnedWork = false
             while (workRemaining > 0 && _uiState.value.isRunning) {
                 _uiState.update { it.copy(displaySeconds = workRemaining) }
+                clocksTimerBridge.update(workRemaining, workTotal)
                 if (warnAt != null && workRemaining == warnAt && !warnedWork) {
                     warnedWork = true
                     restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
@@ -233,10 +240,12 @@ class ToolsViewModel @Inject constructor(
             if (!(isLastRound && skipLastRest)) {
                 _uiState.update { it.copy(phase = TimerPhase.REST) }
                 restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
-                var restRemaining = _uiState.value.restSeconds
+                val restTotal = _uiState.value.restSeconds
+                var restRemaining = restTotal
                 var warnedRest = false
                 while (restRemaining > 0 && _uiState.value.isRunning) {
                     _uiState.update { it.copy(displaySeconds = restRemaining) }
+                    clocksTimerBridge.update(restRemaining, restTotal)
                     if (warnAt != null && restRemaining == warnAt && !warnedRest) {
                         warnedRest = true
                         restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
@@ -268,8 +277,9 @@ class ToolsViewModel @Inject constructor(
 
     private suspend fun runCountdown() {
         val state = _uiState.value
-        var remaining = if (state.displaySeconds > 0) state.displaySeconds
-        else (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 } ?: 60
+        // total is always the configured duration (preserved across pause/resume via startTimer())
+        val total = (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 } ?: 60
+        var remaining = if (state.displaySeconds > 0) state.displaySeconds else total
 
         val warnAt = state.countdownWarnAtSecondsText.toIntOrNull()
         var warnedThisRound = false
@@ -278,6 +288,7 @@ class ToolsViewModel @Inject constructor(
 
         while (remaining > 0 && _uiState.value.isRunning) {
             _uiState.update { it.copy(displaySeconds = remaining) }
+            clocksTimerBridge.update(remaining, total)
             if (warnAt != null && remaining == warnAt && !warnedThisRound) {
                 warnedThisRound = true
                 restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
@@ -294,6 +305,7 @@ class ToolsViewModel @Inject constructor(
 
     private fun finishTimer() {
         restTimerNotifier.triggerAudioAlert(AlertType.FINISH)
+        clocksTimerBridge.clear()
         wakeLockManager.release()
         _uiState.update { it.copy(isRunning = false, phase = TimerPhase.IDLE) }
     }
@@ -301,6 +313,7 @@ class ToolsViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        clocksTimerBridge.clear()
         wakeLockManager.release()
     }
 }

@@ -1,0 +1,252 @@
+package com.powerme.app.ui.settings
+
+import com.google.firebase.auth.FirebaseAuth
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.ThemeMode
+import com.powerme.app.data.database.PowerMeDatabase
+import com.powerme.app.data.database.UserSettingsDao
+import com.powerme.app.data.database.MetricType
+import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.data.sync.FirestoreSyncManager
+import com.powerme.app.health.HealthConnectManager
+import com.powerme.app.health.HealthConnectReadResult
+import com.powerme.app.util.SecurePreferencesManager
+import com.powerme.app.util.UserSessionManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+
+/**
+ * Unit tests for the Health Connect slice of SettingsViewModel.
+ *
+ * Covers availability, permission, sync success/failure, and permission result callbacks.
+ * Non-HC dependencies get minimal stubs so the ViewModel can init without crashing.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class SettingsViewModelHealthConnectTest {
+
+    private val testDispatcher = StandardTestDispatcher()
+
+    private lateinit var mockSecurePreferencesManager: SecurePreferencesManager
+    private lateinit var mockUserSettingsDao: UserSettingsDao
+    private lateinit var mockDatabase: PowerMeDatabase
+    private lateinit var mockMetricLogRepository: MetricLogRepository
+    private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
+    private lateinit var mockUserSessionManager: UserSessionManager
+    private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
+    private lateinit var mockAuth: FirebaseAuth
+    private lateinit var mockHealthConnectManager: HealthConnectManager
+
+    private lateinit var viewModel: SettingsViewModel
+
+    private val sampleData = HealthConnectReadResult(
+        weight = 80.0,
+        height = 180f,
+        bodyFat = 15.0,
+        sleepMinutes = 450,
+        hrv = 55.0,
+        rhr = 60,
+        steps = 8000,
+        lastSyncTimestamp = System.currentTimeMillis() - 60_000L
+    )
+
+    @Before
+    fun setup() {
+        Dispatchers.setMain(testDispatcher)
+
+        mockSecurePreferencesManager = mock()
+        mockUserSettingsDao = mock()
+        mockDatabase = mock()
+        mockMetricLogRepository = mock()
+        mockAppSettingsDataStore = mock()
+        mockUserSessionManager = mock()
+        mockFirestoreSyncManager = mock()
+        mockAuth = mock()
+        mockHealthConnectManager = mock()
+
+        // Minimal stubs for non-HC init paths
+        whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
+        whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(false))
+        whenever(mockAppSettingsDataStore.themeMode).thenReturn(flowOf(ThemeMode.DARK))
+        whenever(mockMetricLogRepository.getByType(MetricType.WEIGHT)).thenReturn(flowOf(emptyList()))
+        whenever(mockMetricLogRepository.getByType(MetricType.BODY_FAT)).thenReturn(flowOf(emptyList()))
+        whenever(mockAuth.currentUser).thenReturn(null)
+
+        runBlocking {
+            whenever(mockUserSessionManager.getCurrentUser()).thenReturn(null)
+        }
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    private fun buildViewModel(): SettingsViewModel = SettingsViewModel(
+        securePreferencesManager = mockSecurePreferencesManager,
+        userSettingsDao = mockUserSettingsDao,
+        database = mockDatabase,
+        metricLogRepository = mockMetricLogRepository,
+        appSettingsDataStore = mockAppSettingsDataStore,
+        userSessionManager = mockUserSessionManager,
+        firestoreSyncManager = mockFirestoreSyncManager,
+        auth = mockAuth,
+        context = mock(),
+        healthConnectManager = mockHealthConnectManager
+    )
+
+    // ── Test 1: HC not available ─────────────────────────────────────────────
+
+    @Test
+    fun `HC not available - healthConnectAvailable is false`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
+
+        viewModel = buildViewModel()
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.healthConnectAvailable)
+        assertFalse(viewModel.uiState.value.healthConnectPermissionsGranted)
+        assertNull(viewModel.uiState.value.healthConnectData)
+    }
+
+    // ── Test 2: HC available, permissions not granted ────────────────────────
+
+    @Test
+    fun `HC available but permissions not granted - shows not connected state`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking { whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(false) }
+
+        viewModel = buildViewModel()
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.healthConnectAvailable)
+        assertFalse(viewModel.uiState.value.healthConnectPermissionsGranted)
+        assertNull(viewModel.uiState.value.healthConnectData)
+    }
+
+    // ── Test 3: HC available + permissions granted, loads data on init ───────
+
+    @Test
+    fun `HC available and granted - readAllData populates state on init`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockHealthConnectManager.readAllData()).thenReturn(sampleData)
+        }
+
+        viewModel = buildViewModel()
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.healthConnectAvailable)
+        assertTrue(viewModel.uiState.value.healthConnectPermissionsGranted)
+        val data = viewModel.uiState.value.healthConnectData
+        assertNotNull(data)
+        assertEquals(80.0, data!!.weight!!, 0.01)
+        assertEquals(450, data.sleepMinutes)
+        assertEquals(8000, data.steps)
+    }
+
+    // ── Test 4: syncHealthConnect success ─────────────────────────────────────
+
+    @Test
+    fun `syncHealthConnect success - syncing transitions and data populated`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockHealthConnectManager.readAllData()).thenReturn(sampleData)
+            whenever(mockHealthConnectManager.syncAndRead()).thenReturn(sampleData)
+        }
+
+        viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.syncHealthConnect()
+        // Capture syncing=true before runCurrent drains the coroutine
+        assertTrue(viewModel.uiState.value.healthConnectSyncing)
+
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.healthConnectSyncing)
+        assertNotNull(viewModel.uiState.value.healthConnectData)
+        assertNull(viewModel.uiState.value.healthConnectError)
+    }
+
+    // ── Test 5: syncHealthConnect failure ─────────────────────────────────────
+
+    @Test
+    fun `syncHealthConnect failure - error set and syncing false`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockHealthConnectManager.readAllData()).thenReturn(sampleData)
+            whenever(mockHealthConnectManager.syncAndRead()).thenThrow(RuntimeException("HC read failed"))
+        }
+
+        viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.syncHealthConnect()
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.healthConnectSyncing)
+        assertNotNull(viewModel.uiState.value.healthConnectError)
+        assertTrue(viewModel.uiState.value.healthConnectError!!.contains("HC read failed"))
+    }
+
+    // ── Test 6: onPermissionResult all granted → triggers sync ───────────────
+
+    @Test
+    fun `onHealthConnectPermissionResult all granted - sets permissions and triggers sync`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockHealthConnectManager.syncAndRead()).thenReturn(sampleData)
+        }
+
+        viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.onHealthConnectPermissionResult(HealthConnectManager.ALL_PERMISSIONS)
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.healthConnectPermissionsGranted)
+        // syncHealthConnect was called — syncing completed, data should be populated
+        assertNotNull(viewModel.uiState.value.healthConnectData)
+    }
+
+    // ── Test 7: onPermissionResult partial → no sync ─────────────────────────
+
+    @Test
+    fun `onHealthConnectPermissionResult partial - permissions remain false, no sync`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(false)
+        }
+
+        viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.onHealthConnectPermissionResult(setOf("partial.permission"))
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.healthConnectPermissionsGranted)
+        assertNull(viewModel.uiState.value.healthConnectData)
+    }
+}

@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -57,10 +56,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
@@ -101,7 +102,7 @@ fun ActiveWorkoutScreen(
 ) {
     val workoutState by viewModel.workoutState.collectAsState()
     val medicalDoc by viewModel.medicalDoc.collectAsState()
-    val keepScreenOn by viewModel.keepScreenOn.collectAsState()
+    val clocksTimerState by viewModel.clocksTimerState.collectAsState()
     var showExerciseDialog by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
     var showDiscardEditDialog by remember { mutableStateOf(false) }
@@ -276,16 +277,31 @@ fun ActiveWorkoutScreen(
                                 Icon(Icons.Default.Close, contentDescription = "Cancel edit", tint = MaterialTheme.colorScheme.error)
                             }
                         } else {
-                            IconButton(onClick = onNavigateToTimer) {
+                            IconButton(onClick = { viewModel.minimizeWorkout(); onNavigateToTimer() }) {
                                 Icon(Icons.Default.Timer, contentDescription = "Timer", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
                 }
 
+                // Clocks tab countdown progress bar — tap to jump back to Clocks
+                val clocksSnap = clocksTimerState
+                if (clocksSnap != null) {
+                    LinearProgressIndicator(
+                        progress = { clocksSnap.progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clickable { viewModel.minimizeWorkout(); onNavigateToTimer() },
+                        color = TimerGreen,
+                        trackColor = TimerGreen.copy(alpha = 0.15f)
+                    )
+                }
+
                 val activeTimerExerciseId = workoutState.restTimer.exerciseId
                 val activeTimerSetOrder = workoutState.restTimer.setOrder
                 val activeTimerRemainingSeconds = workoutState.restTimer.remainingSeconds
+                val activeTimerTotalSeconds = workoutState.restTimer.totalSeconds
 
                 val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
                     val exercises = workoutState.exercises
@@ -309,6 +325,7 @@ fun ActiveWorkoutScreen(
                         activeTimerExerciseId = activeTimerExerciseId,
                         activeTimerSetOrder = activeTimerSetOrder,
                         activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                        activeTimerTotalSeconds = activeTimerTotalSeconds,
                         onShowExerciseDialog = { showExerciseDialog = true },
                         onTimerActiveClick = { showTimerControls = true },
                         onCancelWorkout = { showCancelDialog = true },
@@ -356,6 +373,7 @@ private fun LazyListScope.activeWorkoutListItems(
     activeTimerExerciseId: Long?,
     activeTimerSetOrder: Int?,
     activeTimerRemainingSeconds: Int,
+    activeTimerTotalSeconds: Int,
     onShowExerciseDialog: () -> Unit,
     onTimerActiveClick: () -> Unit,
     onCancelWorkout: () -> Unit,
@@ -502,6 +520,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     activeTimerExerciseId = activeTimerExerciseId,
                     activeTimerSetOrder = activeTimerSetOrder,
                     activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                    activeTimerTotalSeconds = activeTimerTotalSeconds,
                     restTimeOverrides = workoutState.restTimeOverrides,
                     hiddenRestSeparators = workoutState.hiddenRestSeparators,
                     isEditMode = isEditMode,
@@ -543,6 +562,7 @@ private fun LazyListScope.activeWorkoutListItems(
                 activeTimerExerciseId = activeTimerExerciseId,
                 activeTimerSetOrder = activeTimerSetOrder,
                 activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                activeTimerTotalSeconds = activeTimerTotalSeconds,
                 restTimeOverrides = workoutState.restTimeOverrides,
                 hiddenRestSeparators = workoutState.hiddenRestSeparators,
                 isEditMode = isEditMode,
@@ -636,6 +656,7 @@ private fun ExerciseCard(
     activeTimerExerciseId: Long?,
     activeTimerSetOrder: Int?,
     activeTimerRemainingSeconds: Int,
+    activeTimerTotalSeconds: Int,
     onToggleSelect: () -> Unit,
     onAddSet: () -> Unit,
     onDeleteSet: (Int) -> Unit,
@@ -696,8 +717,8 @@ private fun ExerciseCard(
                 onLongClick = { onLongPress() }
             )
             .animateContentSize(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = PowerMeDefaults.cardColors(),
+        elevation = PowerMeDefaults.cardElevation()
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             if (isInSuperset) {
@@ -839,6 +860,7 @@ private fun ExerciseCard(
                                     isThisTimerActive = isThisTimerActive,
                                     effectiveRest = effectiveRest,
                                     activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                                    activeTimerTotalSeconds = activeTimerTotalSeconds,
                                     onWeightChanged = { onWeightChanged(set.setOrder, it) },
                                     onRepsChanged = { onRepsChanged(set.setOrder, it) },
                                     onCompleteSet = { onCompleteSet(set.setOrder) },
@@ -885,7 +907,7 @@ private fun ExerciseCard(
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(
-                                modifier = Modifier.weight(1f).height(36.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp)).clickable { onAddSet() },
+                                modifier = Modifier.weight(1f).height(36.dp).background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall).clickable { onAddSet() },
                                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
@@ -1005,6 +1027,7 @@ private fun SetWithRestRow(
     isThisTimerActive: Boolean,
     effectiveRest: Int,
     activeTimerRemainingSeconds: Int,
+    activeTimerTotalSeconds: Int,
     onWeightChanged: (String) -> Unit,
     onRepsChanged: (String) -> Unit,
     onCompleteSet: () -> Unit,
@@ -1068,7 +1091,7 @@ private fun SetWithRestRow(
         }
         AnimatedVisibility(
             visible = shouldShowSeparator,
-            enter = slideInVertically(animationSpec = tween(200)) { -it },
+            enter = expandVertically(expandFrom = Alignment.Top, animationSpec = tween(200)),
             exit = shrinkVertically(animationSpec = tween(150)) + fadeOut(animationSpec = tween(150))
         ) {
             SwipeToDismissBox(
@@ -1077,7 +1100,14 @@ private fun SetWithRestRow(
                 backgroundContent = { SwipeToDeleteBackground(restSwipeState.progress) }
             ) {
                 Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                    RestSeparator(effectiveRest, isThisTimerActive, activeTimerRemainingSeconds, onTimerActiveClick, onPassiveRestClick)
+                    RestSeparator(
+                        restSeconds = effectiveRest,
+                        isActive = isThisTimerActive,
+                        liveRemainingSeconds = if (isThisTimerActive) activeTimerRemainingSeconds else 0,
+                        liveTotalSeconds = if (isThisTimerActive) activeTimerTotalSeconds else 0,
+                        onActiveClick = onTimerActiveClick,
+                        onPassiveClick = onPassiveRestClick
+                    )
                 }
             }
         }
@@ -1195,7 +1225,7 @@ private fun UpdateRestTimersDialog(
                                     Box(
                                         modifier = Modifier
                                             .width(36.dp)
-                                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
                                             .padding(vertical = 6.dp, horizontal = 4.dp),
                                         contentAlignment = Alignment.Center
                                     ) { inner() }
@@ -1216,7 +1246,7 @@ private fun UpdateRestTimersDialog(
                                     Box(
                                         modifier = Modifier
                                             .width(36.dp)
-                                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
                                             .padding(vertical = 6.dp, horizontal = 4.dp),
                                         contentAlignment = Alignment.Center
                                     ) { inner() }
@@ -1262,7 +1292,7 @@ private fun SupersetSelectRow(
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
             else MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = PowerMeDefaults.cardElevation()
     ) {
         Row(
             modifier = Modifier
@@ -1323,7 +1353,7 @@ private fun StandaloneTimerConfigSheet(onDismiss: () -> Unit, onStartTimer: (Int
                 }
             }
             Spacer(modifier = Modifier.height(48.dp))
-            Button(onClick = { /* Custom */ }, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(12.dp)) { Text("CREATE CUSTOM TIMER", fontWeight = FontWeight.Bold) }
+            Button(onClick = { /* Custom */ }, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("CREATE CUSTOM TIMER", fontWeight = FontWeight.Bold) }
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
@@ -1331,13 +1361,18 @@ private fun StandaloneTimerConfigSheet(onDismiss: () -> Unit, onStartTimer: (Int
 
 @Composable
 private fun StandaloneTimerOverlay(state: RestTimerState, onClose: () -> Unit, onPause: () -> Unit, onResume: () -> Unit, onSkip: () -> Unit, onAdd30s: () -> Unit, onSubtract30s: () -> Unit) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = if (state.totalSeconds > 0) state.remainingSeconds.toFloat() / state.totalSeconds.toFloat() else 0f,
+        animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
+        label = "timerProgress"
+    )
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close") } }
             Text("Adjust duration via the +/- buttons.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.weight(1f))
             Box(contentAlignment = Alignment.Center, modifier = Modifier.size(320.dp)) {
-                CircularProgressIndicator(progress = { state.remainingSeconds.toFloat() / state.totalSeconds.toFloat() }, modifier = Modifier.fillMaxSize(), strokeWidth = 4.dp, color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
+                CircularProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxSize(), strokeWidth = 4.dp, color = NeonPurple, trackColor = MaterialTheme.colorScheme.surfaceVariant)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(text = "%d:%02d".format(state.remainingSeconds / 60, state.remainingSeconds % 60), fontSize = 72.sp, fontWeight = FontWeight.Light, fontFamily = JetBrainsMono)
                     Text(text = "%d:%02d".format(state.totalSeconds / 60, state.totalSeconds % 60), fontSize = 24.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f), fontFamily = JetBrainsMono)
@@ -1345,9 +1380,9 @@ private fun StandaloneTimerOverlay(state: RestTimerState, onClose: () -> Unit, o
             }
             Spacer(modifier = Modifier.weight(1f))
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onSubtract30s) { Text("-30 SEC", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-                TextButton(onClick = onAdd30s) { Text("+30 SEC", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-                Button(onClick = onSkip, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), modifier = Modifier.width(120.dp).height(48.dp), shape = RoundedCornerShape(8.dp)) { Text("SKIP", fontWeight = FontWeight.Bold) }
+                TextButton(onClick = onSubtract30s) { Text("-30 SEC", color = NeonPurple, fontWeight = FontWeight.Bold) }
+                TextButton(onClick = onAdd30s) { Text("+30 SEC", color = NeonPurple, fontWeight = FontWeight.Bold) }
+                Button(onClick = onSkip, colors = ButtonDefaults.buttonColors(containerColor = NeonPurple), modifier = Modifier.width(120.dp).height(48.dp)) { Text("SKIP", fontWeight = FontWeight.Bold) }
             }
         }
     }
@@ -1362,7 +1397,7 @@ private fun SwipeToDeleteBackground(fraction: Float) {
 }
 
 @Composable
-private fun RestSeparator(restSeconds: Int, isActive: Boolean = false, liveRemainingSeconds: Int = 0, onActiveClick: () -> Unit = {}, onPassiveClick: () -> Unit = {}) {
+private fun RestSeparator(restSeconds: Int, isActive: Boolean = false, liveRemainingSeconds: Int = 0, liveTotalSeconds: Int = 0, onActiveClick: () -> Unit = {}, onPassiveClick: () -> Unit = {}) {
     fun formatSecs(s: Int) = "%d:%02d".format(s / 60, s % 60)
     val flashAlpha = remember { Animatable(0.4f) }
     LaunchedEffect(isActive) {
@@ -1371,24 +1406,44 @@ private fun RestSeparator(restSeconds: Int, isActive: Boolean = false, liveRemai
             flashAlpha.animateTo(0.15f, animationSpec = tween(300))
         }
     }
+    // Progress bar: one continuous animation from start fraction → 0 over the remaining duration.
+    // Keyed on (isActive, liveTotalSeconds) so it only restarts on activation or when user adjusts total time
+    // (not on every second tick), giving a truly smooth backwards sweep.
+    val progressAnimatable = remember { Animatable(0f) }
+    LaunchedEffect(isActive, liveTotalSeconds) {
+        if (isActive && liveTotalSeconds > 0 && liveRemainingSeconds > 0) {
+            val startFraction = liveRemainingSeconds.toFloat() / liveTotalSeconds.toFloat()
+            progressAnimatable.snapTo(startFraction)
+            progressAnimatable.animateTo(0f, tween(liveRemainingSeconds * 1000, easing = LinearEasing))
+        } else {
+            progressAnimatable.snapTo(0f)
+        }
+    }
     // Fixed height on both states prevents layout jump during Crossfade transition
     Crossfade(targetState = isActive, label = "RestTimerTransition") { active ->
         if (active) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
-                    .background(color = MaterialTheme.colorScheme.primary.copy(alpha = flashAlpha.value), shape = RoundedCornerShape(4.dp))
+                    .height(44.dp)
+                    .background(color = NeonPurple.copy(alpha = flashAlpha.value), shape = MaterialTheme.shapes.extraSmall)
                     .clickable(onClick = onActiveClick),
-                contentAlignment = Alignment.Center
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(text = formatSecs(liveRemainingSeconds), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = JetBrainsMono)
+                Text(text = formatSecs(liveRemainingSeconds), color = NeonPurple, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = JetBrainsMono)
+                LinearProgressIndicator(
+                    progress = { progressAnimatable.value },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(2.dp),
+                    color = NeonPurple,
+                    trackColor = NeonPurple.copy(alpha = 0.15f)
+                )
             }
         } else {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
+                    .height(44.dp)
                     .clickable(onClick = onPassiveClick),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1599,7 +1654,7 @@ fun WorkoutSetRow(
                 }
                 IconButton(
                     onClick = onCompleteSet,
-                    modifier = Modifier.weight(CHECK_COL_WEIGHT).fillMaxHeight().minimumInteractiveComponentSize().background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                    modifier = Modifier.weight(CHECK_COL_WEIGHT).fillMaxHeight().minimumInteractiveComponentSize().background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
                 ) {
                     Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
                 }
@@ -1715,7 +1770,7 @@ fun CardioSetRow(
             onClick = onCompleteSet,
             modifier = Modifier.weight(0.10f).fillMaxHeight().background(
                 if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(4.dp)
+                MaterialTheme.shapes.extraSmall
             )
         ) {
             Icon(
@@ -1767,7 +1822,7 @@ fun TimedSetRow(
             onClick = onCompleteSet,
             modifier = Modifier.weight(0.10f).fillMaxHeight().background(
                 if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(4.dp)
+                MaterialTheme.shapes.extraSmall
             )
         ) {
             Icon(

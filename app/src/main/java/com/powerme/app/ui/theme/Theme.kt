@@ -21,27 +21,30 @@ private val LightColorScheme = lightColorScheme(
     onBackground     = Slate900,
     onSurface        = Slate900,
     onSurfaceVariant = Slate900,
+    outline          = Color(0xFFCAC4D0),  // M3 light outline
+    outlineVariant   = Color(0xFFDDD8E4),  // Soft lavender-grey for unfocused borders
     error            = LightError,         // #B3261E — M3 standard
     onError          = LightBackground
 )
 
 private val DarkColorScheme = darkColorScheme(
     primary             = ProViolet,            // #9B7DDB — desaturated lavender-violet
-    onPrimary           = ProBackground,        // #0F0D13
+    onPrimary           = ProBackground,        // #101010
     primaryContainer    = Color(0xFF2D2052),    // muted deep purple
     onPrimaryContainer  = Color(0xFFE0D4F0),   // muted lavender
     secondary           = ProMagenta,           // #9E6B8A — dusty rose
     onSecondary         = ProBackground,
     tertiary            = ProViolet,
     onTertiary          = ProBackground,
-    background          = ProBackground,        // #0F0D13
-    surface             = ProSurface,           // #1C1A24
-    surfaceVariant      = ProSurfaceVar,        // #28253A
+    background          = ProBackground,        // #101010
+    surface             = ProSurface,           // #1C1C1C
+    surfaceVariant      = ProSurfaceVar,        // #282828
     surfaceTint         = ProBackground,        // suppress M3 purple elevation tint
-    onBackground        = ProCloudGrey,         // #E8E4F0 — lavender off-white
-    onSurface           = ProCloudGrey,         // #E8E4F0
-    onSurfaceVariant    = ProSubGrey,           // #9E99AB — medium emphasis
-    outline             = ProOutline,           // #3A3650 — purple-tinted borders
+    onBackground        = ProCloudGrey,         // #EDEDEF — neutral near-white
+    onSurface           = ProCloudGrey,         // #EDEDEF
+    onSurfaceVariant    = ProSubGrey,           // #A0A0A0 — neutral medium grey
+    outline             = ProOutline,           // #383838 — neutral borders
+    outlineVariant      = ProOutlineSoft,       // #2E2E2E — softer for unfocused borders
     error               = ProError,             // #E05555 — desaturated red
     onError             = ProBackground
 )
@@ -56,6 +59,7 @@ fun PowerMETheme(themeMode: ThemeMode = ThemeMode.LIGHT, content: @Composable ()
     MaterialTheme(
         colorScheme = if (isDark) DarkColorScheme else LightColorScheme,
         typography = Typography,
+        shapes = PowerMeShapes,
         content = content
     )
 }

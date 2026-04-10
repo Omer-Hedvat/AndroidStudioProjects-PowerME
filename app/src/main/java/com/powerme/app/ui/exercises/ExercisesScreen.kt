@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.ui.components.MagicAddDialog
 import com.powerme.app.ui.theme.FormCuesGold
+import com.powerme.app.ui.theme.PowerMeDefaults
 
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -49,7 +49,7 @@ fun ExercisesScreen(
     var selectedExercise by remember { mutableStateOf<Exercise?>(null) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding()) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Picker mode header
             if (pickerMode) {
@@ -94,21 +94,17 @@ fun ExercisesScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                ),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                colors = PowerMeDefaults.outlinedTextFieldColors(),
                 singleLine = true
             )
 
             // Muscle group label
             Text(
                 text = "Muscle",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)
             )
 
@@ -152,7 +148,7 @@ fun ExercisesScreen(
 
             // Divider between chip rows
             HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
             )
 
@@ -164,8 +160,9 @@ fun ExercisesScreen(
                 Column {
                     Text(
                         text = "Equipment",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)
                     )
                     Box(modifier = Modifier.fillMaxWidth()) {
@@ -206,8 +203,6 @@ fun ExercisesScreen(
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
 
             // Exercise list
             if (uiState.isLoading) {
@@ -312,13 +307,14 @@ private fun ExerciseCard(
                 onClick = onClick,
                 onLongClick = onLongPress
             ),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = PowerMeDefaults.cardColors(),
+        elevation = PowerMeDefaults.cardElevation()
     ) {
         Box {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -332,7 +328,7 @@ private fun ExerciseCard(
                     Spacer(modifier = Modifier.height(3.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Surface(
-                            shape = RoundedCornerShape(4.dp),
+                            shape = MaterialTheme.shapes.extraSmall,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         ) {
                             Text(
@@ -343,7 +339,7 @@ private fun ExerciseCard(
                             )
                         }
                         Surface(
-                            shape = RoundedCornerShape(4.dp),
+                            shape = MaterialTheme.shapes.extraSmall,
                             color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
                         ) {
                             Text(

@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.powerme.app.ui.theme.PowerMeDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,10 +86,7 @@ fun TemplateBuilderScreen(
                                 viewModel.save { navController.popBackStack() }
                             }
                         }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.0f)
-                        ),
+                        colors = PowerMeDefaults.outlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
                 },
@@ -192,7 +190,7 @@ private fun DraftExerciseRow(
     Card(
         modifier = Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onLongPress() }) },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = PowerMeDefaults.subtleCardElevation()
     ) {
         Row(
             modifier = Modifier

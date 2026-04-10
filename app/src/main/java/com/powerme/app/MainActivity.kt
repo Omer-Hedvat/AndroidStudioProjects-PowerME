@@ -15,9 +15,7 @@ import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.navigation.PowerMeApp
 import com.powerme.app.ui.theme.PowerMETheme
-import com.powerme.app.ui.workout.WorkoutViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import androidx.hilt.navigation.compose.hiltViewModel
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -31,8 +29,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themeMode by appSettingsDataStore.themeMode.collectAsState(initial = ThemeMode.LIGHT)
             val keepScreenOn by appSettingsDataStore.keepScreenOn.collectAsState(initial = true)
-            val workoutViewModel: WorkoutViewModel = hiltViewModel()
-            val workoutState by workoutViewModel.workoutState.collectAsState()
             val systemDark = isSystemInDarkTheme()
             val isDark = when (themeMode) {
                 ThemeMode.LIGHT  -> false
@@ -45,7 +41,7 @@ class MainActivity : ComponentActivity() {
                 else
                     SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
-                if (keepScreenOn && workoutState.isActive) {
+                if (keepScreenOn) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 } else {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

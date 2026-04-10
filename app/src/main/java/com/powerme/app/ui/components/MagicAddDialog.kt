@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.powerme.app.ui.theme.PowerMeDefaults
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -113,13 +114,7 @@ fun MagicAddDialog(
                         .focusRequester(focusRequester),
                     label = { Text("Exercise name", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
                     placeholder = { Text("e.g. Bench Press", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        focusedTextColor = MaterialTheme.colorScheme.primary,
-                        unfocusedTextColor = MaterialTheme.colorScheme.primary,
-                        cursorColor = MaterialTheme.colorScheme.primary
-                    ),
+                    colors = PowerMeDefaults.outlinedTextFieldColors(),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
                         imeAction = ImeAction.Search

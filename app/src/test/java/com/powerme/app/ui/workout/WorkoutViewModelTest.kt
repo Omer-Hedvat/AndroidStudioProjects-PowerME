@@ -2,7 +2,6 @@ package com.powerme.app.ui.workout
 
 import android.content.Context
 import com.powerme.app.analytics.BoazPerformanceAnalyzer
-import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.database.ExerciseDao
 import com.powerme.app.data.database.RoutineDao
@@ -21,10 +20,12 @@ import com.powerme.app.data.database.RoutineExercise
 import com.powerme.app.data.database.WorkoutSet
 import com.powerme.app.data.repository.WorkoutBootstrap
 import com.powerme.app.data.repository.WorkoutRepository
+import com.powerme.app.util.ClocksTimerBridge
 import com.powerme.app.warmup.WarmupService
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -39,6 +40,7 @@ import kotlin.time.Duration.Companion.seconds
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -99,7 +101,7 @@ class WorkoutViewModelTest {
     private lateinit var mockMedicalLedgerRepository: MedicalLedgerRepository
     private lateinit var mockBoazPerformanceAnalyzer: BoazPerformanceAnalyzer
     private lateinit var mockStateHistoryRepository: StateHistoryRepository
-    private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
+    private lateinit var mockClocksTimerBridge: ClocksTimerBridge
     private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
     private lateinit var mockContext: Context
 
@@ -122,12 +124,12 @@ class WorkoutViewModelTest {
         mockMedicalLedgerRepository = mock()
         mockBoazPerformanceAnalyzer = mock()
         mockStateHistoryRepository = mock()
-        mockAppSettingsDataStore = mock()
+        mockClocksTimerBridge = mock()
         mockFirestoreSyncManager = mock()
         mockContext = mock()
 
         // Non-suspend property stubs (used at ViewModel construction time)
-        whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(true))
+        whenever(mockClocksTimerBridge.state).thenReturn(MutableStateFlow(null))
         whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
         whenever(mockExerciseRepository.getAllExercises()).thenReturn(flowOf(emptyList()))
         whenever(mockContext.packageName).thenReturn("com.powerme.app")
@@ -176,7 +178,7 @@ class WorkoutViewModelTest {
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
             stateHistoryRepository = mockStateHistoryRepository,
-            appSettingsDataStore = mockAppSettingsDataStore,
+            clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
             context = mockContext
         )
@@ -735,6 +737,7 @@ class WorkoutViewModelTest {
                 whenever(mockRoutineExerciseDao.updateRepsAndWeight(any(), any(), any(), any())).thenReturn(Unit)
                 whenever(mockRoutineExerciseDao.updateSetTypesJson(any(), any(), any())).thenReturn(Unit)
                 whenever(mockRoutineExerciseDao.updateSetWeightsAndReps(any(), any(), any(), any())).thenReturn(Unit)
+                whenever(mockRoutineExerciseDao.updateSupersetGroupId(any(), any(), any())).thenReturn(Unit)
             }
 
             viewModel.startWorkoutFromRoutine("1")
@@ -1028,6 +1031,7 @@ class WorkoutViewModelTest {
             whenever(mockRoutineExerciseDao.updateRepsAndWeight(any(), any(), any(), any())).thenReturn(Unit)
             whenever(mockRoutineExerciseDao.updateSetTypesJson(any(), any(), any())).thenReturn(Unit)
             whenever(mockRoutineExerciseDao.updateSetWeightsAndReps(any(), any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineExerciseDao.updateSupersetGroupId(any(), any(), any())).thenReturn(Unit)
             whenever(mockRoutineDao.updateRoutine(any())).thenReturn(Unit)
         }
 
@@ -1383,4 +1387,138 @@ class WorkoutViewModelTest {
                 viewModel.workoutState.value.pendingRoutineSync
             )
         }
+
+    // -------------------------------------------------------------------------
+    // Warmup set value isolation tests (Fix 6)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `onWeightChanged does not cascade warmup values to work sets`() = vmTest {
+        val exercise = Exercise(
+            id = 40L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell"
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateWeightReps(any(), any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+        viewModel.addSet(40L)
+        runCurrent()
+        viewModel.addSet(40L)
+        runCurrent()
+
+        // Set 1 = WARMUP, set 2 = NORMAL, set 3 = NORMAL
+        viewModel.selectSetType(40L, 1, SetType.WARMUP)
+        runCurrent()
+
+        // Change warmup set 1 weight — should NOT cascade to NORMAL sets 2 and 3
+        viewModel.onWeightChanged(40L, 1, "30")
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.first().sets.sortedBy { it.setOrder }
+        assertEquals("Warmup set 1 should be 30", "30", sets[0].weight)
+        // Work sets should retain their initial "0" and NOT be overwritten by warmup cascade
+        assertNotEquals("Work set 2 should NOT inherit warmup value", "30", sets[1].weight)
+        assertNotEquals("Work set 3 should NOT inherit warmup value", "30", sets[2].weight)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `onWeightChanged cascades first work set to other work sets but not warmup sets`() = vmTest {
+        val exercise = Exercise(
+            id = 41L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell"
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateWeightReps(any(), any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+        viewModel.addSet(41L)
+        runCurrent()
+        viewModel.addSet(41L)
+        runCurrent()
+
+        // Set 1 = WARMUP, set 2 = NORMAL (first work), set 3 = NORMAL
+        viewModel.selectSetType(41L, 1, SetType.WARMUP)
+        runCurrent()
+
+        // Pre-fill warmup weight so we can verify it doesn't get overwritten
+        viewModel.onWeightChanged(41L, 1, "30")
+        runCurrent()
+
+        // Change first work set (set 2) — should cascade to set 3 but NOT to warmup set 1
+        viewModel.onWeightChanged(41L, 2, "80")
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.first().sets.sortedBy { it.setOrder }
+        assertEquals("Warmup set 1 should remain 30", "30", sets[0].weight)
+        assertEquals("Work set 2 should be 80", "80", sets[1].weight)
+        assertEquals("Work set 3 should cascade to 80", "80", sets[2].weight)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // finishWorkout warmup exclusion tests (Fix 2)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `finishWorkout excludes completed warmup sets from set count`() = vmTest {
+        val exercise = Exercise(
+            id = 50L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell"
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutDao.updateWorkout(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.deleteIncompleteSetsByWorkout(any())).thenReturn(Unit)
+            whenever(mockBoazPerformanceAnalyzer.compare(any(), any())).thenReturn(emptyList())
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+        // Add warmup set
+        viewModel.addSet(50L)
+        runCurrent()
+
+        // Set 1 = WARMUP, set 2 = NORMAL
+        viewModel.selectSetType(50L, 1, SetType.WARMUP)
+        runCurrent()
+
+        // Complete both sets
+        viewModel.completeSet(50L, 1)
+        runCurrent()
+        viewModel.completeSet(50L, 2)
+        runCurrent()
+
+        viewModel.finishWorkout()
+        runCurrent()
+
+        val summary = viewModel.workoutState.value.pendingWorkoutSummary
+        assertNotNull(summary)
+        // Only the NORMAL set (set 2) counts — warmup excluded
+        assertEquals("Only 1 work set should be counted", 1, summary!!.setCount)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
 }

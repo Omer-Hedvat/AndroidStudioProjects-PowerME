@@ -40,8 +40,6 @@
 | `trends` | Bottom tab | — | Screen-scoped | UI label: **Trends** · Composable: `MetricsScreen` |
 | `workout` | Full-screen overlay | — | NavHost-scoped `WorkoutViewModel` | Shares the same instance as all tabs |
 | `settings` | Push | — | Screen-scoped | — |
-| `gym_setup` | Push | — | Screen-scoped | — |
-| `gym_inventory/{profileId}` | Push | `profileId: Long` | Screen-scoped | Entered after GymSetup save |
 | `workout_detail/{workoutId}` | Push | `workoutId: Long` | Screen-scoped | Accessed from History tab |
 | `template_builder/{routineId}` | Push | `routineId: Long` | Screen-scoped | `routineId = -1` sentinel = new routine (see below) |
 | `exercise_picker` | Push | — | Screen-scoped | Returns result via `savedStateHandle` |
@@ -177,7 +175,7 @@ A second workout cannot be started while `isMinimized = true`. `startWorkoutFrom
 
 **Visible on:** All routes wrapped by `MainAppScaffold` — the 5 bottom tabs (`workouts`, `history`, `exercises`, `tools`, `trends`).
 
-**Hidden on:** Auth routes (`auth_welcome`, `auth_profile_setup`, `auth_forgot_password`) and all push screens (`settings`, `gym_setup`, `gym_inventory`, `workout_detail`, `template_builder`, `exercise_picker`). These routes do not host `MainAppScaffold`.
+**Hidden on:** Auth routes (`auth_welcome`, `auth_profile_setup`, `auth_forgot_password`) and all push screens (`settings`, `workout_detail`, `template_builder`, `exercise_picker`). These routes do not host `MainAppScaffold`.
 
 **Edit Mode label:** When `isEditMode = true`, the elapsed timer is replaced with the fixed text `"Edit Mode"`. This is signalled by `elapsedSeconds == -1` passed to `MinimizedWorkoutBar`. See also `WORKOUT_SPEC.md §20.1`.
 
@@ -257,7 +255,7 @@ navController.navigate(screen.route) {
 | Route category | Enter | Exit |
 |---|---|---|
 | **Tab switching** (any of the 5 bottom tabs) | `fadeIn(tween(200))` | `fadeOut(tween(200))` |
-| **Push screens** (`settings`, `gym_setup`, `gym_inventory`, `workout_detail`, `template_builder`, `exercise_picker`) | `slideInHorizontally { fullWidth }` | `slideOutHorizontally { -fullWidth/3 }` |
+| **Push screens** (`settings`, `workout_detail`, `template_builder`, `exercise_picker`) | `slideInHorizontally { fullWidth }` | `slideOutHorizontally { -fullWidth/3 }` |
 | **Push back** (pop from any push screen) | `slideInHorizontally { -fullWidth/3 }` | `slideOutHorizontally { fullWidth }` |
 | **workout overlay** (minimize/maximize) | `slideInVertically { fullHeight }` (tween 350ms, FastOutSlowInEasing) | `slideOutVertically { fullHeight }` (tween 350ms, FastOutSlowInEasing) |
 
@@ -314,7 +312,7 @@ Column(modifier = Modifier.navigationBarsPadding()) {
 |---|---|---|
 | Theme application | `PowerMETheme(themeMode = themeMode)` | Collects `themeMode: ThemeMode` from `AppSettingsDataStore` |
 | Edge-to-edge | `enableEdgeToEdge(...)` | Called inside a `SideEffect` reacting to `themeMode` changes; sets `StatusBarStyle` and `NavigationBarStyle` appropriately for light/dark |
-| Keep screen on | `window.addFlags(FLAG_KEEP_SCREEN_ON)` / `clearFlags` | Set when workout is active per user preference; cleared unconditionally on `finishWorkout()` or `cancelWorkout()`. Full rules in `WORKOUT_SPEC.md §27 invariant #17` |
+| Keep screen on | `window.addFlags(FLAG_KEEP_SCREEN_ON)` / `clearFlags` | Set unconditionally when user preference is enabled; cleared when disabled. No longer gated on workout state. |
 | Process death intent | `intent.getStringExtra("action")` | Reads `START_WORKOUT_RESUME` extra; triggers `maximizeWorkout()` after auth gate clears. See §2.3 |
 
 **Rule:** `MainActivity` must remain thin — it must not contain business logic, ViewModel calls, or navigation decisions beyond what is listed above.
@@ -323,4 +321,7 @@ Column(modifier = Modifier.navigationBarsPadding()) {
 
 ## 12. Deprecated Routes
 
-No currently deprecated routes.
+| Route | Status | Notes |
+|---|---|---|
+| `gym_setup` | Removed | Screen file preserved; nav route removed. Data layer (GymProfileRepository, GymProfile entity) preserved. |
+| `gym_inventory/{profileId}` | Removed | Screen file preserved; nav route removed. Data layer preserved. |

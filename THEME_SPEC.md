@@ -1,7 +1,7 @@
 # THEME_SPEC.md — PowerME Theme System
 
-**Status:** ✅ Complete (v2.0 — April 2026)
-**Domain:** Color Tokens · ThemeMode · Typography · Semantic Colors · Token Rules
+**Status:** ✅ Complete (v2.2 — April 2026)
+**Domain:** Color Tokens · ThemeMode · Typography · Semantic Colors · Shape System · Spacing Tokens · Component Defaults · Token Rules
 
 > **Living document.** Update this file whenever a color token, font, or theme rule changes.
 > This is the canonical source of truth for all visual design decisions.
@@ -20,22 +20,21 @@
 
 ---
 
-## 1. Color Token Reference — Pro Tracker v5.0 Dark Palette
+## 1. Color Token Reference — Pro Tracker v6.0 Dark Palette
 
 ### 1.1 DarkColorScheme — Core Token Map
 
 | Token Name | Hex | M3 Role | Notes |
 |---|---|---|---|
-| `ProBackground` | `#0F0D13` | `background`, `surfaceTint` | Near-black with subtle purple warmth. Not pure black — reduces eye fatigue. Also used as `surfaceTint` to suppress M3 purple elevation overlay (see §6.3) |
-| `ProSurface` | `#1C1A24` | `surface` | Cards, TopAppBar, NavigationBar container |
-| `ProSurfaceVar` | `#28253A` | `surfaceVariant` | Purple-tinted chips, row backgrounds, input backgrounds |
-| `ProInputPill` | `#221F30` | *(unmapped — custom)* | Input field backgrounds only. Too close to `surfaceVariant` to occupy a distinct M3 role; kept separate for input context clarity |
+| `ProBackground` | `#101010` | `background`, `surfaceTint` | True neutral near-black (equal RGB). Not pure black — reduces eye fatigue. Also used as `surfaceTint` to suppress M3 purple elevation overlay (see §6.3) |
+| `ProSurface` | `#1C1C1C` | `surface` | Neutral dark grey — cards, TopAppBar, NavigationBar container |
+| `ProSurfaceVar` | `#282828` | `surfaceVariant` | Neutral lifted surface — chips, row backgrounds, input backgrounds |
 | `ProViolet` | `#9B7DDB` | `primary` | FABs, focus borders, active toggle indicators, exercise name text, nav indicator pill. Desaturated lavender-violet — not neon. |
 | `ProMagenta` | `#9E6B8A` | `secondary` | Superset spine (4dp left border), secondary chips. Dusty rose/mauve. |
-| `ProCloudGrey` | `#E8E4F0` | `onSurface`, `onBackground` | High-emphasis text — lavender-tinted off-white. Contrast ~15.5:1 on `ProBackground` (AAA, non-fatiguing) |
-| `ProSubGrey` | `#9E99AB` | `onSurfaceVariant` | Medium-emphasis text, subtitles, timestamps. Purple-tinted. |
+| `ProCloudGrey` | `#EDEDEF` | `onSurface`, `onBackground` | High-emphasis text — neutral near-white (+2 blue prevents OLED yellow cast). Contrast ~18.2:1 on `ProBackground` (AAA) |
+| `ProSubGrey` | `#A0A0A0` | `onSurfaceVariant` | Medium-emphasis text, subtitles, timestamps. Neutral grey. |
 | `ProError` | `#E05555` | `error` | Destructive actions (delete, cancel edit), error states. Desaturated from neon red. |
-| `ProOutline` | `#3A3650` | `outline` | Purple-tinted unfocused `OutlinedTextField` borders, dividers |
+| `ProOutline` | `#383838` | `outline` | Neutral unfocused `OutlinedTextField` borders, dividers |
 | *(unnamed)* | `#2D2052` | `primaryContainer` | Muted deep purple container (e.g. selected chip background, FAB container) |
 | *(unnamed)* | `#E0D4F0` | `onPrimaryContainer` | Muted lavender — text/icon on `primaryContainer` surfaces |
 
@@ -45,9 +44,9 @@ The following are computed by the M3 engine and not explicitly set — document 
 
 | M3 Role | Effective Value | How resolved |
 |---|---|---|
-| `onPrimary` | `#0F0D13` | Explicitly set to `ProBackground` |
-| `onSecondary` | `#0F0D13` | Explicitly set to `ProBackground` |
-| `onError` | `#0F0D13` | Explicitly set to `ProBackground` |
+| `onPrimary` | `#101010` | Explicitly set to `ProBackground` |
+| `onSecondary` | `#101010` | Explicitly set to `ProBackground` |
+| `onError` | `#101010` | Explicitly set to `ProBackground` |
 | `errorContainer` | *(not explicitly set)* | M3 default tonal — avoid in composables, use `error` directly |
 
 ---
@@ -60,6 +59,7 @@ Semantic colors are domain-specific and exist **outside the M3 token system**. T
 |---|---|---|
 | `TimerGreen` | `#4CC990` | **[FINISH WORKOUT]** button (text + `BorderStroke`) · Completed set checkmarks. Desaturated emerald. |
 | `TimerRed` | `#E04458` | Rest state indicator. Desaturated from neon red. |
+| `NeonPurple` | `#BB86FC` | Active rest timer accent — `CircularProgressIndicator` + `RestSeparator` active background + `-30/+30 SEC` buttons. Bright neon purple; distinct from `ProViolet` (#9B7DDB). |
 | `FormCuesGold` | `#5A4D1A` | Form Cues persistent banner background in `ExerciseDetailSheet` only |
 
 ### 2.1 Semantic Color Access Pattern
@@ -140,19 +140,19 @@ All fonts loaded via `GoogleFont.Provider`. Offline fallback: system sans-serif 
 
 ### 4.2 M3 Type Role Assignments
 
-| M3 Role | Family | Weight | Primary use |
-|---|---|---|---|
-| `displaySmall` | BarlowCondensed | Bold (700) | Large stat readouts (e.g. 1RM value, volume total) |
-| `headlineLarge` | BarlowCondensed | SemiBold (600) | Section headers, screen titles |
-| `headlineMedium` | BarlowCondensed | SemiBold (600) | Exercise name in ExerciseDetailSheet header |
-| `headlineSmall` | BarlowCondensed | Medium (500) | Card group headers |
-| `titleLarge` | Barlow | SemiBold (600) | TopAppBar title (if text shown) |
-| `titleMedium` | Barlow | SemiBold (600) | Exercise name on ExerciseCard, HistoryCard workout name |
-| `bodyLarge` | Barlow | Normal (400) | Primary body content, set row data |
-| `bodyMedium` | Barlow | Normal (400) | Secondary body content, metric values |
-| `bodySmall` | Barlow | Normal (400) | Timestamps, dates, subtitles |
-| `labelMedium` | Barlow | Medium (500) | Chip labels, button text |
-| `labelSmall` | Barlow | Medium (500) | Badge text, set type indicators (W / D / F) |
+| M3 Role | Family | Weight | Size | Primary use |
+|---|---|---|---|---|
+| `displaySmall` | BarlowCondensed | Bold (700) | 36sp | Large stat readouts (e.g. 1RM value, volume total) |
+| `headlineLarge` | BarlowCondensed | Bold (700) | 32sp | Section headers, screen titles |
+| `headlineMedium` | BarlowCondensed | SemiBold (600) | 28sp | Exercise name in ExerciseDetailSheet header |
+| `headlineSmall` | BarlowCondensed | SemiBold (600) | 24sp | Card group headers |
+| `titleLarge` | BarlowCondensed | Bold (700) | 22sp | TopAppBar title (if text shown) |
+| `titleMedium` | Barlow | SemiBold (600) | 16sp | Exercise name on ExerciseCard, HistoryCard workout name |
+| `bodyLarge` | Barlow | Normal (400) | 16sp | Primary body content, set row data |
+| `bodyMedium` | Barlow | Normal (400) | **15sp** | Secondary body content, metric values |
+| `bodySmall` | Barlow | Normal (400) | **13sp** | Timestamps, dates, subtitles |
+| `labelMedium` | Barlow | Medium (500) | **13sp** | Chip labels, button text |
+| `labelSmall` | Barlow | Medium (500) | 12sp | Badge text, set type indicators (W / D / F) |
 
 ### 4.3 JetBrainsMono Usage Rules
 
@@ -192,19 +192,78 @@ The light palette uses dedicated tokens that pass WCAG AA on white backgrounds.
 
 2. **Legacy aliases are `Color.kt`-only.** `DeepNavy`, `OledBlack`, `NeonBlue`, `ElectricBlue`, `SlateGrey`, `NavySurface`, `Slate200` must never be referenced in any composable or ViewModel. They exist only in `Color.kt` for schema stability. Future cleanup is permitted once all callers are confirmed zero.
 
-3. **`surfaceTint = ProBackground` is intentional and mandatory.** M3 applies a primary-colored tonal overlay on elevated surfaces (Dialogs, `ModalBottomSheet`, elevated `Card`) by default. This creates a purple tint over dark backgrounds that conflicts with the OLED Pro Tracker aesthetic. Setting `surfaceTint = ProBackground (#0F0D13)` globally in `DarkColorScheme` suppresses this overlay. Do not remove or override this setting. Do not use `tonalElevation = 0.dp` as a per-component workaround — it is verbose, fragile, and will miss new components.
+3. **`surfaceTint = ProBackground` is intentional and mandatory.** M3 applies a primary-colored tonal overlay on elevated surfaces (Dialogs, `ModalBottomSheet`, elevated `Card`) by default. This creates a purple tint over dark backgrounds that conflicts with the OLED Pro Tracker aesthetic. Setting `surfaceTint = ProBackground (#101010)` globally in `DarkColorScheme` suppresses this overlay. Do not remove or override this setting. Do not use `tonalElevation = 0.dp` as a per-component workaround — it is verbose, fragile, and will miss new components.
 
-4. **`MinimizedWorkoutBar` background must be `surfaceVariant`.** `WORKOUT_SPEC.md §20.1` specifies `surfaceVariant` background with a 4dp `primary` left border. The current codebase (`PowerMeNavigation.kt`) incorrectly uses `color = MaterialTheme.colorScheme.primary` for the `Surface`. **The spec is the source of truth. The code must be refactored.** Using `primary` as a full background color competes visually with the bottom navigation indicator and fails the low-emphasis requirement of a passive persistent bar. Note: `surfaceVariant` is now `#28253A` in the v5.0 palette.
+4. **`MinimizedWorkoutBar` background must be `surfaceVariant`.** `WORKOUT_SPEC.md §20.1` specifies `surfaceVariant` background with a 4dp `primary` left border. The current codebase (`PowerMeNavigation.kt`) incorrectly uses `color = MaterialTheme.colorScheme.primary` for the `Surface`. **The spec is the source of truth. The code must be refactored.** Using `primary` as a full background color competes visually with the bottom navigation indicator and fails the low-emphasis requirement of a passive persistent bar. Note: `surfaceVariant` is now `#282828` in the v6.0 palette.
 
-5. **WCAG contrast compliance — audit (v5.0 palette):**
-   - `ProCloudGrey (#E8E4F0)` on `ProBackground (#0F0D13)`: ~15.5:1 — WCAG AAA ✓ (comfortable, non-fatiguing vs pure 21:1)
-   - `ProSubGrey (#9E99AB)` on `ProBackground (#0F0D13)`: ~7.3:1 — WCAG AAA ✓
-   - `ProViolet (#9B7DDB)` on `ProBackground (#0F0D13)`: ~7.5:1 — WCAG AAA ✓
-   - `ProViolet (#9B7DDB)` on `ProSurfaceVar (#28253A)`: ~4.6:1 — WCAG AA ✓ (passes normal text threshold)
-   - `TimerGreen (#4CC990)` on `ProBackground (#0F0D13)`: ~9:1 — WCAG AAA ✓
+5. **WCAG contrast compliance — audit (v6.0 palette):**
+   - `ProCloudGrey (#EDEDEF)` on `ProBackground (#101010)`: ~18.2:1 — WCAG AAA ✓ (brighter and neutral vs prior lavender-tinted #E8E4F0)
+   - `ProSubGrey (#A0A0A0)` on `ProBackground (#101010)`: ~7.9:1 — WCAG AAA ✓
+   - `ProViolet (#9B7DDB)` on `ProBackground (#101010)`: ~7.6:1 — WCAG AAA ✓
+   - `ProViolet (#9B7DDB)` on `ProSurfaceVar (#282828)`: ~4.5:1 — WCAG AA ✓ (passes normal text threshold)
+   - `TimerGreen (#4CC990)` on `ProBackground (#101010)`: ~9.2:1 — WCAG AAA ✓
 
 6. **`MainAppScaffold` color assignments** are owned by `NAVIGATION_SPEC.md §10`. Do not re-specify TopAppBar or NavigationBar colors here — cross-reference that section.
 
 7. **BarlowCondensed minimum size is 20sp.** Below 20sp, condensed letterforms lose legibility — particularly under physical exertion. Any headline or label smaller than 20sp must use `Barlow` (regular width), not `BarlowCondensed`.
 
 8. **`TimerGreen` and `FormCuesGold` have exactly one use site each.** See §2.2 for `TimerGreen` restrictions. `FormCuesGold` is restricted to the Form Cues banner background in `ExerciseDetailSheet`. If a second use site is proposed, it requires a spec update and explicit approval — it is not a generic "success" or "highlight" color.
+
+9. **No inline `RoundedCornerShape()` in composables.** All corner radii are defined in `ui/theme/Shape.kt` via the `PowerMeShapes` object. Use `MaterialTheme.shapes.extraSmall|small|medium|large|extraLarge`. Hardcoded inline shape values will drift from the design system.
+
+10. **No inline `OutlinedTextFieldDefaults.colors()` overrides** (with the standard 4-property block). Use `PowerMeDefaults.outlinedTextFieldColors()` from `ui/theme/Defaults.kt`. Exceptions: fields with non-standard container colors (e.g. `surfaceVariant` background) or intentionally transparent borders (inline editing) may use explicit overrides.
+
+11. **No inline `CardDefaults.cardColors/cardElevation`** for standard surface cards. Use `PowerMeDefaults.cardColors()` / `PowerMeDefaults.cardElevation()` (4dp) for primary cards, or `PowerMeDefaults.subtleCardElevation()` (2dp) for secondary/settings cards. Cards with a non-surface container color are exempt.
+
+---
+
+## §7 Shape System
+
+**File:** `app/src/main/java/com/powerme/app/ui/theme/Shape.kt`
+
+Passed to `MaterialTheme(shapes = PowerMeShapes)` in `Theme.kt`. Applies automatically to all Material 3 components.
+
+| Token | Radius | Use |
+|---|---|---|
+| `extraSmall` | 6dp | chips, badges, small pill backgrounds, completion buttons |
+| `small` | 10dp | primary buttons, text fields, `WorkoutInputField` |
+| `medium` | 16dp | cards, dialogs, bottom sheet handles |
+| `large` | 24dp | `ModalBottomSheet`, large card variants |
+| `extraLarge` | 32dp | FAB, full-width action buttons |
+
+**M3 defaults (old):** 4/8/12/16/28dp. The new values are intentionally rounder for a more organic feel.
+
+---
+
+## §8 Spacing Tokens
+
+**File:** `app/src/main/java/com/powerme/app/ui/theme/Shape.kt` (bottom of file)
+
+```kotlin
+object Spacing {
+    val xs   = 4.dp    // tight gaps, icon padding
+    val sm   = 8.dp    // standard between-item gap
+    val md   = 12.dp   // card inner padding (compact)
+    val lg   = 16.dp   // standard screen/card padding
+    val xl   = 20.dp   // section separation
+    val xxl  = 24.dp   // large section / modal padding
+    val xxxl = 32.dp   // full-page padding
+}
+```
+
+Migration is incremental — hardcoded `.dp` literals and `Spacing.*` tokens are both acceptable. Use `Spacing.*` for new code.
+
+---
+
+## §9 Component Defaults
+
+**File:** `app/src/main/java/com/powerme/app/ui/theme/Defaults.kt`
+
+`PowerMeDefaults` provides `@Composable` factory functions for common component configurations:
+
+| Function | Returns | Notes |
+|---|---|---|
+| `outlinedTextFieldColors()` | `OutlinedTextFieldDefaults.colors(...)` | Unfocused border uses `outlineVariant` (neutral) instead of `primary.copy(0.4f)` — eliminates purple-tinted unfocused borders |
+| `cardColors()` | `CardDefaults.cardColors(surface)` | Standard surface card container |
+| `cardElevation()` | `CardDefaults.cardElevation(4dp)` | Primary card depth (exercise, history, routine cards) |
+| `subtleCardElevation()` | `CardDefaults.cardElevation(2dp)` | Secondary card depth (settings rows, template builder rows) |

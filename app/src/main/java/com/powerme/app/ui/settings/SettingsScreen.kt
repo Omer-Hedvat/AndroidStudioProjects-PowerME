@@ -1,10 +1,8 @@
 package com.powerme.app.ui.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusRequester
@@ -12,49 +10,42 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import com.powerme.app.health.HealthConnectManager
+import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.ui.components.rememberSelectAllState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.powerme.app.util.GeminiModel
+import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.ui.theme.TimerGreen
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateToGymSetup: () -> Unit = {},
     onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showApiKey by remember { mutableStateOf(false) }
-    val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
 
-    // Health Connect permission launcher
-    val hcPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ ->
-        viewModel.syncFromHealthConnect()
-    }
-
-    LaunchedEffect(Unit) { viewModel.fetchModelsIfNeeded() }
+    // Health Connect permission launcher — must be at top level, not inside a conditional
+    val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract()
+    ) { granted -> viewModel.onHealthConnectPermissionResult(granted) }
 
     // Cloud restore toast
     LaunchedEffect(uiState.cloudRestoreMessage) {
@@ -110,104 +101,89 @@ fun SettingsScreen(
                 }
             }
 
-            // ── API Key ──────────────────────────────────────────
+            // ── Health Connect ────────────────────────────────────
             item {
-                SettingsCard(title = "Gemini API Key") {
-                    // API studio link
-                    val linkText = buildAnnotatedString {
-                        append("Get key at ")
-                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline)) {
-                            append("aistudio.google.com/app/apikey")
+                SettingsCard(title = "Health Connect") {
+                    when {
+                        !uiState.healthConnectAvailable -> {
+                            Text(
+                                "Health Connect is not available on this device. Install it from the Play Store to sync sleep, heart rate, steps, and body metrics.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
                         }
-                    }
-                    ClickableText(
-                        text = linkText,
-                        style = LocalTextStyle.current.copy(
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { uriHandler.openUri("https://aistudio.google.com/app/apikey") }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = uiState.apiKey,
-                        onValueChange = viewModel::updateApiKey,
-                        label = { Text("API Key") },
-                        visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { showApiKey = !showApiKey }) {
+                        !uiState.healthConnectPermissionsGranted -> {
+                            Text(
+                                "Connect to Health Connect to sync your sleep duration, heart rate variability, resting heart rate, step count, weight, body fat, and height.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = { healthConnectPermissionLauncher.launch(HealthConnectManager.ALL_PERMISSIONS) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.surface
+                                )
+                            ) { Text("Connect") }
+                        }
+                        else -> {
+                            // Status line
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 Icon(
-                                    imageVector = if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (showApiKey) "Hide key" else "Show key",
-                                    tint = MaterialTheme.colorScheme.primary
+                                    Icons.Filled.CheckCircle,
+                                    contentDescription = null,
+                                    tint = TimerGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    "Connected",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TimerGreen
+                                )
+                                val lastSyncText = uiState.healthConnectData?.lastSyncTimestamp
+                                    ?.let { " · ${formatRelativeTime(it)}" }
+                                    ?: " · No sync yet"
+                                Text(
+                                    lastSyncText,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                 )
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        singleLine = true
-                    )
 
-                    // Validation error
-                    uiState.keyValidationError?.let {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = viewModel::saveApiKey,
-                            enabled = uiState.apiKey.isNotBlank() && !uiState.isValidatingKey,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            if (uiState.isValidatingKey) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
+                            uiState.healthConnectData?.let { data ->
+                                Spacer(modifier = Modifier.height(10.dp))
+                                HealthMetricsSummary(data)
                             }
-                            Text(if (uiState.isValidatingKey) "Validating…" else "Save & Validate")
-                        }
-                        if (uiState.hasApiKey) {
-                            OutlinedButton(
-                                onClick = viewModel::clearApiKey,
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                            ) { Text("Clear") }
-                        }
-                    }
 
-                    if (uiState.showSuccessMessage) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("✓ API key saved & validated", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
+                            Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Model Selection ────────────────────────────────────
-            if (uiState.hasApiKey) {
-                item {
-                    SettingsCard(title = "AI Models") {
-                        if (uiState.isFetchingModels) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                                Text("Loading available models…", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                            if (uiState.healthConnectSyncing) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    Text("Syncing…", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                                }
+                            } else {
+                                Button(
+                                    onClick = viewModel::syncHealthConnect,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.surface
+                                    )
+                                ) { Text("Sync Now") }
                             }
-                        } else if (uiState.availableModels.isNotEmpty()) {
-                            Text("Enrichment Model (Flash preferred)", fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f), fontWeight = FontWeight.Medium)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            ModelDropdown(
-                                models = uiState.availableModels,
-                                selected = uiState.selectedEnrichmentModel,
-                                onSelect = viewModel::setEnrichmentModel
-                            )
-                        } else {
-                            Text("Save a valid API key to load available models.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+
+                            uiState.healthConnectError?.let { error ->
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                 }
@@ -235,36 +211,6 @@ fun SettingsScreen(
                         Text(lastText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    // Sync from Health Connect button — requests permissions first, then syncs
-                    OutlinedButton(
-                        onClick = {
-                            hcPermissionLauncher.launch(
-                                arrayOf(
-                                    "android.permission.health.READ_WEIGHT",
-                                    "android.permission.health.READ_BODY_FAT",
-                                    "android.permission.health.READ_HEIGHT"
-                                )
-                            )
-                        },
-                        enabled = !uiState.isSyncingFromHC,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        if (uiState.isSyncingFromHC) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Syncing…")
-                        } else {
-                            Text("Sync from HealthConnect")
-                        }
-                    }
-                    uiState.hcSyncError?.let { err ->
-                        Text(err, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
-                    }
-                    if (uiState.bodyMeasurementsFromHC) {
-                        Text("(from HealthConnect)", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -278,12 +224,7 @@ fun SettingsScreen(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { bodyFatFocusRequester.requestFocus() }),
                             modifier = Modifier.weight(1f).then(weightSelectMod),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                            ),
+                            colors = PowerMeDefaults.outlinedTextFieldColors(),
                             singleLine = true
                         )
                         val (bodyFatTfv, bodyFatSelectMod) = rememberSelectAllState(uiState.bodyFatInput)
@@ -294,12 +235,7 @@ fun SettingsScreen(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
                             modifier = Modifier.weight(1f).focusRequester(bodyFatFocusRequester).then(bodyFatSelectMod),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                            ),
+                            colors = PowerMeDefaults.outlinedTextFieldColors(),
                             singleLine = true
                         )
                     }
@@ -312,12 +248,7 @@ fun SettingsScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
                         modifier = Modifier.fillMaxWidth().focusRequester(heightFocusRequester).then(heightSelectMod),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                        ),
+                        colors = PowerMeDefaults.outlinedTextFieldColors(),
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -372,40 +303,13 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Keep screen on", color = MaterialTheme.colorScheme.onSurface)
-                            Text("Prevent display from sleeping during workout", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                            Text("Prevent display from sleeping", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         }
                         Switch(
                             checked = uiState.keepScreenOn,
                             onCheckedChange = { viewModel.toggleKeepScreenOn() },
                             colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.surface, checkedTrackColor = MaterialTheme.colorScheme.primary)
                         )
-                    }
-                }
-            }
-
-            // ── Gym Profiles ────────────────────────────────────────
-            item {
-                SettingsCard(title = "Active Gym") {
-                    uiState.gymProfiles.forEach { gym ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(gym.name, color = MaterialTheme.colorScheme.onSurface)
-                            RadioButton(
-                                selected = gym.isActive,
-                                onClick = { viewModel.switchToGym(gym.name) },
-                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = onNavigateToGymSetup,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Text("Set Up GYM")
                     }
                 }
             }
@@ -518,10 +422,85 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun HealthMetricsSummary(data: HealthConnectReadResult) {
+    val subText = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+    val valueText = MaterialTheme.colorScheme.onSurface
+
+    @Composable
+    fun MetricCell(label: String, value: String, modifier: Modifier = Modifier) {
+        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(label, fontSize = 10.sp, color = subText)
+            Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = valueText)
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            MetricCell(
+                "Sleep",
+                data.sleepMinutes?.let { "${it / 60}h ${it % 60}m" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+            MetricCell(
+                "HRV",
+                data.hrv?.let { "${"%.0f".format(it)} ms" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            MetricCell(
+                "Resting HR",
+                data.rhr?.let { "$it bpm" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+            MetricCell(
+                "Steps",
+                data.steps?.let { "%,d".format(it) } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            MetricCell(
+                "Weight",
+                data.weight?.let { "${"%.1f".format(it)} kg" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+            MetricCell(
+                "Body Fat",
+                data.bodyFat?.let { "${"%.1f".format(it)}%" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+            MetricCell(
+                "Height",
+                data.height?.let { "${it.toInt()} cm" } ?: "--",
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+private fun formatRelativeTime(timestampMs: Long): String {
+    val now = Instant.now()
+    val then = Instant.ofEpochMilli(timestampMs)
+    val minutesAgo = ChronoUnit.MINUTES.between(then, now)
+    return when {
+        minutesAgo < 1 -> "Just now"
+        minutesAgo < 60 -> "${minutesAgo}m ago"
+        minutesAgo < 1440 -> "${minutesAgo / 60}h ago"
+        minutesAgo < 2880 -> "Yesterday"
+        else -> {
+            val formatter = DateTimeFormatter.ofPattern("MMM d").withZone(ZoneId.systemDefault())
+            formatter.format(then)
+        }
+    }
+}
+
+@Composable
 private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = PowerMeDefaults.cardColors(),
+        elevation = PowerMeDefaults.subtleCardElevation()
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -531,60 +510,3 @@ private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> U
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ModelDropdown(
-    models: List<GeminiModel>,
-    selected: String,
-    onSelect: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedModel = models.firstOrNull { it.id == selected }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selectedModel?.displayName ?: selected,
-            onValueChange = {},
-            readOnly = true,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-            )
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.exposedDropdownSize()
-        ) {
-            models.forEach { model ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(model.displayName, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
-                            Text(
-                                text = when (model.tier) {
-                                    0 -> "Thinking"
-                                    1 -> "Pro"
-                                    else -> "Flash"
-                                },
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                            )
-                        }
-                    },
-                    onClick = {
-                        onSelect(model.id)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}

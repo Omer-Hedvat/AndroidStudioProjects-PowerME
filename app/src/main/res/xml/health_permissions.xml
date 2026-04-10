@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<permissions>
+    <permission type="android.permission.health.READ_WEIGHT" />
+    <permission type="android.permission.health.READ_BODY_FAT" />
+    <permission type="android.permission.health.READ_HEIGHT" />
+    <permission type="android.permission.health.READ_SLEEP" />
+    <permission type="android.permission.health.READ_HEART_RATE_VARIABILITY" />
+    <permission type="android.permission.health.READ_RESTING_HEART_RATE" />
+    <permission type="android.permission.health.READ_STEPS" />
+</permissions>

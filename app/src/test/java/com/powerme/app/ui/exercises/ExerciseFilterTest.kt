@@ -19,22 +19,26 @@ class ExerciseFilterTest {
     // Canonical muscle groups expected after v24 normalization.
     private val canonicalMuscleGroups = listOf("Legs", "Back", "Core", "Chest", "Shoulders", "Full Body", "Arms", "Cardio")
 
-    // Canonical equipment types expected after v24 normalization.
+    // Canonical equipment types expected after v33 consolidation.
     private val canonicalEquipmentTypes = listOf(
         "Barbell",
         "Dumbbell",
         "Machine",
         "Cable",
         "Bodyweight",
+        "Bench",
         "Sled",
         "Battle Ropes",
-        "Plyometric Box",
         "Medicine Ball",
         "Kettlebell",
     )
 
-    // Legacy non-canonical values that the migration must have eliminated.
-    private val legacyEquipmentValues = listOf("Dumbbells", "Bodyweight+")
+    // Legacy non-canonical values that migrations must have eliminated.
+    private val legacyEquipmentValues = listOf(
+        "Dumbbells", "Bodyweight+",
+        "Bench/Chair", "Bench/Couch", "Bench/Floor", "Box/Bench", "Couch/Bench", "Wall",
+        "Plyometric Box"
+    )
 
     // Legacy non-canonical muscle group values eliminated by the migration.
     private val legacyMuscleGroupValues = listOf(
@@ -97,6 +101,24 @@ class ExerciseFilterTest {
             "MuscleGroups.ALL contains duplicates",
             canonicalMuscleGroups.toSet().size, canonicalMuscleGroups.size
         )
+    }
+
+    @Test
+    fun `priority equipment types appear before alphabetical remainder`() {
+        val priority = ExercisesViewModel.PRIORITY_EQUIPMENT
+        val dbAlphabetical = canonicalEquipmentTypes.sorted()
+        val prioritized = priority.filter { p -> dbAlphabetical.any { it.equals(p, ignoreCase = true) } }
+        val remaining = dbAlphabetical.filter { t -> priority.none { it.equals(t, ignoreCase = true) } }
+        val result = prioritized + remaining
+
+        assertEquals(priority[0], result[0])
+        assertEquals(priority[1], result[1])
+        assertEquals(priority[2], result[2])
+        assertEquals(priority[3], result[3])
+        assertEquals(priority[4], result[4])
+        assertEquals(priority[5], result[5])
+        val tail = result.drop(priority.size)
+        assertEquals("tail should be alphabetical", tail.sorted(), tail)
     }
 
     @Test

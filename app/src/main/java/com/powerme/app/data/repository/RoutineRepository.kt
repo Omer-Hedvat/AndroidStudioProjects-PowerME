@@ -5,6 +5,7 @@ import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.Routine
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.RoutineExerciseDao
+import com.powerme.app.data.database.SetType
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,8 +42,8 @@ class RoutineRepository @Inject constructor(
     /**
      * Creates a time-optimised "Express" copy of a routine:
      *  1. Drops the bottom floor(N × 0.4) exercises (by order — typically isolation/accessories).
-     *  2. Caps surviving exercises to a maximum of 2 sets each.
-     *  3. Truncates setTypesJson/setWeightsJson/setRepsJson to the capped count.
+     *  2. Keeps ALL warmup sets; caps work sets (NORMAL/DROP/FAILURE) to a maximum of 2.
+     *  3. Selects setTypesJson/setWeightsJson/setRepsJson entries by kept indices.
      * Saved name: "[Original Name] - Express".
      * Returns the new routine's id, or "" if the source routine was not found.
      */
@@ -60,21 +61,44 @@ class RoutineRepository @Inject constructor(
             )
             routineExerciseDao.insertAll(
                 surviving.mapIndexed { idx, re ->
-                    val cappedSets = re.sets.coerceAtMost(2)
+                    val keptIndices = selectExpressIndices(re.setTypesJson, re.sets)
+                    val keptCount = keptIndices.size
                     re.copy(
                         id = UUID.randomUUID().toString(),
                         routineId = newRoutineId,
                         order = idx,
-                        sets = cappedSets,
-                        setTypesJson = re.setTypesJson.truncateJsonList(cappedSets),
-                        setWeightsJson = re.setWeightsJson.truncateJsonList(cappedSets),
-                        setRepsJson = re.setRepsJson.truncateJsonList(cappedSets)
+                        sets = keptCount,
+                        setTypesJson = re.setTypesJson.pickIndices(keptIndices),
+                        setWeightsJson = re.setWeightsJson.pickIndices(keptIndices),
+                        setRepsJson = re.setRepsJson.pickIndices(keptIndices)
                     )
                 }
             )
             newRoutineId
         }
     }
+}
+
+/**
+ * Returns the indices of sets to keep for express workout:
+ * all WARMUP indices + up to 2 work (NORMAL/DROP/FAILURE) indices.
+ */
+internal fun selectExpressIndices(setTypesJson: String, totalSets: Int): List<Int> {
+    val types = if (setTypesJson.isBlank()) List(totalSets) { SetType.NORMAL }
+    else setTypesJson.split(",").mapIndexed { i, s ->
+        if (i < totalSets) runCatching { SetType.valueOf(s.trim()) }.getOrDefault(SetType.NORMAL) else null
+    }.filterNotNull().take(totalSets)
+
+    val warmupIndices = types.indices.filter { types[it] == SetType.WARMUP }
+    val workIndices   = types.indices.filter { types[it] != SetType.WARMUP }.take(2)
+    return (warmupIndices + workIndices).sorted()
+}
+
+/** Picks comma-separated entries at [indices] from this list string. */
+internal fun String.pickIndices(indices: List<Int>): String {
+    if (isBlank()) return ""
+    val parts = split(",")
+    return indices.mapNotNull { parts.getOrNull(it)?.trim() }.joinToString(",")
 }
 
 /** Takes up to [maxCount] comma-separated entries from a JSON list string. */

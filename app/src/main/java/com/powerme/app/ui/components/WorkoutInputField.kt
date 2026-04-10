@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -33,13 +32,11 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlinx.coroutines.delay
 
 /**
- * Returns a [TextFieldValue] state and a [Modifier] that selects all text 100ms after the field
- * gains focus. The delay lets the IME place the cursor first; then we override it with the
- * full-text selection.
+ * Returns a [TextFieldValue] state and a [Modifier] that selects all text when the field gains focus.
+ * A short delay lets the IME set the cursor first; we then override with the full-text selection.
  *
  * Usage:
  *   val (tfv, selMod) = rememberSelectAllState(externalText)
@@ -55,10 +52,10 @@ fun rememberSelectAllState(text: String): Pair<MutableState<TextFieldValue>, Mod
         if (tfv.value.text != text) tfv.value = TextFieldValue(text)
     }
 
-    // After focus is gained, wait for the IME cursor placement, then select all
+    // Wait for IME cursor placement, then select all
     LaunchedEffect(isFocused.value) {
         if (isFocused.value) {
-            delay(100)
+            delay(50)
             val t = tfv.value.text
             tfv.value = tfv.value.copy(selection = TextRange(0, t.length))
         }
@@ -82,7 +79,7 @@ fun WorkoutInputField(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
-    val pillShape = RoundedCornerShape(8.dp)
+    val pillShape = MaterialTheme.shapes.small
     val textFieldValue = remember { mutableStateOf(TextFieldValue(value)) }
     val focusedForSelectAll = remember { mutableStateOf(false) }
 
@@ -93,10 +90,10 @@ fun WorkoutInputField(
         }
     }
 
-    // Delayed select-all: wait for IME cursor placement, then override with full selection
+    // Wait for IME cursor placement, then select all
     LaunchedEffect(focusedForSelectAll.value) {
         if (focusedForSelectAll.value) {
-            delay(100)
+            delay(50)
             val t = textFieldValue.value.text
             textFieldValue.value = textFieldValue.value.copy(selection = TextRange(0, t.length))
         }

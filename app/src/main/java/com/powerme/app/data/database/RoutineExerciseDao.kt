@@ -72,4 +72,7 @@ interface RoutineExerciseDao {
 
     @Query("UPDATE routine_exercises SET setWeightsJson = :setWeightsJson, setRepsJson = :setRepsJson WHERE routineId = :routineId AND exerciseId = :exerciseId")
     suspend fun updateSetWeightsAndReps(routineId: String, exerciseId: Long, setWeightsJson: String, setRepsJson: String)
+
+    @Query("UPDATE routine_exercises SET supersetGroupId = :supersetGroupId WHERE routineId = :routineId AND exerciseId = :exerciseId")
+    suspend fun updateSupersetGroupId(routineId: String, exerciseId: Long, supersetGroupId: String?)
 }

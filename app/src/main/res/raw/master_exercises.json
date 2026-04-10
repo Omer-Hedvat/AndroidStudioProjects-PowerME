@@ -1,5 +1,5 @@
 {
-  "version": "1.5",
+  "version": "1.6",
   "lastUpdated": "2026-03-15",
   "totalExercises": 244,
   "exercises": [
@@ -48,7 +48,7 @@
     {
       "name": "Bulgarian Split Squat",
       "muscleGroup": "Legs",
-      "equipmentType": "Bench/Couch",
+      "equipmentType": "Bench",
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": null,
@@ -1056,7 +1056,7 @@
     {
       "name": "Box Jump",
       "muscleGroup": "Legs",
-      "equipmentType": "Box/Bench",
+      "equipmentType": "Bench",
       "exerciseType": "STRENGTH",
       "familyId": "plyo_family",
       "youtubeVideoId": null,
@@ -1168,7 +1168,7 @@
     {
       "name": "Step-Up",
       "muscleGroup": "Legs",
-      "equipmentType": "Bench/Chair",
+      "equipmentType": "Bench",
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": null,
@@ -1602,7 +1602,7 @@
     {
       "name": "Dragon Flag",
       "muscleGroup": "Core",
-      "equipmentType": "Bench/Floor",
+      "equipmentType": "Bench",
       "exerciseType": "STRENGTH",
       "familyId": "core_family",
       "youtubeVideoId": null,
@@ -2834,7 +2834,7 @@
     {
       "name": "Incline Push-up",
       "muscleGroup": "Chest",
-      "equipmentType": "Box/Bench",
+      "equipmentType": "Bench",
       "exerciseType": "STRENGTH",
       "familyId": "pushup_family",
       "youtubeVideoId": null,
@@ -2848,7 +2848,7 @@
     {
       "name": "Decline Push-up",
       "muscleGroup": "Chest",
-      "equipmentType": "Box/Bench",
+      "equipmentType": "Bench",
       "exerciseType": "STRENGTH",
       "familyId": "pushup_family",
       "youtubeVideoId": null,
@@ -3170,7 +3170,7 @@
     {
       "name": "Hip Thrust (Couch/Bench)",
       "muscleGroup": "Legs",
-      "equipmentType": "Couch/Bench",
+      "equipmentType": "Bench",
       "exerciseType": "STRENGTH",
       "familyId": "glute_family",
       "youtubeVideoId": null,
@@ -3198,7 +3198,7 @@
     {
       "name": "Tibialis Raise (Wall)",
       "muscleGroup": "Legs",
-      "equipmentType": "Wall",
+      "equipmentType": "Bodyweight",
       "exerciseType": "STRENGTH",
       "familyId": "calf_family",
       "youtubeVideoId": null,

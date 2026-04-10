@@ -2,25 +2,26 @@ package com.powerme.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// PowerME v5.0 Design System — Pro Tracker Palette
+// PowerME v6.0 Design System — Pro Tracker Palette
 
 // ── Core Tokens ───────────────────────────────────────────────────────────────
-val ProBackground  = Color(0xFF0F0D13)   // Near-black with subtle purple warmth — page bg
-val ProSurface     = Color(0xFF1C1A24)   // Purple-tinted dark — cards / bottom bars
-val ProSurfaceVar  = Color(0xFF28253A)   // Purple-tinted lifted surface — chips / rows
-val ProInputPill   = Color(0xFF221F30)   // Input field bg (no M3 mapping, kept for clarity)
+val ProBackground  = Color(0xFF101010)   // True neutral near-black — page bg
+val ProSurface     = Color(0xFF1C1C1C)   // Neutral dark grey — cards / bottom bars
+val ProSurfaceVar  = Color(0xFF282828)   // Neutral lifted surface — chips / rows
 val ProViolet      = Color(0xFF9B7DDB)   // Brand purple — desaturated lavender-violet
 val ProMagenta     = Color(0xFF9E6B8A)   // Secondary accent — dusty rose / mauve
-val ProCloudGrey   = Color(0xFFE8E4F0)   // High-emphasis text — lavender-tinted off-white
-val ProSubGrey     = Color(0xFF9E99AB)   // Medium-emphasis text — purple-tinted
+val ProCloudGrey   = Color(0xFFEDEDEF)   // High-emphasis text — neutral near-white
+val ProSubGrey     = Color(0xFFA0A0A0)   // Medium-emphasis text — neutral grey
 val ProError       = Color(0xFFE05555)   // Error / destructive — desaturated red
 
-// ── Border token ──────────────────────────────────────────────────────────────
-val ProOutline     = Color(0xFF3A3650)   // Purple-tinted unfocused input border
+// ── Border tokens ─────────────────────────────────────────────────────────────
+val ProOutline     = Color(0xFF383838)   // Neutral unfocused input border
+val ProOutlineSoft = Color(0xFF2E2E2E)   // Softer variant for outlineVariant slot
 
 // ── Semantic timer colors ─────────────────────────────────────────────────────
-val TimerGreen = Color(0xFF4CC990)   // Desaturated emerald — finish workout, completed checkmarks
-val TimerRed   = Color(0xFFE04458)   // Desaturated red — rest state indicator
+val TimerGreen  = Color(0xFF4CC990)   // Desaturated emerald — finish workout, completed checkmarks
+val TimerRed    = Color(0xFFE04458)   // Desaturated red — rest state indicator
+val NeonPurple  = Color(0xFFBB86FC)   // Bright neon purple — active rest timer accent
 
 // ── Semantic color for Form Cues banner ───────────────────────────────────────
 val FormCuesGold = Color(0xFF5A4D1A)   // Muted gold — not representable by M3 token

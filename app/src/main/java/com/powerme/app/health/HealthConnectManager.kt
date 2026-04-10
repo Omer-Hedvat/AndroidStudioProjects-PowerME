@@ -26,6 +26,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.reflect.KClass
 
+data class HealthConnectReadResult(
+    val weight: Double?,
+    val height: Float?,
+    val bodyFat: Double?,
+    val sleepMinutes: Int?,
+    val hrv: Double?,
+    val rhr: Int?,
+    val steps: Int?,
+    val lastSyncTimestamp: Long?
+)
+
 /**
  * Manager for Health Connect integration.
  */
@@ -34,6 +45,18 @@ class HealthConnectManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val healthConnectSyncDao: HealthConnectSyncDao
 ) {
+
+    companion object {
+        val ALL_PERMISSIONS: Set<String> = setOf(
+            HealthPermission.getReadPermission(WeightRecord::class),
+            HealthPermission.getReadPermission(BodyFatRecord::class),
+            HealthPermission.getReadPermission(HeightRecord::class),
+            HealthPermission.getReadPermission(SleepSessionRecord::class),
+            HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
+            HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+            HealthPermission.getReadPermission(StepsRecord::class),
+        )
+    }
 
     /**
      * Check if Health Connect is available on this device.
@@ -51,16 +74,14 @@ class HealthConnectManager @Inject constructor(
     }
 
     /**
-     * D2: Returns true if READ_WEIGHT, READ_BODY_FAT and READ_HEIGHT permissions are granted.
+     * Returns true if all 7 required READ permissions are granted.
      */
     suspend fun checkPermissionsGranted(): Boolean = withContext(Dispatchers.IO) {
         try {
             if (!isAvailable()) return@withContext false
             val client = HealthConnectClient.getOrCreate(context)
             val granted = client.permissionController.getGrantedPermissions()
-            HealthPermission.getReadPermission(WeightRecord::class) in granted &&
-                HealthPermission.getReadPermission(BodyFatRecord::class) in granted &&
-                HealthPermission.getReadPermission(HeightRecord::class) in granted
+            ALL_PERMISSIONS.all { it in granted }
         } catch (e: Exception) {
             false
         }
@@ -141,9 +162,7 @@ class HealthConnectManager @Inject constructor(
      */
     suspend fun syncHealthData() = withContext(Dispatchers.IO) {
         try {
-            if (!isAvailable()) {
-                return@withContext
-            }
+            if (!isAvailable()) return@withContext
 
             val today = LocalDate.now()
 
@@ -152,7 +171,6 @@ class HealthConnectManager @Inject constructor(
             val rhr = getRestingHeartRate()
             val steps = getSteps()
 
-            // Calculate flags
             val previousSync = healthConnectSyncDao.getLatestSync()
             val highFatigueFlag = sleepDuration?.let { it < 420 } ?: false // < 7 hours
             val anomalousRecoveryFlag = if (previousSync?.hrv != null && hrv != null) {
@@ -181,10 +199,35 @@ class HealthConnectManager @Inject constructor(
     }
 
     /**
+     * Reads all 7 data types and returns the result.
+     * Does NOT write to Room — use syncAndRead() for a full sync + read.
+     */
+    suspend fun readAllData(): HealthConnectReadResult = withContext(Dispatchers.IO) {
+        HealthConnectReadResult(
+            weight = getLatestWeight(),
+            height = getLatestHeight(),
+            bodyFat = getLatestBodyFat(),
+            sleepMinutes = getSleepDurationMinutes(),
+            hrv = getHeartRateVariability(),
+            rhr = getRestingHeartRate(),
+            steps = getSteps(),
+            lastSyncTimestamp = healthConnectSyncDao.getLatestSync()?.syncTimestamp
+        )
+    }
+
+    /**
+     * Full sync: writes HealthConnectSync row to Room, then reads all 7 data types.
+     */
+    suspend fun syncAndRead(): HealthConnectReadResult {
+        syncHealthData()
+        return readAllData()
+    }
+
+    /**
      * Read the most recently completed sleep session from Health Connect (last 30 days).
      * Returns total sleep duration in minutes, or null if unavailable/not granted.
      */
-    private suspend fun getSleepDurationMinutes(): Int? = withContext(Dispatchers.IO) {
+    suspend fun getSleepDurationMinutes(): Int? = withContext(Dispatchers.IO) {
         try {
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
@@ -209,7 +252,7 @@ class HealthConnectManager @Inject constructor(
      * Read the most recent HRV (RMSSD) reading from Health Connect (last 30 days).
      * Returns value in milliseconds, or null if unavailable/not granted.
      */
-    private suspend fun getHeartRateVariability(): Double? = withContext(Dispatchers.IO) {
+    suspend fun getHeartRateVariability(): Double? = withContext(Dispatchers.IO) {
         try {
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
@@ -232,7 +275,7 @@ class HealthConnectManager @Inject constructor(
      * Read the most recent resting heart rate from Health Connect (last 30 days).
      * Returns value in bpm, or null if unavailable/not granted.
      */
-    private suspend fun getRestingHeartRate(): Int? = withContext(Dispatchers.IO) {
+    suspend fun getRestingHeartRate(): Int? = withContext(Dispatchers.IO) {
         try {
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
@@ -256,7 +299,7 @@ class HealthConnectManager @Inject constructor(
      * Sums all StepsRecord intervals from local midnight to now.
      * Returns null if unavailable, not granted, or no steps recorded today.
      */
-    private suspend fun getSteps(): Int? = withContext(Dispatchers.IO) {
+    suspend fun getSteps(): Int? = withContext(Dispatchers.IO) {
         try {
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)

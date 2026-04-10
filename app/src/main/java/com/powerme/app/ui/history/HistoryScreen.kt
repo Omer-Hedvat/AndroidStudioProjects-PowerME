@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.FormCuesGold
 import com.powerme.app.ui.theme.JetBrainsMono
 import java.text.SimpleDateFormat
@@ -203,8 +204,8 @@ private fun WorkoutHistoryCard(item: WorkoutWithExerciseSummary, onClick: () -> 
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = PowerMeDefaults.cardColors(),
+        elevation = PowerMeDefaults.cardElevation()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Title row: name + PR badge

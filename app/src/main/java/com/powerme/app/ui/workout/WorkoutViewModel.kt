@@ -7,7 +7,6 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.Routine
@@ -28,6 +27,7 @@ import com.powerme.app.data.repository.StateHistoryRepository
 import com.powerme.app.data.repository.WarmupRepository
 import com.powerme.app.data.repository.WorkoutRepository
 import com.powerme.app.ui.chat.MedicalRestrictionsDoc
+import com.powerme.app.util.ClocksTimerBridge
 import com.powerme.app.util.RestTimerNotifier
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.util.WorkoutTimerService
@@ -54,6 +54,16 @@ private fun String.toEditModeSetTypes(count: Int): List<SetType> {
     return List(count) { i ->
         parts.getOrNull(i)?.let { runCatching { SetType.valueOf(it) }.getOrNull() } ?: SetType.NORMAL
     }
+}
+
+/**
+ * Formats a weight Double for display: strips trailing zeros, preserves up to 2 decimal places.
+ * 80.0 → "80", 80.5 → "80.5", 32.25 → "32.25"
+ */
+private fun formatWeight(value: Double): String = when {
+    value == value.toLong().toDouble() -> value.toLong().toString()
+    value * 10 == (value * 10).toLong().toDouble() -> "%.1f".format(value)
+    else -> "%.2f".format(value)
 }
 
 /**
@@ -172,12 +182,14 @@ class WorkoutViewModel @Inject constructor(
     private val medicalLedgerRepository: MedicalLedgerRepository,
     private val boazPerformanceAnalyzer: BoazPerformanceAnalyzer,
     private val stateHistoryRepository: StateHistoryRepository,
-    private val appSettingsDataStore: AppSettingsDataStore,
     private val firestoreSyncManager: FirestoreSyncManager,
+    private val clocksTimerBridge: ClocksTimerBridge,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val restTimerNotifier = RestTimerNotifier(context)
+
+    val clocksTimerState: StateFlow<ClocksTimerBridge.Snapshot?> = clocksTimerBridge.state
 
     private val settingsState: StateFlow<com.powerme.app.data.database.UserSettings?> =
         userSettingsDao.getSettings()
@@ -229,9 +241,6 @@ class WorkoutViewModel @Inject constructor(
 
     private val _medicalDoc = MutableStateFlow<MedicalRestrictionsDoc?>(null)
     val medicalDoc: StateFlow<MedicalRestrictionsDoc?> = _medicalDoc.asStateFlow()
-
-    val keepScreenOn: StateFlow<Boolean> = appSettingsDataStore.keepScreenOn
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     private val saveJobs = mutableMapOf<Pair<Long, Int>, Job>()
 
@@ -378,7 +387,7 @@ class WorkoutViewModel @Inject constructor(
                         ActiveSet(
                             id = ws.id,
                             setOrder = ws.setOrder,
-                            weight = if (ws.weight > 0.0) ws.weight.toString() else "",
+                            weight = if (ws.weight > 0.0) formatWeight(ws.weight) else "",
                             reps = if (ws.reps > 0) ws.reps.toString() else "",
                             setType = ws.setType,
                             isCompleted = ws.isCompleted
@@ -418,21 +427,19 @@ class WorkoutViewModel @Inject constructor(
                 val dbSets = dbSetsByExercise[re.exerciseId] ?: emptyList()
                 val activeSets = dbSets.mapIndexed { i, ws ->
                     val ghost = ghostSets.getOrNull(i)
-                    val weightStr = if (ws.weight > 0.0)
-                        ws.weight.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) }
-                    else "0"
+                    val weightStr = if (ws.weight > 0.0) formatWeight(ws.weight) else "0"
                     ActiveSet(
                         id = ws.id,
                         setOrder = ws.setOrder,
                         weight = weightStr,
                         reps = ws.reps.toString(),
                         setType = ws.setType,
-                        ghostWeight = ghost?.weight?.let { if (it > 0.0) it.toString() else null },
+                        ghostWeight = ghost?.weight?.let { if (it > 0.0) formatWeight(it) else null },
                         ghostReps = ghost?.reps?.let { if (it > 0) it.toString() else null }
                     )
                 }
                 val sticky = try { routineExerciseDao.getStickyNote(routineId, re.exerciseId) } catch (_: Exception) { null }
-                ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky)
+                ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky, supersetGroupId = re.supersetGroupId)
             }
             val name = routineDao.getRoutineById(routineId)?.name ?: "Workout"
             val snapshot = routineExercises.map { re ->
@@ -557,6 +564,7 @@ class WorkoutViewModel @Inject constructor(
                     routineExerciseDao.updateRepsAndWeight(routineId, exerciseId, reps, weight)
                     routineExerciseDao.updateSetTypesJson(routineId, exerciseId, setTypesJson)
                     routineExerciseDao.updateSetWeightsAndReps(routineId, exerciseId, setWeightsJson, setRepsJson)
+                    routineExerciseDao.updateSupersetGroupId(routineId, exerciseId, ex.supersetGroupId)
                 } else {
                     routineExerciseDao.insert(
                         RoutineExercise(
@@ -568,6 +576,7 @@ class WorkoutViewModel @Inject constructor(
                             restTime = 90,
                             order = index,
                             defaultWeight = weight,
+                            supersetGroupId = ex.supersetGroupId,
                             setTypesJson = setTypesJson,
                             setWeightsJson = setWeightsJson,
                             setRepsJson = setRepsJson
@@ -752,10 +761,15 @@ class WorkoutViewModel @Inject constructor(
         if (result is SurgicalValidator.ValidationResult.Invalid) return  // discard silently
         _workoutState.update { state ->
             val ex = state.exercises.find { it.exercise.id == exerciseId }
-            val minOrder = ex?.sets?.minOfOrNull { it.setOrder } ?: setOrder
-            val isFirstSet = setOrder == minOrder
-            // Capture set 1's current weight so we can cascade to sets still "following" it
-            val prevFirstSetWeight = ex?.sets?.find { it.setOrder == minOrder }?.weight ?: ""
+            val changedSetType = ex?.sets?.find { it.setOrder == setOrder }?.setType ?: SetType.NORMAL
+            val isWarmupGroup = changedSetType == SetType.WARMUP
+            // Cascade only within the same type group (warmup→warmup, work→work)
+            val groupSets = ex?.sets?.filter { s ->
+                if (isWarmupGroup) s.setType == SetType.WARMUP else s.setType != SetType.WARMUP
+            } ?: emptyList()
+            val groupMinOrder = groupSets.minOfOrNull { it.setOrder } ?: setOrder
+            val isFirstInGroup = setOrder == groupMinOrder
+            val prevFirstGroupWeight = groupSets.find { it.setOrder == groupMinOrder }?.weight ?: ""
             state.copy(exercises = state.exercises.map { e ->
                 if (e.exercise.id != exerciseId) return@map e
                 e.copy(sets = e.sets.map { set ->
@@ -768,10 +782,11 @@ class WorkoutViewModel @Inject constructor(
                             }
                             set.copy(weight = effectiveWeight)
                         }
-                        // Cascade: first set changed → fill sets that are blank OR still equal to
-                        // whatever set 1 had before (meaning the user hasn't independently edited them)
-                        isFirstSet && !set.isCompleted &&
-                            (set.weight.isBlank() || set.weight == prevFirstSetWeight) &&
+                        // Cascade within group: first set in group changed → fill group sets that
+                        // are blank OR still equal to whatever the first group set had before
+                        isFirstInGroup && !set.isCompleted &&
+                            (if (isWarmupGroup) set.setType == SetType.WARMUP else set.setType != SetType.WARMUP) &&
+                            (set.weight.isBlank() || set.weight == prevFirstGroupWeight) &&
                             result is SurgicalValidator.ValidationResult.Valid ->
                             set.copy(weight = raw.trim())
                         else -> set
@@ -789,10 +804,15 @@ class WorkoutViewModel @Inject constructor(
         if (result is SurgicalValidator.ValidationResult.Invalid) return  // discard silently
         _workoutState.update { state ->
             val ex = state.exercises.find { it.exercise.id == exerciseId }
-            val minOrder = ex?.sets?.minOfOrNull { it.setOrder } ?: setOrder
-            val isFirstSet = setOrder == minOrder
-            // Capture set 1's current reps so we can cascade to sets still "following" it
-            val prevFirstSetReps = ex?.sets?.find { it.setOrder == minOrder }?.reps ?: ""
+            val changedSetType = ex?.sets?.find { it.setOrder == setOrder }?.setType ?: SetType.NORMAL
+            val isWarmupGroup = changedSetType == SetType.WARMUP
+            // Cascade only within the same type group (warmup→warmup, work→work)
+            val groupSets = ex?.sets?.filter { s ->
+                if (isWarmupGroup) s.setType == SetType.WARMUP else s.setType != SetType.WARMUP
+            } ?: emptyList()
+            val groupMinOrder = groupSets.minOfOrNull { it.setOrder } ?: setOrder
+            val isFirstInGroup = setOrder == groupMinOrder
+            val prevFirstGroupReps = groupSets.find { it.setOrder == groupMinOrder }?.reps ?: ""
             state.copy(exercises = state.exercises.map { e ->
                 if (e.exercise.id != exerciseId) return@map e
                 e.copy(sets = e.sets.map { set ->
@@ -805,10 +825,11 @@ class WorkoutViewModel @Inject constructor(
                             }
                             set.copy(reps = effectiveReps)
                         }
-                        // Cascade: first set changed → fill sets that are blank OR still equal to
-                        // whatever set 1 had before (meaning the user hasn't independently edited them)
-                        isFirstSet && !set.isCompleted &&
-                            (set.reps.isBlank() || set.reps == prevFirstSetReps) &&
+                        // Cascade within group: first set in group changed → fill group sets that
+                        // are blank OR still equal to whatever the first group set had before
+                        isFirstInGroup && !set.isCompleted &&
+                            (if (isWarmupGroup) set.setType == SetType.WARMUP else set.setType != SetType.WARMUP) &&
+                            (set.reps.isBlank() || set.reps == prevFirstGroupReps) &&
                             result is SurgicalValidator.ValidationResult.Valid ->
                             set.copy(reps = raw.trim())
                         else -> set
@@ -1059,11 +1080,11 @@ class WorkoutViewModel @Inject constructor(
                 val endTime = System.currentTimeMillis()
                 val durationSeconds = ((endTime - state.startTime) / 1000).toInt()
 
-                // Calculate total volume
+                // Calculate total volume (WARMUP sets excluded per spec §10.1)
                 var totalVolume = 0.0
                 state.exercises.forEach { exerciseWithSets ->
                     exerciseWithSets.sets.forEach { set ->
-                        if (set.isCompleted) {
+                        if (set.isCompleted && set.setType != SetType.WARMUP) {
                             val weight = when (val r = SurgicalValidator.parseDecimal(set.weight)) {
                                 is SurgicalValidator.ValidationResult.Valid -> r.value
                                 else -> SurgicalValidator.parseDecimal(set.ghostWeight ?: "")
@@ -1122,8 +1143,14 @@ class WorkoutViewModel @Inject constructor(
                     )
                 }
 
-                val completedSetCount = state.exercises.sumOf { ex -> ex.sets.count { it.isCompleted } }
-                val exerciseNames = state.exercises.map { it.exercise.name }
+                // Warmup sets excluded from displayed count per spec §8
+                val completedSetCount = state.exercises.sumOf { ex ->
+                    ex.sets.count { it.isCompleted && it.setType != SetType.WARMUP }
+                }
+                // Only list exercises that have at least 1 completed non-warmup set
+                val exerciseNames = state.exercises
+                    .filter { ex -> ex.sets.any { it.isCompleted && it.setType != SetType.WARMUP } }
+                    .map { it.exercise.name }
                 val summary = WorkoutSummary(
                     workoutName = state.workoutName,
                     durationSeconds = durationSeconds,
@@ -1206,6 +1233,7 @@ class WorkoutViewModel @Inject constructor(
                     val repsJson = completedSets.joinToString(",") { it.reps }
                     routineExerciseDao.updateSetTypesJson(state.routineId, ex.exercise.id, typesJson)
                     routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
+                    routineExerciseDao.updateSupersetGroupId(state.routineId, ex.exercise.id, ex.supersetGroupId)
                 }
             }
             val routine = routineDao.getRoutineById(state.routineId)
@@ -1233,6 +1261,7 @@ class WorkoutViewModel @Inject constructor(
                 val repsJson = completedSets.joinToString(",") { it.reps }
                 routineExerciseDao.updateSetTypesJson(state.routineId, ex.exercise.id, typesJson)
                 routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
+                routineExerciseDao.updateSupersetGroupId(state.routineId, ex.exercise.id, ex.supersetGroupId)
             }
             val routine = routineDao.getRoutineById(state.routineId)
             if (routine != null) {
@@ -1262,6 +1291,7 @@ class WorkoutViewModel @Inject constructor(
                 val repsJson = completedSets.joinToString(",") { it.reps }
                 routineExerciseDao.updateSetTypesJson(state.routineId, ex.exercise.id, typesJson)
                 routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
+                routineExerciseDao.updateSupersetGroupId(state.routineId, ex.exercise.id, ex.supersetGroupId)
             }
             val routine = routineDao.getRoutineById(state.routineId)
             if (routine != null) {
@@ -1297,13 +1327,9 @@ class WorkoutViewModel @Inject constructor(
             val routineExercises = grouped.mapIndexed { index, (exerciseId, exSets) ->
                 val sortedSets = exSets.sortedBy { it.setOrder }
                 val modalReps = exSets.groupingBy { it.reps }.eachCount().maxByOrNull { it.value }?.key ?: 10
-                val modalWeight = sortedSets.firstOrNull()?.weight?.let { w ->
-                    if (w == w.toLong().toDouble()) w.toLong().toString() else "%.1f".format(w)
-                } ?: ""
+                val modalWeight = sortedSets.firstOrNull()?.weight?.let { formatWeight(it) } ?: ""
                 val setTypesJson = sortedSets.joinToString(",") { it.setType.name }
-                val setWeightsJson = sortedSets.joinToString(",") { w ->
-                    w.weight.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) }
-                }
+                val setWeightsJson = sortedSets.joinToString(",") { formatWeight(it.weight) }
                 val setRepsJson = sortedSets.joinToString(",") { it.reps.toString() }
                 RoutineExercise(
                     id = UUID.randomUUID().toString(),
@@ -1422,8 +1448,10 @@ class WorkoutViewModel @Inject constructor(
 
     // Called by the service on the main thread for every countdown tick.
     private fun onTimerTick(remaining: Int) {
+        val settings = settingsState.value ?: return
         if (remaining == 2 || remaining == 1) {
-            if (settingsState.value?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
+            if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
+            if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
         }
     }
 
@@ -1496,17 +1524,16 @@ class WorkoutViewModel @Inject constructor(
             timerJob = viewModelScope.launch {
                 for (i in restDuration downTo 0) {
                     _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
+                    val settings = settingsState.value
                     if (i == 2 || i == 1) {
-                        if (settingsState.value?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
+                        if (settings?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
+                        if (settings?.restTimerHapticsEnabled == true) restTimerNotifier.hapticShortPulse()
                     }
-                    if (i == 0) {
-                        val settings = settingsState.value
-                        if (settings != null) {
-                            restTimerNotifier.notifyEnd(
-                                audioEnabled = settings.restTimerAudioEnabled,
-                                hapticsEnabled = settings.restTimerHapticsEnabled
-                            )
-                        }
+                    if (i == 0 && settings != null) {
+                        restTimerNotifier.notifyEnd(
+                            audioEnabled = settings.restTimerAudioEnabled,
+                            hapticsEnabled = settings.restTimerHapticsEnabled
+                        )
                     }
                     if (i > 0) delay(1000)
                 }
@@ -1765,17 +1792,16 @@ class WorkoutViewModel @Inject constructor(
             timerJob = viewModelScope.launch {
                 for (i in durationSeconds downTo 0) {
                     _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
+                    val settings = settingsState.value
                     if (i == 2 || i == 1) {
-                        if (settingsState.value?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
+                        if (settings?.restTimerAudioEnabled == true) restTimerNotifier.playWarningBeep()
+                        if (settings?.restTimerHapticsEnabled == true) restTimerNotifier.hapticShortPulse()
                     }
-                    if (i == 0) {
-                        val settings = settingsState.value
-                        if (settings != null) {
-                            restTimerNotifier.notifyEnd(
-                                audioEnabled = settings.restTimerAudioEnabled,
-                                hapticsEnabled = settings.restTimerHapticsEnabled
-                            )
-                        }
+                    if (i == 0 && settings != null) {
+                        restTimerNotifier.notifyEnd(
+                            audioEnabled = settings.restTimerAudioEnabled,
+                            hapticsEnabled = settings.restTimerHapticsEnabled
+                        )
                     }
                     if (i > 0) delay(1000)
                 }

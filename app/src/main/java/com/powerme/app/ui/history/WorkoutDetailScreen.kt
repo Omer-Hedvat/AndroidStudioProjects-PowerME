@@ -8,8 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import com.powerme.app.ui.theme.PowerMeDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -251,8 +251,8 @@ private fun ExerciseDetailCard(
             .fillMaxWidth()
             .animateContentSize()
             .clickable { onToggleExpansion() },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = PowerMeDefaults.cardColors(),
+        elevation = PowerMeDefaults.cardElevation()
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             // Superset spine if all sets share the same supersetGroupId
@@ -436,7 +436,7 @@ private fun StrengthSetDetailRow(
                     .background(
                         color = if (isEditMode) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -461,7 +461,7 @@ private fun StrengthSetDetailRow(
                     .background(
                         color = if (isEditMode) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -500,7 +500,7 @@ private fun StrengthSetDetailRow(
                     .fillMaxHeight()
                     .background(
                         color = TimerGreen,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -590,7 +590,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .weight(0.25f)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -606,7 +606,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .weight(0.25f)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -622,7 +622,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .weight(0.20f)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -638,7 +638,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .weight(0.10f)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 val rpeLabel = set.rpe?.let { if (it % 10 == 0) "${it / 10}" else "${it / 10}.5" }
@@ -657,7 +657,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .width(40.dp)
                     .fillMaxHeight()
-                    .background(TimerGreen, RoundedCornerShape(8.dp)),
+                    .background(TimerGreen, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -710,7 +710,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .weight(0.25f)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -726,7 +726,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .weight(0.35f)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -742,7 +742,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .weight(0.20f)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 val rpeLabel = set.rpe?.let { if (it % 10 == 0) "${it / 10}" else "${it / 10}.5" }
@@ -761,7 +761,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow) {
                 modifier = Modifier
                     .width(40.dp)
                     .fillMaxHeight()
-                    .background(TimerGreen, RoundedCornerShape(8.dp)),
+                    .background(TimerGreen, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

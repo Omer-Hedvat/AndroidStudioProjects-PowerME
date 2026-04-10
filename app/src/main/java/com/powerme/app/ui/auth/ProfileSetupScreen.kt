@@ -17,6 +17,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.TextFieldValue
 import com.powerme.app.ui.components.rememberSelectAllState
+import com.powerme.app.ui.theme.PowerMeDefaults
 import androidx.hilt.navigation.compose.hiltViewModel
 
 private val TRAINING_TARGET_OPTIONS = listOf(
@@ -233,13 +234,7 @@ private fun ProfileTextField(
                 onNext = { onImeAction() },
                 onDone = { onImeAction() }
             ),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                cursorColor = MaterialTheme.colorScheme.primary
-            )
+            colors = PowerMeDefaults.outlinedTextFieldColors()
         )
     } else {
         OutlinedTextField(
@@ -252,13 +247,7 @@ private fun ProfileTextField(
                 onNext = { onImeAction() },
                 onDone = { onImeAction() }
             ),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                cursorColor = MaterialTheme.colorScheme.primary
-            )
+            colors = PowerMeDefaults.outlinedTextFieldColors()
         )
     }
 }

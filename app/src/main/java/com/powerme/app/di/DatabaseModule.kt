@@ -437,6 +437,15 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_32_33 = object : Migration(32, 33) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Consolidate compound bench synonyms → "Bench"
+            db.execSQL("UPDATE exercises SET equipmentType = 'Bench' WHERE equipmentType IN ('Bench/Chair', 'Bench/Couch', 'Bench/Floor', 'Box/Bench', 'Couch/Bench')")
+            // Reassign Wall → Bodyweight (no dedicated equipment)
+            db.execSQL("UPDATE exercises SET equipmentType = 'Bodyweight' WHERE equipmentType = 'Wall'")
+        }
+    }
+
     private val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix index name mismatch on exercise_muscle_groups:
@@ -783,7 +792,8 @@ object DatabaseModule {
                 MIGRATION_28_29,
                 MIGRATION_29_30,
                 MIGRATION_30_31,
-                MIGRATION_31_32
+                MIGRATION_31_32,
+                MIGRATION_32_33
             )
             .fallbackToDestructiveMigration()
             .build()
