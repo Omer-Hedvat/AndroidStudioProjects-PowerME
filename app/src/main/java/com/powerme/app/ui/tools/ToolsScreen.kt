@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -13,14 +15,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import com.powerme.app.ui.components.rememberSelectAllState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -31,15 +31,8 @@ import com.powerme.app.ui.theme.TimerRed
 import kotlinx.coroutines.launch
 
 @Composable
-fun ToolsScreen(
-    initialMode: TimerMode? = null,
-    viewModel: ToolsViewModel = hiltViewModel()
-) {
+fun ToolsScreen(viewModel: ToolsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
-
-    LaunchedEffect(initialMode) {
-        if (initialMode != null) viewModel.setMode(initialMode)
-    }
 
     Column(
         modifier = Modifier
@@ -51,7 +44,8 @@ fun ToolsScreen(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ── 2×2 Mode Grid (shown when idle and no active timer) ──────
@@ -395,13 +389,20 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 value = state.tabataWarnAtSecondsText,
                 onValueChange = viewModel::updateTabataWarnAtSecondsText
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Skip last rest period", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Skip last rest period", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                    Text(
+                        "End after last work interval",
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        fontSize = 11.sp
+                    )
+                }
                 Switch(
                     checked = state.tabataSkipLastRest,
                     onCheckedChange = { viewModel.toggleTabataSkipLastRest() },
@@ -443,16 +444,22 @@ private fun WheelPicker(
     val coroutineScope = rememberCoroutineScope()
     val snapBehavior = rememberSnapFlingBehavior(listState)
 
-    // Scroll to selected item on external state change (e.g. preset tap)
+    // With visibleItems=3, the center slot is index 1 (middle of top/center/bottom).
+    // We add 1 padding item at top and bottom so the first/last real values can also
+    // reach the center slot. Real item at list index (idx+1); center = firstVisibleItemIndex+1.
+
+    // Scroll so selected item lands in center slot on external change (e.g. preset tap)
     LaunchedEffect(selected) {
         val index = (selected - range.first).coerceIn(0, range.last - range.first)
-        listState.scrollToItem(index)
+        listState.scrollToItem(index) // index+0 → padding item at top scrolled past, real item in center
     }
 
     // Report settled center item to ViewModel
     LaunchedEffect(listState.isScrollInProgress) {
         if (!listState.isScrollInProgress) {
-            val centerIndex = listState.firstVisibleItemIndex
+            // firstVisibleItemIndex 0 = top padding; real item at firstVisible+1 is in center
+            val centerIndex = (listState.firstVisibleItemIndex + 1 - 1)
+                .coerceIn(0, range.last - range.first)
             onSelected(range.first + centerIndex)
         }
     }
@@ -479,6 +486,8 @@ private fun WheelPicker(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Top padding item so the first real value can scroll to center
+            item { Box(modifier = Modifier.width(64.dp).height(itemHeightDp)) }
             items(range.last - range.first + 1) { idx ->
                 val value = range.first + idx
                 val isCurrent = value == selected
@@ -503,6 +512,8 @@ private fun WheelPicker(
                     )
                 }
             }
+            // Bottom padding item so the last real value can scroll to center
+            item { Box(modifier = Modifier.width(64.dp).height(itemHeightDp)) }
         }
     }
 }
@@ -557,10 +568,7 @@ private fun TimerConfigField(
     value: String,
     onValueChange: (String) -> Unit
 ) {
-    val tfv = remember { mutableStateOf(TextFieldValue(value)) }
-    LaunchedEffect(value) {
-        if (tfv.value.text != value) tfv.value = TextFieldValue(value)
-    }
+    val (tfv, selectAllMod) = rememberSelectAllState(value)
     OutlinedTextField(
         value = tfv.value,
         onValueChange = { newTfv ->
@@ -572,14 +580,7 @@ private fun TimerConfigField(
         },
         label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier
-            .fillMaxWidth()
-            .onFocusChanged { state ->
-                if (state.isFocused) {
-                    val t = tfv.value.text
-                    tfv.value = tfv.value.copy(selection = TextRange(0, t.length))
-                }
-            },
+        modifier = Modifier.fillMaxWidth().then(selectAllMod),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,

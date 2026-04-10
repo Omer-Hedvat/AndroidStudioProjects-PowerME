@@ -1,6 +1,7 @@
 package com.powerme.app.ui.tools
 
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.util.AlertType
@@ -53,12 +54,17 @@ data class ToolsUiState(
 @HiltViewModel
 class ToolsViewModel @Inject constructor(
     private val wakeLockManager: WakeLockManager,
-    @ApplicationContext context: Context
+    @ApplicationContext context: Context,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val restTimerNotifier = RestTimerNotifier(context)
 
-    private val _uiState = MutableStateFlow(ToolsUiState())
+    private val initialMode: TimerMode = savedStateHandle.get<String>("mode")
+        ?.let { runCatching { TimerMode.valueOf(it) }.getOrNull() }
+        ?: TimerMode.EMOM
+
+    private val _uiState = MutableStateFlow(ToolsUiState(mode = initialMode))
     val uiState: StateFlow<ToolsUiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null

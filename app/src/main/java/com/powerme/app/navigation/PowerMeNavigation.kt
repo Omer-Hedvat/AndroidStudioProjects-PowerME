@@ -52,7 +52,6 @@ import com.powerme.app.ui.history.WorkoutDetailScreen
 import com.powerme.app.ui.metrics.MetricsScreen
 import com.powerme.app.ui.settings.SettingsScreen
 import com.powerme.app.ui.theme.ProBackground
-import com.powerme.app.ui.tools.TimerMode
 import com.powerme.app.ui.tools.ToolsScreen
 import com.powerme.app.ui.workout.ActiveWorkoutScreen
 import com.powerme.app.ui.workouts.TemplateBuilderScreen
@@ -321,9 +320,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
-                ExercisesScreen(
-                    onStartWorkout = { navController.navigate(Routes.WORKOUT) }
-                )
+                ExercisesScreen()
             }
         }
 
@@ -334,9 +331,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             exitTransition = { fadeOut(tween(200)) },
             popEnterTransition = { fadeIn(tween(200)) },
             popExitTransition = { fadeOut(tween(200)) }
-        ) { backStackEntry ->
-            val modeArg = backStackEntry.arguments?.getString("mode")
-            val initialMode = modeArg?.let { runCatching { TimerMode.valueOf(it) }.getOrNull() }
+        ) {
             MainAppScaffold(
                 navController = navController,
                 currentScreen = Screen.Tools,
@@ -344,7 +339,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             ) {
-                ToolsScreen(initialMode = initialMode)
+                ToolsScreen()
             }
         }
 
@@ -537,7 +532,9 @@ fun MainAppScaffold(
                         NavigationBarItem(
                             icon = { Icon(screen.icon, contentDescription = screen.title) },
                             label = { Text(screen.title) },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            selected = currentDestination?.hierarchy?.any {
+                                it.route?.startsWith(screen.route) == true
+                            } == true,
                             onClick = {
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
