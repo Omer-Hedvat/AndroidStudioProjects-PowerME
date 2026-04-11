@@ -983,4 +983,11 @@ object DatabaseModule {
         com.powerme.app.data.sync.FirestoreSyncManager(
             firestore, auth, database, workoutDao, workoutSetDao, routineDao, routineExerciseDao
         )
+
+    @Provides
+    @Singleton
+    fun provideGoogleSignInHelper(
+        @ApplicationContext context: Context
+    ): com.powerme.app.ui.auth.GoogleSignInHelper =
+        com.powerme.app.ui.auth.DefaultGoogleSignInHelper(context)
 }

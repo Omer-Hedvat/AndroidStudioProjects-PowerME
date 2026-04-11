@@ -1,6 +1,10 @@
 package com.powerme.app.ui.auth
 
+import android.content.Context
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.CancellationException as CoroutineCancellationException
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
@@ -26,7 +30,8 @@ data class AuthUiState(
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val userSessionManager: UserSessionManager
+    private val userSessionManager: UserSessionManager,
+    private val googleSignInHelper: GoogleSignInHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -105,6 +110,31 @@ class AuthViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, isSignedIn = true, needsProfileSetup = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun signInWithGoogle(activityContext: Context) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                googleSignInHelper.signIn(activityContext)
+                val dbUser = userSessionManager.getCurrentUser()
+                _uiState.update {
+                    if (dbUser == null) it.copy(isLoading = false, needsProfileSetup = true)
+                    else it.copy(isLoading = false, isSignedIn = true)
+                }
+            } catch (e: CoroutineCancellationException) {
+                // Coroutine scope was cancelled (ViewModel cleared mid-flight) — rethrow so the
+                // coroutine machinery can clean up normally. Do not surface this as a UI error.
+                throw e
+            } catch (e: GetCredentialCancellationException) {
+                // User dismissed the account picker — silent, no error shown.
+                _uiState.update { it.copy(isLoading = false) }
+            } catch (e: NoCredentialException) {
+                _uiState.update { it.copy(isLoading = false, error = "No Google accounts available on this device") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.localizedMessage ?: "Google sign-in failed") }
             }
         }
     }

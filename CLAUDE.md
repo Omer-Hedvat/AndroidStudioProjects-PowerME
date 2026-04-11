@@ -10,7 +10,7 @@
 - Architecture: MVVM + Repository Pattern + Hilt DI
 - Database: Room (v31, 16 entities, 14 DAOs)
 - AI: Google Gemini (action parsing + exercise enrichment)
-- Auth/Backend: Firebase Auth + Firestore
+- Auth/Backend: Firebase Auth (email/password + Google Sign-In via Credential Manager) + Firestore; `androidx.credentials:credentials:1.3.0`, `credentials-play-services-auth:1.3.0`, `googleid:1.1.1`
 - Health: Health Connect API (`androidx.health.connect:connect-client:1.1.0-rc01`)
 - Charts: Vico (Material 3)
 - Drag-and-drop: `sh.calvin.reorderable:reorderable-compose:2.4.3`
@@ -29,7 +29,7 @@
 - Exercise library (150+ exercises, YouTube demos via native Intent, muscle groups, equipment types)
 - Multi-select muscle group filter + equipment filter chips in Exercises tab (AND-combined filtering). Full spec in `EXERCISES_SPEC.md §4`.
 - Gemini action parsing (create routines, update weight, switch gym, update injuries) via `ActionParser` + `ActionExecutor`
-- Firebase Auth with email verification + full onboarding flow
+- Firebase Auth (email/password + Google Sign-In via Credential Manager) with email verification and full onboarding flow; `GoogleSignInHelper` interface in `ui/auth/` wraps Credential Manager → Firebase sign-in for testability; Web Client ID via `BuildConfig.GOOGLE_WEB_CLIENT_ID` (from `local.properties`)
 - User profile (age, height, weight, gender, goals, chronotype, occupation)
 - Gym profiles data layer preserved (GymProfileRepository, GymProfile entity) but gym setup navigation removed from Settings
 - Health Connect sync: real SDK queries for sleep (SleepSessionRecord → most-recently-ended session, minutes), HRV (HeartRateVariabilityRmssdRecord → RMSSD ms), RHR (RestingHeartRateRecord → bpm), steps (StepsRecord summed from today midnight); manifest declares READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS; anomaly detection; permission check before sync
@@ -79,7 +79,7 @@
 
 **Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
 
-**Unit Test Coverage (src/test/, 15 files, 265 tests total — all passing):**
+**Unit Test Coverage (src/test/, 16 files, 270 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -96,6 +96,7 @@
 - `ui/settings/SettingsViewModelHealthConnectTest.kt` — 7 tests (HC availability, permissions, sync flow)
 - `data/repository/MetricLogRepositoryTest.kt` — 4 tests (upsertTodayIfChanged: insert/no-op/replace/append-prior-day)
 - `ui/metrics/MetricsViewModelBodyVitalsTest.kt` — 8 tests (HC state machine, BMI, 7d delta, sync success/failure)
+- `ui/auth/AuthViewModelGoogleSignInTest.kt` — 5 tests (cancellation silent, no-credential error, generic error, new-user needsProfileSetup, returning-user isSignedIn)
 
 ---
 

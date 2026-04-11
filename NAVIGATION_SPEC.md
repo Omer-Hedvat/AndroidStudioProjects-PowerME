@@ -58,7 +58,7 @@
 
 ```
 Firebase user == null
-  OR !isEmailVerified          →  auth_welcome
+  OR !isEmailVerified          →  auth_welcome   (Google users: isEmailVerified=true, never bounced)
 
 Firebase user OK
   + DB user == null            →  auth_profile_setup
@@ -69,6 +69,37 @@ Firebase user OK
 
 - The splash `CircularProgressIndicator` is shown until `startRoute` emits a non-null value.
 - Each auth branch clears its own back stack entry before navigating forward (`popUpTo(route) { inclusive = true }`).
+- **Google Sign-In note:** Google-provider users always have `isEmailVerified = true`, so they are never routed to `auth_welcome` on cold start after a successful sign-in. See §2.4.
+
+### 2.4 Google Sign-In (Credential Manager)
+
+The `WelcomeScreen` offers a **"Continue with Google"** button below the email/password form that works for both sign-up and sign-in. Both paths converge on the same decision tree in §2.1.
+
+**Flow:**
+```
+WelcomeScreen "Continue with Google" button
+  → AuthViewModel.signInWithGoogle(activityContext)
+  → GoogleSignInHelper.signIn(context)
+      → CredentialManager.getCredential(GetGoogleIdOption)
+      → GoogleIdTokenCredential.idToken
+      → GoogleAuthProvider.getCredential(idToken)
+      → Firebase.auth.signInWithCredential().await()
+  → UserSessionManager.getCurrentUser()
+      null     → needsProfileSetup = true  → auth_profile_setup
+      non-null → isSignedIn = true         → workouts
+```
+
+**Key invariants:**
+- The email-verification branch in `signIn()` is **skipped** for Google — Google identities are pre-verified and `isEmailVerified` is always `true`.
+- New-user gate remains **Room-based** — same as email/password: if `UserDao.getCurrentUser() == null`, route to `ProfileSetupScreen`. No Firestore user document created during onboarding.
+- User cancelling the account picker is **silent** — no error toast; `GetCredentialCancellationException` is caught and loading is cleared.
+- `NoCredentialException` (no Google accounts on device) shows a brief error message.
+- **Web Client ID** is stored in `BuildConfig.GOOGLE_WEB_CLIENT_ID`, populated from `local.properties` (gitignored). Obtain it from Firebase Console → Authentication → Google provider.
+- **Sign-out:** `Firebase.auth.signOut()` covers both email and Google sessions. Optionally call `CredentialManager.clearCredentialState()` to clear the cached Google credential so the account picker reappears on next login.
+
+**Abstraction:** `GoogleSignInHelper` (interface in `ui/auth/`) wraps the Credential Manager + Firebase chain. `DefaultGoogleSignInHelper` is the production implementation. Tests mock `GoogleSignInHelper` directly — no Android instrumentation required.
+
+---
 
 ### 2.2 Sign-Out Nuke `[Mandatory Future Refactor — Not Yet Implemented]`
 
