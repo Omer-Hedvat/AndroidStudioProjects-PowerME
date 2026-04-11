@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListScope
@@ -1066,6 +1067,7 @@ private fun SetWithRestRow(
         SwipeToDismissBox(
             state = setSwipeState,
             enableDismissFromStartToEnd = false,
+            modifier = Modifier.zIndex(1f),
             backgroundContent = { SwipeToDeleteBackground(setSwipeState.progress) }
         ) {
             Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
@@ -1406,19 +1408,6 @@ private fun RestSeparator(restSeconds: Int, isActive: Boolean = false, liveRemai
             flashAlpha.animateTo(0.15f, animationSpec = tween(300))
         }
     }
-    // Progress bar: one continuous animation from start fraction → 0 over the remaining duration.
-    // Keyed on (isActive, liveTotalSeconds) so it only restarts on activation or when user adjusts total time
-    // (not on every second tick), giving a truly smooth backwards sweep.
-    val progressAnimatable = remember { Animatable(0f) }
-    LaunchedEffect(isActive, liveTotalSeconds) {
-        if (isActive && liveTotalSeconds > 0 && liveRemainingSeconds > 0) {
-            val startFraction = liveRemainingSeconds.toFloat() / liveTotalSeconds.toFloat()
-            progressAnimatable.snapTo(startFraction)
-            progressAnimatable.animateTo(0f, tween(liveRemainingSeconds * 1000, easing = LinearEasing))
-        } else {
-            progressAnimatable.snapTo(0f)
-        }
-    }
     // Fixed height on both states prevents layout jump during Crossfade transition
     Crossfade(targetState = isActive, label = "RestTimerTransition") { active ->
         if (active) {
@@ -1432,12 +1421,22 @@ private fun RestSeparator(restSeconds: Int, isActive: Boolean = false, liveRemai
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(text = formatSecs(liveRemainingSeconds), color = NeonPurple, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = JetBrainsMono)
-                LinearProgressIndicator(
-                    progress = { progressAnimatable.value },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(2.dp),
-                    color = NeonPurple,
-                    trackColor = NeonPurple.copy(alpha = 0.15f)
-                )
+                // key resets animateFloatAsState on each timer activation so it starts at the
+                // correct fraction (not 0), then smoothly interpolates 1s per tick backwards.
+                key(liveTotalSeconds) {
+                    val target = if (liveTotalSeconds > 0) liveRemainingSeconds.toFloat() / liveTotalSeconds.toFloat() else 0f
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = target,
+                        animationSpec = tween(1000, easing = LinearEasing),
+                        label = "restProgress"
+                    )
+                    LinearProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(2.dp),
+                        color = NeonPurple,
+                        trackColor = NeonPurple.copy(alpha = 0.15f)
+                    )
+                }
             }
         } else {
             Row(

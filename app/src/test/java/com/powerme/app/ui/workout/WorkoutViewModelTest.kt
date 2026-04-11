@@ -1478,7 +1478,7 @@ class WorkoutViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `finishWorkout excludes completed warmup sets from set count`() = vmTest {
+    fun `finishWorkout includes all completed sets including warmup in set count`() = vmTest {
         val exercise = Exercise(
             id = 50L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell"
         )
@@ -1515,8 +1515,8 @@ class WorkoutViewModelTest {
 
         val summary = viewModel.workoutState.value.pendingWorkoutSummary
         assertNotNull(summary)
-        // Only the NORMAL set (set 2) counts — warmup excluded
-        assertEquals("Only 1 work set should be counted", 1, summary!!.setCount)
+        // Both warmup and work sets are counted
+        assertEquals("Both sets (warmup + work) should be counted", 2, summary!!.setCount)
 
         viewModel.cancelWorkout()
         runCurrent()
