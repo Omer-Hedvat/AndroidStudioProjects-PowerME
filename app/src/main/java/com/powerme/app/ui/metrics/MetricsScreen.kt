@@ -16,6 +16,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.analytics.ProgressionAnomaly
 import com.powerme.app.analytics.VolumeLoadAnomaly
 import com.powerme.app.analytics.WeeklyInsights
@@ -28,6 +31,20 @@ fun MetricsScreen(
     viewModel: MetricsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Re-check HC permissions every time the tab becomes visible.
+    // Needed because saveState/restoreState keeps the ViewModel alive across tab switches,
+    // so init{} only runs once — permissions granted on another tab would otherwise be missed.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadBodyVitals()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
