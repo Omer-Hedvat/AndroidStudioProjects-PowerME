@@ -18,7 +18,14 @@
 
     <!-- Declare that this app queries Health Connect -->
     <queries>
+        <!-- Android 14+ (API 34+): HC is built into the framework, served by this package -->
+        <package android:name="com.google.android.healthconnect.controller" />
+        <!-- Fallback for older standalone HC app installs (API 28-33) -->
         <package android:name="com.google.android.apps.healthdata" />
+        <!-- Intent-based query covers any future resolution changes -->
+        <intent>
+            <action android:name="android.health.connect.action.REQUEST_HEALTH_PERMISSIONS" />
+        </intent>
     </queries>
 
     <application
@@ -57,6 +64,25 @@
                 android:name="health_permissions"
                 android:resource="@xml/health_permissions" />
         </activity>
+
+        <!-- Android 14+ (API 34+) framework Health Connect rationale entrypoint.
+             com.google.android.healthconnect.controller resolves this alias to render
+             the "Privacy policy" link in the permission sheet and to validate that the
+             app is HC-compliant before showing the dialog. Without it, the framework
+             controller short-circuits the permission request and returns 0 granted in ~93ms.
+             Protected by START_VIEW_PERMISSION_USAGE so only the system can launch it.
+             The androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE filter above covers
+             Android 13 / standalone HC APK (com.google.android.apps.healthdata). -->
+        <activity-alias
+            android:name=".health.ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".health.PermissionsRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
     </application>
 
 </manifest>

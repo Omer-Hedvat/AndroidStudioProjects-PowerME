@@ -66,6 +66,7 @@ data class SettingsUiState(
     val healthConnectChecking: Boolean = true,
     val healthConnectAvailable: Boolean = false,
     val healthConnectPermissionsGranted: Boolean = false,
+    val healthConnectPermissionsDenied: Boolean = false,
     val healthConnectSyncing: Boolean = false,
     val healthConnectData: HealthConnectReadResult? = null,
     val healthConnectError: String? = null
@@ -296,14 +297,33 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(cloudRestoreMessage = null) }
     }
 
+    fun recheckHealthConnectPermissions() {
+        if (!_uiState.value.healthConnectAvailable) return
+        viewModelScope.launch {
+            val granted = healthConnectManager.checkPermissionsGranted()
+            android.util.Log.d("PowerME_HC", "recheckOnResume: granted=$granted")
+            if (granted) {
+                _uiState.update {
+                    it.copy(
+                        healthConnectPermissionsGranted = true,
+                        healthConnectPermissionsDenied = false
+                    )
+                }
+                syncHealthConnect()
+            }
+        }
+    }
+
     private fun checkHealthConnectStatus() {
         viewModelScope.launch {
             val available = healthConnectManager.isAvailable()
+            android.util.Log.d("PowerME_HC", "checkHealthConnectStatus: available=$available")
             if (!available) {
                 _uiState.update { it.copy(healthConnectChecking = false, healthConnectAvailable = false) }
                 return@launch
             }
             val granted = healthConnectManager.checkPermissionsGranted()
+            android.util.Log.d("PowerME_HC", "checkHealthConnectStatus: permissionsGranted=$granted")
             _uiState.update {
                 it.copy(
                     healthConnectChecking = false,
@@ -316,9 +336,11 @@ class SettingsViewModel @Inject constructor(
 
     fun syncHealthConnect() {
         viewModelScope.launch {
+            android.util.Log.d("PowerME_HC", "syncHealthConnect: starting")
             _uiState.update { it.copy(healthConnectSyncing = true, healthConnectError = null) }
             try {
                 val data = healthConnectManager.syncAndRead()
+                android.util.Log.d("PowerME_HC", "syncHealthConnect: success, data=$data")
                 _uiState.update {
                     it.copy(
                         healthConnectSyncing = false,
@@ -327,6 +349,7 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                android.util.Log.e("PowerME_HC", "syncHealthConnect: error", e)
                 _uiState.update {
                     it.copy(
                         healthConnectSyncing = false,
@@ -338,11 +361,28 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onHealthConnectPermissionResult(granted: Set<String>) {
-        viewModelScope.launch {
-            val allGranted = healthConnectManager.checkPermissionsGranted()
-            _uiState.update { it.copy(healthConnectPermissionsGranted = allGranted) }
-            if (allGranted) {
-                syncHealthConnect()
+        android.util.Log.d("PowerME_HC", "onPermissionResult: granted=${granted.size} perms, expected=${HealthConnectManager.ALL_PERMISSIONS.size}, set=$granted")
+        if (granted.containsAll(HealthConnectManager.ALL_PERMISSIONS)) {
+            android.util.Log.d("PowerME_HC", "onPermissionResult: allGranted=true")
+            _uiState.update {
+                it.copy(healthConnectPermissionsGranted = true, healthConnectPermissionsDenied = false)
+            }
+            syncHealthConnect()
+        } else {
+            // Callback returned fewer than all permissions. This can mean:
+            // (a) user denied in the dialog, or
+            // (b) the dialog was skipped because permissions were already granted at OS level
+            //     (getSynchronousResult path). Re-query to distinguish the two cases.
+            viewModelScope.launch {
+                val actuallyGranted = healthConnectManager.checkPermissionsGranted()
+                android.util.Log.d("PowerME_HC", "onPermissionResult: re-query granted=$actuallyGranted")
+                _uiState.update {
+                    it.copy(
+                        healthConnectPermissionsGranted = actuallyGranted,
+                        healthConnectPermissionsDenied = !actuallyGranted
+                    )
+                }
+                if (actuallyGranted) syncHealthConnect()
             }
         }
     }

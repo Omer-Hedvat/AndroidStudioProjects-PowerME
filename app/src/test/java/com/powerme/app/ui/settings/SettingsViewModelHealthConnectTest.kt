@@ -215,7 +215,8 @@ class SettingsViewModelHealthConnectTest {
     fun `onHealthConnectPermissionResult all granted - sets permissions and triggers sync`() = runTest(testDispatcher) {
         whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
         runBlocking {
-            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            // checkPermissionsGranted not called by onHealthConnectPermissionResult anymore;
+            // the callback's granted set is trusted directly.
             whenever(mockHealthConnectManager.syncAndRead()).thenReturn(sampleData)
         }
 
@@ -235,9 +236,7 @@ class SettingsViewModelHealthConnectTest {
     @Test
     fun `onHealthConnectPermissionResult partial - permissions remain false, no sync`() = runTest(testDispatcher) {
         whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-        runBlocking {
-            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(false)
-        }
+        runBlocking { whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(false) }
 
         viewModel = buildViewModel()
         runCurrent()
