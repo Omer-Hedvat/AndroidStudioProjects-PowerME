@@ -1214,98 +1214,6 @@ class WorkoutViewModelTest {
         }
 
     // -------------------------------------------------------------------------
-    // Step 5 — collapseAllExcept / reorderExercise
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `collapseAllExcept collapses all other exercises and expands the target`() =
-        vmTest {
-            val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
-            val ex2 = Exercise(id = 2L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
-            val ex3 = Exercise(id = 3L, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
-            runBlocking {
-                whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
-            }
-
-            viewModel.startWorkout("")
-            runCurrent()
-            viewModel.addExercise(ex1)
-            runCurrent()
-            viewModel.addExercise(ex2)
-            runCurrent()
-            viewModel.addExercise(ex3)
-            runCurrent()
-
-            viewModel.collapseAllExcept(2L)
-
-            val collapsed = viewModel.workoutState.value.collapsedExerciseIds
-            assertTrue("Exercise 1 should be collapsed", 1L in collapsed)
-            assertFalse("Exercise 2 (target) should NOT be collapsed", 2L in collapsed)
-            assertTrue("Exercise 3 should be collapsed", 3L in collapsed)
-
-            viewModel.cancelWorkout()
-            runCurrent()
-        }
-
-    @Test
-    fun `collapseAll collapses every exercise in the workout`() =
-        vmTest {
-            val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
-            val ex2 = Exercise(id = 2L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
-            runBlocking {
-                whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-            }
-            viewModel.startWorkout("")
-            runCurrent()
-            viewModel.addExercise(ex1)
-            runCurrent()
-            viewModel.addExercise(ex2)
-            runCurrent()
-
-            viewModel.collapseAll()
-
-            val collapsed = viewModel.workoutState.value.collapsedExerciseIds
-            assertTrue("Exercise 1 should be collapsed", 1L in collapsed)
-            assertTrue("Exercise 2 should be collapsed", 2L in collapsed)
-
-            viewModel.cancelWorkout()
-            runCurrent()
-        }
-
-    @Test
-    fun `reorderExercise moves exercise from one index to another`() =
-        vmTest {
-            val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
-            val ex2 = Exercise(id = 2L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
-            val ex3 = Exercise(id = 3L, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
-            runBlocking {
-                whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
-                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
-            }
-
-            viewModel.startWorkout("")
-            runCurrent()
-            viewModel.addExercise(ex1)
-            runCurrent()
-            viewModel.addExercise(ex2)
-            runCurrent()
-            viewModel.addExercise(ex3)
-            runCurrent()
-
-            // Move index 0 (Squat) to index 2 (end)
-            viewModel.reorderExercise(0, 2)
-
-            val exercises = viewModel.workoutState.value.exercises
-            assertEquals("Bench Press should now be first", 2L, exercises[0].exercise.id)
-            assertEquals("Deadlift should be second", 3L, exercises[1].exercise.id)
-            assertEquals("Squat should be last", 1L, exercises[2].exercise.id)
-
-            viewModel.cancelWorkout()
-            runCurrent()
-        }
-
-    // -------------------------------------------------------------------------
     // Step 7 — Routine sync diff engine
     // -------------------------------------------------------------------------
 
@@ -1355,6 +1263,33 @@ class WorkoutViewModelTest {
             viewModel.workoutState.value.pendingRoutineSync
         )
     }
+
+    @Test
+    fun `finishWorkout with only set count change sets pendingRoutineSync to STRUCTURE`() =
+        vmTest {
+            // Routine: 2 sets, reps=10, defaultWeight="80"
+            runBlocking { setupRoutineWorkout(defaultWeight = "80") }
+
+            viewModel.startWorkoutFromRoutine("1")
+            runCurrent()
+
+            // Complete only 1 of 2 sets, with weight/reps exactly matching the snapshot
+            viewModel.onWeightChanged(1L, 1, "80")
+            runCurrent()
+            viewModel.onRepsChanged(1L, 1, "10")
+            runCurrent()
+            viewModel.completeSet(1L, 1)
+            runCurrent()
+            // set 2 remains incomplete → completed count (1) != snapshot.sets (2) → structural
+
+            viewModel.finishWorkout()
+            runCurrent()
+
+            assertEquals(
+                RoutineSyncType.STRUCTURE,
+                viewModel.workoutState.value.pendingRoutineSync
+            )
+        }
 
     @Test
     fun `finishWorkout with only weight change sets pendingRoutineSync to VALUES`() =
@@ -1468,6 +1403,67 @@ class WorkoutViewModelTest {
         assertEquals("Warmup set 1 should remain 30", "30", sets[0].weight)
         assertEquals("Work set 2 should be 80", "80", sets[1].weight)
         assertEquals("Work set 3 should cascade to 80", "80", sets[2].weight)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // Step E — collapse and reorder
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `collapseAllExcept collapses all other exercises and expands the target`() = vmTest {
+        val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+        val ex2 = Exercise(id = 2L, name = "Bench", muscleGroup = "Chest", equipmentType = "Barbell")
+        val ex3 = Exercise(id = 3L, name = "Row",   muscleGroup = "Back",  equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(ex1); runCurrent()
+        viewModel.addExercise(ex2); runCurrent()
+        viewModel.addExercise(ex3); runCurrent()
+
+        viewModel.collapseAllExcept(2L)
+        runCurrent()
+
+        val collapsed = viewModel.workoutState.value.collapsedExerciseIds
+        assertFalse("Target exercise (2) should not be collapsed", 2L in collapsed)
+        assertTrue("Exercise 1 should be collapsed",  1L in collapsed)
+        assertTrue("Exercise 3 should be collapsed",  3L in collapsed)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `reorderExercise moves exercise from one index to another`() = vmTest {
+        val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+        val ex2 = Exercise(id = 2L, name = "Bench", muscleGroup = "Chest", equipmentType = "Barbell")
+        val ex3 = Exercise(id = 3L, name = "Row",   muscleGroup = "Back",  equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(ex1); runCurrent()
+        viewModel.addExercise(ex2); runCurrent()
+        viewModel.addExercise(ex3); runCurrent()
+
+        // Move index 0 (Squat) to index 2 → order becomes [Bench, Row, Squat]
+        viewModel.reorderExercise(0, 2)
+        runCurrent()
+
+        val exercises = viewModel.workoutState.value.exercises
+        assertEquals("Bench should be first",  2L, exercises[0].exercise.id)
+        assertEquals("Row should be second",   3L, exercises[1].exercise.id)
+        assertEquals("Squat should be last",   1L, exercises[2].exercise.id)
 
         viewModel.cancelWorkout()
         runCurrent()

@@ -1651,9 +1651,13 @@ fun WorkoutSetRow(
                         color = if (set.rpeValue != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
                     )
                 }
-                IconButton(
-                    onClick = onCompleteSet,
-                    modifier = Modifier.weight(CHECK_COL_WEIGHT).fillMaxHeight().minimumInteractiveComponentSize().background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                Box(
+                    modifier = Modifier
+                        .weight(CHECK_COL_WEIGHT)
+                        .fillMaxHeight()
+                        .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                        .clickable(onClick = onCompleteSet),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
                 }
@@ -1765,12 +1769,13 @@ fun CardioSetRow(
             modifier = Modifier.weight(0.10f).padding(horizontal = 2.dp),
             placeholder = "—"
         )
-        IconButton(
-            onClick = onCompleteSet,
-            modifier = Modifier.weight(0.10f).fillMaxHeight().background(
-                if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.shapes.extraSmall
-            )
+        Box(
+            modifier = Modifier
+                .weight(0.10f)
+                .fillMaxHeight()
+                .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                .clickable(onClick = onCompleteSet),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Default.Check,
@@ -1817,12 +1822,13 @@ fun TimedSetRow(
             modifier = Modifier.weight(0.20f).padding(horizontal = 2.dp),
             placeholder = "—"
         )
-        IconButton(
-            onClick = onCompleteSet,
-            modifier = Modifier.weight(0.10f).fillMaxHeight().background(
-                if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.shapes.extraSmall
-            )
+        Box(
+            modifier = Modifier
+                .weight(0.10f)
+                .fillMaxHeight()
+                .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                .clickable(onClick = onCompleteSet),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Default.Check,
