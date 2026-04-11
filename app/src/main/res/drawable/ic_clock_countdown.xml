@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Hourglass outline with softly curved outer corners -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M7,3L17,3Q18.5,3,18,5L13,12L18,19Q18.5,21,17,21L7,21Q5.5,21,6,19L11,12L6,5Q5.5,3,7,3Z" />
+
+    <!-- Sand collected at bottom — small filled triangle -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M9.5,19.5L14.5,19.5L12,16.5Z" />
+
+</vector>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!--
+        Three rounded-rect bars: tall | short | tall  (work | rest | work)
+        Bar width = 5dp, gaps = 1.5dp, radius = 2dp
+        x positions: 3, 9.5, 16
+    -->
+
+    <!-- Work bar 1 — x=3, y=5, w=5, h=14, r=2 -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M5,5h1a2,2,0,0,1,2,2v10a2,2,0,0,1,-2,2h-1a2,2,0,0,1,-2,-2v-10a2,2,0,0,1,2,-2z" />
+
+    <!-- Rest bar — x=9.5, y=9, w=5, h=10, r=2 -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M11.5,9h1a2,2,0,0,1,2,2v6a2,2,0,0,1,-2,2h-1a2,2,0,0,1,-2,-2v-6a2,2,0,0,1,2,-2z" />
+
+    <!-- Work bar 2 — x=16, y=5, w=5, h=14, r=2 -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M18,5h1a2,2,0,0,1,2,2v10a2,2,0,0,1,-2,2h-1a2,2,0,0,1,-2,-2v-10a2,2,0,0,1,2,-2z" />
+
+</vector>

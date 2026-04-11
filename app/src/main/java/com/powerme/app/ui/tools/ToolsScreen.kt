@@ -15,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
+import com.powerme.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -170,10 +172,10 @@ private fun TimerModeGrid(
     onModeSelected: (TimerMode) -> Unit
 ) {
     val modeInfo = listOf(
-        Triple(TimerMode.STOPWATCH, Icons.Default.PlayCircle, "Count Up"),
-        Triple(TimerMode.COUNTDOWN, Icons.Default.HourglassBottom, "Count Down"),
-        Triple(TimerMode.TABATA,    Icons.Default.Timer,       "Work / Rest"),
-        Triple(TimerMode.EMOM,      Icons.Default.Repeat,      "Every Minute")
+        Triple(TimerMode.STOPWATCH, painterResource(R.drawable.ic_clock_stopwatch), "Count Up"),
+        Triple(TimerMode.COUNTDOWN, painterResource(R.drawable.ic_clock_countdown), "Count Down"),
+        Triple(TimerMode.TABATA,    painterResource(R.drawable.ic_clock_tabata),    "Work / Rest"),
+        Triple(TimerMode.EMOM,      painterResource(R.drawable.ic_clock_emom),      "Every Minute")
     )
 
     Column(
@@ -188,7 +190,7 @@ private fun TimerModeGrid(
                 row.forEach { (mode, icon, desc) ->
                     ModeCard(
                         mode = mode,
-                        icon = icon,
+                        painter = icon,
                         description = desc,
                         isSelected = mode == selectedMode,
                         onClick = { onModeSelected(mode) },
@@ -203,7 +205,7 @@ private fun TimerModeGrid(
 @Composable
 private fun ModeCard(
     mode: TimerMode,
-    icon: ImageVector,
+    painter: Painter,
     description: String,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -231,7 +233,7 @@ private fun ModeCard(
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = icon,
+                painter = painter,
                 contentDescription = label,
                 tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(16.dp)

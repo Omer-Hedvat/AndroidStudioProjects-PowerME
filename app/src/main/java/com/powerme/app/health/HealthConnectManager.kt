@@ -17,6 +17,8 @@ import com.powerme.app.data.database.HealthConnectSync
 import com.powerme.app.data.database.HealthConnectSyncDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
@@ -199,28 +201,61 @@ class HealthConnectManager @Inject constructor(
     }
 
     /**
-     * Reads all 7 data types and returns the result.
+     * Reads all 7 data types concurrently and returns the result.
      * Does NOT write to Room — use syncAndRead() for a full sync + read.
      */
-    suspend fun readAllData(): HealthConnectReadResult = withContext(Dispatchers.IO) {
+    suspend fun readAllData(): HealthConnectReadResult = coroutineScope {
+        val weight = async { getLatestWeight() }
+        val height = async { getLatestHeight() }
+        val bodyFat = async { getLatestBodyFat() }
+        val sleepMinutes = async { getSleepDurationMinutes() }
+        val hrv = async { getHeartRateVariability() }
+        val rhr = async { getRestingHeartRate() }
+        val steps = async { getSteps() }
+        val lastSync = async { healthConnectSyncDao.getLatestSync()?.syncTimestamp }
         HealthConnectReadResult(
-            weight = getLatestWeight(),
-            height = getLatestHeight(),
-            bodyFat = getLatestBodyFat(),
-            sleepMinutes = getSleepDurationMinutes(),
-            hrv = getHeartRateVariability(),
-            rhr = getRestingHeartRate(),
-            steps = getSteps(),
-            lastSyncTimestamp = healthConnectSyncDao.getLatestSync()?.syncTimestamp
+            weight = weight.await(),
+            height = height.await(),
+            bodyFat = bodyFat.await(),
+            sleepMinutes = sleepMinutes.await(),
+            hrv = hrv.await(),
+            rhr = rhr.await(),
+            steps = steps.await(),
+            lastSyncTimestamp = lastSync.await()
         )
     }
 
     /**
-     * Full sync: writes HealthConnectSync row to Room, then reads all 7 data types.
+     * Full sync: reads all 7 data types once (in parallel), writes the daily Room record,
+     * and returns the result. Sleep/HRV/RHR/steps are queried only once total.
      */
     suspend fun syncAndRead(): HealthConnectReadResult {
-        syncHealthData()
-        return readAllData()
+        val result = readAllData()
+        withContext(Dispatchers.IO) {
+            try {
+                val today = LocalDate.now()
+                val previousSync = healthConnectSyncDao.getLatestSync()
+                val highFatigueFlag = result.sleepMinutes?.let { it < 420 } ?: false
+                val anomalousRecoveryFlag = if (previousSync?.hrv != null && result.hrv != null) {
+                    ((previousSync.hrv - result.hrv) / previousSync.hrv) * 100 > 10.0
+                } else false
+                healthConnectSyncDao.insertSync(
+                    HealthConnectSync(
+                        date = today,
+                        sleepDurationMinutes = result.sleepMinutes,
+                        hrv = result.hrv,
+                        rhr = result.rhr,
+                        steps = result.steps,
+                        highFatigueFlag = highFatigueFlag,
+                        anomalousRecoveryFlag = anomalousRecoveryFlag,
+                        syncTimestamp = System.currentTimeMillis()
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return result
     }
 
     /**

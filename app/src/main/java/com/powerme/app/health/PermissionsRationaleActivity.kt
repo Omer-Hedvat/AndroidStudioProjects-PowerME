@@ -24,7 +24,7 @@ class PermissionsRationaleActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            PowerMETheme(themeMode = ThemeMode.DARK) {
+            PowerMETheme(themeMode = ThemeMode.SYSTEM) {
                 PermissionsRationaleScreen(onDone = { finish() })
             }
         }

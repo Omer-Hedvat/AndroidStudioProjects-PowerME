@@ -105,6 +105,9 @@ fun SettingsScreen(
             item {
                 SettingsCard(title = "Health Connect") {
                     when {
+                        uiState.healthConnectChecking -> {
+                            // blank while status check runs (fast, avoids false "not available" flash)
+                        }
                         !uiState.healthConnectAvailable -> {
                             Text(
                                 "Health Connect is not available on this device. Install it from the Play Store to sync sleep, heart rate, steps, and body metrics.",

@@ -115,12 +115,16 @@ class SettingsViewModelHealthConnectTest {
     // ── Test 1: HC not available ─────────────────────────────────────────────
 
     @Test
-    fun `HC not available - healthConnectAvailable is false`() = runTest(testDispatcher) {
+    fun `HC not available - healthConnectAvailable is false and checking clears`() = runTest(testDispatcher) {
         whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
 
         viewModel = buildViewModel()
+        // Before coroutine runs: still in checking state
+        assertTrue(viewModel.uiState.value.healthConnectChecking)
+
         runCurrent()
 
+        assertFalse(viewModel.uiState.value.healthConnectChecking)
         assertFalse(viewModel.uiState.value.healthConnectAvailable)
         assertFalse(viewModel.uiState.value.healthConnectPermissionsGranted)
         assertNull(viewModel.uiState.value.healthConnectData)
@@ -141,26 +145,22 @@ class SettingsViewModelHealthConnectTest {
         assertNull(viewModel.uiState.value.healthConnectData)
     }
 
-    // ── Test 3: HC available + permissions granted, loads data on init ───────
+    // ── Test 3: HC available + permissions granted, init only checks status ──
 
     @Test
-    fun `HC available and granted - readAllData populates state on init`() = runTest(testDispatcher) {
+    fun `HC available and granted on init - sets both flags, does not load data`() = runTest(testDispatcher) {
         whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
         runBlocking {
             whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
-            whenever(mockHealthConnectManager.readAllData()).thenReturn(sampleData)
         }
 
         viewModel = buildViewModel()
         runCurrent()
 
+        // Init checks availability and permissions only — no HC read on startup
         assertTrue(viewModel.uiState.value.healthConnectAvailable)
         assertTrue(viewModel.uiState.value.healthConnectPermissionsGranted)
-        val data = viewModel.uiState.value.healthConnectData
-        assertNotNull(data)
-        assertEquals(80.0, data!!.weight!!, 0.01)
-        assertEquals(450, data.sleepMinutes)
-        assertEquals(8000, data.steps)
+        assertNull(viewModel.uiState.value.healthConnectData)
     }
 
     // ── Test 4: syncHealthConnect success ─────────────────────────────────────
@@ -178,14 +178,13 @@ class SettingsViewModelHealthConnectTest {
         runCurrent()
 
         viewModel.syncHealthConnect()
-        // Capture syncing=true before runCurrent drains the coroutine
-        assertTrue(viewModel.uiState.value.healthConnectSyncing)
-
         runCurrent()
 
+        // After sync completes, syncing=false, data populated, no error
         assertFalse(viewModel.uiState.value.healthConnectSyncing)
         assertNotNull(viewModel.uiState.value.healthConnectData)
         assertNull(viewModel.uiState.value.healthConnectError)
+        verify(mockHealthConnectManager).syncAndRead()
     }
 
     // ── Test 5: syncHealthConnect failure ─────────────────────────────────────

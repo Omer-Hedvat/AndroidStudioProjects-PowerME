@@ -63,6 +63,7 @@ data class SettingsUiState(
     val isRestoringFromCloud: Boolean = false,
     val cloudRestoreMessage: String? = null,
     // Health Connect
+    val healthConnectChecking: Boolean = true,
     val healthConnectAvailable: Boolean = false,
     val healthConnectPermissionsGranted: Boolean = false,
     val healthConnectSyncing: Boolean = false,
@@ -296,15 +297,19 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun checkHealthConnectStatus() {
-        val available = healthConnectManager.isAvailable()
-        _uiState.update { it.copy(healthConnectAvailable = available) }
-        if (!available) return
         viewModelScope.launch {
+            val available = healthConnectManager.isAvailable()
+            if (!available) {
+                _uiState.update { it.copy(healthConnectChecking = false, healthConnectAvailable = false) }
+                return@launch
+            }
             val granted = healthConnectManager.checkPermissionsGranted()
-            _uiState.update { it.copy(healthConnectPermissionsGranted = granted) }
-            if (granted) {
-                val data = healthConnectManager.readAllData()
-                _uiState.update { it.copy(healthConnectData = data) }
+            _uiState.update {
+                it.copy(
+                    healthConnectChecking = false,
+                    healthConnectAvailable = true,
+                    healthConnectPermissionsGranted = granted
+                )
             }
         }
     }
