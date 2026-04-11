@@ -26,17 +26,23 @@ interface GoogleSignInHelper {
 // Provided as a singleton via DatabaseModule.provideGoogleSignInHelper — not auto-injected.
 class DefaultGoogleSignInHelper(appContext: Context) : GoogleSignInHelper {
 
-    // Singleton-scoped; build once, reuse for every sign-in attempt.
+    // CredentialManager is safe to create eagerly — no validation on construction.
     private val credentialManager = CredentialManager.create(appContext)
-    private val request = GetCredentialRequest.Builder()
-        .addCredentialOption(
-            GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
-                .setAutoSelectEnabled(true)
-                .build()
-        )
-        .build()
+
+    // Lazy so that a missing/empty GOOGLE_WEB_CLIENT_ID does NOT crash at app startup.
+    // GetGoogleIdOption.Builder throws IllegalArgumentException if serverClientId is blank;
+    // deferring to first use lets signInWithGoogle() catch it and surface it as a UI error.
+    private val request by lazy {
+        GetCredentialRequest.Builder()
+            .addCredentialOption(
+                GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                    .setAutoSelectEnabled(true)
+                    .build()
+            )
+            .build()
+    }
 
     override suspend fun signIn(activityContext: Context) {
         // activityContext is required by getCredential() to anchor the account-picker UI.
