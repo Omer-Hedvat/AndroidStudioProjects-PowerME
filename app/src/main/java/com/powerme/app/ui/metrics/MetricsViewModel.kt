@@ -3,16 +3,20 @@ package com.powerme.app.ui.metrics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.analytics.WeeklyInsights
+import com.powerme.app.data.database.HealthConnectSyncDao
 import com.powerme.app.data.database.MetricLog
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.repository.AnalyticsRepository
 import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.health.HealthConnectManager
+import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import javax.inject.Inject
 
 data class MetricsUiState(
@@ -24,13 +28,17 @@ data class MetricsUiState(
     val weightInput: String = "",
     val bodyFatInput: String = "",
     val isSavingMetrics: Boolean = false,
-    val metricSaveMessage: String? = null
+    val metricSaveMessage: String? = null,
+    val bodyVitals: BodyVitalsState = BodyVitalsState()
 )
 
 @HiltViewModel
 class MetricsViewModel @Inject constructor(
     private val analyticsRepository: AnalyticsRepository,
-    private val metricLogRepository: MetricLogRepository
+    private val metricLogRepository: MetricLogRepository,
+    private val healthConnectManager: HealthConnectManager,
+    private val userSessionManager: UserSessionManager,
+    private val healthConnectSyncDao: HealthConnectSyncDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MetricsUiState())
@@ -39,6 +47,7 @@ class MetricsViewModel @Inject constructor(
     init {
         loadInsights()
         observeMetricLogs()
+        loadBodyVitals()
     }
 
     fun loadInsights() {
@@ -57,11 +66,100 @@ class MetricsViewModel @Inject constructor(
         viewModelScope.launch {
             metricLogRepository.getByType(MetricType.WEIGHT).collect { entries ->
                 _uiState.update { it.copy(weightEntries = entries) }
+                recomputeDeltas()
             }
         }
         viewModelScope.launch {
             metricLogRepository.getByType(MetricType.BODY_FAT).collect { entries ->
                 _uiState.update { it.copy(bodyFatEntries = entries) }
+                recomputeDeltas()
+            }
+        }
+    }
+
+    // Recomputes deltas AND refreshes the primary weight/bodyFat/bmi values from the latest
+    // MetricLog entries so the card stays current whenever the DB flows emit.
+    private fun recomputeDeltas() {
+        val state = _uiState.value
+        val latestWeight = state.weightEntries.lastOrNull()?.value
+        val latestBodyFat = state.bodyFatEntries.lastOrNull()?.value
+        val newWeightKg = latestWeight ?: state.bodyVitals.weightKg
+        val newBmi = computeBmi(newWeightKg, state.bodyVitals.heightCm)
+        _uiState.update {
+            it.copy(bodyVitals = it.bodyVitals.copy(
+                weightKg = newWeightKg ?: it.bodyVitals.weightKg,
+                bodyFatPct = latestBodyFat ?: it.bodyVitals.bodyFatPct,
+                bmi = newBmi ?: it.bodyVitals.bmi,
+                weightDelta7d = compute7dDelta(state.weightEntries),
+                bodyFatDelta7d = compute7dDelta(state.bodyFatEntries)
+            ))
+        }
+    }
+
+    // Sets the CHECKING spinner, then delegates to the shared suspend body.
+    fun loadBodyVitals() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(hcAvailability = HcAvailability.CHECKING)) }
+            doLoadBodyVitals()
+        }
+    }
+
+    // Shared suspend body — no CHECKING state set here so it can be called from syncHealthConnect()
+    // without flashing the "Checking…" UI while isSyncing is already true.
+    private suspend fun doLoadBodyVitals() {
+        val available = healthConnectManager.isAvailable()
+        if (!available) {
+            _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(hcAvailability = HcAvailability.UNAVAILABLE)) }
+            return
+        }
+        val granted = healthConnectManager.checkPermissionsGranted()
+        if (!granted) {
+            _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(hcAvailability = HcAvailability.AVAILABLE_NOT_GRANTED)) }
+            return
+        }
+
+        val user = userSessionManager.getCurrentUser()
+        val latestSync = healthConnectSyncDao.getLatestSync()
+        val weightKg = _uiState.value.weightEntries.lastOrNull()?.value
+            ?: user?.weightKg?.toDouble()
+        val bodyFatPct = _uiState.value.bodyFatEntries.lastOrNull()?.value
+            ?: user?.bodyFatPercent?.toDouble()
+        val heightCm = user?.heightCm?.toDouble()
+        val bmi = computeBmi(weightKg, heightCm)
+
+        _uiState.update {
+            it.copy(
+                bodyVitals = it.bodyVitals.copy(
+                    hcAvailability = HcAvailability.AVAILABLE_GRANTED,
+                    age = user?.age,
+                    weightKg = weightKg,
+                    bodyFatPct = bodyFatPct,
+                    heightCm = heightCm,
+                    bmi = bmi,
+                    sleepMinutes = latestSync?.sleepDurationMinutes,
+                    hrvMs = latestSync?.hrv,
+                    rhrBpm = latestSync?.rhr,
+                    stepsToday = latestSync?.steps,
+                    lastSyncTimestamp = latestSync?.syncTimestamp,
+                    weightDelta7d = compute7dDelta(_uiState.value.weightEntries),
+                    bodyFatDelta7d = compute7dDelta(_uiState.value.bodyFatEntries)
+                )
+            )
+        }
+    }
+
+    fun syncHealthConnect() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(isSyncing = true, syncError = null)) }
+            try {
+                healthConnectManager.syncAndRead()
+                doLoadBodyVitals()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(bodyVitals = it.bodyVitals.copy(syncError = e.message ?: "Sync failed"))
+                }
+            } finally {
+                _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(isSyncing = false)) }
             }
         }
     }
@@ -97,5 +195,22 @@ class MetricsViewModel @Inject constructor(
 
     fun dismissMetricSaveMessage() {
         _uiState.update { it.copy(metricSaveMessage = null) }
+    }
+
+    private fun compute7dDelta(entries: List<MetricLog>): Double? {
+        val latest = entries.lastOrNull() ?: return null
+        val sevenDaysAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+        val tenDaysAgo = sevenDaysAgo - 3L * 24 * 60 * 60 * 1000
+        val reference = entries
+            .filter { it.timestamp in tenDaysAgo..sevenDaysAgo }
+            .minByOrNull { abs(it.timestamp - sevenDaysAgo) }
+            ?: return null
+        return latest.value - reference.value
+    }
+
+    private fun computeBmi(weightKg: Double?, heightCm: Double?): Double? {
+        if (weightKg == null || heightCm == null || heightCm == 0.0) return null
+        val heightM = heightCm / 100.0
+        return weightKg / (heightM * heightM)
     }
 }

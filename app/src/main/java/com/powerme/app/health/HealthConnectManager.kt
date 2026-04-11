@@ -15,6 +15,9 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.powerme.app.data.database.HealthConnectSync
 import com.powerme.app.data.database.HealthConnectSyncDao
+import com.powerme.app.data.database.MetricType
+import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -45,7 +48,9 @@ data class HealthConnectReadResult(
 @Singleton
 class HealthConnectManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val healthConnectSyncDao: HealthConnectSyncDao
+    private val healthConnectSyncDao: HealthConnectSyncDao,
+    private val metricLogRepository: MetricLogRepository,
+    private val userSessionManager: UserSessionManager
 ) {
 
     companion object {
@@ -85,6 +90,7 @@ class HealthConnectManager @Inject constructor(
             val granted = client.permissionController.getGrantedPermissions()
             ALL_PERMISSIONS.all { it in granted }
         } catch (e: Exception) {
+            android.util.Log.w("PowerME_HC", "checkPermissionsGranted failed", e)
             false
         }
     }
@@ -250,6 +256,15 @@ class HealthConnectManager @Inject constructor(
                         anomalousRecoveryFlag = anomalousRecoveryFlag,
                         syncTimestamp = System.currentTimeMillis()
                     )
+                )
+                // Persist body metrics to MetricLog + User entity
+                result.weight?.let { metricLogRepository.upsertTodayIfChanged(MetricType.WEIGHT, it) }
+                result.bodyFat?.let { metricLogRepository.upsertTodayIfChanged(MetricType.BODY_FAT, it) }
+                result.height?.let { metricLogRepository.upsertTodayIfChanged(MetricType.HEIGHT, it.toDouble()) }
+                userSessionManager.updateBodyMetricsFromHc(
+                    weightKg = result.weight,
+                    bodyFatPercent = result.bodyFat,
+                    heightCm = result.height?.toDouble()
                 )
             } catch (e: Exception) {
                 e.printStackTrace()

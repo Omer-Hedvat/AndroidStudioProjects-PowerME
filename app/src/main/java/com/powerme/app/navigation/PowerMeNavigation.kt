@@ -338,7 +338,9 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
-                MetricsScreen()
+                MetricsScreen(
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) }
+                )
             }
         }
 

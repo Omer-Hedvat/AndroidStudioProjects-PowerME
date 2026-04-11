@@ -33,7 +33,8 @@
 - User profile (age, height, weight, gender, goals, chronotype, occupation)
 - Gym profiles data layer preserved (GymProfileRepository, GymProfile entity) but gym setup navigation removed from Settings
 - Health Connect sync: real SDK queries for sleep (SleepSessionRecord → most-recently-ended session, minutes), HRV (HeartRateVariabilityRmssdRecord → RMSSD ms), RHR (RestingHeartRateRecord → bpm), steps (StepsRecord summed from today midnight); manifest declares READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS; anomaly detection; permission check before sync
-- Health Connect: Phase A wired — manual sync card in Settings, checkPermissionsGranted() checks all 7 READ permissions; PermissionsRationaleActivity registered; HealthConnectManager injected into SettingsViewModel
+- Health Connect: Phase A wired — manual sync card in Settings, checkPermissionsGranted() checks all 7 READ permissions; PermissionsRationaleActivity registered with both `androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` (Android 13 fallback) and an `<activity-alias>` handling `android.intent.action.VIEW_PERMISSION_USAGE` + category `HEALTH_PERMISSIONS` (Android 14+ framework requirement — without it the permission dialog is silently suppressed); HealthConnectManager injected into SettingsViewModel
+- **Health Connect Body & Vitals card** (Trends tab): `BodyVitalsCard` composable renders at top of `MetricsScreen`; shows age, weight (+7d delta), body fat % (+7d delta), BMI+label, height, steps, sleep, HRV, RHR; four states: CHECKING / UNAVAILABLE / AVAILABLE_NOT_GRANTED / AVAILABLE_GRANTED; inline sync button; "Connect" CTA navigates to Settings. `HealthConnectManager.syncAndRead()` now auto-persists weight/bodyFat/height to `metric_log` (via `MetricLogRepository.upsertTodayIfChanged()`) and `users` (via `UserSessionManager.updateBodyMetricsFromHc()`) on every sync. `MetricsViewModel` injects HC manager + sync DAO + user session.
 - Injury / medical ledger (red-list / yellow-list exercises)
 - Performance metrics, trends, and charts
 - State history auditing trail
@@ -78,7 +79,7 @@
 
 **Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
 
-**Unit Test Coverage (src/test/, 13 files, 251 tests total — all passing):**
+**Unit Test Coverage (src/test/, 15 files, 265 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -93,6 +94,8 @@
 - `ui/exercises/ExerciseFilterTest.kt` — 7 tests (canonical equipment/muscle-group validation, no-duplicates, legacy value exclusion)
 - `ui/workout/WorkoutViewModelTest.kt` — 44 tests (includes 2 completeSet toggle + 5 rest timer/override + 5 per-set-type rest + 5 cascade/routine-sync + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode + 1 helper + 2 Step E collapse/reorder + 1 Step F STRUCTURE sync + more)
 - `ui/settings/SettingsViewModelHealthConnectTest.kt` — 7 tests (HC availability, permissions, sync flow)
+- `data/repository/MetricLogRepositoryTest.kt` — 4 tests (upsertTodayIfChanged: insert/no-op/replace/append-prior-day)
+- `ui/metrics/MetricsViewModelBodyVitalsTest.kt` — 8 tests (HC state machine, BMI, 7d delta, sync success/failure)
 
 ---
 

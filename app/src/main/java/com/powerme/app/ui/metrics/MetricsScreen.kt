@@ -24,6 +24,7 @@ import java.util.*
 
 @Composable
 fun MetricsScreen(
+    onNavigateToSettings: () -> Unit = {},
     viewModel: MetricsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -33,6 +34,15 @@ fun MetricsScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // ── Body & Vitals ──────────────────────────────
+        item {
+            BodyVitalsCard(
+                state = uiState.bodyVitals,
+                onSyncClick = { viewModel.syncHealthConnect() },
+                onConnectClick = onNavigateToSettings
+            )
+        }
+
         // ── Boaz Insights ─────────────────────────────
         item {
             Row(

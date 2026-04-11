@@ -6,6 +6,7 @@ import com.powerme.app.data.database.MetricLog
 import com.powerme.app.data.database.MetricLogDao
 import com.powerme.app.data.database.MetricType
 import kotlinx.coroutines.flow.Flow
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,6 +35,26 @@ class MetricLogRepository @Inject constructor(
                     )
                 )
         }
+    }
+
+    /**
+     * Inserts or replaces today's row for [type] with [value].
+     * No-op if today's row already has the exact same value.
+     * Replaces today's row if value differs. Appends a new row if the latest row is from a prior day.
+     */
+    suspend fun upsertTodayIfChanged(type: MetricType, value: Double) {
+        val latest = dao.getLatestForType(type.name)
+        if (latest == null) {
+            log(type, value)
+            return
+        }
+        val cal1 = Calendar.getInstance().apply { timeInMillis = latest.timestamp }
+        val cal2 = Calendar.getInstance()
+        val sameDay = cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+            cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+        if (sameDay && latest.value == value) return
+        if (sameDay) dao.delete(latest)
+        log(type, value)
     }
 
     suspend fun delete(entry: MetricLog) {

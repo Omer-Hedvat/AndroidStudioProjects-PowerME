@@ -24,8 +24,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.TimerGreen
 import java.time.Instant
@@ -42,10 +46,23 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // Health Connect permission launcher — must be at top level, not inside a conditional
+    // Health Connect permission launcher — must be at top level, not inside a conditional.
+    var healthConnectLaunchError by remember { mutableStateOf<String?>(null) }
     val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract()
     ) { granted -> viewModel.onHealthConnectPermissionResult(granted) }
+
+    // Re-check HC permissions when returning from Health Connect settings
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.recheckHealthConnectPermissions()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Cloud restore toast
     LaunchedEffect(uiState.cloudRestoreMessage) {
@@ -116,19 +133,72 @@ fun SettingsScreen(
                             )
                         }
                         !uiState.healthConnectPermissionsGranted -> {
-                            Text(
-                                "Connect to Health Connect to sync your sleep duration, heart rate variability, resting heart rate, step count, weight, body fat, and height.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Button(
-                                onClick = { healthConnectPermissionLauncher.launch(HealthConnectManager.ALL_PERMISSIONS) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.surface
+                            if (uiState.healthConnectPermissionsDenied) {
+                                // Permissions were denied (or permanently denied — dialog skipped).
+                                // Direct user to Health Connect Settings to grant manually.
+                                Text(
+                                    "Health Connect permissions were not granted.\n\n1. Tap \"Open HC Settings\" below\n2. Enable all permissions for PowerME\n3. Come back here — the app will connect automatically.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                 )
-                            ) { Text("Connect") }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            healthConnectLaunchError = null
+                                            try {
+                                                healthConnectPermissionLauncher.launch(HealthConnectManager.ALL_PERMISSIONS)
+                                            } catch (e: Exception) {
+                                                healthConnectLaunchError = "Could not open permissions: ${e.message}"
+                                            }
+                                        }
+                                    ) { Text("Retry") }
+                                    Button(
+                                        onClick = {
+                                            healthConnectLaunchError = null
+                                            try {
+                                                context.startActivity(
+                                                    HealthConnectClient.getHealthConnectManageDataIntent(context)
+                                                )
+                                            } catch (e: Exception) {
+                                                healthConnectLaunchError = "Could not open Health Connect: ${e.message}"
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    ) { Text("Open HC Settings") }
+                                }
+                            } else {
+                                Text(
+                                    "Connect to Health Connect to sync your sleep duration, heart rate variability, resting heart rate, step count, weight, body fat, and height.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = {
+                                        healthConnectLaunchError = null
+                                        android.util.Log.d("PowerME_HC", "Connect tapped, launching permissions: ${HealthConnectManager.ALL_PERMISSIONS}")
+                                        try {
+                                            healthConnectPermissionLauncher.launch(HealthConnectManager.ALL_PERMISSIONS)
+                                            android.util.Log.d("PowerME_HC", "launch() returned without exception")
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("PowerME_HC", "launch() threw: ${e.message}", e)
+                                            healthConnectLaunchError = "Could not open Health Connect permissions: ${e.message}"
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.surface
+                                    )
+                                ) { Text("Connect") }
+                            }
+                            healthConnectLaunchError?.let { error ->
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                            }
                         }
                         else -> {
                             // Status line
@@ -192,8 +262,8 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Profile (Body Metrics) ─────────────────────────────
-            item {
+            // ── Profile (Body Metrics) — hidden when HC is connected (Trends card handles it) ──
+            if (!uiState.healthConnectPermissionsGranted) item {
                 SettingsCard(title = "Profile") {
                     val bodyFatFocusRequester = remember { FocusRequester() }
                     val heightFocusRequester = remember { FocusRequester() }

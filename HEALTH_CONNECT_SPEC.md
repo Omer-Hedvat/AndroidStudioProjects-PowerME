@@ -26,6 +26,38 @@ PowerME integrates with Android Health Connect to surface biometric and recovery
 
 Required by the Health Connect SDK to register this app's permission set. Referenced via `meta-data` on `PermissionsRationaleActivity`.
 
+### Manifest Declarations (both required for cross-version support)
+
+**`PermissionsRationaleActivity`** — two intent-filter registrations:
+
+1. `androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` (direct on the Activity)  
+   → Android 13 / standalone HC APK (`com.google.android.apps.healthdata`) path.
+
+2. `android.intent.action.VIEW_PERMISSION_USAGE` + category `android.intent.category.HEALTH_PERMISSIONS` (via `<activity-alias>` named `.health.ViewPermissionUsageActivity`)  
+   → Android 14+ / framework HC (`com.google.android.healthconnect.controller`) path. **This alias is mandatory on API 34+.** Without it the framework HC controller's pre-flight package-manager query fails and `launcher.launch()` returns an empty granted set in ~93ms with no dialog shown.  
+   → Protected by `android:permission="android.permission.START_VIEW_PERMISSION_USAGE"` so only the system can invoke it.
+
+Both registrations must coexist. Removing either breaks the corresponding platform version.
+
+### `<queries>` stanza
+
+```xml
+<package android:name="com.google.android.healthconnect.controller" />  <!-- API 34+ built-in -->
+<package android:name="com.google.android.apps.healthdata" />            <!-- API 28–33 standalone -->
+<intent>
+    <action android:name="android.health.connect.action.REQUEST_HEALTH_PERMISSIONS" />
+</intent>
+```
+
+### ADB diagnostics (Android 14+)
+
+`android.permission.health.*` permissions are dual-gated: standard pm runtime registry **and** the HC service's own per-app registry. `pm grant` / `pm revoke` only write to pm's registry; `PermissionController.getGrantedPermissions()` reads the HC service's registry. For reset/debug use `cmd health_connect`:
+
+```bash
+adb shell cmd health_connect get-permissions com.powerme.app
+adb shell cmd health_connect revoke-all-permissions com.powerme.app
+```
+
 ---
 
 ## 2. Data Types Read
@@ -57,20 +89,24 @@ Phase A: **manual only**. User taps "Sync Now" in the Settings Health Connect ca
 ## 4. Data Flow
 
 ```
-SettingsScreen
+SettingsScreen / MetricsScreen (Trends tab)
   [Connect button] → PermissionController.createRequestPermissionResultContract()
-  [Sync Now button] → SettingsViewModel.syncHealthConnect()
+  [Sync Now button] → SettingsViewModel.syncHealthConnect() OR MetricsViewModel.syncHealthConnect()
     → HealthConnectManager.syncAndRead()
-        syncHealthData()     → writes HealthConnectSync row to Room (sleep/HRV/RHR/steps + flags)
-        readAllData()        → reads all 7 HC data types, returns HealthConnectReadResult
-    → SettingsUiState updated with healthConnectData
+        readAllData()        → reads all 7 HC data types concurrently, returns HealthConnectReadResult
+        writes HealthConnectSync row to Room (sleep/HRV/RHR/steps + derived flags)
+        MetricLogRepository.upsertTodayIfChanged() → WEIGHT / BODY_FAT / HEIGHT persisted to metric_log
+        UserSessionManager.updateBodyMetricsFromHc() → User entity patched (weightKg/bodyFatPercent/heightCm)
+    → caller UiState updated
 ```
 
 ### Persistence
 
 - `HealthConnectSync` entity (Room, `health_connect_sync` table) — keyed by `LocalDate`, one row per day.
-- Stores: `sleepDurationMinutes`, `hrv`, `rhr`, `steps`, `highFatigueFlag`, `anomalousRecoveryFlag`, `syncTimestamp`.
-- Body metrics (weight, height, body fat) are NOT persisted to Room in Phase A — they are held in `SettingsUiState.healthConnectData` only.
+  - Stores: `sleepDurationMinutes`, `hrv`, `rhr`, `steps`, `highFatigueFlag`, `anomalousRecoveryFlag`, `syncTimestamp`.
+- Body metrics (weight, body fat, height) **are now persisted** on every sync:
+  - `metric_log` table via `MetricLogRepository.upsertTodayIfChanged()` — deduped per day (replaces today's row if value changed; appends new row if prior row is from a different day).
+  - `users` table via `UserSessionManager.updateBodyMetricsFromHc()` — patches `weightKg`, `bodyFatPercent`, `heightCm` fields on the current user.
 
 ---
 
@@ -95,6 +131,69 @@ SettingsScreen
   - Shows "--" for null values.
 - "Sync Now" button (or `CircularProgressIndicator` while `healthConnectSyncing = true`).
 - Error text (red) if `healthConnectError != null`.
+
+---
+
+## 5b. Trends Tab — Body & Vitals Card
+
+A `BodyVitalsCard` composable renders at the top of `MetricsScreen` (Trends tab), above the Boaz Insights section. It has four render states driven by `HcAvailability`:
+
+| State | Trigger | UI |
+|---|---|---|
+| `CHECKING` | On init before availability check resolves | Spinner + "Checking Health Connect…" |
+| `UNAVAILABLE` | `HealthConnectManager.isAvailable() == false` | Label + "Install Health Connect…" text, no buttons |
+| `AVAILABLE_NOT_GRANTED` | HC available but permissions not granted | Label + description + "Connect" button → navigates to Settings |
+| `AVAILABLE_GRANTED` | HC available and all permissions granted | Full metrics grid (see below) |
+
+### Connected state metrics grid (3 rows × 3 columns)
+
+| Row 1 | Age | Weight | BMI |
+| Row 2 | Body Fat % | Height | Steps Today |
+| Row 3 | Sleep | HRV | RHR |
+
+- Each cell: label (10sp, muted), value (15sp semibold), optional sub-line (10sp muted).
+- Weight and Body Fat cells show 7-day trend arrows when delta ≥ 0.05 (upward = TimerRed, downward = TimerGreen).
+- BMI shows a qualitative label: underweight / healthy / overweight / obese.
+- Sleep formatted as Xh Ym.
+- `"--"` shown for null values.
+- Header row: "BODY & VITALS" title + "Last sync: X min ago" (or "No sync yet") + sync icon button (or spinner while `isSyncing`).
+- Error text (MaterialTheme.colorScheme.error) shown below header if `syncError != null`.
+
+### State data class
+
+```kotlin
+data class BodyVitalsState(
+    val hcAvailability: HcAvailability = HcAvailability.CHECKING,
+    val age: Int? = null,
+    val weightKg: Double? = null,
+    val bodyFatPct: Double? = null,
+    val heightCm: Double? = null,
+    val bmi: Double? = null,
+    val weightDelta7d: Double? = null,
+    val bodyFatDelta7d: Double? = null,
+    val sleepMinutes: Int? = null,
+    val hrvMs: Double? = null,
+    val rhrBpm: Int? = null,
+    val stepsToday: Int? = null,
+    val lastSyncTimestamp: Long? = null,
+    val isSyncing: Boolean = false,
+    val syncError: String? = null
+)
+```
+
+### Data sources
+
+- **Age**: `User.age` field (manually entered at profile setup).
+- **Weight, Body Fat, Height**: latest entry in `metric_log` (post-HC sync they are auto-persisted there); falls back to `User.weightKg` / `User.bodyFatPercent` / `User.heightCm`.
+- **Sleep, HRV, RHR, Steps**: `HealthConnectSync` latest row from `health_connect_sync` table.
+- **BMI**: computed as `weightKg / (heightCm/100)^2`.
+- **7d deltas**: find the closest `metric_log` entry in the 7–10 day window; delta = latest − reference.
+
+### Sync trigger
+
+Inline sync icon button in the card header calls `MetricsViewModel.syncHealthConnect()`, which delegates to `HealthConnectManager.syncAndRead()` (same as Settings card). The "Connect" CTA navigates to the Settings screen (permission flow stays in Settings).
+
+---
 
 ### Permission Rationale Activity
 
