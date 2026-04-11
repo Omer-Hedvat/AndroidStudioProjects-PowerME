@@ -78,7 +78,7 @@
 
 **Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
 
-**Unit Test Coverage (src/test/, 12 files, 221 tests total — all passing):**
+**Unit Test Coverage (src/test/, 13 files, 251 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -91,7 +91,8 @@
 - `analytics/StatisticalEngineTest.kt` — 13 tests (mean, stdDev, zScore, Pearson, 1RM, Bayesian 1RM, rateOfChange — outlier/quartile tests removed with dead code)
 - `ui/history/HistoryViewModelTest.kt` — 12 tests
 - `ui/exercises/ExerciseFilterTest.kt` — 7 tests (canonical equipment/muscle-group validation, no-duplicates, legacy value exclusion)
-- `ui/workout/WorkoutViewModelTest.kt` — 32 tests (includes 2 completeSet toggle tests + 5 rest timer/override tests + 5 per-set-type rest timer tests + 5 cascade/routine-sync tests + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode + 1 helper)
+- `ui/workout/WorkoutViewModelTest.kt` — 44 tests (includes 2 completeSet toggle + 5 rest timer/override + 5 per-set-type rest + 5 cascade/routine-sync + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode + 1 helper + 2 Step E collapse/reorder + 1 Step F STRUCTURE sync + more)
+- `ui/settings/SettingsViewModelHealthConnectTest.kt` — 7 tests (HC availability, permissions, sync flow)
 
 ---
 
@@ -107,7 +108,7 @@ Read the relevant spec before touching files in that domain.
 | `NAVIGATION_SPEC.md` | ✅ Complete | Route map (16 routes), auth decision tree, WorkoutViewModel scope, minimize/maximize state machine, transitions, MainAppScaffold + MainActivity contracts |
 | `THEME_SPEC.md` | ✅ Complete | Pro Tracker v4.0 palette (all tokens), DarkColorScheme, LightColorScheme (draft), ThemeMode system, typography (Barlow + BarlowCondensed + JetBrainsMono), semantic color contexts, WCAG contrast audit, token rules |
 | `TOOLS_SPEC.md` | ✅ Complete | Clocks tab — Stopwatch, Countdown, Tabata, EMOM timer modes, audio/haptic alerts, wake lock, input validation, phase state machine |
-| `HEALTH_CONNECT_SPEC.md` | 📋 Planned | Permission declaration, sync logic (sleep, HRV, RHR, steps, weight, body fat, height), dual-sink write pattern, anomaly detection |
+| `HEALTH_CONNECT_SPEC.md` | ✅ Complete | Permission declaration, sync logic (7 data types, parallel reads), dual-sink write, anomaly detection, 3 UI card states |
 | `GYM_PROFILES_SPEC.md` | ⚠️ Archive only | Gym setup, equipment entry, dumbbell range slider, GymInventoryScreen — stub in `archive/docs/`; no root-level spec yet |
 | `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v30, schema changes |
 | `HANDOFF.md` | ✅ Session handoff | Phase 2 completion status, Steps E+F full spec, build/test commands, test patterns |
@@ -139,33 +140,17 @@ Install on emulator: use `mcp__mobile__install_app` tool.
 
 ### Remaining Work — Phase 2
 
-**Read `HANDOFF.md` for the full spec of each step before starting.**
+**Steps E and F are complete.** No remaining Phase 2 items.
 
-#### Step E — Exercise Reorder (next up)
+#### ✅ Step E — Exercise Reorder (complete)
+- `collapsedExerciseIds: Set<Long>` in `ActiveWorkoutState`; `collapseAllExcept()`, `toggleCollapsed()`, `reorderExercise()` in `WorkoutViewModel`
+- `ReorderableLazyColumn` + `ReorderableItem` + drag handles in `ActiveWorkoutScreen`; header tap calls `collapseAllExcept()`
+- 2 unit tests added: collapse/expand + reorder
 
-**ViewModel (`WorkoutViewModel.kt`):**
-- Add `collapsedExerciseIds: Set<Long>` to `ActiveWorkoutState`
-- Add `collapseAllExcept(exerciseId: Long)` — collapses all exercises except the given one
-- Add `toggleCollapsed(exerciseId: Long)` — toggles a single exercise's collapsed state
-- Add `reorderExercises(fromIndex: Int, toIndex: Int)` — reorders the exercises list in state
-
-**UI (`ActiveWorkoutScreen.kt`):**
-- Replace `LazyColumn` with `ReorderableLazyColumn` from `sh.calvin.reorderable` (dep already in `app/build.gradle.kts` as `sh.calvin.reorderable:reorderable-compose:2.4.3`)
-- Drag handle (`DragHandle` icon) in ExerciseCard header — visible in active mode only, not edit mode
-- Tapping an exercise header calls `collapseAllExcept()` — only tapped exercise shows its sets
-- Hide sets section when `exerciseId in collapsedExerciseIds`
-
-**Tests (2 new in `WorkoutViewModelTest.kt`):**
-- `collapseAllExcept collapses all other exercises and expands the target`
-- `reorderExercises moves exercise from one index to another`
-
-#### Step F — Post-Workout Routine Sync Fix
-
-Fix `RoutineSyncType` diff engine in `WorkoutViewModel.finishWorkout()` / `WorkoutRepository.kt`:
-- `null` → ad-hoc workout
-- `VALUES` → only weight/reps changed
-- `STRUCTURE` → exercise list or order changed
-- `BOTH` → both structure and values differ
+#### ✅ Step F — Post-Workout Routine Sync Fix (complete)
+- `RoutineSyncType` diff engine in `WorkoutViewModel.finishWorkout()`: `null` (ad-hoc), `VALUES` (weight/reps only), `STRUCTURE` (set count / exercise order), `BOTH`
+- `RoutineExerciseSnapshot` captured at workout start; diff runs at finish
+- 4 unit tests added (null, VALUES, STRUCTURE, BOTH branches)
 
 ---
 
