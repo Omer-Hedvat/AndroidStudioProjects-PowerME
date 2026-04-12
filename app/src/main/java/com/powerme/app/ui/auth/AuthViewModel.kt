@@ -6,6 +6,7 @@ import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.CancellationException as CoroutineCancellationException
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.database.User
@@ -25,7 +26,8 @@ data class AuthUiState(
     val isSignedIn: Boolean = false,
     val needsEmailVerification: Boolean = false,
     val needsProfileSetup: Boolean = false,
-    val resetEmailSent: Boolean = false
+    val resetEmailSent: Boolean = false,
+    val pendingLinkEmail: String? = null
 )
 
 @HiltViewModel
@@ -36,6 +38,10 @@ class AuthViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    // Kept outside the StateFlow because AuthCredential does not implement equals() —
+    // storing it in a data class would break StateFlow's duplicate-emission filtering.
+    private var pendingLinkCredential: AuthCredential? = null
 
     fun signUp(email: String, password: String) {
         viewModelScope.launch {
@@ -60,12 +66,7 @@ class AuthViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, needsEmailVerification = true) }
                     return@launch
                 }
-                val dbUser = userSessionManager.getCurrentUser()
-                if (dbUser == null) {
-                    _uiState.update { it.copy(isLoading = false, needsProfileSetup = true) }
-                } else {
-                    _uiState.update { it.copy(isLoading = false, isSignedIn = true) }
-                }
+                applyNewUserGate()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -119,11 +120,7 @@ class AuthViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 googleSignInHelper.signIn(activityContext)
-                val dbUser = userSessionManager.getCurrentUser()
-                _uiState.update {
-                    if (dbUser == null) it.copy(isLoading = false, needsProfileSetup = true)
-                    else it.copy(isLoading = false, isSignedIn = true)
-                }
+                applyNewUserGate()
             } catch (e: CoroutineCancellationException) {
                 // Coroutine scope was cancelled (ViewModel cleared mid-flight) — rethrow so the
                 // coroutine machinery can clean up normally. Do not surface this as a UI error.
@@ -133,10 +130,51 @@ class AuthViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false) }
             } catch (e: NoCredentialException) {
                 _uiState.update { it.copy(isLoading = false, error = "No Google accounts available on this device") }
+            } catch (e: AccountCollisionException) {
+                pendingLinkCredential = e.pendingCredential
+                _uiState.update { it.copy(isLoading = false, pendingLinkEmail = e.email) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.localizedMessage ?: "Google sign-in failed") }
             }
         }
+    }
+
+    fun linkGoogleAfterPasswordAuth(password: String) {
+        val email = _uiState.value.pendingLinkEmail ?: return
+        val credential = pendingLinkCredential ?: return
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                Firebase.auth.signInWithEmailAndPassword(email, password).await()
+                val currentUser = Firebase.auth.currentUser
+                    ?: run {
+                        _uiState.update { it.copy(isLoading = false, error = "Sign-in succeeded but no user session") }
+                        return@launch
+                    }
+                currentUser.linkWithCredential(credential).await()
+                pendingLinkCredential = null
+                applyNewUserGate()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.localizedMessage ?: "Linking failed") }
+            }
+        }
+    }
+
+    private suspend fun applyNewUserGate() {
+        val dbUser = userSessionManager.getCurrentUser()
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                isSignedIn = dbUser != null,
+                needsProfileSetup = dbUser == null,
+                pendingLinkEmail = null
+            )
+        }
+    }
+
+    fun dismissLinkPrompt() {
+        pendingLinkCredential = null
+        _uiState.update { it.copy(pendingLinkEmail = null) }
     }
 
     fun isEmailVerified(): Boolean {

@@ -1697,6 +1697,7 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 exerciseDao.updateRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds)
+                val prefix = "${exerciseId}_"
                 _workoutState.update { state ->
                     state.copy(
                         exercises = state.exercises.map { ex ->
@@ -1707,7 +1708,8 @@ class WorkoutViewModel @Inject constructor(
                                     dropSetRestSeconds = dropSeconds
                                 ))
                             else ex
-                        }
+                        },
+                        hiddenRestSeparators = state.hiddenRestSeparators.filterNot { it.startsWith(prefix) }.toSet()
                     )
                 }
             } catch (e: Exception) {

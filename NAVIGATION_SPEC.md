@@ -80,7 +80,9 @@ The `WelcomeScreen` offers a **"Continue with Google"** button below the email/p
 WelcomeScreen "Continue with Google" button
   → AuthViewModel.signInWithGoogle(activityContext)
   → GoogleSignInHelper.signIn(context)
-      → CredentialManager.getCredential(GetGoogleIdOption)
+      → CredentialManager.getCredential(GetGoogleIdOption)   ← fast path, auto-select
+            NoCredentialException?
+          → CredentialManager.getCredential(GetSignInWithGoogleOption)  ← fallback: full bottom sheet
       → GoogleIdTokenCredential.idToken
       → GoogleAuthProvider.getCredential(idToken)
       → Firebase.auth.signInWithCredential().await()
@@ -90,14 +92,52 @@ WelcomeScreen "Continue with Google" button
 ```
 
 **Key invariants:**
+- **Two-step Credential Manager strategy:** `GetGoogleIdOption` is tried first (fast, supports auto-select for returning users). On `NoCredentialException` (common on emulators and older Play Services), falls back to `GetSignInWithGoogleOption` which shows the full Google account-picker bottom sheet. Both paths extract the same `idToken` and feed into the same Firebase flow.
 - The email-verification branch in `signIn()` is **skipped** for Google — Google identities are pre-verified and `isEmailVerified` is always `true`.
 - New-user gate remains **Room-based** — same as email/password: if `UserDao.getCurrentUser() == null`, route to `ProfileSetupScreen`. No Firestore user document created during onboarding.
 - User cancelling the account picker is **silent** — no error toast; `GetCredentialCancellationException` is caught and loading is cleared.
-- `NoCredentialException` (no Google accounts on device) shows a brief error message.
+- `NoCredentialException` propagates to the ViewModel only if **both** `GetGoogleIdOption` and `GetSignInWithGoogleOption` fail (truly no Google accounts on device); shows a brief error message.
 - **Web Client ID** is stored in `BuildConfig.GOOGLE_WEB_CLIENT_ID`, populated from `local.properties` (gitignored). Obtain it from Firebase Console → Authentication → Google provider.
+- **Firebase Console prerequisites:** `google-services.json` must contain an Android OAuth client (type 1) entry for `com.powerme.app`. This requires the debug/release SHA-1 fingerprint to be registered in Firebase Console (Project Settings → Your apps → SHA certificate fingerprints) and the json re-downloaded. Without it, Credential Manager silently fires `GetCredentialCancellationException` after account selection. Debug SHA-1: `D6:EF:D7:82:62:FD:B7:8D:64:D5:D3:E9:D8:63:04:A2:38:A7:9B:62`.
 - **Sign-out:** `Firebase.auth.signOut()` covers both email and Google sessions. Optionally call `CredentialManager.clearCredentialState()` to clear the cached Google credential so the account picker reappears on next login.
 
 **Abstraction:** `GoogleSignInHelper` (interface in `ui/auth/`) wraps the Credential Manager + Firebase chain. `DefaultGoogleSignInHelper` is the production implementation. Tests mock `GoogleSignInHelper` directly — no Android instrumentation required.
+
+#### 2.4.1 Account Linking on Credential Collision
+
+When a user who registered with email/password taps "Continue with Google" using the same email, Firebase throws `FirebaseAuthUserCollisionException` (`ERROR_ACCOUNT_EXISTS_WITH_DIFFERENT_CREDENTIAL`).
+
+**Collision flow:**
+```
+DefaultGoogleSignInHelper.signIn()
+  → Firebase.auth.signInWithCredential() throws FirebaseAuthUserCollisionException
+  → catch → throw AccountCollisionException(email, pendingCredential)
+
+AuthViewModel.signInWithGoogle()
+  → catch AccountCollisionException
+  → pendingLinkCredential = credential (private ViewModel field, not in StateFlow)
+  → uiState.pendingLinkEmail = email
+
+WelcomeScreen
+  → pendingLinkEmail != null → show inline Card (replaces form via return@Column)
+  → password field + "Link Account" button + "Cancel" button
+
+AuthViewModel.linkGoogleAfterPasswordAuth(password)
+  → Firebase.auth.signInWithEmailAndPassword(email, password).await()
+  → Firebase.auth.currentUser!!.linkWithCredential(pendingCredential).await()
+  → clear pendingLinkCredential + pendingLinkEmail
+  → userSessionManager.getCurrentUser() → isSignedIn / needsProfileSetup (normal gate)
+
+AuthViewModel.dismissLinkPrompt()
+  → clears pendingLinkCredential + pendingLinkEmail
+```
+
+**Design invariants:**
+- `AccountCollisionException` is defined in `GoogleSignInHelper.kt` (carries email + `AuthCredential`); propagates through the unchanged `GoogleSignInHelper` interface.
+- `AuthCredential` is stored as a private ViewModel field (not in `AuthUiState`) to avoid `equals()` issues with `StateFlow` duplicate-emission filtering.
+- Wrong password during linking shows inline error in the Card; `pendingLinkEmail` remains set so the user can retry.
+- Cancelling via "Cancel" calls `dismissLinkPrompt()` — restores the normal sign-in form.
+- `AccountCollisionException` is caught **before** the generic `Exception` catch in `signInWithGoogle()`.
 
 ---
 

@@ -948,6 +948,35 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    fun `updateExerciseRestTimers clears hiddenRestSeparators for that exercise only`() = vmTest {
+        viewModel.startWorkout("")
+        runCurrent()
+
+        // Hide two separators for exercise 5 and one for exercise 7
+        viewModel.deleteRestSeparator(5L, 1)
+        viewModel.deleteRestSeparator(5L, 2)
+        viewModel.deleteRestSeparator(7L, 1)
+
+        // Confirm all three are hidden
+        val hidden = viewModel.workoutState.value.hiddenRestSeparators
+        assertTrue(hidden.contains("5_1"))
+        assertTrue(hidden.contains("5_2"))
+        assertTrue(hidden.contains("7_1"))
+
+        // Set Rest Timers for exercise 5
+        viewModel.updateExerciseRestTimers(5L, 90, 30, 0)
+        runCurrent()
+
+        val updated = viewModel.workoutState.value.hiddenRestSeparators
+        assertFalse("Exercise 5 separator 1 should be restored", updated.contains("5_1"))
+        assertFalse("Exercise 5 separator 2 should be restored", updated.contains("5_2"))
+        assertTrue("Exercise 7 separator should remain hidden", updated.contains("7_1"))
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
     fun `finishWorkout with structural change only sets pendingRoutineSync to STRUCTURE not BOTH`() =
         vmTest {
             // snap.defaultWeight = "" so any blank weight won't trigger value change

@@ -613,6 +613,7 @@ Opened via the `⋮` (`MoreVert`) `IconButton` in the top-right corner of the `E
 - Title: "Update rest timers". Subtitle: "Completed timers will not be affected.\nDurations will be saved for next time."
 - Confirm button: **UPDATE REST TIMERS** → `updateExerciseRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds)`.
 - Persists all three values to `exercises` table (v32 DB fields: `restDurationSeconds`, `warmupRestSeconds`, `dropSetRestSeconds`).
+- **Restores hidden separators:** Confirming the dialog also clears all `hiddenRestSeparators` entries for this exercise, so any rest separators previously swiped away reappear with the new duration.
 - Per-set overrides (via tapping the passive separator) take precedence over these defaults.
 
 **Replace Exercise**

@@ -1050,7 +1050,7 @@ private fun SetWithRestRow(
     isEditMode: Boolean = false
 ) {
     val setSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteSet(); true } else false })
-    val restSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteRestSeparator(); true } else false })
+    val restSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteRestSeparator(); true } else it == SwipeToDismissBoxValue.Settled })
 
     // Snap back to Settled after dismiss to prevent phantom red background lingering
     // in composition after the item is removed from the list (WORKOUT_SPEC.md §27 #24)

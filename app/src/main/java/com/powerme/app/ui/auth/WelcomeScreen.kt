@@ -33,6 +33,7 @@ fun WelcomeScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
+    var linkPassword by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState.isSignedIn) {
         if (uiState.isSignedIn) onSignedIn()
@@ -63,6 +64,71 @@ fun WelcomeScreen(
             )
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            if (uiState.pendingLinkEmail != null) {
+                val linkEmail = uiState.pendingLinkEmail
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Account already exists",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "$linkEmail already uses email/password sign-in. Enter your password to link Google to the same account.",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = linkPassword,
+                            onValueChange = { linkPassword = it },
+                            label = { Text("Password", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done
+                            ),
+                            colors = PowerMeDefaults.outlinedTextFieldColors(),
+                            singleLine = true
+                        )
+                        uiState.error?.let { error ->
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { viewModel.linkGoogleAfterPasswordAuth(linkPassword) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = linkPassword.isNotBlank() && !uiState.isLoading,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            if (uiState.isLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
+                            } else {
+                                Text("Link Account", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = { linkPassword = ""; viewModel.dismissLinkPrompt() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Cancel", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
+                        }
+                    }
+                }
+                return@Column
+            }
 
             if (uiState.needsEmailVerification) {
                 Card(

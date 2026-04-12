@@ -50,7 +50,10 @@ fun ExercisesScreen(
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .then(if (pickerMode) Modifier.statusBarsPadding() else Modifier)
+        ) {
             // Picker mode header
             if (pickerMode) {
                 Row(

@@ -342,5 +342,21 @@
   {
     "plan": "Organize Mode (persistent superset/reorder): Made superset-select mode persistent in Active Workout. commitSupersetSelection() no longer auto-exits — applies the group and clears supersetCandidateIds but keeps isSupersetSelectMode=true. CAB restructured: 'Cancel' → 'Done' (TextButton, calls exitSupersetSelectMode), title shows 'Organize exercises' or 'Organize • N selected', Group/Sync icon remains right-side. Management Hub item renamed 'Superset' → 'Organize Exercises' (ActiveWorkoutScreen.kt:1508). No DB bump. 9 new WorkoutViewModelTest tests added (enter pre-seed from group, enter pre-seed ungrouped, toggle candidates, commit stays in mode, commit no-op, multiple consecutive commits distinct groups, exit preserves commits, reorder while in mode, cancelWorkout clears mode). WORKOUT_SPEC.md §2/§4.9/§6/invariant#25 rewritten for unified Organize Mode. CLAUDE.md updated with Organize Mode bullet and test counts (44→53 WorkoutViewModel tests, 270→279 total).",
     "timestamp": "2026-04-12T00:00:00Z"
+  },
+  {
+    "plan": "Google account linking on credential collision: Added AccountCollisionException(email, pendingCredential) to GoogleSignInHelper.kt; DefaultGoogleSignInHelper.signIn() catches FirebaseAuthUserCollisionException and rethrows as AccountCollisionException; AuthUiState gains pendingLinkEmail: String?; AuthViewModel gains private pendingLinkCredential: AuthCredential?, new catch for AccountCollisionException in signInWithGoogle(), linkGoogleAfterPasswordAuth(password) method (email/password sign-in → linkWithCredential → normal new-user gate), dismissLinkPrompt() method; WelcomeScreen shows inline Card when pendingLinkEmail is set (password field, Link Account button, Cancel button, return@Column hides normal form); 2 new tests added to AuthViewModelGoogleSignInTest.kt (collision → pendingLinkEmail set, dismissLinkPrompt → cleared); total tests 279→281; NAVIGATION_SPEC.md §2.4.1 added; CLAUDE.md auth section and test count updated.",
+    "timestamp": "2026-04-12T12:00:00Z"
+  },
+  {
+    "plan": "Re-add rest timers via 'Set Rest Timers': updateExerciseRestTimers() in WorkoutViewModel now also clears all hiddenRestSeparators entries for the target exercise (keys matching '${exerciseId}_*'), so swiped-away rest separators reappear when the user updates rest durations via the Management Hub dialog. 1 new test added (updateExerciseRestTimers clears hiddenRestSeparators for that exercise only); WorkoutViewModelTest count 53→54; WORKOUT_SPEC.md §Set Rest Timers updated; CLAUDE.md test count updated.",
+    "timestamp": "2026-04-12T12:30:00Z"
+  },
+  {
+    "plan": "Google Sign-In NoCredentialException fix: added GetSignInWithGoogleOption fallback in DefaultGoogleSignInHelper.signIn(). When GetGoogleIdOption throws NoCredentialException (common on emulators/older Play Services), the helper now retries with GetSignInWithGoogleOption (full bottom-sheet picker) before letting the exception propagate. No ViewModel, test, or dependency changes needed. File: ui/auth/GoogleSignInHelper.kt.",
+    "timestamp": "2026-04-12T13:00:00Z"
+  },
+  {
+    "plan": "Google Sign-In end-to-end fix: registered debug SHA-1 (D6:EF:D7:82:62:FD:B7:8D:64:D5:D3:E9:D8:63:04:A2:38:A7:9B:62) in Firebase Console for com.powerme.app, re-downloaded google-services.json (now contains Android OAuth client type 1). Root cause was silent GetCredentialCancellationException caused by absence of Android OAuth client — Google servers rejected the token request because no SHA-1 was registered. Sign-in confirmed working end-to-end.",
+    "timestamp": "2026-04-12T13:30:00Z"
   }
 ]

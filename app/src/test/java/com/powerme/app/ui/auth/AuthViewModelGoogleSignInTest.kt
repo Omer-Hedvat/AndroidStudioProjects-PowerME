@@ -3,6 +3,7 @@ package com.powerme.app.ui.auth
 import android.content.Context
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
+import com.google.firebase.auth.AuthCredential
 import com.powerme.app.data.database.User
 import com.powerme.app.util.UserSessionManager
 import kotlinx.coroutines.Dispatchers
@@ -136,6 +137,43 @@ class AuthViewModelGoogleSignInTest {
         assertFalse(state.isLoading)
         assertTrue(state.isSignedIn)
         assertFalse(state.needsProfileSetup)
+        assertNull(state.error)
+    }
+
+    // ── Test 6: Collision — pendingLinkEmail set, no error ───────────────────
+
+    @Test
+    fun `signInWithGoogle - collision - sets pendingLinkEmail, no error`() = runTest(testDispatcher) {
+        val mockCredential: AuthCredential = mock()
+        whenever(mockGoogleSignInHelper.signIn(mockContext))
+            .thenAnswer { throw AccountCollisionException("user@example.com", mockCredential) }
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertEquals("user@example.com", state.pendingLinkEmail)
+        assertNull(state.error)
+        assertFalse(state.isSignedIn)
+        assertFalse(state.needsProfileSetup)
+    }
+
+    // ── Test 7: dismissLinkPrompt — clears pendingLinkEmail ──────────────────
+
+    @Test
+    fun `dismissLinkPrompt - clears pendingLinkEmail`() = runTest(testDispatcher) {
+        val mockCredential: AuthCredential = mock()
+        whenever(mockGoogleSignInHelper.signIn(mockContext))
+            .thenAnswer { throw AccountCollisionException("user@example.com", mockCredential) }
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+        viewModel.dismissLinkPrompt()
+
+        val state = viewModel.uiState.value
+        assertNull(state.pendingLinkEmail)
+        assertFalse(state.isLoading)
         assertNull(state.error)
     }
 }

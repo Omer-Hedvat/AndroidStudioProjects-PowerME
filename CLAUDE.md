@@ -8,7 +8,7 @@
 - Language: Kotlin 2.0.21
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
-- Database: Room (v31, 16 entities, 14 DAOs)
+- Database: Room (v33, 17 entities, 17 DAOs)
 - AI: Google Gemini (action parsing + exercise enrichment)
 - Auth/Backend: Firebase Auth (email/password + Google Sign-In via Credential Manager) + Firestore; `androidx.credentials:credentials:1.3.0`, `credentials-play-services-auth:1.3.0`, `googleid:1.1.1`
 - Health: Health Connect API (`androidx.health.connect:connect-client:1.1.0-rc01`)
@@ -30,7 +30,7 @@
 - Exercise library (150+ exercises, YouTube demos via native Intent, muscle groups, equipment types)
 - Multi-select muscle group filter + equipment filter chips in Exercises tab (AND-combined filtering). Full spec in `EXERCISES_SPEC.md §4`.
 - Gemini action parsing (create routines, update weight, switch gym, update injuries) via `ActionParser` + `ActionExecutor`
-- Firebase Auth (email/password + Google Sign-In via Credential Manager) with email verification and full onboarding flow; `GoogleSignInHelper` interface in `ui/auth/` wraps Credential Manager → Firebase sign-in for testability; Web Client ID via `BuildConfig.GOOGLE_WEB_CLIENT_ID` (from `local.properties`)
+- Firebase Auth (email/password + Google Sign-In via Credential Manager) with email verification and full onboarding flow; `GoogleSignInHelper` interface in `ui/auth/` wraps Credential Manager → Firebase sign-in for testability; Web Client ID via `BuildConfig.GOOGLE_WEB_CLIENT_ID` (from `local.properties`); `DefaultGoogleSignInHelper.signIn()` uses a two-step Credential Manager strategy: tries `GetGoogleIdOption` first (fast, supports auto-select for returning users), falls back to `GetSignInWithGoogleOption` (full bottom-sheet picker) on `NoCredentialException` — common on emulators and older Play Services; account linking: `FirebaseAuthUserCollisionException` caught in `DefaultGoogleSignInHelper` → rethrown as `AccountCollisionException(email, credential)`; `AuthViewModel` stores credential in private field, sets `pendingLinkEmail` in state; `WelcomeScreen` shows inline Card prompting password re-auth; `linkGoogleAfterPasswordAuth()` signs in with email/password then calls `currentUser.linkWithCredential()`; `dismissLinkPrompt()` cancels the flow; **Firebase Console:** debug SHA-1 `D6:EF:D7:82:62:FD:B7:8D:64:D5:D3:E9:D8:63:04:A2:38:A7:9B:62` registered for `com.powerme.app`; `google-services.json` contains Android OAuth client (type 1) — confirmed working
 - User profile (age, height, weight, gender, goals, chronotype, occupation)
 - Gym profiles data layer preserved (GymProfileRepository, GymProfile entity) but gym setup navigation removed from Settings
 - Health Connect sync: real SDK queries for sleep (SleepSessionRecord → most-recently-ended session, minutes), HRV (HeartRateVariabilityRmssdRecord → RMSSD ms), RHR (RestingHeartRateRecord → bpm), steps (StepsRecord summed from today midnight); manifest declares READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS; anomaly detection; permission check before sync
@@ -76,11 +76,11 @@
 - Canonical muscle groups (8): Legs, Back, Core, Chest, Shoulders, Full Body, Arms, Cardio (MuscleGroups.kt deleted — constants were unused; DB queries provide filter data)
 
 
-**SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides parseDecimal() (locale-aware, accepts commas+periods), parseReps() (integer only), isLeakedMetric() for runtime checks, MIGRATION_SQL const val for Room @Query and Migration (v17→v18), and MIGRATION_SQL_V19 for the "181.5 cm:" prefix cleanse (v18→v19). No inline try-catch in ViewModels or Composables (ProjectMap §3).
+**SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides parseDecimal() (locale-aware, accepts commas+periods), parseReps() (integer only), isLeakedMetric() for runtime checks, MIGRATION_SQL const val for Room @Query and Migration (v17→v18), and MIGRATION_SQL_V19 for the "181.5 cm:" prefix cleanse (v18→v19). No inline try-catch in ViewModels or Composables.
 
-**Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
+**Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
 
-**Unit Test Coverage (src/test/, 16 files, 279 tests total — all passing):**
+**Unit Test Coverage (src/test/, 16 files, 281 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -93,11 +93,11 @@
 - `analytics/StatisticalEngineTest.kt` — 13 tests (mean, stdDev, zScore, Pearson, 1RM, Bayesian 1RM, rateOfChange — outlier/quartile tests removed with dead code)
 - `ui/history/HistoryViewModelTest.kt` — 12 tests
 - `ui/exercises/ExerciseFilterTest.kt` — 7 tests (canonical equipment/muscle-group validation, no-duplicates, legacy value exclusion)
-- `ui/workout/WorkoutViewModelTest.kt` — 53 tests (includes 2 completeSet toggle + 5 rest timer/override + 5 per-set-type rest + 5 cascade/routine-sync + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode + 1 helper + 2 Step E collapse/reorder + 1 Step F STRUCTURE sync + 9 Organize Mode + more)
+- `ui/workout/WorkoutViewModelTest.kt` — 54 tests (includes 2 completeSet toggle + 5 rest timer/override + 5 per-set-type rest + 5 cascade/routine-sync + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 1 updateExerciseRestTimers clears hidden separators + 4 edit mode + 1 helper + 2 Step E collapse/reorder + 1 Step F STRUCTURE sync + 9 Organize Mode + more)
 - `ui/settings/SettingsViewModelHealthConnectTest.kt` — 7 tests (HC availability, permissions, sync flow)
 - `data/repository/MetricLogRepositoryTest.kt` — 4 tests (upsertTodayIfChanged: insert/no-op/replace/append-prior-day)
 - `ui/metrics/MetricsViewModelBodyVitalsTest.kt` — 8 tests (HC state machine, BMI, 7d delta, sync success/failure)
-- `ui/auth/AuthViewModelGoogleSignInTest.kt` — 5 tests (cancellation silent, no-credential error, generic error, new-user needsProfileSetup, returning-user isSignedIn)
+- `ui/auth/AuthViewModelGoogleSignInTest.kt` — 7 tests (cancellation silent, no-credential error, generic error, new-user needsProfileSetup, returning-user isSignedIn, collision → pendingLinkEmail set, dismissLinkPrompt → cleared)
 
 ---
 
@@ -111,12 +111,11 @@ Read the relevant spec before touching files in that domain.
 | `EXERCISES_SPEC.md` | ✅ Exists | Exercise library (150+ exercises), search/filter UI, ExerciseDetailSheet, MagicAddDialog, equipment display, YouTube demo intent, picker mode |
 | `HISTORY_ANALYTICS_SPEC.md` | ✅ Complete | HistoryScreen layout, StatisticalEngine (Epley/Bayesian 1RM, Volume, dynamic PRs), WeeklyInsightsAnalyzer, WorkoutDetailScreen data contract + retroactive edit flow, BoazPerformanceAnalyzer (V2 stub) |
 | `NAVIGATION_SPEC.md` | ✅ Complete | Route map (16 routes), auth decision tree, WorkoutViewModel scope, minimize/maximize state machine, transitions, MainAppScaffold + MainActivity contracts |
-| `THEME_SPEC.md` | ✅ Complete | Pro Tracker v4.0 palette (all tokens), DarkColorScheme, LightColorScheme (draft), ThemeMode system, typography (Barlow + BarlowCondensed + JetBrainsMono), semantic color contexts, WCAG contrast audit, token rules |
+| `THEME_SPEC.md` | ✅ Complete | Pro Tracker v6.0 palette (all tokens), DarkColorScheme, LightColorScheme, ThemeMode system, typography (Barlow + BarlowCondensed + JetBrainsMono), semantic color contexts, WCAG contrast audit, token rules |
 | `TOOLS_SPEC.md` | ✅ Complete | Clocks tab — Stopwatch, Countdown, Tabata, EMOM timer modes, audio/haptic alerts, wake lock, input validation, phase state machine |
-| `HEALTH_CONNECT_SPEC.md` | ✅ Complete | Permission declaration, sync logic (7 data types, parallel reads), dual-sink write, anomaly detection, 3 UI card states |
-| `GYM_PROFILES_SPEC.md` | ⚠️ Archive only | Gym setup, equipment entry, dumbbell range slider, GymInventoryScreen — stub in `archive/docs/`; no root-level spec yet |
-| `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v30, schema changes |
-| `HANDOFF.md` | ✅ Session handoff | Phase 2 completion status, Steps E+F full spec, build/test commands, test patterns |
+| `HEALTH_CONNECT_SPEC.md` | ✅ Complete | Permission declaration, sync logic (8 data types, parallel reads), dual-sink write, anomaly detection, 3 UI card states |
+| `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v33, schema changes |
+| `DB_ARCHITECTURE.md` | ✅ Exists | Core entity relationships, template-to-instance pattern, UUID migration, workout lifecycle |
 
 ---
 
@@ -268,7 +267,7 @@ Do not advance to the next step until the user replies **APPROVED**.
 ### UI / UX Reviews
 - For any **new screen or open-ended visual design** where layout, color, spacing, or interaction patterns are not already defined by a spec file — invoke the `ui-ux-pro-max` skill.
 - Do **not** invoke it for spec-driven implementations: if a `*_SPEC.md` file already defines the exact tokens, typography, layout, and animation parameters, the spec is the design authority and `ui-ux-pro-max` adds no value.
-- Stack context for this project: Jetpack Compose + Material Design 3, Stremio Indigo palette (see ProjectMap §1).
+- Stack context for this project: Jetpack Compose + Material Design 3, Pro Tracker v6.0 palette (see THEME_SPEC.md).
 - Always use `MaterialTheme.colorScheme.*` tokens — no hardcoded colors.
 
 ### Superpowers — Structured Dev Workflow
