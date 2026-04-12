@@ -22,6 +22,7 @@
 - Workout routine creation and management
 - Active workout tracking (sets, reps, weight, duration)
 - **Workout/Routine flow** — Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary (uses `skipPartiallyExpanded` and weighted layouts to ensure full visibility above system bars on Samsung/Android 14 devices), template builder, exercise picker. **See WORKOUT_SPEC.md.** Per-set-type rest timer logic: `computeRestDuration(completed, next, default)` in `WorkoutViewModel` returns 0s for DROP sets, 30s for WARMUP→WARMUP, exercise default otherwise.
+- **Organize Mode (Active Workout):** Persistent multi-action mode entered from Management Hub → "Organize Exercises". Users can form multiple supersets and drag-reorder any number of exercises in one session. CAB shows Done (left) + "Organize • N selected" (center) + Group/Sync icon (right, enabled ≥2). `commitSupersetSelection()` no longer auto-exits — clears `supersetCandidateIds` but keeps `isSupersetSelectMode = true`; only the Done button calls `exitSupersetSelectMode()`. No `isReorderMode` flag exists on `ActiveWorkoutState`; drag handles on regular `ExerciseCard` rows remain always-visible for quick one-off reorders outside the mode.
 - Theme mode: `ThemeMode` enum (LIGHT/DARK/SYSTEM) in `data/ThemeMode.kt`; `AppSettingsDataStore.themeMode: Flow<ThemeMode>` + `setThemeMode()`; `PowerMETheme(themeMode: ThemeMode)` applies `LightColorScheme` or `DarkColorScheme` (Stremio dark palette) or follows system; `MainActivity` collects themeMode, calls `enableEdgeToEdge` via `SideEffect` conditionally; Appearance card in SettingsScreen with `SingleChoiceSegmentedButtonRow` (Light/Dark/System); deprecated `darkModeEnabled` / `setDarkModeEnabled` preserved for schema stability
 - Google Fonts: `BarlowCondensed` (Medium/SemiBold/Bold) + `Barlow` (Normal/Medium/SemiBold) loaded via `GoogleFont.Provider`; `res/values/font_provider_certs.xml` contains GMS cert arrays; `Typography` expanded to 11 M3 roles (displaySmall, headlineL/M/S, titleL/M, bodyL/M/S, labelMedium/Small); graceful fallback to system sans-serif offline
 - Shape system: `PowerMeShapes` in `ui/theme/Shape.kt` (extraSmall=6dp, small=10dp, medium=16dp, large=24dp, extraLarge=32dp); passed to `MaterialTheme(shapes=PowerMeShapes)` in Theme.kt; `Spacing` object in same file; `PowerMeDefaults` in `ui/theme/Defaults.kt` (outlinedTextFieldColors, cardColors, cardElevation, subtleCardElevation). See THEME_SPEC.md §7–§9.
@@ -79,7 +80,7 @@
 
 **Health Connect permissions:** READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_EXERCISE, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink per ProjectMap §5). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT.
 
-**Unit Test Coverage (src/test/, 16 files, 270 tests total — all passing):**
+**Unit Test Coverage (src/test/, 16 files, 279 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -92,7 +93,7 @@
 - `analytics/StatisticalEngineTest.kt` — 13 tests (mean, stdDev, zScore, Pearson, 1RM, Bayesian 1RM, rateOfChange — outlier/quartile tests removed with dead code)
 - `ui/history/HistoryViewModelTest.kt` — 12 tests
 - `ui/exercises/ExerciseFilterTest.kt` — 7 tests (canonical equipment/muscle-group validation, no-duplicates, legacy value exclusion)
-- `ui/workout/WorkoutViewModelTest.kt` — 44 tests (includes 2 completeSet toggle + 5 rest timer/override + 5 per-set-type rest + 5 cascade/routine-sync + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode + 1 helper + 2 Step E collapse/reorder + 1 Step F STRUCTURE sync + more)
+- `ui/workout/WorkoutViewModelTest.kt` — 53 tests (includes 2 completeSet toggle + 5 rest timer/override + 5 per-set-type rest + 5 cascade/routine-sync + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 4 edit mode + 1 helper + 2 Step E collapse/reorder + 1 Step F STRUCTURE sync + 9 Organize Mode + more)
 - `ui/settings/SettingsViewModelHealthConnectTest.kt` — 7 tests (HC availability, permissions, sync flow)
 - `data/repository/MetricLogRepositoryTest.kt` — 4 tests (upsertTodayIfChanged: insert/no-op/replace/append-prior-day)
 - `ui/metrics/MetricsViewModelBodyVitalsTest.kt` — 8 tests (HC state machine, BMI, 7d delta, sync success/failure)
