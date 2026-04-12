@@ -1862,16 +1862,19 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    /** Commit the current candidate set as a superset group and exit select mode. */
+    /** Commit the current candidate set as a superset group.
+     *  Clears [supersetCandidateIds] so the user can immediately select another group,
+     *  but keeps [isSupersetSelectMode] true until the user explicitly taps Done. */
     fun commitSupersetSelection() {
         val candidates = _workoutState.value.supersetCandidateIds
         if (candidates.size >= 2) {
             pairAsSuperset(candidates)
+            _workoutState.update { it.copy(supersetCandidateIds = emptySet()) }
         }
-        exitSupersetSelectMode()
+        // Mode stays active — user taps Done to exit Organize Mode.
     }
 
-    /** Cancel superset select mode without making any changes. */
+    /** Exit Organize Mode (superset-select mode), discarding any unconfirmed selection. */
     fun exitSupersetSelectMode() {
         _workoutState.update { it.copy(isSupersetSelectMode = false, supersetCandidateIds = emptySet()) }
     }

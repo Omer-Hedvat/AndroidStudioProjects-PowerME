@@ -67,6 +67,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import java.util.ArrayList
 import kotlin.math.abs
@@ -449,7 +450,7 @@ private fun LazyListScope.activeWorkoutListItems(
         }
     }
 
-    // Superset multi-select CAB
+    // Organize Mode CAB — persistent; user exits only via Done
     if (workoutState.isSupersetSelectMode) {
         item {
             Card(
@@ -463,10 +464,11 @@ private fun LazyListScope.activeWorkoutListItems(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = { viewModel.exitSupersetSelectMode() }) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.primary)
+                        Text("Done", color = MaterialTheme.colorScheme.primary)
                     }
+                    val candidateCount = workoutState.supersetCandidateIds.size
                     Text(
-                        text = "Select exercises for superset",
+                        text = if (candidateCount > 0) "Organize • $candidateCount selected" else "Organize exercises",
                         modifier = Modifier.weight(1f),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.primary,
@@ -476,7 +478,7 @@ private fun LazyListScope.activeWorkoutListItems(
                         onClick = { viewModel.commitSupersetSelection() },
                         enabled = workoutState.supersetCandidateIds.size >= 2
                     ) {
-                        Icon(Icons.Default.Sync, contentDescription = "Commit Superset", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Sync, contentDescription = "Group selected exercises", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -1401,48 +1403,57 @@ private fun SwipeToDeleteBackground(fraction: Float) {
 @Composable
 private fun RestSeparator(restSeconds: Int, isActive: Boolean = false, liveRemainingSeconds: Int = 0, liveTotalSeconds: Int = 0, onActiveClick: () -> Unit = {}, onPassiveClick: () -> Unit = {}) {
     fun formatSecs(s: Int) = "%d:%02d".format(s / 60, s % 60)
-    val flashAlpha = remember { Animatable(0.4f) }
+    val flashAlpha = remember { Animatable(0.45f) }
     LaunchedEffect(isActive) {
         if (isActive) {
-            flashAlpha.snapTo(0.4f)
-            flashAlpha.animateTo(0.15f, animationSpec = tween(300))
+            flashAlpha.snapTo(0.45f)
+            flashAlpha.animateTo(0.28f, animationSpec = tween(300))
         }
     }
     // Fixed height on both states prevents layout jump during Crossfade transition
     Crossfade(targetState = isActive, label = "RestTimerTransition") { active ->
         if (active) {
-            Column(
+            // Outer container fills the full row; the pill inside shrinks as time drains
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
-                    .background(color = NeonPurple.copy(alpha = flashAlpha.value), shape = MaterialTheme.shapes.extraSmall)
-                    .clickable(onClick = onActiveClick),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .height(30.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text(text = formatSecs(liveRemainingSeconds), color = NeonPurple, fontWeight = FontWeight.Bold, fontSize = 14.sp, fontFamily = JetBrainsMono)
                 // key resets animateFloatAsState on each timer activation so it starts at the
                 // correct fraction (not 0), then smoothly interpolates 1s per tick backwards.
                 key(liveTotalSeconds) {
-                    val target = if (liveTotalSeconds > 0) liveRemainingSeconds.toFloat() / liveTotalSeconds.toFloat() else 0f
-                    val animatedProgress by animateFloatAsState(
-                        targetValue = target,
+                    val rawProgress = if (liveTotalSeconds > 0) liveRemainingSeconds.toFloat() / liveTotalSeconds.toFloat() else 0f
+                    // Width fraction: 1.0 at timer start → 0.35 when timer reaches 0
+                    val animatedWidth by animateFloatAsState(
+                        targetValue = 0.35f + 0.65f * rawProgress,
                         animationSpec = tween(1000, easing = LinearEasing),
-                        label = "restProgress"
+                        label = "restWidth"
                     )
-                    LinearProgressIndicator(
-                        progress = { animatedProgress },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(2.dp),
-                        color = NeonPurple,
-                        trackColor = NeonPurple.copy(alpha = 0.15f)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(animatedWidth)
+                            .height(30.dp)
+                            .clip(CircleShape)
+                            .background(NeonPurple.copy(alpha = flashAlpha.value))
+                            .clickable(onClick = onActiveClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = formatSecs(liveRemainingSeconds),
+                            color = NeonPurple,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            fontFamily = JetBrainsMono
+                        )
+                    }
                 }
             }
         } else {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .height(30.dp)
                     .clickable(onClick = onPassiveClick),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1495,7 +1506,7 @@ private fun ManagementHubSheet(onDismiss: () -> Unit, onReplace: () -> Unit, onR
                 Triple("Sticky Note", Icons.Default.PushPin, onStickyNote),
                 Triple("Set Rest Timers", Icons.Default.Timer, onRestTimer),
                 Triple("Replace Exercise", Icons.Default.Refresh, onReplace),
-                Triple(if (isInSuperset) "Remove from Superset" else "Superset", Icons.Default.Sync, onSuperset),
+                Triple(if (isInSuperset) "Remove from Superset" else "Organize Exercises", Icons.Default.Sync, onSuperset),
                 Triple("Remove Exercise", Icons.Default.Delete, onRemove)
             )
             items.forEach { (label, icon, action) ->
@@ -1550,7 +1561,7 @@ fun WorkoutSetRow(
                 } else Modifier
             )
     ) {
-        Row(modifier = Modifier.fillMaxWidth().height(44.dp).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().height(35.dp).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.weight(SET_COL_WEIGHT).fillMaxHeight().minimumInteractiveComponentSize(), contentAlignment = Alignment.Center) {
                 Box(modifier = Modifier.fillMaxHeight().clickable { showSetTypeMenu = true }, contentAlignment = Alignment.Center) {
                     Text(text = setLabel, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = setColor)
@@ -1742,7 +1753,7 @@ fun CardioSetRow(
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth().height(44.dp).padding(vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().height(35.dp).padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
@@ -1798,7 +1809,7 @@ fun TimedSetRow(
     val rpe = set.rpe
 
     Row(
-        modifier = Modifier.fillMaxWidth().height(44.dp).padding(vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().height(35.dp).padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {

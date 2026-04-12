@@ -1517,4 +1517,199 @@ class WorkoutViewModelTest {
         viewModel.cancelWorkout()
         runCurrent()
     }
+
+    // -------------------------------------------------------------------------
+    // Organize Mode (persistent superset)
+    // -------------------------------------------------------------------------
+
+    private suspend fun TestScope.threeExerciseWorkout() {
+        val ex1 = Exercise(id = 1L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+        val ex2 = Exercise(id = 2L, name = "Bench", muscleGroup = "Chest", equipmentType = "Barbell")
+        val ex3 = Exercise(id = 3L, name = "Row",   muscleGroup = "Back",  equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        }
+        viewModel.startWorkout(""); runCurrent()
+        viewModel.addExercise(ex1); runCurrent()
+        viewModel.addExercise(ex2); runCurrent()
+        viewModel.addExercise(ex3); runCurrent()
+    }
+
+    @Test
+    fun `enterSupersetSelectMode with ungrouped exercise pre-seeds only that exercise`() = vmTest {
+        threeExerciseWorkout()
+
+        viewModel.enterSupersetSelectMode(1L)
+        runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertTrue("Mode should be active", state.isSupersetSelectMode)
+        assertEquals("Only the triggering exercise should be pre-seeded", setOf(1L), state.supersetCandidateIds)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `enterSupersetSelectMode pre-seeds candidates from existing superset group`() = vmTest {
+        threeExerciseWorkout()
+
+        // Form a superset between exercises 1 and 2 first
+        viewModel.enterSupersetSelectMode(1L); runCurrent()
+        viewModel.toggleSupersetCandidate(2L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        // Now enter organize mode from exercise 1 — both members should be pre-seeded
+        viewModel.enterSupersetSelectMode(1L); runCurrent()
+        val candidates = viewModel.workoutState.value.supersetCandidateIds
+        assertTrue("Exercise 1 should be pre-seeded", 1L in candidates)
+        assertTrue("Exercise 2 (partner) should be pre-seeded", 2L in candidates)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `toggleSupersetCandidate adds and removes exercise ids`() = vmTest {
+        threeExerciseWorkout()
+
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        assertTrue("1L should be present after first toggle", 1L in viewModel.workoutState.value.supersetCandidateIds)
+
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        assertFalse("1L should be absent after second toggle", 1L in viewModel.workoutState.value.supersetCandidateIds)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `commitSupersetSelection with two candidates pairs them, clears candidates, and stays in mode`() = vmTest {
+        threeExerciseWorkout()
+
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.toggleSupersetCandidate(2L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertTrue("Mode must still be active after commit", state.isSupersetSelectMode)
+        assertTrue("Candidates must be cleared after commit", state.supersetCandidateIds.isEmpty())
+
+        val ex1GroupId = state.exercises.find { it.exercise.id == 1L }?.supersetGroupId
+        val ex2GroupId = state.exercises.find { it.exercise.id == 2L }?.supersetGroupId
+        assertNotNull("Exercise 1 must have a superset group", ex1GroupId)
+        assertNotNull("Exercise 2 must have a superset group", ex2GroupId)
+        assertEquals("Both exercises must share the same superset group", ex1GroupId, ex2GroupId)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `commitSupersetSelection with fewer than two candidates is a no-op and stays in mode`() = vmTest {
+        threeExerciseWorkout()
+
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertTrue("Mode must still be active after no-op commit", state.isSupersetSelectMode)
+        assertNull("Exercise 1 must have no superset group after no-op commit",
+            state.exercises.find { it.exercise.id == 1L }?.supersetGroupId)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `multiple consecutive commits create distinct superset groups`() = vmTest {
+        val ex1 = Exercise(id = 1L, name = "Squat",  muscleGroup = "Legs",  equipmentType = "Barbell")
+        val ex2 = Exercise(id = 2L, name = "Bench",  muscleGroup = "Chest", equipmentType = "Barbell")
+        val ex3 = Exercise(id = 3L, name = "Row",    muscleGroup = "Back",  equipmentType = "Barbell")
+        val ex4 = Exercise(id = 4L, name = "Press",  muscleGroup = "Shoulders", equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        }
+        viewModel.startWorkout(""); runCurrent()
+        viewModel.addExercise(ex1); runCurrent()
+        viewModel.addExercise(ex2); runCurrent()
+        viewModel.addExercise(ex3); runCurrent()
+        viewModel.addExercise(ex4); runCurrent()
+
+        // Group 1: exercises 1 + 2
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.toggleSupersetCandidate(2L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        // Group 2: exercises 3 + 4 — still in the same Organize Mode session
+        viewModel.toggleSupersetCandidate(3L); runCurrent()
+        viewModel.toggleSupersetCandidate(4L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertTrue("Mode still active after both commits", state.isSupersetSelectMode)
+
+        val groupX = state.exercises.find { it.exercise.id == 1L }?.supersetGroupId
+        val groupY = state.exercises.find { it.exercise.id == 3L }?.supersetGroupId
+        assertNotNull("Group X must exist", groupX)
+        assertNotNull("Group Y must exist", groupY)
+        assertNotEquals("Groups must be distinct", groupX, groupY)
+        assertEquals("Ex 2 must share group X", groupX, state.exercises.find { it.exercise.id == 2L }?.supersetGroupId)
+        assertEquals("Ex 4 must share group Y", groupY, state.exercises.find { it.exercise.id == 4L }?.supersetGroupId)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `exitSupersetSelectMode clears flag and candidates without undoing prior commits`() = vmTest {
+        threeExerciseWorkout()
+
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.toggleSupersetCandidate(2L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        viewModel.exitSupersetSelectMode(); runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertFalse("Mode must be inactive after Done", state.isSupersetSelectMode)
+        assertTrue("Candidates must be empty after Done", state.supersetCandidateIds.isEmpty())
+
+        // The superset formed before Done must still exist
+        val groupId = state.exercises.find { it.exercise.id == 1L }?.supersetGroupId
+        assertNotNull("Superset group must survive exiting organize mode", groupId)
+        assertEquals("Both exercises must still share the superset group",
+            groupId, state.exercises.find { it.exercise.id == 2L }?.supersetGroupId)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `reorderExercise works while isSupersetSelectMode is true`() = vmTest {
+        threeExerciseWorkout()
+
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.reorderExercise(0, 2); runCurrent()
+
+        val exercises = viewModel.workoutState.value.exercises
+        assertEquals("Bench should be first after reorder",  2L, exercises[0].exercise.id)
+        assertEquals("Row should be second after reorder",   3L, exercises[1].exercise.id)
+        assertEquals("Squat should be last after reorder",   1L, exercises[2].exercise.id)
+        assertTrue("Mode must remain active after reorder", viewModel.workoutState.value.isSupersetSelectMode)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `cancelWorkout while in organize mode resets isSupersetSelectMode`() = vmTest {
+        threeExerciseWorkout()
+
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        assertTrue("Mode should be active before cancel", viewModel.workoutState.value.isSupersetSelectMode)
+
+        viewModel.cancelWorkout(); runCurrent()
+
+        assertFalse("Mode must be cleared after cancelWorkout", viewModel.workoutState.value.isSupersetSelectMode)
+    }
 }

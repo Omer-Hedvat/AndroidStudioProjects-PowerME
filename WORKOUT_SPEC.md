@@ -44,7 +44,7 @@ Loading > Edit Mode > Active Workout > Summary > Idle
 | 5 | **Idle** | All flags false/null |
 
 **Concurrent modifier flags (do not occupy a priority slot):**
-- `isReorderMode: Boolean = false` — can be `true` simultaneously with `isActive` or `isEditMode`. It is a UI sub-mode, not a separate top-level state. When `true`, the exercise list switches to drag-handle rows; no other rendering priority changes.
+- `isSupersetSelectMode: Boolean = false` — **Organize Mode** sub-state. Can be `true` only while `isActive = true`. When active, all `ExerciseCard` rows switch to compact `SupersetSelectRow` rows with checkboxes and drag handles. A CAB at the top shows **Done** + **Group** (Sync icon) buttons. The mode persists across `commitSupersetSelection()` calls; it exits only when the user taps **Done** (calls `exitSupersetSelectMode()`). `commitSupersetSelection()` clears `supersetCandidateIds` but does NOT clear `isSupersetSelectMode`.
 
 **Rendering order in `ActiveWorkoutScreen`** (overlays checked first):
 1. `StandaloneTimerSheet` — `ModalBottomSheet` opened via timer icon; does NOT block main content
@@ -376,23 +376,32 @@ Data updated via `updateTimedSet(exerciseId, setOrder, weight, timeSeconds, rpe,
 
 **PR score:** For TIMED sets, the PR comparator is `Weight × TimeSeconds` (see §10.1). The WEIGHT column is displayed and editable (supports bodyweight exercises where weight = 0, in which case `TimeSeconds` alone is the comparator).
 
-### 4.9 Exercise Reorder Mode (Active Workout)
+### 4.9 Organize Mode (Active Workout)
 
-Reorder mode allows the user to drag-and-drop exercises within the active workout list. It is distinct from the `TemplateBuilderScreen` reorder (§17.3) — it affects only the in-memory `ActiveWorkoutState`, not `routine_exercises` directly.
+Organize Mode is the single unified mode for reordering and grouping exercises in the active workout. It replaces the previous separate "Reorder Mode" spec (which was never implemented). There is no `isReorderMode` flag on `ActiveWorkoutState`; `isSupersetSelectMode` is the only mode flag.
 
-**Entry:** Long-pressing any `ExerciseCard` header row enters reorder mode (`isReorderMode = true` in `ActiveWorkoutState`).
+**Entry:** Management Hub kebab → **Organize Exercises** → calls `enterSupersetSelectMode(fromExerciseId)` → sets `isSupersetSelectMode = true`. If the triggering exercise is already in a superset, all group members are pre-selected.
 
-**While active (`isReorderMode = true`):**
-- All `ExerciseCard` instances switch to a compact reorder row: drag-handle icon (`DragHandle`) + exercise name + muscle chip (56dp height). Set rows, rest separators, add-set/add-rest buttons, and column headers are hidden inside `AnimatedVisibility(visible = false)`.
-- The currently dragged card gets an 8dp elevated `Surface` to visually separate it from the stack.
-- Drag handle uses `Modifier.draggableHandle` from `reorderable-compose`.
-- On drop: `reorderExercise(fromIdx, toIdx)` is called in `WorkoutViewModel`. This resequences `setOrder` values for all `workout_sets` rows belonging to the affected exercises (Iron Vault writes immediately).
+**While active (`isSupersetSelectMode = true`):**
+- All `ExerciseCard` items are replaced by compact `SupersetSelectRow` rows (checkbox + exercise name + muscle chip + drag handle).
+- A Contextual Action Bar at the top of the list shows:
+  - Left: **Done** `TextButton` — calls `exitSupersetSelectMode()`; exits organize mode.
+  - Center: title `"Organize exercises"` (empty selection) or `"Organize • N selected"` (N ≥ 1).
+  - Right: **Group** `IconButton` (Sync icon) — calls `commitSupersetSelection()`; enabled when ≥ 2 candidates selected.
+- Tapping a `SupersetSelectRow` toggles the exercise in `supersetCandidateIds`.
+- Drag handles (`Modifier.draggableHandle`) on each row enable reorder at any time within the mode via `reorderExercise(fromIdx, toIdx)`.
 
-**Exit:** Reorder mode exits automatically when the drag gesture is released. There is no explicit "Done" button — releasing the drag handle is the exit trigger.
+**Commit (Group) behaviour:**
+- `commitSupersetSelection()` assigns a shared `supersetGroupId` UUID to all selected exercises.
+- After commit: `supersetCandidateIds` is cleared, but `isSupersetSelectMode` remains `true`.
+- The user can immediately select another set of exercises and commit another superset, or drag to reorder — all within the same Organize Mode session.
+- If < 2 candidates are selected, the commit is a no-op; the mode stays active.
 
-**Availability:** During **both live workout** (`isActive = true`) and **edit mode** (`isEditMode = true`). In edit mode, reordering updates `routine_exercises` order on save (via `saveRoutineEdits()`). `isReorderMode` can be `true` simultaneously with either `isActive` or `isEditMode`.
+**Exit:** Only via the **Done** button (or `cancelWorkout()`/`finishWorkout()` lifecycle teardown). There is no auto-exit on any action.
 
-**State field:** `isReorderMode: Boolean = false` added to `ActiveWorkoutState`. Can be `true` simultaneously with `isActive = true` or `isEditMode = true`.
+**Drag handles outside Organize Mode:** Drag handles on regular `ExerciseCard` rows remain always-visible for quick one-off reorders without entering the mode. `onDragStarted` collapses all cards via `collapseAll()`.
+
+**Availability:** Active workout only (`isActive = true`). Not available in edit mode (`isEditMode = true`).
 
 ### 4.10 Collapsible Exercise Cards
 
@@ -612,14 +621,10 @@ Opened via the `⋮` (`MoreVert`) `IconButton` in the top-right corner of the `E
 - ViewModel: `replaceExercise(oldExerciseId, newExercise)`
 
 **Create Superset**
-- Calls `enterSupersetSelectMode(fromExerciseId)` → sets `isSupersetSelectMode = true` in `ActiveWorkoutState`.
-- **Pre-selection:** If the triggering exercise is already in a superset group (`supersetGroupId != null`), all members of that group are pre-selected in `supersetCandidateIds` — enabling the user to modify or break the superset.
-- **UI while `isSupersetSelectMode = true`:** All `ExerciseCard` items are replaced by compact `SupersetSelectRow` rows:
-  - Layout: `[Checkbox]` | exercise name | muscle group chip | `[Link icon]` (if already in any superset)
-  - Tapping a row toggles selection via `toggleSupersetCandidate(exerciseId)`.
-  - A Contextual Action Bar shows: **Cancel** + title "Select exercises for superset" + **Sync icon** (enabled when ≥ 2 are selected).
-- Tapping Sync calls `commitSupersetSelection()` → assigns a shared `supersetGroupId` UUID to all selected exercises; deselected members of a former group lose their `supersetGroupId` (superset broken if < 2 remain).
-- The UI renders selected exercises' sets interleaved: Ex A Set 1, Ex B Set 1, Ex A Set 2, Ex B Set 2 (turn-based alternation via `activeSupersetExerciseId`).
+- Management Hub item is labelled **"Organize Exercises"** for exercises not currently in a superset, or **"Remove from Superset"** for exercises already in one.
+- Tapping **"Organize Exercises"** calls `enterSupersetSelectMode(fromExerciseId)` → enters **Organize Mode** (see §4.9). The triggering exercise is pre-selected; if it is already in a superset group, all members of that group are pre-selected.
+- **Organize Mode UI** and full commit behaviour: see §4.9.
+- The UI renders superset exercises' sets interleaved: Ex A Set 1, Ex B Set 1, Ex A Set 2, Ex B Set 2 (turn-based alternation via `activeSupersetExerciseId`).
 - When already in a superset: option changes to **Remove from Superset** → `removeFromSuperset(exerciseId)`.
 
 **Remove Exercise**
@@ -1300,7 +1305,7 @@ The **PREV column is replaced by an e1RM column** in this screen. Each set's e1R
 22. **Touch targets ≥ 48dp:** SET badge column and CHECK column in `WorkoutSetRow` must use `Modifier.minimumInteractiveComponentSize()`. RPE column clickable area must fill the full row height and column width.
 23. **Keyboard types are explicit at call site:** Weight inputs pass `KeyboardType.Decimal`; reps inputs pass `KeyboardType.Number`. These are set at the `WorkoutSetRow` call site, not as defaults in `WorkoutInputField`.
 24. **SwipeToDismissBox state reset:** Each `SwipeToDismissBox` (set and rest) must have a `LaunchedEffect(swipeState.currentValue)` that calls `swipeState.snapTo(Default)` when `currentValue == EndToStart` and the composable is still in composition. This prevents the red delete background from lingering as a ghost after deletion.
-25. **Reorder mode hides set rows, not exercises:** When `isReorderMode = true`, only the set rows, rest separators, and card footers are hidden (via `AnimatedVisibility`). Exercise cards themselves remain visible as compact drag rows. Do not navigate away, dismiss sheets, or change `isActive` state when entering reorder mode. Reorder mode is available in **both live workout and edit mode** — `isReorderMode` can be `true` simultaneously with either `isActive = true` or `isEditMode = true`.
+25. **Organize Mode persists across commits and exits only on Done:** When `isSupersetSelectMode = true`, set rows and card footers are hidden; exercises render as compact `SupersetSelectRow` rows with checkboxes and drag handles. `commitSupersetSelection()` applies the superset group and clears `supersetCandidateIds` but does **not** clear `isSupersetSelectMode`. The mode exits only when the user taps the **Done** button, which calls `exitSupersetSelectMode()`. Lifecycle events `cancelWorkout()` and `finishWorkout()` also clear the mode (implicit via full state reset). Do not navigate away or change `isActive` state while in organize mode.
 26. **Collapsed card timer badge:** When a card is collapsed (`isCollapsed = true`) and its rest timer is active (`activeTimerExerciseId == exerciseId`), the collapsed header must show the live `mm:ss` countdown badge. Collapsing a card must **never** stop, reset, or interfere with the rest timer in any way.
 27. **Pre-fill priority order for workout start:** When `startWorkoutFromRoutine()` builds the set list, each set's initial weight and reps follow: (1) previous session data via `getPreviousSessionSets()`, (2) `routine_exercises.defaultWeight`/`reps`, (3) empty. Never pre-fill from a source lower in priority when a higher-priority source has data.
 28. **Global Progress Line priority:** The Rest Timer takes precedence over the Standalone Timer on the TopAppBar progress line. Reverts to showing the secondary timer's progress if it remains active after the priority timer finishes.
