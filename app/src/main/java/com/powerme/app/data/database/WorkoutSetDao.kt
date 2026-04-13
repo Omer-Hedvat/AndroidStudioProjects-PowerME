@@ -34,7 +34,7 @@ interface WorkoutSetDao {
         FROM workout_sets ws
         JOIN exercises e ON ws.exerciseId = e.id
         WHERE ws.workoutId = :workoutId AND ws.isCompleted = 1
-        ORDER BY ws.exerciseId, ws.setOrder
+        ORDER BY ws.rowid ASC, ws.setOrder ASC
     """)
     suspend fun getSetsWithExerciseForWorkout(workoutId: String): List<WorkoutSetWithExercise>
 

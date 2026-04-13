@@ -37,6 +37,7 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
 import com.powerme.app.ui.theme.TimerGreen
+import com.powerme.app.ui.theme.supersetColor
 import com.powerme.app.util.UnitConverter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -267,7 +268,7 @@ private fun ExerciseDetailCard(
                     modifier = Modifier
                         .width(4.dp)
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.secondary)
+                        .background(supersetColor(supersetId))
                 )
             }
             Column(modifier = Modifier.weight(1f).padding(12.dp)) {

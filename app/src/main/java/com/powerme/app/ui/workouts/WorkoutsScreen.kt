@@ -3,6 +3,7 @@ package com.powerme.app.ui.workouts
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.data.database.RoutineExerciseWithName
 import com.powerme.app.data.database.workingSets
 import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.ui.theme.supersetColor
 
 @Composable
 fun WorkoutsScreen(
@@ -579,21 +581,39 @@ private fun RoutineOverviewSheet(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .height(IntrinsicSize.Min)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "${ex.workingSets} × ${ex.exerciseName}",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                        if (ex.supersetGroupId != null) {
+                            Box(
+                                modifier = Modifier
+                                    .width(4.dp)
+                                    .fillMaxHeight()
+                                    .background(supersetColor(ex.supersetGroupId))
                             )
-                            Text(
-                                text = ex.muscleGroup,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-                            )
+                        }
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(
+                                    start = if (ex.supersetGroupId != null) 8.dp else 0.dp,
+                                    top = 10.dp,
+                                    bottom = 10.dp
+                                ),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${ex.workingSets} × ${ex.exerciseName}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = ex.muscleGroup,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                )
+                            }
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))

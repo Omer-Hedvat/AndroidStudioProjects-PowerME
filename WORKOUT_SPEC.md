@@ -964,6 +964,7 @@ ModalBottomSheet opened on card tap:
 - Header row: **Close (✕)** button | **Routine name** (weight=1f, max 2 lines) | **⋯ `MoreVert` IconButton**
 - `Last Performed: {recencyLabel}`
 - Exercise list rows: `{sets} × {exerciseName}` | `{muscleGroup}` — `{sets}` is working sets only (NORMAL, FAILURE, DROP). WARMUP-type slots are excluded from this count.
+- **Superset spine:** Each row is wrapped in `Row(IntrinsicSize.Min)`. When `supersetGroupId != null`, a 4dp vertical `Box` is rendered on the left edge using `supersetColor(supersetGroupId)` — same palette as `ActiveWorkoutScreen`. An 8dp start padding separates the bar from the exercise text.
 - `CircularProgressIndicator` while exercise details are loading
 - **Start Workout** button (primary, full width)
 
@@ -1261,7 +1262,8 @@ Full injury ledger specification lives in `INJURY_CONTEXT_SPEC.md` and `INJURY_T
 
 Mirrors the `ActiveWorkoutScreen` ExerciseCard structure:
 - Same column grid (SET | PREV→**e1RM** | WEIGHT | REPS | RPE | ✓)
-- Superset spine (4dp palette-colored bar, per `supersetColor(groupId)`) rendered where applicable
+- Superset spine (4dp palette-colored bar, per `supersetColor(groupId)`) rendered where applicable; color is derived from `supersetGroupId` hash — different groups always get distinct palette colors (never hardcoded `secondary`)
+- **Exercise ordering:** `getSetsWithExerciseForWorkout` orders by `ws.rowid ASC, ws.setOrder ASC`. SQLite `rowid` auto-increments on insertion; since sets are inserted exercise-by-exercise in routine order, `rowid` preserves original workout sequence without a dedicated `exerciseOrder` column.
 - Set type badge (W / D / F prefix) shown in SET column
 - Set notes rendered inline below each set row if present
 - **Set count shown in the header/totals row excludes WARMUP sets.** Total = NORMAL + FAILURE + DROP completed sets only.
