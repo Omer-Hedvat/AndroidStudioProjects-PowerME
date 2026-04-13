@@ -226,6 +226,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appSettingsDataStore.setThemeMode(mode)
             _uiState.update { it.copy(themeMode = mode) }
+            firestoreSyncManager.pushAppPreferences()
         }
     }
 
@@ -233,6 +234,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appSettingsDataStore.setUnitSystem(unit)
             _uiState.update { it.copy(unitSystem = unit) }
+            firestoreSyncManager.pushAppPreferences()
         }
     }
 
@@ -265,7 +267,8 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(availablePlates = updatedPlates) }
             val enabledPlates = updatedPlates.filter { it.isEnabled }.map { it.weight.toString() }.joinToString(",")
             val settings = userSettingsDao.getSettingsOnce() ?: UserSettings()
-            userSettingsDao.insertSettings(settings.copy(availablePlates = enabledPlates))
+            userSettingsDao.insertSettings(settings.copy(availablePlates = enabledPlates, updatedAt = System.currentTimeMillis()))
+            firestoreSyncManager.pushSettings()
         }
     }
 
@@ -273,7 +276,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val newValue = !_uiState.value.restTimerAudioEnabled
             _uiState.update { it.copy(restTimerAudioEnabled = newValue) }
-            userSettingsDao.updateRestTimerAudio(newValue)
+            val settings = userSettingsDao.getSettingsOnce() ?: UserSettings()
+            userSettingsDao.insertSettings(settings.copy(restTimerAudioEnabled = newValue, updatedAt = System.currentTimeMillis()))
+            firestoreSyncManager.pushSettings()
         }
     }
 
@@ -281,7 +286,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val newValue = !_uiState.value.restTimerHapticsEnabled
             _uiState.update { it.copy(restTimerHapticsEnabled = newValue) }
-            userSettingsDao.updateRestTimerHaptics(newValue)
+            val settings = userSettingsDao.getSettingsOnce() ?: UserSettings()
+            userSettingsDao.insertSettings(settings.copy(restTimerHapticsEnabled = newValue, updatedAt = System.currentTimeMillis()))
+            firestoreSyncManager.pushSettings()
         }
     }
 
@@ -400,6 +407,7 @@ class SettingsViewModel @Inject constructor(
             val newValue = !_uiState.value.keepScreenOn
             appSettingsDataStore.setKeepScreenOn(newValue)
             _uiState.update { it.copy(keepScreenOn = newValue) }
+            firestoreSyncManager.pushAppPreferences()
         }
     }
 
