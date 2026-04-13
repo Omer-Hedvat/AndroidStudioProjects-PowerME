@@ -14,8 +14,6 @@ import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +30,6 @@ data class MetricsUiState(
     val error: String? = null,
     val weightEntries: List<MetricLog> = emptyList(),
     val bodyFatEntries: List<MetricLog> = emptyList(),
-    val leanBodyMassEntries: List<MetricLog> = emptyList(),
     val weightInput: String = "",
     val bodyFatInput: String = "",
     val isSavingMetrics: Boolean = false,
@@ -87,21 +84,14 @@ class MetricsViewModel @Inject constructor(
                 recomputeDeltas()
             }
         }
-        viewModelScope.launch {
-            metricLogRepository.getByType(MetricType.LEAN_BODY_MASS).collect { entries ->
-                _uiState.update { it.copy(leanBodyMassEntries = entries) }
-                recomputeDeltas()
-            }
-        }
     }
 
-    // Recomputes deltas AND refreshes the primary weight/bodyFat/bmi/leanBodyMass values from
+    // Recomputes deltas AND refreshes the primary weight/bodyFat/bmi values from
     // the latest MetricLog entries so the card stays current whenever the DB flows emit.
     private fun recomputeDeltas() {
         val state = _uiState.value
         val latestWeight = state.weightEntries.lastOrNull()?.value
         val latestBodyFat = state.bodyFatEntries.lastOrNull()?.value
-        val latestLeanBodyMass = state.leanBodyMassEntries.lastOrNull()?.value
         val newWeightKg = latestWeight ?: state.bodyVitals.weightKg
         val newBmi = computeBmi(newWeightKg, state.bodyVitals.heightCm)
         _uiState.update {
@@ -110,9 +100,7 @@ class MetricsViewModel @Inject constructor(
                 bodyFatPct = latestBodyFat ?: it.bodyVitals.bodyFatPct,
                 bmi = newBmi ?: it.bodyVitals.bmi,
                 weightDelta7d = compute7dDelta(state.weightEntries),
-                bodyFatDelta7d = compute7dDelta(state.bodyFatEntries),
-                leanBodyMassKg = latestLeanBodyMass ?: it.bodyVitals.leanBodyMassKg,
-                leanBodyMassDelta7d = compute7dDelta(state.leanBodyMassEntries)
+                bodyFatDelta7d = compute7dDelta(state.bodyFatEntries)
             ))
         }
     }
@@ -147,12 +135,6 @@ class MetricsViewModel @Inject constructor(
             ?: user?.bodyFatPercent?.toDouble()
         val heightCm = user?.heightCm?.toDouble()
         val bmi = computeBmi(weightKg, heightCm)
-        val leanBodyMassKg = _uiState.value.leanBodyMassEntries.lastOrNull()?.value
-        val (bmrKcal, boneMassKg) = coroutineScope {
-            val bmr = async { metricLogRepository.getLatestForType(MetricType.BMR)?.value }
-            val bone = async { metricLogRepository.getLatestForType(MetricType.BONE_MASS)?.value }
-            Pair(bmr.await(), bone.await())
-        }
 
         _uiState.update {
             it.copy(
@@ -169,11 +151,7 @@ class MetricsViewModel @Inject constructor(
                     stepsToday = latestSync?.steps,
                     lastSyncTimestamp = latestSync?.syncTimestamp,
                     weightDelta7d = compute7dDelta(_uiState.value.weightEntries),
-                    bodyFatDelta7d = compute7dDelta(_uiState.value.bodyFatEntries),
-                    leanBodyMassKg = leanBodyMassKg,
-                    leanBodyMassDelta7d = compute7dDelta(_uiState.value.leanBodyMassEntries),
-                    bmrKcal = bmrKcal,
-                    boneMassKg = boneMassKg
+                    bodyFatDelta7d = compute7dDelta(_uiState.value.bodyFatEntries)
                 )
             )
         }

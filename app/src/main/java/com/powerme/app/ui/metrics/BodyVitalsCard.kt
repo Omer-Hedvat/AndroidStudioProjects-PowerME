@@ -39,11 +39,7 @@ data class BodyVitalsState(
     val stepsToday: Int? = null,
     val lastSyncTimestamp: Long? = null,
     val isSyncing: Boolean = false,
-    val syncError: String? = null,
-    val bmrKcal: Double? = null,
-    val boneMassKg: Double? = null,
-    val leanBodyMassKg: Double? = null,
-    val leanBodyMassDelta7d: Double? = null
+    val syncError: String? = null
 )
 
 @Composable
@@ -243,29 +239,6 @@ private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit, un
                 value = state.rhrBpm?.let { "$it bpm" } ?: "--"
             )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Row 4: Lean Mass | Bone Mass | BMR (from smart scale via Health Connect)
-        Row(modifier = Modifier.fillMaxWidth()) {
-            MetricTile(
-                modifier = Modifier.weight(1f),
-                label = "Lean Mass",
-                value = state.leanBodyMassKg?.let { UnitConverter.formatWeight(it, unitSystem) } ?: "--",
-                delta = state.leanBodyMassDelta7d?.let { if (unitSystem == UnitSystem.IMPERIAL) UnitConverter.kgToLbs(it) else it },
-                deltaPositiveIsGood = true
-            )
-            MetricTile(
-                modifier = Modifier.weight(1f),
-                label = "Bone Mass",
-                value = state.boneMassKg?.let { UnitConverter.formatWeight(it, unitSystem) } ?: "--"
-            )
-            MetricTile(
-                modifier = Modifier.weight(1f),
-                label = "BMR",
-                value = state.bmrKcal?.let { "${it.toInt()} kcal" } ?: "--"
-            )
-        }
     }
 }
 
@@ -275,8 +248,7 @@ private fun MetricTile(
     value: String,
     modifier: Modifier = Modifier,
     delta: Double? = null,
-    subValue: String? = null,
-    deltaPositiveIsGood: Boolean = false
+    subValue: String? = null
 ) {
     Column(
         modifier = modifier.padding(horizontal = 4.dp, vertical = 4.dp),
@@ -302,9 +274,8 @@ private fun MetricTile(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     val isPositive = delta > 0
-                    val isGoodChange = if (deltaPositiveIsGood) isPositive else !isPositive
                     val icon = if (isPositive) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward
-                    val tint = if (isGoodChange) TimerGreen else TimerRed
+                    val tint = if (isPositive) TimerRed else TimerGreen
                     Icon(
                         imageVector = icon,
                         contentDescription = null,

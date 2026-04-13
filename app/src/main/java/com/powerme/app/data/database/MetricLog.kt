@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class MetricType { WEIGHT, BODY_FAT, CALORIES, HEIGHT, BMR, BONE_MASS, LEAN_BODY_MASS }
+enum class MetricType { WEIGHT, BODY_FAT, CALORIES, HEIGHT }
 
 @Entity(
     tableName = "metric_log",
