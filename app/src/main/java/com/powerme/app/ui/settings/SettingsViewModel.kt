@@ -76,7 +76,18 @@ data class SettingsUiState(
     val healthConnectPermissionsDenied: Boolean = false,
     val healthConnectSyncing: Boolean = false,
     val healthConnectData: HealthConnectReadResult? = null,
-    val healthConnectError: String? = null
+    val healthConnectError: String? = null,
+    // Personal Info
+    val nameInput: String = "",
+    val dateOfBirth: Long? = null,
+    val averageSleepHoursInput: String = "",
+    val parentalLoadInput: String = "",
+    val gender: String = "",
+    val occupationType: String = "",
+    val chronotype: String = "",
+    val selectedTrainingTargets: Set<String> = emptySet(),
+    val isSavingPersonalInfo: Boolean = false,
+    val personalInfoSaveMessage: String? = null
 )
 
 @HiltViewModel
@@ -101,6 +112,7 @@ class SettingsViewModel @Inject constructor(
         loadAppSettings()
         observeMetricLogs()
         loadUserHeight()
+        loadPersonalInfo()
         _uiState.update { it.copy(isSignedIn = auth.currentUser != null) }
         checkHealthConnectStatus()
     }
@@ -122,6 +134,75 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
+    private fun loadPersonalInfo() {
+        viewModelScope.launch {
+            val user = userSessionManager.getCurrentUser() ?: return@launch
+            val targets = user.trainingTargets
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?.toSet()
+                ?: emptySet()
+            _uiState.update {
+                it.copy(
+                    nameInput = user.name ?: "",
+                    dateOfBirth = user.dateOfBirth,
+                    averageSleepHoursInput = user.averageSleepHours?.toString() ?: "",
+                    parentalLoadInput = user.parentalLoad?.toString() ?: "",
+                    gender = user.gender ?: "",
+                    occupationType = user.occupationType ?: "",
+                    chronotype = user.chronotype ?: "",
+                    selectedTrainingTargets = targets
+                )
+            }
+        }
+    }
+
+    fun updateNameInput(value: String) { _uiState.update { it.copy(nameInput = value) } }
+    fun updateDateOfBirth(epochMs: Long?) { _uiState.update { it.copy(dateOfBirth = epochMs) } }
+    fun updateSleepHoursInput(value: String) { _uiState.update { it.copy(averageSleepHoursInput = value) } }
+    fun updateParentalLoadInput(value: String) { _uiState.update { it.copy(parentalLoadInput = value) } }
+    fun updateGender(value: String) { _uiState.update { it.copy(gender = if (it.gender == value) "" else value) } }
+    fun updateOccupationType(value: String) { _uiState.update { it.copy(occupationType = value) } }
+    fun updateChronotype(value: String) { _uiState.update { it.copy(chronotype = value) } }
+    fun toggleTrainingTarget(target: String) {
+        _uiState.update {
+            val updated = if (target in it.selectedTrainingTargets)
+                it.selectedTrainingTargets - target
+            else
+                it.selectedTrainingTargets + target
+            it.copy(selectedTrainingTargets = updated)
+        }
+    }
+
+    fun savePersonalInfo() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSavingPersonalInfo = true, personalInfoSaveMessage = null) }
+            try {
+                val current = userSessionManager.getCurrentUser() ?: return@launch
+                val targets = _uiState.value.selectedTrainingTargets
+                    .joinToString(",")
+                    .takeIf { it.isNotBlank() }
+                val updated = current.copy(
+                    name = _uiState.value.nameInput.trim().takeIf { it.isNotBlank() },
+                    dateOfBirth = _uiState.value.dateOfBirth,
+                    averageSleepHours = _uiState.value.averageSleepHoursInput.toFloatOrNull(),
+                    parentalLoad = _uiState.value.parentalLoadInput.toIntOrNull(),
+                    gender = _uiState.value.gender.takeIf { it.isNotBlank() },
+                    occupationType = _uiState.value.occupationType.takeIf { it.isNotBlank() },
+                    chronotype = _uiState.value.chronotype.takeIf { it.isNotBlank() },
+                    trainingTargets = targets
+                )
+                userSessionManager.saveUser(updated)
+                _uiState.update { it.copy(isSavingPersonalInfo = false, personalInfoSaveMessage = "Saved") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSavingPersonalInfo = false, personalInfoSaveMessage = "Save failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun dismissPersonalInfoSaveMessage() { _uiState.update { it.copy(personalInfoSaveMessage = null) } }
 
     private fun loadAppSettings() {
         viewModelScope.launch {

@@ -5,8 +5,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -25,17 +23,16 @@ import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.health.HealthConnectManager
-import com.powerme.app.ui.components.rememberSelectAllState
+import com.powerme.app.ui.components.MultiSelectChips
+import com.powerme.app.ui.components.ProfileTextField
+import com.powerme.app.ui.components.SingleChoiceSegmented
+import com.powerme.app.ui.components.TRAINING_TARGET_OPTIONS
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.util.UnitConverter
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-private val TRAINING_TARGET_OPTIONS = listOf(
-    "Hypertrophy", "Fat Loss", "Body Recomposition", "Strength", "Cardio", "Longevity"
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -534,115 +531,3 @@ private fun ProfileFormStep(
     }
 }
 
-// ── Shared UI components ──────────────────────────────────────────────────────
-
-@Composable
-private fun ProfileTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    imeAction: ImeAction = ImeAction.Done,
-    onImeAction: () -> Unit = {},
-    keyboardType: androidx.compose.ui.text.input.KeyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
-    helperText: String? = null
-) {
-    val isNumeric = keyboardType != androidx.compose.ui.text.input.KeyboardType.Text
-    val (tfv, selectAllMod) = rememberSelectAllState(value)
-    val fieldModifier = if (isNumeric) Modifier.fillMaxWidth().then(selectAllMod) else Modifier.fillMaxWidth()
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        if (isNumeric) {
-            OutlinedTextField(
-                value = tfv.value,
-                onValueChange = { newTfv ->
-                    tfv.value = newTfv
-                    onValueChange(newTfv.text)
-                },
-                label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
-                modifier = fieldModifier,
-                keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
-                keyboardActions = KeyboardActions(
-                    onNext = { onImeAction() },
-                    onDone = { onImeAction() }
-                ),
-                colors = PowerMeDefaults.outlinedTextFieldColors()
-            )
-        } else {
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
-                modifier = fieldModifier,
-                keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
-                keyboardActions = KeyboardActions(
-                    onNext = { onImeAction() },
-                    onDone = { onImeAction() }
-                ),
-                colors = PowerMeDefaults.outlinedTextFieldColors()
-            )
-        }
-        if (helperText != null) {
-            Text(
-                text = helperText,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun SingleChoiceSegmented(
-    options: List<String>,
-    selected: String,
-    onSelect: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        options.forEach { option ->
-            FilterChip(
-                selected = option == selected,
-                onClick = { onSelect(option) },
-                label = { Text(option, fontSize = 11.sp) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.surface,
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    labelColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun MultiSelectChips(
-    options: List<String>,
-    selected: Set<String>,
-    onToggle: (String) -> Unit
-) {
-    options.chunked(3).forEach { row ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            row.forEach { option ->
-                FilterChip(
-                    selected = option in selected,
-                    onClick = { onToggle(option) },
-                    label = { Text(option, fontSize = 11.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.surface,
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        labelColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                    )
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-    }
-}

@@ -13,8 +13,11 @@ import androidx.compose.ui.text.input.TextFieldValue
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.ui.components.rememberSelectAllState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +34,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.ui.components.MultiSelectChips
+import com.powerme.app.ui.components.ProfileTextField
+import com.powerme.app.ui.components.SingleChoiceSegmented
+import com.powerme.app.ui.components.TRAINING_TARGET_OPTIONS
 import com.powerme.app.util.UnitConverter
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.TimerGreen
@@ -283,9 +290,14 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Profile (Body Metrics) — always shown so users can manually override values ──
+            // ── Personal Info ─────────────────────────────────────
             item {
-                SettingsCard(title = "Profile") {
+                PersonalInfoCard(uiState = uiState, viewModel = viewModel)
+            }
+
+            // ── Body Metrics — always shown so users can manually override values ──
+            item {
+                SettingsCard(title = "Body Metrics") {
                     val bodyFatFocusRequester = remember { FocusRequester() }
                     val heightFocusRequester = remember { FocusRequester() }
                     val unit = uiState.unitSystem
@@ -618,6 +630,173 @@ private fun formatRelativeTime(timestampMs: Long): String {
         else -> {
             val formatter = DateTimeFormatter.ofPattern("MMM d").withZone(ZoneId.systemDefault())
             formatter.format(then)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PersonalInfoCard(uiState: SettingsUiState, viewModel: SettingsViewModel) {
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val dobDisplay = uiState.dateOfBirth?.let { epochMs ->
+        java.time.Instant.ofEpochMilli(epochMs)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+    } ?: ""
+
+    if (showDatePicker) {
+        val today = java.time.LocalDate.now()
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = uiState.dateOfBirth,
+            yearRange = 1920..(today.year - 5)
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { viewModel.updateDateOfBirth(it) }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    SettingsCard(title = "Personal Info") {
+        ProfileTextField(
+            value = uiState.nameInput,
+            onValueChange = viewModel::updateNameInput,
+            label = "Name",
+            imeAction = ImeAction.Next,
+            onImeAction = {}
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        val dobInteractionSource = remember { MutableInteractionSource() }
+        val dobPressed by dobInteractionSource.collectIsPressedAsState()
+        LaunchedEffect(dobPressed) { if (dobPressed) showDatePicker = true }
+        OutlinedTextField(
+            value = dobDisplay,
+            onValueChange = {},
+            label = { Text("Date of Birth", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = true,
+            interactionSource = dobInteractionSource,
+            trailingIcon = {
+                Icon(
+                    Icons.Default.CalendarMonth,
+                    contentDescription = "Pick date",
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                )
+            },
+            colors = PowerMeDefaults.outlinedTextFieldColors()
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(modifier = Modifier.weight(1f)) {
+                ProfileTextField(
+                    value = uiState.averageSleepHoursInput,
+                    onValueChange = viewModel::updateSleepHoursInput,
+                    label = "Avg Sleep (h)",
+                    imeAction = ImeAction.Next,
+                    onImeAction = {},
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                )
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                ProfileTextField(
+                    value = uiState.parentalLoadInput,
+                    onValueChange = viewModel::updateParentalLoadInput,
+                    label = "Children",
+                    imeAction = ImeAction.Done,
+                    onImeAction = {},
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Gender", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(8.dp))
+        SingleChoiceSegmented(
+            options = listOf("MALE", "FEMALE", "OTHER"),
+            selected = uiState.gender,
+            onSelect = viewModel::updateGender
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Occupation", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(8.dp))
+        SingleChoiceSegmented(
+            options = listOf("SEDENTARY", "ACTIVE", "PHYSICAL"),
+            selected = uiState.occupationType,
+            onSelect = viewModel::updateOccupationType
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Chronotype", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(8.dp))
+        SingleChoiceSegmented(
+            options = listOf("MORNING", "NEUTRAL", "NIGHT"),
+            selected = uiState.chronotype,
+            onSelect = viewModel::updateChronotype
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Training Goals", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(8.dp))
+        MultiSelectChips(
+            options = TRAINING_TARGET_OPTIONS,
+            selected = uiState.selectedTrainingTargets,
+            onToggle = viewModel::toggleTrainingTarget
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        if (uiState.isSavingPersonalInfo) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            }
+        } else {
+            Button(
+                onClick = viewModel::savePersonalInfo,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                val msg = uiState.personalInfoSaveMessage
+                if (msg != null) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = TimerGreen
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(msg, fontWeight = FontWeight.Bold)
+                } else {
+                    Text("Save Changes", fontWeight = FontWeight.Bold)
+                }
+            }
+            LaunchedEffect(uiState.personalInfoSaveMessage) {
+                if (uiState.personalInfoSaveMessage != null) {
+                    kotlinx.coroutines.delay(2000)
+                    viewModel.dismissPersonalInfoSaveMessage()
+                }
+            }
         }
     }
 }
