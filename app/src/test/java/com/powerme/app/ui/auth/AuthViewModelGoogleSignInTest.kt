@@ -63,6 +63,7 @@ class AuthViewModelGoogleSignInTest {
         runBlocking {
             whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(true))
             whenever(mockFirestoreSyncManager.pullFromCloud()).thenReturn(SyncResult(success = true))
+            whenever(mockFirestoreSyncManager.pullProfileOnly()).thenReturn(false)
         }
         viewModel = AuthViewModel(mockUserSessionManager, mockGoogleSignInHelper, mockFirestoreSyncManager, mockAppSettingsDataStore)
     }
@@ -197,7 +198,7 @@ class AuthViewModelGoogleSignInTest {
     // ── Test 8: Auto-restore triggers on first sign-in ───────────────────────
 
     @Test
-    fun `signInWithGoogle - success, hasRestoredOnce false - pullFromCloud called`() = runTest(testDispatcher) {
+    fun `signInWithGoogle - success, hasRestoredOnce false - pullProfileOnly called`() = runTest(testDispatcher) {
         whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(false))
         whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
         whenever(mockUserSessionManager.getCurrentUser()).thenReturn(fakeUser)
@@ -205,13 +206,13 @@ class AuthViewModelGoogleSignInTest {
         viewModel.signInWithGoogle(mockContext)
         runCurrent()
 
-        verify(mockFirestoreSyncManager).pullFromCloud()
+        verify(mockFirestoreSyncManager).pullProfileOnly()
     }
 
     // ── Test 9: Auto-restore skipped when already restored ───────────────────
 
     @Test
-    fun `signInWithGoogle - success, hasRestoredOnce true - pullFromCloud not called`() = runTest(testDispatcher) {
+    fun `signInWithGoogle - success, hasRestoredOnce true - pullProfileOnly not called`() = runTest(testDispatcher) {
         whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(true))
         whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
         whenever(mockUserSessionManager.getCurrentUser()).thenReturn(fakeUser)
@@ -219,6 +220,30 @@ class AuthViewModelGoogleSignInTest {
         viewModel.signInWithGoogle(mockContext)
         runCurrent()
 
-        verify(mockFirestoreSyncManager, never()).pullFromCloud()
+        verify(mockFirestoreSyncManager, never()).pullProfileOnly()
+    }
+
+    // ── Test 10: Auto-restore on first sign-in resolves before navigation ─────
+    // pullProfileOnly blocks (fast — single doc), then launchBackgroundSync fires
+    // workouts/routines without delaying sign-in. A restored profile means no ProfileSetup.
+
+    @Test
+    fun `signInWithGoogle - first sign-in, cloud restores profile - needsProfileSetup false`() = runTest(testDispatcher) {
+        whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(false))
+        whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
+        // pullProfileOnly returns true — profile was imported
+        whenever(mockFirestoreSyncManager.pullProfileOnly()).thenReturn(true)
+        // After pull, a user now exists locally (simulates what pullProfileOnly would have written)
+        whenever(mockUserSessionManager.getCurrentUser()).thenReturn(fakeUser)
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertTrue(state.isSignedIn)
+        assertFalse(state.needsProfileSetup)
+        assertNull(state.error)
+        verify(mockFirestoreSyncManager).pullProfileOnly()
     }
 }

@@ -75,4 +75,10 @@ interface ExerciseDao {
 
     @Query("SELECT DISTINCT equipmentType FROM exercises ORDER BY equipmentType ASC")
     suspend fun getDistinctEquipmentTypes(): List<String>
+
+    @Query("SELECT * FROM exercises WHERE name = :name AND equipmentType = :equipmentType AND isCustom = 0 LIMIT 1")
+    suspend fun getByNameAndEquipment(name: String, equipmentType: String): Exercise?
+
+    @Query("SELECT * FROM exercises WHERE syncId = :syncId LIMIT 1")
+    suspend fun getBySyncId(syncId: String): Exercise?
 }

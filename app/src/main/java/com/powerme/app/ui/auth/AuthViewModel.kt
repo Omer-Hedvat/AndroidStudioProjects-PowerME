@@ -123,6 +123,14 @@ class AuthViewModel @Inject constructor(
     }
 
     private suspend fun applyNewUserGate() {
+        val alreadyRestored = appSettingsDataStore.hasRestoredOnce.first()
+        if (!alreadyRestored) {
+            appSettingsDataStore.setHasRestoredOnce(true)
+            // Block only on the profile pull so needsProfileSetup is correct before navigation.
+            // Workouts and routines sync in the background without delaying sign-in.
+            firestoreSyncManager.pullProfileOnly()
+            firestoreSyncManager.launchBackgroundSync()
+        }
         val dbUser = userSessionManager.getCurrentUser()
         _uiState.update {
             it.copy(
@@ -131,21 +139,6 @@ class AuthViewModel @Inject constructor(
                 needsProfileSetup = dbUser == null,
                 pendingLinkEmail = null
             )
-        }
-        triggerAutoRestoreIfNeeded()
-    }
-
-    /**
-     * On the first sign-in after a fresh install, silently pull all data from Firestore.
-     * Fires in background so it never blocks the UI or navigation.
-     * The flag is set immediately to prevent concurrent triggers across sign-in paths.
-     */
-    private fun triggerAutoRestoreIfNeeded() {
-        viewModelScope.launch {
-            val alreadyRestored = appSettingsDataStore.hasRestoredOnce.first()
-            if (alreadyRestored) return@launch
-            appSettingsDataStore.setHasRestoredOnce(true)
-            firestoreSyncManager.pullFromCloud()
         }
     }
 

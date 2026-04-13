@@ -1047,10 +1047,12 @@ object DatabaseModule {
         workoutDao: WorkoutDao,
         workoutSetDao: WorkoutSetDao,
         routineDao: RoutineDao,
-        routineExerciseDao: RoutineExerciseDao
+        routineExerciseDao: RoutineExerciseDao,
+        exerciseDao: ExerciseDao,
+        userDao: UserDao
     ): com.powerme.app.data.sync.FirestoreSyncManager =
         com.powerme.app.data.sync.FirestoreSyncManager(
-            firestore, auth, database, workoutDao, workoutSetDao, routineDao, routineExerciseDao
+            firestore, auth, database, workoutDao, workoutSetDao, routineDao, routineExerciseDao, exerciseDao, userDao
         )
 
     @Provides

@@ -2,6 +2,7 @@ package com.powerme.app.util
 
 import com.powerme.app.data.database.User
 import com.powerme.app.data.database.UserDao
+import com.powerme.app.data.sync.FirestoreSyncManager
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import javax.inject.Inject
@@ -9,14 +10,16 @@ import javax.inject.Singleton
 
 @Singleton
 class UserSessionManager @Inject constructor(
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val firestoreSyncManager: FirestoreSyncManager
 ) {
     suspend fun getCurrentUser(): User? {
         return userDao.getCurrentUser()
     }
 
     suspend fun saveUser(user: User) {
-        userDao.insertUser(user)
+        userDao.insertUser(user.copy(updatedAt = System.currentTimeMillis()))
+        firestoreSyncManager.pushProfile()
     }
 
     suspend fun isLoggedIn(): Boolean {
