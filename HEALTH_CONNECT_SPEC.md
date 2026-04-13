@@ -209,6 +209,10 @@ data class BodyVitalsState(
 
 Inline sync icon button in the card header calls `MetricsViewModel.syncHealthConnect()`, which delegates to `HealthConnectManager.syncAndRead()` (same as Settings card). The "Connect" CTA navigates to the Settings screen (permission flow stays in Settings).
 
+### Readiness Gauge consumption
+
+`TrendsRepository.getReadinessScore()` reads `healthConnectSyncDao.getRecentSyncs()` (Flow, last 30 days of `health_connect_sync` rows) to compute the `ReadinessEngine.ReadinessScore`. This is a **read-only consumer** — it does not trigger any HC sync. The Trends tab calls `TrendsViewModel.refreshReadiness()` on `ON_RESUME` (via `DisposableEffect` + `LifecycleEventObserver` in `MetricsScreen`) to reload the score after a user completes an HC sync on another screen.
+
 ---
 
 ### Permission Rationale Activity

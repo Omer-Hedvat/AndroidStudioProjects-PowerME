@@ -61,6 +61,7 @@ Semantic colors are domain-specific and exist **outside the M3 token system**. T
 | `TimerRed` | `#E04458` | Rest state indicator. Desaturated from neon red. |
 | `NeonPurple` | `#BB86FC` | Active rest timer accent — `CircularProgressIndicator` + `RestSeparator` active background + `-30/+30 SEC` buttons. Bright neon purple; distinct from `ProViolet` (#9B7DDB). |
 | `FormCuesGold` | `#5A4D1A` | Form Cues persistent banner background in `ExerciseDetailSheet` only |
+| `ReadinessAmber` | `#FFB74D` | Readiness gauge arc — moderate tier (40–69) + `CalibratingContent` spinner and progress text |
 
 ### 2.1 Semantic Color Access Pattern
 

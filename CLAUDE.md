@@ -40,12 +40,14 @@
 - Injury / medical ledger (red-list / yellow-list exercises)
 - Performance metrics, trends, and charts
 - State history auditing trail
-- DataStore preferences (plates config, timers, language, keepScreenOn)
+- DataStore preferences (plates config, timers, language, keepScreenOn, dailyStepTarget)
+- **Trends tab infrastructure** (Step 0): `ReadinessEngine` object (`analytics/`) — z-score readiness algorithm (weights: HRV 0.45, Sleep 0.35, RHR 0.20 negated); `sealed class ReadinessScore { NoData, Calibrating(daysCollected, daysRequired=5), Score(value, tier) }`; `TrendsDao` — 6 aggregate Room queries (e1RM history, weekly volume, muscle group volume, effective sets, time-of-day, exercise picker); `TrendsRepository` — @Singleton with gap-fill, moving average, body composition + readiness sub-metrics; `TrendsViewModel` — @HiltViewModel with 11 StateFlows + parallel loading via coroutineScope; `VicoChartHelpers` object — chart palette constants + muscleGroupColors map; `TrendsModels.kt` — `TrendsTimeRange` enum (1M/3M/6M/1Y) + 10 domain data classes; `PowerMeDatabase.trendsDao()` + DI binding added. No DB migration needed — TrendsDao reads existing tables via SELECT-only aggregate queries.
+- **ReadinessGaugeCard** (Step 1): Custom Canvas arc card in `ui/metrics/ReadinessGaugeCard.kt` — 240° sweep arc with sweepGradient (ProError→ReadinessAmber→TimerGreen), white needle dot at score position, score + tier label centered inside arc; three render states: NoData (HC-availability-aware messages), Calibrating (spinner + countdown), Score (full gauge + HRV/RHR delta arrows + sleep duration sub-metrics); inserted in `MetricsScreen` between BodyVitalsCard and Boaz's Insights; `TrendsViewModel.refreshReadiness()` called on ON_RESUME to pick up fresh HC syncs; `TrendsRepository.getReadinessScore()` uses `getLatestSync()` pre-check to return NoData before first sync
 - Clocks tab (Stopwatch, Timer, Tabata, EMOM) with countdown beeps, skip-last-rest, pre-finish alerts, input validation; TABATA and EMOM use persistent side-by-side Start+Reset buttons (always visible, PlayArrow/Pause icons); STOPWATCH and COUNTDOWN use icon-labeled toggle+reset layout
 - StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository, BoazPerformanceAnalyzer (V2 stub). Full spec in `HISTORY_ANALYTICS_SPEC.md`.
 - ExercisesScreen: tap opens ExerciseDetailSheet (ModalBottomSheet) with Form Cues (muted gold banner) + YouTube TextButton. Full spec in `EXERCISES_SPEC.md §5–§6`.
 
-**Color System:** Pro Tracker v6.0 palette. Dark tokens (neutral, no purple tint in backgrounds): `ProBackground=#101010`, `ProSurface=#1C1C1C`, `ProSurfaceVar=#282828`, `ProViolet=#9B7DDB` (primary), `ProMagenta=#9E6B8A` (secondary), `ProCloudGrey=#EDEDEF` (text, neutral near-white), `ProSubGrey=#A0A0A0` (medium text), `ProOutline=#383838`, `ProError=#E05555`. Semantic: `TimerGreen=#4CC990`, `TimerRed=#E04458`, `FormCuesGold=#5A4D1A`. Full token reference, ThemeMode system, typography, semantic colors, and token usage rules in `THEME_SPEC.md`.
+**Color System:** Pro Tracker v6.0 palette. Dark tokens (neutral, no purple tint in backgrounds): `ProBackground=#101010`, `ProSurface=#1C1C1C`, `ProSurfaceVar=#282828`, `ProViolet=#9B7DDB` (primary), `ProMagenta=#9E6B8A` (secondary), `ProCloudGrey=#EDEDEF` (text, neutral near-white), `ProSubGrey=#A0A0A0` (medium text), `ProOutline=#383838`, `ProError=#E05555`. Semantic: `TimerGreen=#4CC990`, `TimerRed=#E04458`, `FormCuesGold=#5A4D1A`, `ReadinessAmber=#FFB74D` (moderate readiness tier). Full token reference, ThemeMode system, typography, semantic colors, and token usage rules in `THEME_SPEC.md`.
 
 **Navigation Structure:**
 - Auth flow: Welcome → Profile Setup
@@ -84,7 +86,7 @@
 
 **Health Connect permissions:** CORE (7): READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. OPTIONAL (3): READ_BASAL_METABOLIC_RATE, READ_BONE_MASS, READ_LEAN_BODY_MASS (from smart scales like Renpho). Height sync: getLatestHeight() in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink). MetricType enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT, BMR, BONE_MASS, LEAN_BODY_MASS.
 
-**Unit Test Coverage (src/test/, 19 files, ~333 tests total — all passing):**
+**Unit Test Coverage (src/test/, 20 files, ~349 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -96,6 +98,7 @@
 - `util/PlateCalculatorTest.kt` — 18 tests (calculatePlates, parseAvailablePlates, formatPlateBreakdown + 5 imperial tests)
 - `util/UnitConverterTest.kt` — ~40 tests (weight/height/distance conversions, round-trips, formatWeight, formatHeight)
 - `analytics/StatisticalEngineTest.kt` — 13 tests (mean, stdDev, zScore, Pearson, 1RM, Bayesian 1RM, rateOfChange — outlier/quartile tests removed with dead code)
+- `analytics/ReadinessEngineTest.kt` — 16 tests (NoData, Calibrating threshold, all-metrics happy path, high/low score clamping, RHR negation, null metric redistribution, tier boundaries)
 - `ui/history/HistoryViewModelTest.kt` — 12 tests
 - `ui/exercises/ExerciseFilterTest.kt` — 7 tests (canonical equipment/muscle-group validation, no-duplicates, legacy value exclusion)
 - `ui/workout/WorkoutViewModelTest.kt` — 54 tests (includes 2 completeSet toggle + 5 rest timer/override + 5 per-set-type rest + 5 cascade/routine-sync + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 1 updateExerciseRestTimers clears hidden separators + 4 edit mode + 1 helper + 2 Step E collapse/reorder + 1 Step F STRUCTURE sync + 9 Organize Mode + more)
