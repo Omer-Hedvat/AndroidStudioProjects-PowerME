@@ -20,6 +20,8 @@ class MetricLogRepository @Inject constructor(
 
     fun getAll(): Flow<List<MetricLog>> = dao.getAll()
 
+    suspend fun getLatestForType(type: MetricType): MetricLog? = dao.getLatestForType(type.name)
+
     suspend fun log(type: MetricType, value: Double) {
         val entry = MetricLog(type = type, value = value)
         dao.insert(entry)
