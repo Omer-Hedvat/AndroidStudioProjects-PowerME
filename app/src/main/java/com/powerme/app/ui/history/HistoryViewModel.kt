@@ -2,7 +2,10 @@ package com.powerme.app.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.repository.WorkoutRepository
+import com.powerme.app.util.UnitConverter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,8 +45,12 @@ data class HistoryGroup(
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    workoutRepository: WorkoutRepository
+    workoutRepository: WorkoutRepository,
+    appSettingsDataStore: AppSettingsDataStore
 ) : ViewModel() {
+
+    val unitSystem: StateFlow<UnitSystem> = appSettingsDataStore.unitSystem
+        .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
 
     val groups: StateFlow<List<HistoryGroup>> =
         workoutRepository.getAllCompletedWorkoutsWithExerciseNames()
@@ -55,8 +62,10 @@ class HistoryViewModel @Inject constructor(
             )
 
     val insightCards: StateFlow<List<InsightCard>> =
-        workoutRepository.getAllCompletedWorkoutsWithExerciseNames()
-            .map { rows -> computeInsightCards(collapseRows(rows)) }
+        combine(
+            workoutRepository.getAllCompletedWorkoutsWithExerciseNames(),
+            appSettingsDataStore.unitSystem
+        ) { rows, unit -> computeInsightCards(collapseRows(rows), unit) }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
@@ -97,7 +106,7 @@ class HistoryViewModel @Inject constructor(
             .sortedByDescending { it.timestamp }
     }
 
-    private fun computeInsightCards(workouts: List<WorkoutWithExerciseSummary>): List<InsightCard> {
+    private fun computeInsightCards(workouts: List<WorkoutWithExerciseSummary>, unit: UnitSystem = UnitSystem.METRIC): List<InsightCard> {
         val now = System.currentTimeMillis()
         val weekMs = TimeUnit.DAYS.toMillis(7)
         val thisWeekStart = now - weekMs
@@ -117,9 +126,9 @@ class HistoryViewModel @Inject constructor(
         val volumeDelta = if (lastVolume > 0) (thisVolume - lastVolume) / lastVolume else null
         cards.add(InsightCard(
             title = "Weekly Volume",
-            value = "${thisVolume.toInt()} kg",
+            value = UnitConverter.formatWeight(thisVolume, unit),
             delta = volumeDelta,
-            subtitle = if (lastVolume > 0) "vs ${lastVolume.toInt()} kg last week" else null
+            subtitle = if (lastVolume > 0) "vs ${UnitConverter.formatWeight(lastVolume, unit)} last week" else null
         ))
 
         // Card 2: Workout count Δ
@@ -150,7 +159,7 @@ class HistoryViewModel @Inject constructor(
             val label = topSession.routineName ?: "Ad-hoc workout"
             cards.add(InsightCard(
                 title = "Best Session",
-                value = "${topSession.totalVolume.toInt()} kg",
+                value = UnitConverter.formatWeight(topSession.totalVolume, unit),
                 subtitle = label
             ))
         }

@@ -30,6 +30,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.powerme.app.data.UnitSystem
+import com.powerme.app.util.UnitConverter
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.TimerGreen
 import java.time.Instant
@@ -112,6 +114,25 @@ fun SettingsScreen(
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = themeModes.size)
                             ) {
                                 Text(labels[index])
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Units ─────────────────────────────────────────────
+            item {
+                SettingsCard(title = "Units") {
+                    val unitModes = UnitSystem.entries
+                    val unitLabels = listOf("Metric (kg, cm)", "Imperial (lbs, ft)")
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        unitModes.forEachIndexed { index, mode ->
+                            SegmentedButton(
+                                selected = uiState.unitSystem == mode,
+                                onClick = { viewModel.setUnitSystem(mode) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = unitModes.size)
+                            ) {
+                                Text(unitLabels[index], fontSize = 12.sp)
                             }
                         }
                     }
@@ -230,7 +251,7 @@ fun SettingsScreen(
 
                             uiState.healthConnectData?.let { data ->
                                 Spacer(modifier = Modifier.height(10.dp))
-                                HealthMetricsSummary(data)
+                                HealthMetricsSummary(data, uiState.unitSystem)
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
@@ -262,22 +283,23 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Profile (Body Metrics) — hidden when HC is connected (Trends card handles it) ──
-            if (!uiState.healthConnectPermissionsGranted) item {
+            // ── Profile (Body Metrics) — always shown so users can manually override values ──
+            item {
                 SettingsCard(title = "Profile") {
                     val bodyFatFocusRequester = remember { FocusRequester() }
                     val heightFocusRequester = remember { FocusRequester() }
+                    val unit = uiState.unitSystem
                     val lastText = buildString {
                         val w = uiState.lastWeight
                         val bf = uiState.lastBodyFat
                         val h = uiState.lastHeight
                         if (w != null || bf != null || h != null) {
                             append("Last: ")
-                            if (w != null) append("${"%.1f".format(w)} kg")
+                            if (w != null) append(UnitConverter.formatWeight(w, unit))
                             if (w != null && bf != null) append(" / ")
                             if (bf != null) append("${"%.1f".format(bf)}%")
                             if ((w != null || bf != null) && h != null) append(" / ")
-                            if (h != null) append("${h.toInt()} cm")
+                            if (h != null) append(UnitConverter.formatHeight(h.toDouble(), unit))
                         }
                     }
                     if (lastText.isNotBlank()) {
@@ -289,11 +311,12 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val weightLabel = "Weight (${UnitConverter.weightLabel(unit)})"
                         val (weightTfv, weightSelectMod) = rememberSelectAllState(uiState.weightInput)
                         OutlinedTextField(
                             value = weightTfv.value,
                             onValueChange = { newTfv -> weightTfv.value = newTfv; viewModel.updateWeightInput(newTfv.text) },
-                            label = { Text("Weight (kg)", fontSize = 12.sp) },
+                            label = { Text(weightLabel, fontSize = 12.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { bodyFatFocusRequester.requestFocus() }),
                             modifier = Modifier.weight(1f).then(weightSelectMod),
@@ -313,17 +336,48 @@ fun SettingsScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    val (heightTfv, heightSelectMod) = rememberSelectAllState(uiState.heightInput)
-                    OutlinedTextField(
-                        value = heightTfv.value,
-                        onValueChange = { newTfv -> heightTfv.value = newTfv; viewModel.updateHeightInput(newTfv.text) },
-                        label = { Text("Height (cm)", fontSize = 12.sp) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
-                        modifier = Modifier.fillMaxWidth().focusRequester(heightFocusRequester).then(heightSelectMod),
-                        colors = PowerMeDefaults.outlinedTextFieldColors(),
-                        singleLine = true
-                    )
+                    if (unit == UnitSystem.IMPERIAL) {
+                        // Imperial: two fields — feet + inches
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val (feetTfv, feetSelectMod) = rememberSelectAllState(uiState.heightFeetInput)
+                            OutlinedTextField(
+                                value = feetTfv.value,
+                                onValueChange = { newTfv -> feetTfv.value = newTfv; viewModel.updateHeightFeetInput(newTfv.text) },
+                                label = { Text("Height (ft)", fontSize = 12.sp) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
+                                modifier = Modifier.weight(1f).then(feetSelectMod),
+                                colors = PowerMeDefaults.outlinedTextFieldColors(),
+                                singleLine = true
+                            )
+                            val (inchesTfv, inchesSelectMod) = rememberSelectAllState(uiState.heightInchesInput)
+                            OutlinedTextField(
+                                value = inchesTfv.value,
+                                onValueChange = { newTfv -> inchesTfv.value = newTfv; viewModel.updateHeightInchesInput(newTfv.text) },
+                                label = { Text("Height (in)", fontSize = 12.sp) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
+                                modifier = Modifier.weight(1f).focusRequester(heightFocusRequester).then(inchesSelectMod),
+                                colors = PowerMeDefaults.outlinedTextFieldColors(),
+                                singleLine = true
+                            )
+                        }
+                    } else {
+                        val (heightTfv, heightSelectMod) = rememberSelectAllState(uiState.heightInput)
+                        OutlinedTextField(
+                            value = heightTfv.value,
+                            onValueChange = { newTfv -> heightTfv.value = newTfv; viewModel.updateHeightInput(newTfv.text) },
+                            label = { Text("Height (cm)", fontSize = 12.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
+                            modifier = Modifier.fillMaxWidth().focusRequester(heightFocusRequester).then(heightSelectMod),
+                            colors = PowerMeDefaults.outlinedTextFieldColors(),
+                            singleLine = true
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     if (uiState.isSavingMetrics) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
@@ -495,7 +549,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun HealthMetricsSummary(data: HealthConnectReadResult) {
+private fun HealthMetricsSummary(data: HealthConnectReadResult, unitSystem: UnitSystem) {
     val subText = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
     val valueText = MaterialTheme.colorScheme.onSurface
 
@@ -535,7 +589,7 @@ private fun HealthMetricsSummary(data: HealthConnectReadResult) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             MetricCell(
                 "Weight",
-                data.weight?.let { "${"%.1f".format(it)} kg" } ?: "--",
+                data.weight?.let { UnitConverter.formatWeight(it, unitSystem) } ?: "--",
                 modifier = Modifier.weight(1f)
             )
             MetricCell(
@@ -545,7 +599,7 @@ private fun HealthMetricsSummary(data: HealthConnectReadResult) {
             )
             MetricCell(
                 "Height",
-                data.height?.let { "${it.toInt()} cm" } ?: "--",
+                data.height?.let { UnitConverter.formatHeight(it.toDouble(), unitSystem) } ?: "--",
                 modifier = Modifier.weight(1f)
             )
         }

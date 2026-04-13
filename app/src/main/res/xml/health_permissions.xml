@@ -7,4 +7,7 @@
     <permission type="android.permission.health.READ_HEART_RATE_VARIABILITY" />
     <permission type="android.permission.health.READ_RESTING_HEART_RATE" />
     <permission type="android.permission.health.READ_STEPS" />
+    <permission type="android.permission.health.READ_BASAL_METABOLIC_RATE" />
+    <permission type="android.permission.health.READ_BONE_MASS" />
+    <permission type="android.permission.health.READ_LEAN_BODY_MASS" />
 </permissions>

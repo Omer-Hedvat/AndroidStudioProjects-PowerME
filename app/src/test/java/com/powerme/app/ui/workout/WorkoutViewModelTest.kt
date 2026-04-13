@@ -20,6 +20,8 @@ import com.powerme.app.data.database.RoutineExercise
 import com.powerme.app.data.database.WorkoutSet
 import com.powerme.app.data.repository.WorkoutBootstrap
 import com.powerme.app.data.repository.WorkoutRepository
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.util.ClocksTimerBridge
 import com.powerme.app.warmup.WarmupService
 import androidx.lifecycle.viewModelScope
@@ -103,6 +105,7 @@ class WorkoutViewModelTest {
     private lateinit var mockStateHistoryRepository: StateHistoryRepository
     private lateinit var mockClocksTimerBridge: ClocksTimerBridge
     private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
+    private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
     private lateinit var mockContext: Context
 
     private lateinit var viewModel: WorkoutViewModel
@@ -126,6 +129,8 @@ class WorkoutViewModelTest {
         mockStateHistoryRepository = mock()
         mockClocksTimerBridge = mock()
         mockFirestoreSyncManager = mock()
+        mockAppSettingsDataStore = mock()
+        whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         mockContext = mock()
 
         // Non-suspend property stubs (used at ViewModel construction time)
@@ -180,6 +185,7 @@ class WorkoutViewModelTest {
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
             context = mockContext
         )
     }

@@ -4,10 +4,15 @@ import android.content.Context
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.firebase.auth.AuthCredential
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.database.User
+import com.powerme.app.data.sync.FirestoreSyncManager
+import com.powerme.app.data.sync.SyncResult
 import com.powerme.app.util.UserSessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -21,7 +26,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.mockito.kotlin.any
 
 /**
  * Unit tests for AuthViewModel.signInWithGoogle().
@@ -36,6 +44,8 @@ class AuthViewModelGoogleSignInTest {
 
     private lateinit var mockUserSessionManager: UserSessionManager
     private lateinit var mockGoogleSignInHelper: GoogleSignInHelper
+    private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
+    private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
     private lateinit var mockContext: Context
     private lateinit var viewModel: AuthViewModel
 
@@ -46,8 +56,15 @@ class AuthViewModelGoogleSignInTest {
         Dispatchers.setMain(testDispatcher)
         mockUserSessionManager = mock()
         mockGoogleSignInHelper = mock()
+        mockFirestoreSyncManager = mock()
+        mockAppSettingsDataStore = mock()
         mockContext = mock()
-        viewModel = AuthViewModel(mockUserSessionManager, mockGoogleSignInHelper)
+        // Default: already restored — auto-restore is a no-op for all existing tests
+        runBlocking {
+            whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(true))
+            whenever(mockFirestoreSyncManager.pullFromCloud()).thenReturn(SyncResult(success = true))
+        }
+        viewModel = AuthViewModel(mockUserSessionManager, mockGoogleSignInHelper, mockFirestoreSyncManager, mockAppSettingsDataStore)
     }
 
     @After
@@ -175,5 +192,33 @@ class AuthViewModelGoogleSignInTest {
         assertNull(state.pendingLinkEmail)
         assertFalse(state.isLoading)
         assertNull(state.error)
+    }
+
+    // ── Test 8: Auto-restore triggers on first sign-in ───────────────────────
+
+    @Test
+    fun `signInWithGoogle - success, hasRestoredOnce false - pullFromCloud called`() = runTest(testDispatcher) {
+        whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(false))
+        whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
+        whenever(mockUserSessionManager.getCurrentUser()).thenReturn(fakeUser)
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        verify(mockFirestoreSyncManager).pullFromCloud()
+    }
+
+    // ── Test 9: Auto-restore skipped when already restored ───────────────────
+
+    @Test
+    fun `signInWithGoogle - success, hasRestoredOnce true - pullFromCloud not called`() = runTest(testDispatcher) {
+        whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(true))
+        whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
+        whenever(mockUserSessionManager.getCurrentUser()).thenReturn(fakeUser)
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        verify(mockFirestoreSyncManager, never()).pullFromCloud()
     }
 }

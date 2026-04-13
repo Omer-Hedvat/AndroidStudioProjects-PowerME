@@ -9,12 +9,14 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
-import com.powerme.app.data.database.User
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -33,7 +35,9 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val userSessionManager: UserSessionManager,
-    private val googleSignInHelper: GoogleSignInHelper
+    private val googleSignInHelper: GoogleSignInHelper,
+    private val firestoreSyncManager: FirestoreSyncManager,
+    private val appSettingsDataStore: AppSettingsDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -67,48 +71,6 @@ class AuthViewModel @Inject constructor(
                     return@launch
                 }
                 applyNewUserGate()
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
-            }
-        }
-    }
-
-    fun saveProfile(
-        name: String?,
-        age: Int?,
-        heightCm: Float?,
-        weightKg: Float? = null,
-        bodyFatPercent: Float? = null,
-        occupationType: String?,
-        parentalLoad: Int?,
-        chronotype: String?,
-        averageSleepHours: Float?,
-        gender: String? = null,
-        trainingTargets: String? = null
-    ) {
-        viewModelScope.launch {
-            try {
-                _uiState.update { it.copy(isLoading = true, error = null) }
-                val email = Firebase.auth.currentUser?.email ?: run {
-                    _uiState.update { it.copy(isLoading = false, error = "Not signed in") }
-                    return@launch
-                }
-                val user = User(
-                    email = email,
-                    name = name?.takeIf { it.isNotBlank() },
-                    age = age,
-                    heightCm = heightCm,
-                    weightKg = weightKg,
-                    bodyFatPercent = bodyFatPercent,
-                    occupationType = occupationType,
-                    parentalLoad = parentalLoad,
-                    chronotype = chronotype,
-                    averageSleepHours = averageSleepHours,
-                    gender = gender,
-                    trainingTargets = trainingTargets
-                )
-                userSessionManager.saveUser(user)
-                _uiState.update { it.copy(isLoading = false, isSignedIn = true, needsProfileSetup = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -169,6 +131,21 @@ class AuthViewModel @Inject constructor(
                 needsProfileSetup = dbUser == null,
                 pendingLinkEmail = null
             )
+        }
+        triggerAutoRestoreIfNeeded()
+    }
+
+    /**
+     * On the first sign-in after a fresh install, silently pull all data from Firestore.
+     * Fires in background so it never blocks the UI or navigation.
+     * The flag is set immediately to prevent concurrent triggers across sign-in paths.
+     */
+    private fun triggerAutoRestoreIfNeeded() {
+        viewModelScope.launch {
+            val alreadyRestored = appSettingsDataStore.hasRestoredOnce.first()
+            if (alreadyRestored) return@launch
+            appSettingsDataStore.setHasRestoredOnce(true)
+            firestoreSyncManager.pullFromCloud()
         }
     }
 

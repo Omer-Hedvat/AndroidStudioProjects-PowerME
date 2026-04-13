@@ -7,8 +7,11 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.database.Exercise
+import com.powerme.app.util.UnitConverter
 import com.powerme.app.data.database.Routine
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.RoutineExercise
@@ -57,13 +60,30 @@ private fun String.toEditModeSetTypes(count: Int): List<SetType> {
 }
 
 /**
- * Formats a weight Double for display: strips trailing zeros, preserves up to 2 decimal places.
- * 80.0 → "80", 80.5 → "80.5", 32.25 → "32.25"
+ * Formats a stored kg value for display in the active workout, in the user's unit system.
+ * Strips trailing zeros: 80.0 → "80", 80.5 → "80.5", 32.25 → "32.25".
+ * For imperial, converts kg → lbs first.
  */
-private fun formatWeight(value: Double): String = when {
-    value == value.toLong().toDouble() -> value.toLong().toString()
-    value * 10 == (value * 10).toLong().toDouble() -> "%.1f".format(value)
-    else -> "%.2f".format(value)
+private fun formatWeight(valueKg: Double, unit: UnitSystem): String =
+    UnitConverter.formatWeightRaw(valueKg, unit)
+
+/**
+ * Converts a display-unit weight string back to kg for DB storage.
+ * E.g. in IMPERIAL "176.4" → 80.0.
+ */
+private fun displayStringToKg(displayStr: String, unit: UnitSystem): Double {
+    val v = displayStr.toDoubleOrNull() ?: 0.0
+    return UnitConverter.inputWeightToKg(v, unit)
+}
+
+/**
+ * Converts a kg Double to a storage string (clean, no trailing zeros).
+ * Used when saving back to setWeightsJson / defaultWeight (always stored in kg).
+ */
+private fun kgToStorageString(kg: Double): String = when {
+    kg == kg.toLong().toDouble() -> kg.toLong().toString()
+    kg * 10 == (kg * 10).toLong().toDouble() -> "%.1f".format(kg)
+    else -> "%.2f".format(kg)
 }
 
 /**
@@ -184,10 +204,17 @@ class WorkoutViewModel @Inject constructor(
     private val stateHistoryRepository: StateHistoryRepository,
     private val firestoreSyncManager: FirestoreSyncManager,
     private val clocksTimerBridge: ClocksTimerBridge,
+    private val appSettingsDataStore: AppSettingsDataStore,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val restTimerNotifier = RestTimerNotifier(context)
+
+    val unitSystem: StateFlow<UnitSystem> = appSettingsDataStore.unitSystem
+        .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
+
+    /** Current unit system, accessed synchronously for format/convert helpers. */
+    private val currentUnit: UnitSystem get() = unitSystem.value
 
     val clocksTimerState: StateFlow<ClocksTimerBridge.Snapshot?> = clocksTimerBridge.state
 
@@ -387,7 +414,7 @@ class WorkoutViewModel @Inject constructor(
                         ActiveSet(
                             id = ws.id,
                             setOrder = ws.setOrder,
-                            weight = if (ws.weight > 0.0) formatWeight(ws.weight) else "",
+                            weight = if (ws.weight > 0.0) formatWeight(ws.weight, currentUnit) else "",
                             reps = if (ws.reps > 0) ws.reps.toString() else "",
                             setType = ws.setType,
                             isCompleted = ws.isCompleted
@@ -427,14 +454,14 @@ class WorkoutViewModel @Inject constructor(
                 val dbSets = dbSetsByExercise[re.exerciseId] ?: emptyList()
                 val activeSets = dbSets.mapIndexed { i, ws ->
                     val ghost = ghostSets.getOrNull(i)
-                    val weightStr = if (ws.weight > 0.0) formatWeight(ws.weight) else "0"
+                    val weightStr = if (ws.weight > 0.0) formatWeight(ws.weight, currentUnit) else "0"
                     ActiveSet(
                         id = ws.id,
                         setOrder = ws.setOrder,
                         weight = weightStr,
                         reps = ws.reps.toString(),
                         setType = ws.setType,
-                        ghostWeight = ghost?.weight?.let { if (it > 0.0) formatWeight(it) else null },
+                        ghostWeight = ghost?.weight?.let { if (it > 0.0) formatWeight(it, currentUnit) else null },
                         ghostReps = ghost?.reps?.let { if (it > 0) it.toString() else null }
                     )
                 }
@@ -497,18 +524,22 @@ class WorkoutViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _workoutState.update { it.copy(editModeSaved = false) }
+            val unit = currentUnit
             val (exercises, name) = withContext(Dispatchers.IO) {
                 val routineExercises = routineExerciseDao.getForRoutine(routineId)
                 val exList = routineExercises.mapNotNull { re ->
                     val exercise = exerciseRepository.getExerciseById(re.exerciseId) ?: return@mapNotNull null
                     val setTypes = re.setTypesJson.toEditModeSetTypes(re.sets)
-                    val weights = re.setWeightsJson.toEditModeValues(re.sets, re.defaultWeight)
+                    val kgWeights = re.setWeightsJson.toEditModeValues(re.sets, re.defaultWeight)
                     val repsList = re.setRepsJson.toEditModeValues(re.sets, if (re.reps > 0) re.reps.toString() else "")
                     val activeSets = (1..re.sets).map { i ->
+                        // Convert stored kg value → display unit string
+                        val kgVal = kgWeights[i - 1].toDoubleOrNull() ?: 0.0
+                        val displayWeight = if (kgVal > 0.0) UnitConverter.formatWeightRaw(kgVal, unit) else kgWeights[i - 1]
                         ActiveSet(
                             id = "edit_$i",
                             setOrder = i,
-                            weight = weights[i - 1],
+                            weight = displayWeight,
                             reps = repsList[i - 1],
                             setType = setTypes[i - 1]
                         )
@@ -540,6 +571,7 @@ class WorkoutViewModel @Inject constructor(
     fun saveRoutineEdits() {
         viewModelScope.launch {
             val state = _workoutState.value
+            val unit = currentUnit
             val routineId = state.routineId
             val originalIds = routineExerciseDao.getForRoutine(routineId).map { it.exerciseId }.toSet()
             val currentIds = state.exercises.map { it.exercise.id }.toSet()
@@ -556,9 +588,11 @@ class WorkoutViewModel @Inject constructor(
                 val firstSet = sortedSets.firstOrNull()
                 // defaultWeight / reps kept in sync for Diff Engine compatibility
                 val reps = firstSet?.reps?.toIntOrNull() ?: 0
-                val weight = firstSet?.weight ?: ""
+                // Convert first-set display weight → kg string for defaultWeight
+                val weight = firstSet?.weight?.let { kgToStorageString(displayStringToKg(it, unit)) } ?: ""
                 val setTypesJson = sortedSets.joinToString(",") { it.setType.name }
-                val setWeightsJson = sortedSets.joinToString(",") { it.weight }
+                // setWeightsJson always stores kg values
+                val setWeightsJson = sortedSets.joinToString(",") { kgToStorageString(displayStringToKg(it.weight, unit)) }
                 val setRepsJson = sortedSets.joinToString(",") { it.reps }
                 if (exerciseId in originalIds) {
                     routineExerciseDao.updateSets(routineId, exerciseId, ex.sets.size)
@@ -622,16 +656,15 @@ class WorkoutViewModel @Inject constructor(
             val previousSets = workoutSetDao.getPreviousSessionSets(exercise.id, currentTimestamp)
 
             // Create initial sets pre-populated from previous session
+            val unit = currentUnit
             val initialSets = if (previousSets.isNotEmpty()) {
                 previousSets.mapIndexed { index, prevSet ->
-                    val weightStr = prevSet.weight.let {
-                        if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it)
-                    }
+                    val weightStr = formatWeight(prevSet.weight, unit)
                     ActiveSet(
                         setOrder = index + 1,
                         weight = weightStr,
                         reps = prevSet.reps.toString(),
-                        ghostWeight = prevSet.weight.toString(),
+                        ghostWeight = weightStr,
                         ghostReps = prevSet.reps.toString(),
                         ghostRpe = prevSet.rpe?.toString()
                     )
@@ -656,7 +689,7 @@ class WorkoutViewModel @Inject constructor(
                         workoutId = workoutId,
                         exerciseId = exercise.id,
                         setOrder = activeSet.setOrder,
-                        weight = activeSet.weight.toDoubleOrNull() ?: 0.0,
+                        weight = displayStringToKg(activeSet.weight, unit),
                         reps = activeSet.reps.toIntOrNull() ?: 0,
                         setType = activeSet.setType
                     )
@@ -851,8 +884,9 @@ class WorkoutViewModel @Inject constructor(
                 .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
                 ?: return@launch
             if (set.id.isBlank() || set.id.startsWith("edit_")) return@launch
+            val unit = currentUnit
             val weight = SurgicalValidator.parseDecimal(set.weight)
-                .let { if (it is SurgicalValidator.ValidationResult.Valid) it.value else null }
+                .let { if (it is SurgicalValidator.ValidationResult.Valid) UnitConverter.inputWeightToKg(it.value, unit) else null }
                 ?: return@launch
             val reps = set.reps.toIntOrNull() ?: return@launch
             workoutSetDao.updateWeightReps(set.id, weight, reps)
@@ -1081,16 +1115,18 @@ class WorkoutViewModel @Inject constructor(
                 val endTime = System.currentTimeMillis()
                 val durationSeconds = ((endTime - state.startTime) / 1000).toInt()
 
-                // Calculate total volume — all completed sets included
+                // Calculate total volume — always in kg regardless of display unit
+                val unit = currentUnit
                 var totalVolume = 0.0
                 state.exercises.forEach { exerciseWithSets ->
                     exerciseWithSets.sets.forEach { set ->
                         if (set.isCompleted) {
-                            val weight = when (val r = SurgicalValidator.parseDecimal(set.weight)) {
+                            val displayWeight = when (val r = SurgicalValidator.parseDecimal(set.weight)) {
                                 is SurgicalValidator.ValidationResult.Valid -> r.value
                                 else -> SurgicalValidator.parseDecimal(set.ghostWeight ?: "")
                                     .let { if (it is SurgicalValidator.ValidationResult.Valid) it.value else 0.0 }
                             }
+                            val weight = UnitConverter.inputWeightToKg(displayWeight, unit)
                             val reps = set.reps.toIntOrNull() ?: 0
                             totalVolume += weight * reps
                         }
@@ -1223,12 +1259,13 @@ class WorkoutViewModel @Inject constructor(
     fun confirmUpdateRoutineStructure() {
         viewModelScope.launch {
             val state = _workoutState.value
+            val unit = currentUnit
             state.exercises.forEach { ex ->
                 val completedSets = ex.sets.filter { it.isCompleted }.sortedBy { it.setOrder }
                 if (completedSets.isNotEmpty()) {
                     routineExerciseDao.updateSets(state.routineId, ex.exercise.id, completedSets.size)
                     val typesJson = completedSets.joinToString(",") { it.setType.name }
-                    val weightsJson = completedSets.joinToString(",") { it.weight }
+                    val weightsJson = completedSets.joinToString(",") { kgToStorageString(displayStringToKg(it.weight, unit)) }
                     val repsJson = completedSets.joinToString(",") { it.reps }
                     routineExerciseDao.updateSetTypesJson(state.routineId, ex.exercise.id, typesJson)
                     routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
@@ -1248,15 +1285,17 @@ class WorkoutViewModel @Inject constructor(
     fun confirmUpdateRoutineValues() {
         viewModelScope.launch {
             val state = _workoutState.value
+            val unit = currentUnit
             state.exercises.forEach { ex ->
                 val completedSets = ex.sets.filter { it.isCompleted }.sortedBy { it.setOrder }
                 val firstCompleted = completedSets.firstOrNull() ?: return@forEach
                 val reps = firstCompleted.reps.toIntOrNull() ?: return@forEach
+                val firstWeightKgStr = kgToStorageString(displayStringToKg(firstCompleted.weight, unit))
                 routineExerciseDao.updateRepsAndWeight(
-                    state.routineId, ex.exercise.id, reps, firstCompleted.weight
+                    state.routineId, ex.exercise.id, reps, firstWeightKgStr
                 )
                 val typesJson = completedSets.joinToString(",") { it.setType.name }
-                val weightsJson = completedSets.joinToString(",") { it.weight }
+                val weightsJson = completedSets.joinToString(",") { kgToStorageString(displayStringToKg(it.weight, unit)) }
                 val repsJson = completedSets.joinToString(",") { it.reps }
                 routineExerciseDao.updateSetTypesJson(state.routineId, ex.exercise.id, typesJson)
                 routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
@@ -1275,6 +1314,7 @@ class WorkoutViewModel @Inject constructor(
     fun confirmUpdateBoth() {
         viewModelScope.launch {
             val state = _workoutState.value
+            val unit = currentUnit
             state.exercises.forEach { ex ->
                 val completedSets = ex.sets.filter { it.isCompleted }.sortedBy { it.setOrder }
                 if (completedSets.isNotEmpty()) {
@@ -1282,11 +1322,12 @@ class WorkoutViewModel @Inject constructor(
                 }
                 val firstCompleted = completedSets.firstOrNull() ?: return@forEach
                 val reps = firstCompleted.reps.toIntOrNull() ?: return@forEach
+                val firstWeightKgStr = kgToStorageString(displayStringToKg(firstCompleted.weight, unit))
                 routineExerciseDao.updateRepsAndWeight(
-                    state.routineId, ex.exercise.id, reps, firstCompleted.weight
+                    state.routineId, ex.exercise.id, reps, firstWeightKgStr
                 )
                 val typesJson = completedSets.joinToString(",") { it.setType.name }
-                val weightsJson = completedSets.joinToString(",") { it.weight }
+                val weightsJson = completedSets.joinToString(",") { kgToStorageString(displayStringToKg(it.weight, unit)) }
                 val repsJson = completedSets.joinToString(",") { it.reps }
                 routineExerciseDao.updateSetTypesJson(state.routineId, ex.exercise.id, typesJson)
                 routineExerciseDao.updateSetWeightsAndReps(state.routineId, ex.exercise.id, weightsJson, repsJson)
@@ -1326,9 +1367,9 @@ class WorkoutViewModel @Inject constructor(
             val routineExercises = grouped.mapIndexed { index, (exerciseId, exSets) ->
                 val sortedSets = exSets.sortedBy { it.setOrder }
                 val modalReps = exSets.groupingBy { it.reps }.eachCount().maxByOrNull { it.value }?.key ?: 10
-                val modalWeight = sortedSets.firstOrNull()?.weight?.let { formatWeight(it) } ?: ""
+                val modalWeight = sortedSets.firstOrNull()?.weight?.let { kgToStorageString(it) } ?: ""
                 val setTypesJson = sortedSets.joinToString(",") { it.setType.name }
-                val setWeightsJson = sortedSets.joinToString(",") { formatWeight(it.weight) }
+                val setWeightsJson = sortedSets.joinToString(",") { kgToStorageString(it.weight) }
                 val setRepsJson = sortedSets.joinToString(",") { it.reps.toString() }
                 RoutineExercise(
                     id = UUID.randomUUID().toString(),

@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
+import java.util.UUID
 
 @Serializable
 @Entity(tableName = "exercises")
@@ -28,7 +29,11 @@ data class Exercise(
     val youtubeVideoId: String? = null, // YouTube demonstration video
     val familyId: String? = null, // Exercise family grouping (e.g., "squat_family")
     @ColumnInfo(defaultValue = "''")
-    val searchName: String = "" // Pre-normalized for fuzzy search: lowercase, no hyphens/spaces/parens
+    val searchName: String = "", // Pre-normalized for fuzzy search: lowercase, no hyphens/spaces/parens
+    @ColumnInfo(defaultValue = "")
+    val syncId: String = UUID.randomUUID().toString(), // Stable cross-device identity for Firestore (v35)
+    @ColumnInfo(defaultValue = "0")
+    val updatedAt: Long = 0L // Epoch ms, set on every mutation (v35)
 )
 
 fun String.toSearchName(): String = lowercase().replace(Regex("[\\s\\-()]"), "")

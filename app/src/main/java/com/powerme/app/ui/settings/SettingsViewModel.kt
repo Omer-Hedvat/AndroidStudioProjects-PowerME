@@ -9,6 +9,8 @@ import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.ThemeMode
+import com.powerme.app.data.UnitSystem
+import com.powerme.app.util.UnitConverter
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettings
 import com.powerme.app.data.database.UserSettingsDao
@@ -54,10 +56,15 @@ data class SettingsUiState(
     val lastBodyFat: Double? = null,
     val lastHeight: Float? = null,
     val isSavingMetrics: Boolean = false,
+    // For imperial height input (feet + inches as separate fields)
+    val heightFeetInput: String = "",
+    val heightInchesInput: String = "",
     // Keep screen on
     val keepScreenOn: Boolean = false,
     // Appearance
-    val themeMode: ThemeMode = ThemeMode.LIGHT,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    // Units
+    val unitSystem: UnitSystem = UnitSystem.METRIC,
     // Cloud Sync
     val isSignedIn: Boolean = false,
     val isRestoringFromCloud: Boolean = false,
@@ -103,7 +110,15 @@ class SettingsViewModel @Inject constructor(
             val user = userSessionManager.getCurrentUser()
             val h = user?.heightCm
             if (h != null) {
-                _uiState.update { it.copy(lastHeight = h, heightInput = h.toInt().toString()) }
+                val unit = _uiState.value.unitSystem
+                if (unit == UnitSystem.IMPERIAL) {
+                    val (feet, inches) = UnitConverter.cmToFeetInches(h.toDouble())
+                    _uiState.update {
+                        it.copy(lastHeight = h, heightFeetInput = feet.toString(), heightInchesInput = inches.toString())
+                    }
+                } else {
+                    _uiState.update { it.copy(lastHeight = h, heightInput = h.toInt().toString()) }
+                }
             }
         }
     }
@@ -119,12 +134,24 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(themeMode = mode) }
             }
         }
+        viewModelScope.launch {
+            appSettingsDataStore.unitSystem.collect { unit ->
+                _uiState.update { it.copy(unitSystem = unit) }
+            }
+        }
     }
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             appSettingsDataStore.setThemeMode(mode)
             _uiState.update { it.copy(themeMode = mode) }
+        }
+    }
+
+    fun setUnitSystem(unit: UnitSystem) {
+        viewModelScope.launch {
+            appSettingsDataStore.setUnitSystem(unit)
+            _uiState.update { it.copy(unitSystem = unit) }
         }
     }
 
@@ -201,12 +228,13 @@ class SettingsViewModel @Inject constructor(
     private fun observeMetricLogs() {
         viewModelScope.launch {
             metricLogRepository.getByType(MetricType.WEIGHT).collect { entries ->
-                val latest = entries.lastOrNull()?.value
+                val latestKg = entries.lastOrNull()?.value
                 _uiState.update { state ->
+                    val displayWeight = latestKg?.let { UnitConverter.displayWeight(it, state.unitSystem) }
                     state.copy(
-                        lastWeight = latest,
-                        weightInput = if (state.weightInput.isEmpty() && latest != null)
-                            "%.1f".format(latest) else state.weightInput
+                        lastWeight = latestKg,
+                        weightInput = if (state.weightInput.isEmpty() && displayWeight != null)
+                            "%.1f".format(displayWeight) else state.weightInput
                     )
                 }
             }
@@ -233,37 +261,53 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(heightInput = value) }
         }
     }
+    fun updateHeightFeetInput(value: String) { _uiState.update { it.copy(heightFeetInput = value) } }
+    fun updateHeightInchesInput(value: String) { _uiState.update { it.copy(heightInchesInput = value) } }
 
     fun saveBodyMetrics() {
+        val unit = _uiState.value.unitSystem
         val weightResult = SurgicalValidator.parseDecimal(_uiState.value.weightInput.trim())
         val bodyFatResult = SurgicalValidator.parseDecimal(_uiState.value.bodyFatInput.trim())
-        val heightResult = SurgicalValidator.parseDecimal(_uiState.value.heightInput.trim())
-        val weight = (weightResult as? SurgicalValidator.ValidationResult.Valid)?.value
+
+        // Convert display weight → kg for storage
+        val weightDisplay = (weightResult as? SurgicalValidator.ValidationResult.Valid)?.value
+        val weightKg = weightDisplay?.let { UnitConverter.inputWeightToKg(it, unit) }
         val bodyFat = (bodyFatResult as? SurgicalValidator.ValidationResult.Valid)?.value
-        val heightCm = (heightResult as? SurgicalValidator.ValidationResult.Valid)?.value?.toFloat()
-        if (weight == null && bodyFat == null && heightCm == null) return
+
+        // Resolve height → cm for storage
+        val heightCm: Float? = if (unit == UnitSystem.IMPERIAL) {
+            val feet = _uiState.value.heightFeetInput.trim().toIntOrNull()
+            val inches = _uiState.value.heightInchesInput.trim().toIntOrNull() ?: 0
+            if (feet != null) UnitConverter.feetInchesToCm(feet, inches).toFloat() else null
+        } else {
+            val heightResult = SurgicalValidator.parseDecimal(_uiState.value.heightInput.trim())
+            (heightResult as? SurgicalValidator.ValidationResult.Valid)?.value?.toFloat()
+        }
+
+        if (weightKg == null && bodyFat == null && heightCm == null) return
         viewModelScope.launch {
             _uiState.update { it.copy(isSavingMetrics = true) }
-            // MetricLog sink
-            weight?.let { metricLogRepository.log(MetricType.WEIGHT, it) }
+            // MetricLog sink — always store in metric
+            weightKg?.let { metricLogRepository.log(MetricType.WEIGHT, it) }
             bodyFat?.let { metricLogRepository.log(MetricType.BODY_FAT, it) }
             heightCm?.toDouble()?.let { metricLogRepository.log(MetricType.HEIGHT, it) }
             // User entity sink
             val currentUser = userSessionManager.getCurrentUser()
             if (currentUser != null) {
                 val updated = currentUser.copy(
-                    weightKg = weight?.toFloat() ?: currentUser.weightKg,
+                    weightKg = weightKg?.toFloat() ?: currentUser.weightKg,
                     bodyFatPercent = bodyFat?.toFloat() ?: currentUser.bodyFatPercent,
                     heightCm = heightCm ?: currentUser.heightCm
                 )
                 userSessionManager.saveUser(updated)
             }
             _uiState.update {
+                val displayWeight = weightKg?.let { w -> UnitConverter.displayWeight(w, unit) }
                 it.copy(
                     isSavingMetrics = false,
-                    weightInput = weight?.let { w -> "%.1f".format(w) } ?: it.weightInput,
+                    weightInput = displayWeight?.let { w -> "%.1f".format(w) } ?: it.weightInput,
                     bodyFatInput = bodyFat?.let { bf -> "%.1f".format(bf) } ?: it.bodyFatInput,
-                    heightInput = heightCm?.toInt()?.toString() ?: it.heightInput,
+                    heightInput = if (unit == UnitSystem.METRIC) heightCm?.toInt()?.toString() ?: it.heightInput else it.heightInput,
                     lastHeight = heightCm ?: it.lastHeight
                 )
             }

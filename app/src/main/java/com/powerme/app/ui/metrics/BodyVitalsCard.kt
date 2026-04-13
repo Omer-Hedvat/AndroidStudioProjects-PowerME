@@ -12,10 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.ProSubGrey
 import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.ui.theme.TimerRed
+import com.powerme.app.util.UnitConverter
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
@@ -37,7 +39,11 @@ data class BodyVitalsState(
     val stepsToday: Int? = null,
     val lastSyncTimestamp: Long? = null,
     val isSyncing: Boolean = false,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val bmrKcal: Double? = null,
+    val boneMassKg: Double? = null,
+    val leanBodyMassKg: Double? = null,
+    val leanBodyMassDelta7d: Double? = null
 )
 
 @Composable
@@ -45,7 +51,8 @@ fun BodyVitalsCard(
     state: BodyVitalsState,
     onSyncClick: () -> Unit,
     onConnectClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    unitSystem: UnitSystem = UnitSystem.METRIC
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -57,7 +64,7 @@ fun BodyVitalsCard(
             HcAvailability.CHECKING -> CheckingContent()
             HcAvailability.UNAVAILABLE -> UnavailableContent()
             HcAvailability.AVAILABLE_NOT_GRANTED -> NotConnectedContent(onConnectClick = onConnectClick)
-            HcAvailability.AVAILABLE_GRANTED -> ConnectedContent(state = state, onSyncClick = onSyncClick)
+            HcAvailability.AVAILABLE_GRANTED -> ConnectedContent(state = state, onSyncClick = onSyncClick, unitSystem = unitSystem)
         }
     }
 }
@@ -126,7 +133,7 @@ private fun NotConnectedContent(onConnectClick: () -> Unit) {
 }
 
 @Composable
-private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit) {
+private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit, unitSystem: UnitSystem = UnitSystem.METRIC) {
     Column(modifier = Modifier.padding(16.dp)) {
         // Header row
         Row(
@@ -183,8 +190,8 @@ private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit) {
             MetricTile(
                 modifier = Modifier.weight(1f),
                 label = "Weight",
-                value = state.weightKg?.let { "${"%.1f".format(it)} kg" } ?: "--",
-                delta = state.weightDelta7d
+                value = state.weightKg?.let { UnitConverter.formatWeight(it, unitSystem) } ?: "--",
+                delta = state.weightDelta7d?.let { if (unitSystem == UnitSystem.IMPERIAL) UnitConverter.kgToLbs(it) else it }
             )
             MetricTile(
                 modifier = Modifier.weight(1f),
@@ -207,7 +214,7 @@ private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit) {
             MetricTile(
                 modifier = Modifier.weight(1f),
                 label = "Height",
-                value = state.heightCm?.let { "${it.toInt()} cm" } ?: "--"
+                value = state.heightCm?.let { UnitConverter.formatHeight(it, unitSystem) } ?: "--"
             )
             MetricTile(
                 modifier = Modifier.weight(1f),
@@ -236,6 +243,29 @@ private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit) {
                 value = state.rhrBpm?.let { "$it bpm" } ?: "--"
             )
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Row 4: Lean Mass | Bone Mass | BMR (from smart scale via Health Connect)
+        Row(modifier = Modifier.fillMaxWidth()) {
+            MetricTile(
+                modifier = Modifier.weight(1f),
+                label = "Lean Mass",
+                value = state.leanBodyMassKg?.let { UnitConverter.formatWeight(it, unitSystem) } ?: "--",
+                delta = state.leanBodyMassDelta7d?.let { if (unitSystem == UnitSystem.IMPERIAL) UnitConverter.kgToLbs(it) else it },
+                deltaPositiveIsGood = true
+            )
+            MetricTile(
+                modifier = Modifier.weight(1f),
+                label = "Bone Mass",
+                value = state.boneMassKg?.let { UnitConverter.formatWeight(it, unitSystem) } ?: "--"
+            )
+            MetricTile(
+                modifier = Modifier.weight(1f),
+                label = "BMR",
+                value = state.bmrKcal?.let { "${it.toInt()} kcal" } ?: "--"
+            )
+        }
     }
 }
 
@@ -245,7 +275,8 @@ private fun MetricTile(
     value: String,
     modifier: Modifier = Modifier,
     delta: Double? = null,
-    subValue: String? = null
+    subValue: String? = null,
+    deltaPositiveIsGood: Boolean = false
 ) {
     Column(
         modifier = modifier.padding(horizontal = 4.dp, vertical = 4.dp),
@@ -270,10 +301,10 @@ private fun MetricTile(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    val (icon, tint) = if (delta > 0)
-                        Icons.Default.ArrowUpward to TimerRed
-                    else
-                        Icons.Default.ArrowDownward to TimerGreen
+                    val isPositive = delta > 0
+                    val isGoodChange = if (deltaPositiveIsGood) isPositive else !isPositive
+                    val icon = if (isPositive) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward
+                    val tint = if (isGoodChange) TimerGreen else TimerRed
                     Icon(
                         imageVector = icon,
                         contentDescription = null,

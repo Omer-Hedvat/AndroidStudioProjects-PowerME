@@ -33,9 +33,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
 import com.powerme.app.ui.theme.TimerGreen
+import com.powerme.app.util.UnitConverter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,6 +57,7 @@ fun WorkoutDetailScreen(
     viewModel: WorkoutDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val unitSystem by viewModel.unitSystem.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
 
@@ -194,7 +197,7 @@ fun WorkoutDetailScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                "${w.totalVolume.toInt()} kg",
+                                UnitConverter.formatWeight(w.totalVolume, unitSystem),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                             )
@@ -223,6 +226,7 @@ fun WorkoutDetailScreen(
                 ExerciseDetailCard(
                     group = group,
                     isExpanded = isExpanded,
+                    unitSystem = unitSystem,
                     isEditMode = uiState.isEditMode,
                     pendingEdits = uiState.pendingEdits,
                     onToggleExpansion = { viewModel.toggleExerciseExpansion(group.exerciseId) },
@@ -238,6 +242,7 @@ fun WorkoutDetailScreen(
 private fun ExerciseDetailCard(
     group: ExerciseGroup,
     isExpanded: Boolean,
+    unitSystem: UnitSystem = UnitSystem.METRIC,
     isEditMode: Boolean = false,
     pendingEdits: Map<String, PendingEdit> = emptyMap(),
     onToggleExpansion: () -> Unit,
@@ -315,7 +320,7 @@ private fun ExerciseDetailCard(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text("SET", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.width(40.dp))
-                                Text("DIST(KM)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
+                                Text("DIST(${UnitConverter.distanceLabel(unitSystem).uppercase()})", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
                                 Text("TIME(S)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
                                 Text("PACE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.20f))
                                 Text("RPE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.10f))
@@ -368,10 +373,11 @@ private fun ExerciseDetailCard(
                         // Set rows
                         group.sets.forEach { set ->
                             when (group.exerciseType) {
-                                ExerciseType.CARDIO -> CardioSetDetailRow(set = set)
-                                ExerciseType.TIMED -> TimedSetDetailRow(set = set)
+                                ExerciseType.CARDIO -> CardioSetDetailRow(set = set, unitSystem = unitSystem)
+                                ExerciseType.TIMED -> TimedSetDetailRow(set = set, unitSystem = unitSystem)
                                 else -> StrengthSetDetailRow(
                                     set = set,
+                                    unitSystem = unitSystem,
                                     isEditMode = isEditMode,
                                     pendingEdit = pendingEdits[set.id],
                                     onWeightChanged = { w -> onWeightChanged(set.id, w) },
@@ -390,13 +396,14 @@ private fun ExerciseDetailCard(
 @Composable
 private fun StrengthSetDetailRow(
     set: SetDisplayRow,
+    unitSystem: UnitSystem = UnitSystem.METRIC,
     isEditMode: Boolean = false,
     pendingEdit: PendingEdit? = null,
     onWeightChanged: (String) -> Unit = {},
     onRepsChanged: (String) -> Unit = {}
 ) {
     val weightDisplay = pendingEdit?.weight
-        ?: set.weight.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) }
+        ?: UnitConverter.formatWeightRaw(set.weight, unitSystem)
     val repsDisplay = pendingEdit?.reps ?: set.reps.toString()
 
     Column {
@@ -554,10 +561,15 @@ private fun BasicEditField(
 }
 
 @Composable
-private fun CardioSetDetailRow(set: SetDisplayRow) {
+private fun CardioSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = UnitSystem.METRIC) {
+    val distanceDisplay = set.distance?.let {
+        val displayDist = if (unitSystem == UnitSystem.IMPERIAL) UnitConverter.kmToMiles(it) else it
+        if (displayDist == displayDist.toLong().toDouble()) displayDist.toLong().toString() else "%.1f".format(displayDist)
+    } ?: "—"
     val pace = if (set.distance != null && set.distance > 0 && set.timeSeconds != null) {
-        val paceMinPerKm = (set.timeSeconds / 60.0) / set.distance
-        String.format("%.2f", paceMinPerKm)
+        val distKm = set.distance
+        val paceMinPerUnit = (set.timeSeconds / 60.0) / if (unitSystem == UnitSystem.IMPERIAL) UnitConverter.kmToMiles(distKm) else distKm
+        String.format("%.2f", paceMinPerUnit)
     } else {
         "—"
     }
@@ -594,7 +606,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = set.distance?.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) } ?: "—",
+                    text = distanceDisplay,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium
@@ -681,7 +693,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow) {
 }
 
 @Composable
-private fun TimedSetDetailRow(set: SetDisplayRow) {
+private fun TimedSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = UnitSystem.METRIC) {
     val timeFormatted = set.timeSeconds?.let {
         val m = it / 60
         val s = it % 60
@@ -714,7 +726,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = set.weight.let { if (it == it.toLong().toDouble()) it.toLong().toString() else "%.1f".format(it) },
+                    text = UnitConverter.formatWeightRaw(set.weight, unitSystem),
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium

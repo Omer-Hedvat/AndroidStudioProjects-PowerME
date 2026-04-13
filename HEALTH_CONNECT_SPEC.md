@@ -10,15 +10,22 @@ PowerME integrates with Android Health Connect to surface biometric and recovery
 
 ### Declared in `AndroidManifest.xml`
 
-| Permission | Data Type |
-|---|---|
-| `READ_WEIGHT` | Body weight (kg) |
-| `READ_BODY_FAT` | Body fat percentage |
-| `READ_HEIGHT` | Height (cm) |
-| `READ_SLEEP` | Sleep session duration (minutes) |
-| `READ_HEART_RATE_VARIABILITY` | HRV RMSSD (ms) |
-| `READ_RESTING_HEART_RATE` | Resting heart rate (bpm) |
-| `READ_STEPS` | Step count (today) |
+| Permission | Data Type | Required? |
+|---|---|---|
+| `READ_WEIGHT` | Body weight (kg) | Core |
+| `READ_BODY_FAT` | Body fat percentage | Core |
+| `READ_HEIGHT` | Height (cm) | Core |
+| `READ_SLEEP` | Sleep session duration (minutes) | Core |
+| `READ_HEART_RATE_VARIABILITY` | HRV RMSSD (ms) | Core |
+| `READ_RESTING_HEART_RATE` | Resting heart rate (bpm) | Core |
+| `READ_STEPS` | Step count (today) | Core |
+| `READ_BASAL_METABOLIC_RATE` | BMR (kcal/day) — written by Renpho/smart scales | Optional |
+| `READ_BONE_MASS` | Bone mass (kg) — written by Renpho/smart scales | Optional |
+| `READ_LEAN_BODY_MASS` | Lean body mass / fat-free mass (kg) — written by Renpho/smart scales | Optional |
+
+**Core permissions** (7): All must be granted for the Body Vitals card to enter `AVAILABLE_GRANTED` state. `checkPermissionsGranted()` checks only `CORE_PERMISSIONS`.
+
+**Optional permissions** (3): Requested at permission-grant time via `ALL_PERMISSIONS`. If denied, the corresponding tile shows "--" (graceful degradation). No state change.
 
 `READ_EXERCISE` is intentionally omitted from Phase A — no `ExerciseSessionRecord` code exists yet. Add it when Phase B lands.
 
@@ -71,8 +78,11 @@ adb shell cmd health_connect revoke-all-permissions com.powerme.app
 | `HeartRateVariabilityRmssdRecord` | `getHeartRateVariability()` | `Double?` (ms) | Last 30 days |
 | `RestingHeartRateRecord` | `getRestingHeartRate()` | `Int?` (bpm) | Last 30 days |
 | `StepsRecord` | `getSteps()` | `Int?` (count) | Today (midnight to now) |
+| `BasalMetabolicRateRecord` | `getLatestBmr()` | `Double?` (kcal/day) | Last 30 days |
+| `BoneMassRecord` | `getLatestBoneMass()` | `Double?` (kg) | Last 30 days |
+| `LeanBodyMassRecord` | `getLatestLeanBodyMass()` | `Double?` (kg) | Last 30 days |
 
-All reads: most recent record in the window, graceful `null` if not granted or no data.
+All reads: most recent record in the window, graceful `null` if not granted or no data. The last 3 rows require the optional permissions and return `null` when denied.
 
 ---
 
@@ -93,9 +103,9 @@ SettingsScreen / MetricsScreen (Trends tab)
   [Connect button] → PermissionController.createRequestPermissionResultContract()
   [Sync Now button] → SettingsViewModel.syncHealthConnect() OR MetricsViewModel.syncHealthConnect()
     → HealthConnectManager.syncAndRead()
-        readAllData()        → reads all 7 HC data types concurrently, returns HealthConnectReadResult
+        readAllData()        → reads all 10 HC data types concurrently, returns HealthConnectReadResult
         writes HealthConnectSync row to Room (sleep/HRV/RHR/steps + derived flags)
-        MetricLogRepository.upsertTodayIfChanged() → WEIGHT / BODY_FAT / HEIGHT persisted to metric_log
+        MetricLogRepository.upsertTodayIfChanged() → WEIGHT / BODY_FAT / HEIGHT / BMR / BONE_MASS / LEAN_BODY_MASS persisted to metric_log
         UserSessionManager.updateBodyMetricsFromHc() → User entity patched (weightKg/bodyFatPercent/heightCm)
     → caller UiState updated
 ```
@@ -145,17 +155,19 @@ A `BodyVitalsCard` composable renders at the top of `MetricsScreen` (Trends tab)
 | `AVAILABLE_NOT_GRANTED` | HC available but permissions not granted | Label + description + "Connect" button → navigates to Settings |
 | `AVAILABLE_GRANTED` | HC available and all permissions granted | Full metrics grid (see below) |
 
-### Connected state metrics grid (3 rows × 3 columns)
+### Connected state metrics grid (4 rows × 3 columns)
 
 | Row 1 | Age | Weight | BMI |
 | Row 2 | Body Fat % | Height | Steps Today |
 | Row 3 | Sleep | HRV | RHR |
+| Row 4 | Lean Mass | Bone Mass | BMR |
 
 - Each cell: label (10sp, muted), value (15sp semibold), optional sub-line (10sp muted).
-- Weight and Body Fat cells show 7-day trend arrows when delta ≥ 0.05 (upward = TimerRed, downward = TimerGreen).
+- Weight, Body Fat, and Lean Mass cells show 7-day trend arrows when delta ≥ 0.05 (upward = TimerRed, downward = TimerGreen).
 - BMI shows a qualitative label: underweight / healthy / overweight / obese.
 - Sleep formatted as Xh Ym.
 - `"--"` shown for null values.
+- Row 4 tiles show "--" when optional body-composition permissions are denied or no smart-scale data has been synced.
 - Header row: "BODY & VITALS" title + "Last sync: X min ago" (or "No sync yet") + sync icon button (or spinner while `isSyncing`).
 - Error text (MaterialTheme.colorScheme.error) shown below header if `syncError != null`.
 
@@ -177,7 +189,11 @@ data class BodyVitalsState(
     val stepsToday: Int? = null,
     val lastSyncTimestamp: Long? = null,
     val isSyncing: Boolean = false,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val bmrKcal: Double? = null,            // kcal/day (optional, from smart scale)
+    val boneMassKg: Double? = null,         // kg (optional, from smart scale)
+    val leanBodyMassKg: Double? = null,     // kg (optional, from smart scale)
+    val leanBodyMassDelta7d: Double? = null // 7d trend for lean mass
 )
 ```
 

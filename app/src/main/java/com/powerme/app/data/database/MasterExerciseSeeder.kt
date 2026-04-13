@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -135,10 +136,11 @@ class MasterExerciseSeeder @Inject constructor(
                         Log.d(TAG, "Skipping custom exercise: ${existing.name}")
                     }
                     else -> {
-                        // Existing master exercise - update with new data, preserve favorites
+                        // Existing master exercise - update with new data, preserve user-modified fields
                         val updated = masterExercise.copy(
                             id = existing.id,  // Preserve database ID
                             isFavorite = existing.isFavorite,  // Preserve favorite flag
+                            syncId = existing.syncId.ifEmpty { UUID.randomUUID().toString() }, // Preserve syncId (v35)
                             searchName = masterExercise.name.toSearchName()
                         )
                         exerciseDao.updateExercise(updated)

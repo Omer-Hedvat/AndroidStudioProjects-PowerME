@@ -44,9 +44,8 @@ class DefaultGoogleSignInHelper(appContext: Context) : GoogleSignInHelper {
     // CredentialManager is safe to create eagerly — no validation on construction.
     private val credentialManager = CredentialManager.create(appContext)
 
-    // Lazy so that a missing/empty GOOGLE_WEB_CLIENT_ID does NOT crash at app startup.
-    // GetGoogleIdOption.Builder throws IllegalArgumentException if serverClientId is blank;
-    // deferring to first use lets signInWithGoogle() catch it and surface it as a UI error.
+    // Both requests are lazy: Builder throws IllegalArgumentException if serverClientId is blank.
+    // Deferring to first use lets signInWithGoogle() catch it and surface it as a UI error.
     private val request by lazy {
         GetCredentialRequest.Builder()
             .addCredentialOption(
@@ -54,6 +53,16 @@ class DefaultGoogleSignInHelper(appContext: Context) : GoogleSignInHelper {
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
                     .setAutoSelectEnabled(false)
+                    .build()
+            )
+            .build()
+    }
+
+    // Cached fallback for when GetGoogleIdOption finds no credential (emulators, older Play Services).
+    private val fallbackRequest by lazy {
+        GetCredentialRequest.Builder()
+            .addCredentialOption(
+                GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID)
                     .build()
             )
             .build()
@@ -67,12 +76,6 @@ class DefaultGoogleSignInHelper(appContext: Context) : GoogleSignInHelper {
         val response = try {
             credentialManager.getCredential(activityContext, request)
         } catch (e: NoCredentialException) {
-            val fallbackRequest = GetCredentialRequest.Builder()
-                .addCredentialOption(
-                    GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID)
-                        .build()
-                )
-                .build()
             credentialManager.getCredential(activityContext, fallbackRequest)
         }
         val idToken = GoogleIdTokenCredential.createFrom(response.credential.data).idToken

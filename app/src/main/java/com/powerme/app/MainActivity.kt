@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setContent {
-            val themeMode by appSettingsDataStore.themeMode.collectAsState(initial = ThemeMode.LIGHT)
+            val themeMode by appSettingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
             val keepScreenOn by appSettingsDataStore.keepScreenOn.collectAsState(initial = true)
             val systemDark = isSystemInDarkTheme()
             val isDark = when (themeMode) {

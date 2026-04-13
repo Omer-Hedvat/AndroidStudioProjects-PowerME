@@ -1,5 +1,20 @@
 # PowerME Database Upgrade Log
 
+## v34 — Date of Birth
+
+**Migration:** `MIGRATION_33_34`
+
+### Changes
+
+Schema change on `users` table:
+- `ALTER TABLE users ADD COLUMN dateOfBirth INTEGER DEFAULT NULL` — epoch-millis timestamp for date of birth
+- Legacy `age INTEGER` column preserved for backward compatibility (existing rows keep their integer age as a fallback)
+- `User.ageYears: Int?` extension property computes age from `dateOfBirth` if set, otherwise falls back to `age`
+- `WarmupService` and `MetricsViewModel` updated to use `ageYears`
+- `ProfileSetupScreen` now uses M3 `DatePickerDialog` for DOB input instead of a numeric age field
+
+---
+
 ## v33 — Equipment Type Consolidation
 
 **Migration:** `MIGRATION_32_33`

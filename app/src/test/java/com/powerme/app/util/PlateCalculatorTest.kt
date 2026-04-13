@@ -1,5 +1,6 @@
 package com.powerme.app.util
 
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.BarType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -143,5 +144,62 @@ class PlateCalculatorTest {
             totalWeight = 25.0
         )
         assertEquals("1x2.5kg", PlateCalculator.formatPlateBreakdown(breakdown))
+    }
+
+    // --- Imperial unit system ---
+
+    @Test
+    fun calculatePlates_imperial_standardBar_225lbs() {
+        // STANDARD bar = 45 lbs (imperial); total=225 → perSide=90; plates=[45] → 2x45
+        val result = PlateCalculator.calculatePlates(
+            totalWeight = 225.0,
+            barType = BarType.STANDARD,
+            availablePlates = listOf(45.0, 35.0, 25.0, 10.0, 5.0, 2.5),
+            unitSystem = UnitSystem.IMPERIAL
+        )
+        assertNotNull(result)
+        assertEquals(225.0, result!!.totalWeight, 0.001)
+        assertEquals(0.0, result.error, 0.001)
+        assertEquals(2, result.platesPerSide.count { it == 45.0 })
+    }
+
+    @Test
+    fun calculatePlates_imperial_exactBarWeight_returnsBarOnly() {
+        val result = PlateCalculator.calculatePlates(
+            totalWeight = 45.0,
+            barType = BarType.STANDARD,
+            availablePlates = listOf(45.0, 25.0, 10.0, 5.0, 2.5),
+            unitSystem = UnitSystem.IMPERIAL
+        )
+        assertNotNull(result)
+        assertTrue(result!!.platesPerSide.isEmpty())
+        assertEquals(45.0, result.totalWeight, 0.001)
+    }
+
+    @Test
+    fun formatPlateBreakdown_imperial_usesPoundsLabel() {
+        val breakdown = PlateCalculator.PlateBreakdown(
+            platesPerSide = listOf(45.0, 45.0, 10.0),
+            weightPerSide = 100.0,
+            totalWeight = 245.0
+        )
+        val result = PlateCalculator.formatPlateBreakdown(breakdown, UnitSystem.IMPERIAL)
+        assertTrue("Expected 'lbs' label: $result", result.contains("lbs"))
+        assertEquals("2x45lbs + 1x10lbs", result)
+    }
+
+    @Test
+    fun barType_imperialWeights_areGymStandard() {
+        assertEquals(45.0, BarType.STANDARD.weightLbs, 0.0)
+        assertEquals(35.0, BarType.WOMENS.weightLbs, 0.0)
+        assertEquals(15.0, BarType.EZ_CURL.weightLbs, 0.0)
+        assertEquals(55.0, BarType.TRAP_BAR.weightLbs, 0.0)
+        assertEquals(65.0, BarType.SAFETY_SQUAT.weightLbs, 0.0)
+    }
+
+    @Test
+    fun barType_displayWeight_returnKgForMetric_lbsForImperial() {
+        assertEquals(20.0, BarType.STANDARD.displayWeight(UnitSystem.METRIC), 0.0)
+        assertEquals(45.0, BarType.STANDARD.displayWeight(UnitSystem.IMPERIAL), 0.0)
     }
 }

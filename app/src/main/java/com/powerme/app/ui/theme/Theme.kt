@@ -50,7 +50,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun PowerMETheme(themeMode: ThemeMode = ThemeMode.LIGHT, content: @Composable () -> Unit) {
+fun PowerMETheme(themeMode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
     val isDark = when (themeMode) {
         ThemeMode.LIGHT  -> false
         ThemeMode.DARK   -> true

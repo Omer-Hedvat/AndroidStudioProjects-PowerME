@@ -1,9 +1,11 @@
 package com.powerme.app.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 @Entity(
     tableName = "warmup_log",
@@ -25,5 +27,7 @@ data class WarmupLog(
     val timestamp: Long,
     val targetJoint: TargetJoint,
     val durationSeconds: Int? = null,
-    val reps: Int? = null
+    val reps: Int? = null,
+    @ColumnInfo(defaultValue = "")
+    val syncId: String = UUID.randomUUID().toString() // Stable cross-device identity for Firestore (v35)
 )

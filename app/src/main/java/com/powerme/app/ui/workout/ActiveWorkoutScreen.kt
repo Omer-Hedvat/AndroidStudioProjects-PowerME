@@ -43,11 +43,13 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
 import com.powerme.app.ui.components.MagicAddDialog
 import com.powerme.app.ui.components.WorkoutInputField
+import com.powerme.app.util.UnitConverter
 import com.powerme.app.ui.theme.*
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
@@ -105,6 +107,7 @@ fun ActiveWorkoutScreen(
     val workoutState by viewModel.workoutState.collectAsState()
     val medicalDoc by viewModel.medicalDoc.collectAsState()
     val clocksTimerState by viewModel.clocksTimerState.collectAsState()
+    val unitSystem by viewModel.unitSystem.collectAsState()
     var showExerciseDialog by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
     var showDiscardEditDialog by remember { mutableStateOf(false) }
@@ -166,6 +169,7 @@ fun ActiveWorkoutScreen(
     workoutState.pendingWorkoutSummary?.let { summary ->
         PostWorkoutSummarySheet(
             summary = summary,
+            unitSystem = unitSystem,
             onSaveAsRoutine = { routineName -> viewModel.saveWorkoutAsRoutine(routineName) },
             onDone = {
                 viewModel.dismissWorkoutSummary()
@@ -332,7 +336,8 @@ fun ActiveWorkoutScreen(
                         onTimerActiveClick = { showTimerControls = true },
                         onCancelWorkout = { showCancelDialog = true },
                         isEditMode = workoutState.isEditMode,
-                        reorderableLazyListState = reorderableLazyListState
+                        reorderableLazyListState = reorderableLazyListState,
+                        unitSystem = unitSystem
                     )
                 }
             }
@@ -380,7 +385,8 @@ private fun LazyListScope.activeWorkoutListItems(
     onTimerActiveClick: () -> Unit,
     onCancelWorkout: () -> Unit,
     isEditMode: Boolean = false,
-    reorderableLazyListState: sh.calvin.reorderable.ReorderableLazyListState? = null
+    reorderableLazyListState: sh.calvin.reorderable.ReorderableLazyListState? = null,
+    unitSystem: UnitSystem = UnitSystem.METRIC
 ) {
     // Warmup section
     if (!workoutState.warmupCompleted && workoutState.exercises.isEmpty()) {
@@ -524,6 +530,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     activeTimerSetOrder = activeTimerSetOrder,
                     activeTimerRemainingSeconds = activeTimerRemainingSeconds,
                     activeTimerTotalSeconds = activeTimerTotalSeconds,
+                    unitSystem = unitSystem,
                     restTimeOverrides = workoutState.restTimeOverrides,
                     hiddenRestSeparators = workoutState.hiddenRestSeparators,
                     isEditMode = isEditMode,
@@ -566,6 +573,7 @@ private fun LazyListScope.activeWorkoutListItems(
                 activeTimerSetOrder = activeTimerSetOrder,
                 activeTimerRemainingSeconds = activeTimerRemainingSeconds,
                 activeTimerTotalSeconds = activeTimerTotalSeconds,
+                unitSystem = unitSystem,
                 restTimeOverrides = workoutState.restTimeOverrides,
                 hiddenRestSeparators = workoutState.hiddenRestSeparators,
                 isEditMode = isEditMode,
@@ -660,6 +668,7 @@ private fun ExerciseCard(
     activeTimerSetOrder: Int?,
     activeTimerRemainingSeconds: Int,
     activeTimerTotalSeconds: Int,
+    unitSystem: UnitSystem = UnitSystem.METRIC,
     onToggleSelect: () -> Unit,
     onAddSet: () -> Unit,
     onDeleteSet: (Int) -> Unit,
@@ -814,7 +823,7 @@ private fun ExerciseCard(
                     Column {
                         // Set headers
                         when (exerciseWithSets.exercise.exerciseType) {
-                            ExerciseType.CARDIO -> CardioHeader()
+                            ExerciseType.CARDIO -> CardioHeader(unitSystem = unitSystem)
                             ExerciseType.TIMED -> TimedHeader()
                             else -> StrengthHeader(isEditMode = isEditMode)
                         }
@@ -1705,10 +1714,10 @@ fun WorkoutSetRow(
 }
 
 @Composable
-private fun CardioHeader() {
+private fun CardioHeader(unitSystem: UnitSystem = UnitSystem.METRIC) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text("SET", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.10f))
-        Text("DIST(KM)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
+        Text("DIST(${UnitConverter.distanceLabel(unitSystem).uppercase()})", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
         Text("TIME(S)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
         Text("PACE", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.20f))
         Text("RPE", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.10f))
@@ -1917,6 +1926,7 @@ fun RpePickerSheet(
 @Composable
 fun PostWorkoutSummarySheet(
     summary: WorkoutSummary,
+    unitSystem: UnitSystem = UnitSystem.METRIC,
     onSaveAsRoutine: (String) -> Unit,
     onDone: () -> Unit,
     onDismiss: () -> Unit,
@@ -1964,7 +1974,7 @@ fun PostWorkoutSummarySheet(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                     Text(
-                        text = "%.1f kg total".format(summary.totalVolume),
+                        text = UnitConverter.formatWeight(summary.totalVolume, unitSystem) + " total",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )

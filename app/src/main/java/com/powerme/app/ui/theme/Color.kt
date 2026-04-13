@@ -26,6 +26,9 @@ val NeonPurple  = Color(0xFFBB86FC)   // Bright neon purple — active rest time
 // ── Semantic color for Form Cues banner ───────────────────────────────────────
 val FormCuesGold = Color(0xFF5A4D1A)   // Muted gold — not representable by M3 token
 
+// ── Readiness gauge ──────────────────────────────────────────────────────────
+val ReadinessAmber = Color(0xFFFFB74D)  // Moderate readiness tier — warm amber
+
 // ── Light mode tokens ─────────────────────────────────────────────────────────
 val Slate50   = Color(0xFFF8FAFC)
 val Slate100  = Color(0xFFF1F5F9)

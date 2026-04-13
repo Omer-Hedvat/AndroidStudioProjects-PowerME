@@ -1,11 +1,14 @@
 package com.powerme.app.ui.metrics
 
 import com.powerme.app.analytics.WeeklyInsights
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.HealthConnectSync
 import com.powerme.app.data.database.HealthConnectSyncDao
 import com.powerme.app.data.database.MetricLog
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.database.User
+import com.powerme.app.data.database.ageYears
 import com.powerme.app.data.repository.AnalyticsRepository
 import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.health.HealthConnectManager
@@ -39,6 +42,7 @@ class MetricsViewModelBodyVitalsTest {
     private lateinit var mockHealthConnectManager: HealthConnectManager
     private lateinit var mockUserSessionManager: UserSessionManager
     private lateinit var mockHealthConnectSyncDao: HealthConnectSyncDao
+    private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
 
     private val sampleUser = User(
         email = "test@example.com",
@@ -65,6 +69,9 @@ class MetricsViewModelBodyVitalsTest {
         hrv = 48.0,
         rhr = 58,
         steps = 7842,
+        bmr = 1680.0,
+        boneMassKg = 3.2,
+        leanBodyMassKg = 62.5,
         lastSyncTimestamp = System.currentTimeMillis()
     )
 
@@ -77,10 +84,17 @@ class MetricsViewModelBodyVitalsTest {
         mockHealthConnectManager = mock()
         mockUserSessionManager = mock()
         mockHealthConnectSyncDao = mock()
+        mockAppSettingsDataStore = mock()
+        whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
 
         whenever(mockMetricLogRepository.getByType(MetricType.WEIGHT)).thenReturn(flowOf(emptyList()))
         whenever(mockMetricLogRepository.getByType(MetricType.BODY_FAT)).thenReturn(flowOf(emptyList()))
         whenever(mockMetricLogRepository.getByType(MetricType.HEIGHT)).thenReturn(flowOf(emptyList()))
+        whenever(mockMetricLogRepository.getByType(MetricType.LEAN_BODY_MASS)).thenReturn(flowOf(emptyList()))
+        runBlocking {
+            whenever(mockMetricLogRepository.getLatestForType(MetricType.BMR)).thenReturn(null)
+            whenever(mockMetricLogRepository.getLatestForType(MetricType.BONE_MASS)).thenReturn(null)
+        }
 
         runBlocking {
             whenever(mockAnalyticsRepository.generateWeeklyInsights()).thenReturn(
@@ -108,7 +122,8 @@ class MetricsViewModelBodyVitalsTest {
         metricLogRepository = mockMetricLogRepository,
         healthConnectManager = mockHealthConnectManager,
         userSessionManager = mockUserSessionManager,
-        healthConnectSyncDao = mockHealthConnectSyncDao
+        healthConnectSyncDao = mockHealthConnectSyncDao,
+        appSettingsDataStore = mockAppSettingsDataStore
     )
 
     // ── HC unavailable ────────────────────────────────────────────────────────
@@ -288,5 +303,52 @@ class MetricsViewModelBodyVitalsTest {
         assertFalse(vm.uiState.value.bodyVitals.isSyncing)
         assertNotNull(vm.uiState.value.bodyVitals.syncError)
         assertTrue(vm.uiState.value.bodyVitals.syncError!!.contains("network error"))
+    }
+
+    // ── Renpho body composition (BMR, bone mass, lean body mass) ──────────────
+
+    @Test
+    fun `BMR and bone mass populated from metric_log when available`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockUserSessionManager.getCurrentUser()).thenReturn(sampleUser)
+            whenever(mockHealthConnectSyncDao.getLatestSync()).thenReturn(sampleSync)
+            whenever(mockMetricLogRepository.getLatestForType(MetricType.BMR))
+                .thenReturn(MetricLog(type = MetricType.BMR, value = 1680.0))
+            whenever(mockMetricLogRepository.getLatestForType(MetricType.BONE_MASS))
+                .thenReturn(MetricLog(type = MetricType.BONE_MASS, value = 3.2))
+        }
+
+        val vm = buildViewModel()
+        runCurrent()
+
+        val vitals = vm.uiState.value.bodyVitals
+        assertEquals(1680.0, vitals.bmrKcal!!, 0.001)
+        assertEquals(3.2, vitals.boneMassKg!!, 0.001)
+    }
+
+    @Test
+    fun `lean body mass 7d delta computed correctly`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockUserSessionManager.getCurrentUser()).thenReturn(sampleUser)
+            whenever(mockHealthConnectSyncDao.getLatestSync()).thenReturn(sampleSync)
+        }
+        val sevenDaysAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+        whenever(mockMetricLogRepository.getByType(MetricType.LEAN_BODY_MASS)).thenReturn(
+            flowOf(listOf(
+                MetricLog(id = 1, timestamp = sevenDaysAgo - 1_000, type = MetricType.LEAN_BODY_MASS, value = 61.0),
+                MetricLog(id = 2, timestamp = System.currentTimeMillis() - 1_000, type = MetricType.LEAN_BODY_MASS, value = 62.5)
+            ))
+        )
+
+        val vm = buildViewModel()
+        runCurrent()
+
+        val delta = vm.uiState.value.bodyVitals.leanBodyMassDelta7d
+        assertNotNull(delta)
+        assertEquals(1.5, delta!!, 0.01)
     }
 }

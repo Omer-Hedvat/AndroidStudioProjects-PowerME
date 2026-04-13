@@ -2,6 +2,7 @@ package com.powerme.app.warmup
 
 import com.powerme.app.data.database.TargetJoint
 import com.powerme.app.data.database.WarmupLog
+import com.powerme.app.data.database.ageYears
 import com.powerme.app.util.ModelRouter
 import com.powerme.app.util.SecurePreferencesManager
 import com.powerme.app.util.UserSessionManager
@@ -58,7 +59,7 @@ class WarmupService @Inject constructor(
 You are Noa (Physiotherapist) and Coach Carter working together to prescribe a personalized warmup routine.
 
 USER PROFILE:
-- Age: ${user?.age ?: "unknown"}
+- Age: ${user?.ageYears ?: "unknown"}
 - Injuries: ${injuryProfile.joinToString(", ")}
 
 CURRENT SESSION:

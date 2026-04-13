@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 /**
  * Normalized multi-muscle-group mapping for exercises (v24).
@@ -34,5 +35,7 @@ data class ExerciseMuscleGroup(
     val majorGroup: String,
     val subGroup: String? = null,
     @ColumnInfo(defaultValue = "0")
-    val isPrimary: Boolean = false
+    val isPrimary: Boolean = false,
+    @ColumnInfo(defaultValue = "")
+    val syncId: String = UUID.randomUUID().toString() // Stable cross-device identity for Firestore (v35)
 )

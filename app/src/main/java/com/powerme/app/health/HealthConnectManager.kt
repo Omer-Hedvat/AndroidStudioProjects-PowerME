@@ -3,9 +3,12 @@ package com.powerme.app.health
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BoneMassRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -39,6 +42,9 @@ data class HealthConnectReadResult(
     val hrv: Double?,
     val rhr: Int?,
     val steps: Int?,
+    val bmr: Double? = null,            // kcal/day
+    val boneMassKg: Double? = null,     // kg
+    val leanBodyMassKg: Double? = null, // kg
     val lastSyncTimestamp: Long?
 )
 
@@ -54,7 +60,8 @@ class HealthConnectManager @Inject constructor(
 ) {
 
     companion object {
-        val ALL_PERMISSIONS: Set<String> = setOf(
+        // Core permissions — all 7 must be granted for the card to show "connected" state.
+        val CORE_PERMISSIONS: Set<String> = setOf(
             HealthPermission.getReadPermission(WeightRecord::class),
             HealthPermission.getReadPermission(BodyFatRecord::class),
             HealthPermission.getReadPermission(HeightRecord::class),
@@ -63,6 +70,15 @@ class HealthConnectManager @Inject constructor(
             HealthPermission.getReadPermission(RestingHeartRateRecord::class),
             HealthPermission.getReadPermission(StepsRecord::class),
         )
+        // Optional body-composition permissions from smart scales (e.g. Renpho).
+        // Graceful degradation: tiles show "--" when these are denied.
+        val BODY_COMPOSITION_PERMISSIONS: Set<String> = setOf(
+            HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
+            HealthPermission.getReadPermission(BoneMassRecord::class),
+            HealthPermission.getReadPermission(LeanBodyMassRecord::class),
+        )
+        // Full set requested at permission-grant time.
+        val ALL_PERMISSIONS: Set<String> = CORE_PERMISSIONS + BODY_COMPOSITION_PERMISSIONS
     }
 
     /**
@@ -81,17 +97,42 @@ class HealthConnectManager @Inject constructor(
     }
 
     /**
-     * Returns true if all 7 required READ permissions are granted.
+     * Returns true if all 7 core READ permissions are granted.
+     * The 3 optional body-composition permissions (BMR, bone mass, lean body mass)
+     * are requested but not required — their tiles show "--" when denied.
      */
     suspend fun checkPermissionsGranted(): Boolean = withContext(Dispatchers.IO) {
         try {
             if (!isAvailable()) return@withContext false
             val client = HealthConnectClient.getOrCreate(context)
             val granted = client.permissionController.getGrantedPermissions()
-            ALL_PERMISSIONS.all { it in granted }
+            CORE_PERMISSIONS.all { it in granted }
         } catch (e: Exception) {
             android.util.Log.w("PowerME_HC", "checkPermissionsGranted failed", e)
             false
+        }
+    }
+
+    /**
+     * Reads the most recent record of type [T] in the last [days] days and extracts a value.
+     * HC returns records in ascending time order, so [lastOrNull] gives the most recent.
+     * Returns null if unavailable, not granted, or no data in the window.
+     */
+    private suspend fun <T : Record> readLatestBodyRecord(
+        recordClass: KClass<T>,
+        days: Int = 30,
+        extractor: (T) -> Double?
+    ): Double? = withContext(Dispatchers.IO) {
+        try {
+            if (!isAvailable()) return@withContext null
+            val client = HealthConnectClient.getOrCreate(context)
+            if (!hasPermission(client, recordClass)) return@withContext null
+            val end = Instant.now()
+            val start = end.minus(days.toLong(), ChronoUnit.DAYS)
+            val response = client.readRecords(ReadRecordsRequest(recordClass, TimeRangeFilter.between(start, end)))
+            response.records.lastOrNull()?.let(extractor)
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -107,10 +148,7 @@ class HealthConnectManager @Inject constructor(
             val end = Instant.now()
             val start = end.minus(30, ChronoUnit.DAYS)
             val response = client.readRecords(
-                ReadRecordsRequest(
-                    WeightRecord::class,
-                    TimeRangeFilter.between(start, end)
-                )
+                ReadRecordsRequest(WeightRecord::class, TimeRangeFilter.between(start, end))
             )
             response.records.maxByOrNull { it.time }?.weight?.inKilograms
         } catch (e: Exception) {
@@ -130,10 +168,7 @@ class HealthConnectManager @Inject constructor(
             val end = Instant.now()
             val start = end.minus(365, ChronoUnit.DAYS)
             val response = client.readRecords(
-                ReadRecordsRequest(
-                    HeightRecord::class,
-                    TimeRangeFilter.between(start, end)
-                )
+                ReadRecordsRequest(HeightRecord::class, TimeRangeFilter.between(start, end))
             )
             response.records.maxByOrNull { it.time }?.height?.inMeters?.times(100)?.toFloat()
         } catch (e: Exception) {
@@ -153,16 +188,22 @@ class HealthConnectManager @Inject constructor(
             val end = Instant.now()
             val start = end.minus(30, ChronoUnit.DAYS)
             val response = client.readRecords(
-                ReadRecordsRequest(
-                    BodyFatRecord::class,
-                    TimeRangeFilter.between(start, end)
-                )
+                ReadRecordsRequest(BodyFatRecord::class, TimeRangeFilter.between(start, end))
             )
             response.records.maxByOrNull { it.time }?.percentage?.value
         } catch (e: Exception) {
             null
         }
     }
+
+    suspend fun getLatestBmr(): Double? =
+        readLatestBodyRecord(BasalMetabolicRateRecord::class) { it.basalMetabolicRate.inKilocaloriesPerDay }
+
+    suspend fun getLatestBoneMass(): Double? =
+        readLatestBodyRecord(BoneMassRecord::class) { it.mass.inKilograms }
+
+    suspend fun getLatestLeanBodyMass(): Double? =
+        readLatestBodyRecord(LeanBodyMassRecord::class) { it.mass.inKilograms }
 
     /**
      * Sync health data from Health Connect.
@@ -207,7 +248,7 @@ class HealthConnectManager @Inject constructor(
     }
 
     /**
-     * Reads all 7 data types concurrently and returns the result.
+     * Reads all 10 data types concurrently and returns the result.
      * Does NOT write to Room — use syncAndRead() for a full sync + read.
      */
     suspend fun readAllData(): HealthConnectReadResult = coroutineScope {
@@ -218,6 +259,9 @@ class HealthConnectManager @Inject constructor(
         val hrv = async { getHeartRateVariability() }
         val rhr = async { getRestingHeartRate() }
         val steps = async { getSteps() }
+        val bmr = async { getLatestBmr() }
+        val boneMass = async { getLatestBoneMass() }
+        val leanBodyMass = async { getLatestLeanBodyMass() }
         val lastSync = async { healthConnectSyncDao.getLatestSync()?.syncTimestamp }
         HealthConnectReadResult(
             weight = weight.await(),
@@ -227,12 +271,15 @@ class HealthConnectManager @Inject constructor(
             hrv = hrv.await(),
             rhr = rhr.await(),
             steps = steps.await(),
+            bmr = bmr.await(),
+            boneMassKg = boneMass.await(),
+            leanBodyMassKg = leanBodyMass.await(),
             lastSyncTimestamp = lastSync.await()
         )
     }
 
     /**
-     * Full sync: reads all 7 data types once (in parallel), writes the daily Room record,
+     * Full sync: reads all 10 data types once (in parallel), writes the daily Room record,
      * and returns the result. Sleep/HRV/RHR/steps are queried only once total.
      */
     suspend fun syncAndRead(): HealthConnectReadResult {
@@ -261,6 +308,9 @@ class HealthConnectManager @Inject constructor(
                 result.weight?.let { metricLogRepository.upsertTodayIfChanged(MetricType.WEIGHT, it) }
                 result.bodyFat?.let { metricLogRepository.upsertTodayIfChanged(MetricType.BODY_FAT, it) }
                 result.height?.let { metricLogRepository.upsertTodayIfChanged(MetricType.HEIGHT, it.toDouble()) }
+                result.bmr?.let { metricLogRepository.upsertTodayIfChanged(MetricType.BMR, it) }
+                result.boneMassKg?.let { metricLogRepository.upsertTodayIfChanged(MetricType.BONE_MASS, it) }
+                result.leanBodyMassKg?.let { metricLogRepository.upsertTodayIfChanged(MetricType.LEAN_BODY_MASS, it) }
                 userSessionManager.updateBodyMetricsFromHc(
                     weightKg = result.weight,
                     bodyFatPercent = result.bodyFat,

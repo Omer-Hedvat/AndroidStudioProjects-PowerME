@@ -41,6 +41,9 @@ fun WelcomeScreen(
     LaunchedEffect(uiState.needsProfileSetup) {
         if (uiState.needsProfileSetup) onNeedsProfile()
     }
+    LaunchedEffect(uiState.pendingLinkEmail) {
+        if (uiState.pendingLinkEmail == null) linkPassword = ""
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -66,7 +69,6 @@ fun WelcomeScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             if (uiState.pendingLinkEmail != null) {
-                val linkEmail = uiState.pendingLinkEmail
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     modifier = Modifier.fillMaxWidth()
@@ -80,7 +82,7 @@ fun WelcomeScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "$linkEmail already uses email/password sign-in. Enter your password to link Google to the same account.",
+                            "${uiState.pendingLinkEmail} already uses email/password sign-in. Enter your password to link Google to the same account.",
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                         )
@@ -120,7 +122,7 @@ fun WelcomeScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         TextButton(
-                            onClick = { linkPassword = ""; viewModel.dismissLinkPrompt() },
+                            onClick = { viewModel.dismissLinkPrompt() },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Cancel", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))

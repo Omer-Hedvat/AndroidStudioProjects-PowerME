@@ -1,5 +1,7 @@
 package com.powerme.app.ui.history
 
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.WorkoutExerciseNameRow
 import com.powerme.app.data.repository.WorkoutRepository
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +36,7 @@ class HistoryViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var workoutRepository: WorkoutRepository
+    private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
 
     // Helper to build a WorkoutExerciseNameRow with sensible defaults.
     private fun makeRow(
@@ -65,6 +68,8 @@ class HistoryViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         workoutRepository = mock()
+        mockAppSettingsDataStore = mock()
+        whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
     }
 
     @After
@@ -85,7 +90,7 @@ class HistoryViewModelTest {
             whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames())
                 .thenReturn(flowOf(rows))
 
-            val viewModel = HistoryViewModel(workoutRepository)
+            val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
 
             val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
             val job = launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -119,7 +124,7 @@ class HistoryViewModelTest {
             whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames())
                 .thenReturn(flowOf(rows))
 
-            val viewModel = HistoryViewModel(workoutRepository)
+            val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
 
             val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
             val job = launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -152,7 +157,7 @@ class HistoryViewModelTest {
         whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames())
             .thenReturn(flowOf(rows))
 
-        val viewModel = HistoryViewModel(workoutRepository)
+        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
 
         val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -181,7 +186,7 @@ class HistoryViewModelTest {
             whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames())
                 .thenReturn(flowOf(rows))
 
-            val viewModel = HistoryViewModel(workoutRepository)
+            val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
 
             val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
             val job = launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -207,7 +212,7 @@ class HistoryViewModelTest {
     fun `hasPR true when row hasPR is 1`() = runTest(testDispatcher) {
         val rows = listOf(makeRow(id = 1L, exerciseName = "Squat", hasPR = 1))
         whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository)
+        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
         val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
         advanceUntilIdle()
@@ -220,7 +225,7 @@ class HistoryViewModelTest {
     fun `hasPR false when row hasPR is 0`() = runTest(testDispatcher) {
         val rows = listOf(makeRow(id = 1L, exerciseName = "Squat", hasPR = 0))
         whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository)
+        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
         val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
         advanceUntilIdle()
@@ -237,7 +242,7 @@ class HistoryViewModelTest {
             makeRow(id = 1L, exerciseName = "Bench Press", hasPR = 0)
         )
         whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository)
+        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
         val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
         advanceUntilIdle()
@@ -254,7 +259,7 @@ class HistoryViewModelTest {
             makeRow(id = 1L, exerciseName = "Bench Press", hasPR = 0)
         )
         whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository)
+        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
         val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
         advanceUntilIdle()
@@ -267,7 +272,7 @@ class HistoryViewModelTest {
     fun `hasPR defaults to false when not provided`() = runTest(testDispatcher) {
         val rows = listOf(makeRow(id = 1L, exerciseName = "Deadlift"))
         whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository)
+        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
         val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
         advanceUntilIdle()
@@ -287,7 +292,7 @@ class HistoryViewModelTest {
         whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames())
             .thenReturn(flowOf(rows))
 
-        val viewModel = HistoryViewModel(workoutRepository)
+        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
 
         val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -319,7 +324,7 @@ class HistoryViewModelTest {
         )
         whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
 
-        val viewModel = HistoryViewModel(workoutRepository)
+        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
         val results = mutableListOf<List<HistoryGroup>>()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.groups.collect { results.add(it) }

@@ -446,6 +446,73 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_33_34 = object : Migration(33, 34) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add dateOfBirth column (epoch millis). The legacy `age` column is preserved
+            // for backward compat — existing rows keep their integer age as a fallback.
+            db.execSQL("ALTER TABLE users ADD COLUMN dateOfBirth INTEGER DEFAULT NULL")
+        }
+    }
+
+    // UUID v4 generator expression for SQLite backfill
+    private val sqlUuid = """
+        lower(hex(randomblob(4))) || '-' ||
+        lower(hex(randomblob(2))) || '-4' ||
+        substr(lower(hex(randomblob(2))),2) || '-' ||
+        substr('89ab', abs(random()) % 4 + 1, 1) ||
+        substr(lower(hex(randomblob(2))),2) || '-' ||
+        lower(hex(randomblob(6)))
+    """.trimIndent()
+
+    private val MIGRATION_34_35 = object : Migration(34, 35) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // exercises: syncId (cloud identity) + updatedAt (LWW conflict resolution)
+            db.execSQL("ALTER TABLE exercises ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE exercises ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("UPDATE exercises SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // exercise_muscle_groups: syncId only
+            db.execSQL("ALTER TABLE exercise_muscle_groups ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("UPDATE exercise_muscle_groups SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // medical_ledger: syncId + updatedAt
+            db.execSQL("ALTER TABLE medical_ledger ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE medical_ledger ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("UPDATE medical_ledger SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // metric_log: syncId only
+            db.execSQL("ALTER TABLE metric_log ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("UPDATE metric_log SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // user_settings: updatedAt only (singleton — no cross-device identity needed)
+            db.execSQL("ALTER TABLE user_settings ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+
+            // gym_profiles: syncId + updatedAt
+            db.execSQL("ALTER TABLE gym_profiles ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE gym_profiles ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("UPDATE gym_profiles SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // warmup_log: syncId only
+            db.execSQL("ALTER TABLE warmup_log ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("UPDATE warmup_log SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // chat_messages: syncId only
+            db.execSQL("ALTER TABLE chat_messages ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("UPDATE chat_messages SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // warmup_library: syncId only
+            db.execSQL("ALTER TABLE warmup_library ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("UPDATE warmup_library SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // state_history: syncId only
+            db.execSQL("ALTER TABLE state_history ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("UPDATE state_history SET syncId = $sqlUuid WHERE syncId = ''")
+
+            // users: updatedAt only (PK is email — already a stable cross-device identity)
+            db.execSQL("ALTER TABLE users ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     private val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix index name mismatch on exercise_muscle_groups:
@@ -793,7 +860,9 @@ object DatabaseModule {
                 MIGRATION_29_30,
                 MIGRATION_30_31,
                 MIGRATION_31_32,
-                MIGRATION_32_33
+                MIGRATION_32_33,
+                MIGRATION_33_34,
+                MIGRATION_34_35
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -990,4 +1059,8 @@ object DatabaseModule {
         @ApplicationContext context: Context
     ): com.powerme.app.ui.auth.GoogleSignInHelper =
         com.powerme.app.ui.auth.DefaultGoogleSignInHelper(context)
+
+    @Provides
+    @Singleton
+    fun provideTrendsDao(database: PowerMeDatabase): TrendsDao = database.trendsDao()
 }

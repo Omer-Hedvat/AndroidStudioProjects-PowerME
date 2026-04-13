@@ -1,10 +1,12 @@
 package com.powerme.app.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
-enum class MetricType { WEIGHT, BODY_FAT, CALORIES, HEIGHT }
+enum class MetricType { WEIGHT, BODY_FAT, CALORIES, HEIGHT, BMR, BONE_MASS, LEAN_BODY_MASS }
 
 @Entity(
     tableName = "metric_log",
@@ -14,5 +16,7 @@ data class MetricLog(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
     val type: MetricType,
-    val value: Double    // kg for weight, % for body fat, kcal for calories
+    val value: Double,    // kg for weight, % for body fat, kcal for calories
+    @ColumnInfo(defaultValue = "")
+    val syncId: String = UUID.randomUUID().toString() // Stable cross-device identity for Firestore (v35)
 )

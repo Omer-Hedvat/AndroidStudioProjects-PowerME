@@ -24,13 +24,18 @@ import com.powerme.app.analytics.VolumeLoadAnomaly
 import com.powerme.app.analytics.WeeklyInsights
 import java.text.SimpleDateFormat
 import java.util.*
+import com.powerme.app.analytics.ReadinessEngine
 
 @Composable
 fun MetricsScreen(
     onNavigateToSettings: () -> Unit = {},
-    viewModel: MetricsViewModel = hiltViewModel()
+    viewModel: MetricsViewModel = hiltViewModel(),
+    trendsViewModel: TrendsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val unitSystem by viewModel.unitSystem.collectAsState()
+    val readinessScore by trendsViewModel.readinessScore.collectAsState()
+    val readinessSubMetrics by trendsViewModel.readinessSubMetrics.collectAsState()
 
     // Re-check HC permissions every time the tab becomes visible.
     // Needed because saveState/restoreState keeps the ViewModel alive across tab switches,
@@ -56,7 +61,18 @@ fun MetricsScreen(
             BodyVitalsCard(
                 state = uiState.bodyVitals,
                 onSyncClick = { viewModel.syncHealthConnect() },
-                onConnectClick = onNavigateToSettings
+                onConnectClick = onNavigateToSettings,
+                unitSystem = unitSystem
+            )
+        }
+
+        // ── Readiness Gauge ────────────────────────────
+        item {
+            ReadinessGaugeCard(
+                readinessScore = readinessScore,
+                hrvDelta = readinessSubMetrics.hrvDelta,
+                rhrDelta = readinessSubMetrics.rhrDelta,
+                sleepMinutes = readinessSubMetrics.sleepMinutes
             )
         }
 

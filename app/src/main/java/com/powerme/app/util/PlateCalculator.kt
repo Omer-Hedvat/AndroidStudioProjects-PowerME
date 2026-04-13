@@ -1,12 +1,20 @@
 package com.powerme.app.util
 
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.BarType
 
 /**
  * Utility for calculating plate combinations needed for barbell exercises.
  * Uses greedy algorithm to find optimal plate breakdown.
+ *
+ * All inputs are in the user's display unit (kg for METRIC, lbs for IMPERIAL).
+ * Callers must pass appropriate bar weights and plate values for the active unit system.
  */
 object PlateCalculator {
+
+    /** Default plate sets for each unit system. */
+    val METRIC_DEFAULT_PLATES = listOf(25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25, 0.5)
+    val IMPERIAL_DEFAULT_PLATES = listOf(45.0, 35.0, 25.0, 10.0, 5.0, 2.5)
 
     data class PlateBreakdown(
         val platesPerSide: List<Double>,
@@ -18,17 +26,19 @@ object PlateCalculator {
     /**
      * Calculate the plates needed per side for a given total weight.
      *
-     * @param totalWeight Total weight on the bar (including bar weight)
+     * @param totalWeight Total weight on the bar (including bar weight), in display units
      * @param barType Type of bar being used (determines bar weight)
-     * @param availablePlates List of available plate weights in kg (sorted descending for greedy algorithm)
+     * @param availablePlates List of available plate weights in display units (sorted descending for greedy algorithm)
+     * @param unitSystem Active unit system (used for bar weight and error threshold)
      * @return PlateBreakdown with plates needed per side, or null if impossible
      */
     fun calculatePlates(
         totalWeight: Double,
         barType: BarType,
-        availablePlates: List<Double>
+        availablePlates: List<Double>,
+        unitSystem: UnitSystem = UnitSystem.METRIC
     ): PlateBreakdown? {
-        val barWeight = barType.weightKg
+        val barWeight = barType.displayWeight(unitSystem)
 
         // Calculate weight needed per side
         val weightPerSide = (totalWeight - barWeight) / 2.0
@@ -66,8 +76,9 @@ object PlateCalculator {
         val actualTotalWeight = barWeight + (actualWeightPerSide * 2)
         val error = kotlin.math.abs(totalWeight - actualTotalWeight)
 
-        // If error is too large (more than 0.5kg), the weight can't be loaded with available plates
-        if (error > 0.5) {
+        // Error threshold: 0.5 kg (metric) or 1.0 lbs (imperial)
+        val errorThreshold = if (unitSystem == UnitSystem.IMPERIAL) 1.0 else 0.5
+        if (error > errorThreshold) {
             return PlateBreakdown(
                 platesPerSide = platesNeeded,
                 weightPerSide = actualWeightPerSide,
@@ -95,19 +106,23 @@ object PlateCalculator {
     }
 
     /**
-     * Format plate breakdown as human-readable string
-     * Example: "2x20kg + 1x5kg + 2x2.5kg"
+     * Format plate breakdown as human-readable string.
+     * Example (metric): "2x20kg + 1x5kg + 2x2.5kg"
+     * Example (imperial): "2x45lbs + 1x10lbs"
      */
-    fun formatPlateBreakdown(breakdown: PlateBreakdown): String {
+    fun formatPlateBreakdown(
+        breakdown: PlateBreakdown,
+        unitSystem: UnitSystem = UnitSystem.METRIC
+    ): String {
         if (breakdown.platesPerSide.isEmpty()) {
             return "Bar only"
         }
 
-        // Group plates by weight
+        val unitLabel = UnitConverter.weightLabel(unitSystem)
         val plateGroups = breakdown.platesPerSide
             .groupBy { it }
             .map { (weight, plates) ->
-                "${plates.size}x${formatWeight(weight)}"
+                "${plates.size}x${formatWeight(weight)}$unitLabel"
             }
             .joinToString(" + ")
 
@@ -119,9 +134,9 @@ object PlateCalculator {
      */
     private fun formatWeight(weight: Double): String {
         return if (weight % 1.0 == 0.0) {
-            "${weight.toInt()}kg"
+            "${weight.toInt()}"
         } else {
-            "${weight}kg"
+            "$weight"
         }
     }
 }

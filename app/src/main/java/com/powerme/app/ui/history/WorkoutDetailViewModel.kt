@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.analytics.StatisticalEngine
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.data.database.PowerMeDatabase
@@ -14,8 +16,10 @@ import com.powerme.app.data.database.WorkoutSetWithExercise
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -59,13 +63,17 @@ class WorkoutDetailViewModel @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val workoutSetDao: WorkoutSetDao,
     private val database: PowerMeDatabase,
-    private val firestoreSyncManager: FirestoreSyncManager
+    private val firestoreSyncManager: FirestoreSyncManager,
+    private val appSettingsDataStore: AppSettingsDataStore
 ) : ViewModel() {
 
     private val workoutId: String = checkNotNull(savedStateHandle["workoutId"])
 
     private val _uiState = MutableStateFlow(WorkoutDetailUiState())
     val uiState: StateFlow<WorkoutDetailUiState> = _uiState.asStateFlow()
+
+    val unitSystem: StateFlow<UnitSystem> = appSettingsDataStore.unitSystem
+        .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
 
     init {
         load()

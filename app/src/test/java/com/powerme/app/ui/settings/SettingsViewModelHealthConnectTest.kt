@@ -3,6 +3,7 @@ package com.powerme.app.ui.settings
 import com.google.firebase.auth.FirebaseAuth
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.ThemeMode
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettingsDao
 import com.powerme.app.data.database.MetricType
@@ -85,6 +86,7 @@ class SettingsViewModelHealthConnectTest {
         whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
         whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(false))
         whenever(mockAppSettingsDataStore.themeMode).thenReturn(flowOf(ThemeMode.DARK))
+        whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         whenever(mockMetricLogRepository.getByType(MetricType.WEIGHT)).thenReturn(flowOf(emptyList()))
         whenever(mockMetricLogRepository.getByType(MetricType.BODY_FAT)).thenReturn(flowOf(emptyList()))
         whenever(mockAuth.currentUser).thenReturn(null)

@@ -20,9 +20,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.FormCuesGold
 import com.powerme.app.ui.theme.JetBrainsMono
+import com.powerme.app.util.UnitConverter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -34,6 +36,7 @@ fun HistoryScreen(
 ) {
     val groups by viewModel.groups.collectAsState()
     val insightCards by viewModel.insightCards.collectAsState()
+    val unitSystem by viewModel.unitSystem.collectAsState()
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         if (groups.isEmpty()) {
@@ -114,6 +117,7 @@ fun HistoryScreen(
                     items(group.workouts, key = { it.id }) { workout ->
                         WorkoutHistoryCard(
                             item = workout,
+                            unitSystem = unitSystem,
                             onClick = { onWorkoutClick(workout.id) }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -196,7 +200,7 @@ private fun formatDurationMs(ms: Long): String {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WorkoutHistoryCard(item: WorkoutWithExerciseSummary, onClick: () -> Unit = {}) {
+private fun WorkoutHistoryCard(item: WorkoutWithExerciseSummary, unitSystem: UnitSystem = UnitSystem.METRIC, onClick: () -> Unit = {}) {
     val dateLabel = SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(Date(item.timestamp))
     val titleLabel = item.routineName
         ?: "Workout — ${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(item.timestamp))}"
@@ -270,7 +274,7 @@ private fun WorkoutHistoryCard(item: WorkoutWithExerciseSummary, onClick: () -> 
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "${item.totalVolume.toInt()} kg",
+                        UnitConverter.formatWeight(item.totalVolume, unitSystem),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )

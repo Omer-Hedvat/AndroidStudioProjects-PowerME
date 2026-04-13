@@ -1,7 +1,9 @@
 package com.powerme.app.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import java.util.UUID
 import kotlinx.serialization.Serializable
 
 /**
@@ -66,7 +68,11 @@ data class GymProfile(
     val notes: String? = null,
 
     val dumbbellMinKg: Float? = null,
-    val dumbbellMaxKg: Float? = null
+    val dumbbellMaxKg: Float? = null,
+    @ColumnInfo(defaultValue = "")
+    val syncId: String = UUID.randomUUID().toString(), // Stable cross-device identity for Firestore (v35)
+    @ColumnInfo(defaultValue = "0")
+    val updatedAt: Long = 0L // Epoch ms, set on every mutation (v35)
 ) {
     /**
      * Returns equipment as a list for filtering.
