@@ -72,22 +72,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import java.util.ArrayList
-import kotlin.math.abs
-
-// Superset spine/icon color palette — one stable color per supersetGroupId (hash-indexed)
-private val SupersetPalette = listOf(
-    Color(0xFFE91E8C),  // Pink
-    Color(0xFF4CAF50),  // Green
-    Color(0xFFFFEB3B),  // Yellow
-    Color(0xFFFF9800),  // Orange
-    Color(0xFF00BCD4),  // Cyan
-    Color(0xFF9C27B0),  // Purple
-    Color(0xFFFF5722),  // Deep Orange
-    Color(0xFF03A9F4),  // Light Blue
-)
-private fun supersetColor(groupId: String?): Color =
-    if (groupId == null) Color.Transparent
-    else SupersetPalette[abs(groupId.hashCode()) % SupersetPalette.size]
 
 // Shared column weight distribution — applied identically to header row and WorkoutSetRow
 private const val SET_COL_WEIGHT    = 0.08f
@@ -547,6 +531,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     onRepsChanged = { setOrder, reps -> viewModel.onRepsChanged(exerciseWithSets.exercise.id, setOrder, reps) },
                     onUpdateCardioSet = { setOrder, dist, time, rpe, completed -> viewModel.updateCardioSet(exerciseWithSets.exercise.id, setOrder, dist, time, rpe, completed = completed) },
                     onUpdateTimedSet = { setOrder, time, rpe, completed -> viewModel.updateTimedSet(exerciseWithSets.exercise.id, setOrder, "", time, rpe, completed = completed) },
+                    onTimeChanged = { setOrder, time -> viewModel.onTimeChanged(exerciseWithSets.exercise.id, setOrder, time) },
                     onReplaceExercise = { newExercise -> viewModel.replaceExercise(exerciseWithSets.exercise.id, newExercise) },
                     onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
                     onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
@@ -590,6 +575,7 @@ private fun LazyListScope.activeWorkoutListItems(
                 onRepsChanged = { setOrder, reps -> viewModel.onRepsChanged(exerciseWithSets.exercise.id, setOrder, reps) },
                 onUpdateCardioSet = { setOrder, dist, time, rpe, completed -> viewModel.updateCardioSet(exerciseWithSets.exercise.id, setOrder, dist, time, rpe, completed = completed) },
                 onUpdateTimedSet = { setOrder, time, rpe, completed -> viewModel.updateTimedSet(exerciseWithSets.exercise.id, setOrder, "", time, rpe, completed = completed) },
+                onTimeChanged = { setOrder, time -> viewModel.onTimeChanged(exerciseWithSets.exercise.id, setOrder, time) },
                 onReplaceExercise = { newExercise -> viewModel.replaceExercise(exerciseWithSets.exercise.id, newExercise) },
                 onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
                 onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
@@ -697,6 +683,7 @@ private fun ExerciseCard(
     onRemoveFromSuperset: () -> Unit,
     onUpdateCardioSet: (Int, String, String, String, Boolean) -> Unit = { _, _, _, _, _ -> },
     onUpdateTimedSet: (Int, String, String, Boolean) -> Unit = { _, _, _, _ -> },
+    onTimeChanged: (Int, String) -> Unit = { _, _ -> },
     isCollapsed: Boolean = false,
     onCollapseAllExcept: () -> Unit = {},
     onToggleCollapsed: () -> Unit = {},
@@ -881,6 +868,7 @@ private fun ExerciseCard(
                                     onDeleteSet = { onDeleteSet(set.setOrder) },
                                     onUpdateCardioSet = { d, t, r, c -> onUpdateCardioSet(set.setOrder, d, t, r, c) },
                                     onUpdateTimedSet = { t, r, c -> onUpdateTimedSet(set.setOrder, t, r, c) },
+                                    onTimeChanged = { onTimeChanged(set.setOrder, it) },
                                     onDeleteLocalRestTime = { onDeleteLocalRestTime(set.setOrder) },
                                     onDeleteRestSeparator = { onDeleteRestSeparator(set.setOrder) },
                                     onTimerActiveClick = onTimerActiveClick,
@@ -1048,6 +1036,7 @@ private fun SetWithRestRow(
     onDeleteSet: () -> Unit,
     onUpdateCardioSet: (String, String, String, Boolean) -> Unit,
     onUpdateTimedSet: (String, String, Boolean) -> Unit,
+    onTimeChanged: (String) -> Unit = {},
     onDeleteLocalRestTime: () -> Unit,
     onDeleteRestSeparator: () -> Unit,
     onTimerActiveClick: () -> Unit,
@@ -1084,7 +1073,7 @@ private fun SetWithRestRow(
             Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                 when (exerciseType) {
                     ExerciseType.CARDIO -> CardioSetRow(set, onUpdateCardioSet, onCompleteSet)
-                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet)
+                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged)
                     else -> WorkoutSetRow(
                         set = set,
                         onWeightChanged = onWeightChanged,
@@ -1811,7 +1800,8 @@ fun TimedSetRow(
     set: ActiveSet,
     onWeightChanged: (String) -> Unit,
     onUpdateSet: (String, String, Boolean) -> Unit,
-    onCompleteSet: () -> Unit
+    onCompleteSet: () -> Unit,
+    onTimeChanged: (String) -> Unit = {}
 ) {
     val weight = set.weight
     val time = set.timeSeconds
@@ -1832,7 +1822,7 @@ fun TimedSetRow(
         )
         WorkoutInputField(
             value = time,
-            onValueChange = { onUpdateSet(it, rpe, set.isCompleted) },
+            onValueChange = { onTimeChanged(it) },
             modifier = Modifier.weight(0.35f).padding(horizontal = 2.dp),
             placeholder = "0"
         )

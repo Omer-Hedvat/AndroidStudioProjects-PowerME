@@ -5,6 +5,7 @@ import com.powerme.app.analytics.BoazPerformanceAnalyzer
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.database.ExerciseDao
 import com.powerme.app.data.database.RoutineDao
+import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
 import com.powerme.app.data.database.RoutineExerciseDao
 import com.powerme.app.data.database.Routine
@@ -1438,6 +1439,121 @@ class WorkoutViewModelTest {
         assertEquals("Warmup set 1 should remain 30", "30", sets[0].weight)
         assertEquals("Work set 2 should be 80", "80", sets[1].weight)
         assertEquals("Work set 3 should cascade to 80", "80", sets[2].weight)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // onTimeChanged cascade tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `onTimeChanged cascades from first set to empty uncompleted sets`() = vmTest {
+        val exercise = Exercise(
+            id = 60L, name = "Plank", muscleGroup = "Core", equipmentType = "Bodyweight",
+            exerciseType = ExerciseType.TIMED
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        viewModel.addSet(60L)
+        runCurrent()
+        viewModel.addSet(60L)
+        runCurrent()
+
+        viewModel.onTimeChanged(60L, 1, "30")
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.first().sets
+        assertEquals("Set 1 should have time 30", "30", sets.find { it.setOrder == 1 }?.timeSeconds)
+        assertEquals("Set 2 should cascade to 30", "30", sets.find { it.setOrder == 2 }?.timeSeconds)
+        assertEquals("Set 3 should cascade to 30", "30", sets.find { it.setOrder == 3 }?.timeSeconds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `onTimeChanged does not cascade to completed sets`() = vmTest {
+        val exercise = Exercise(
+            id = 61L, name = "Wall Sit", muscleGroup = "Legs", equipmentType = "Bodyweight",
+            exerciseType = ExerciseType.TIMED
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        viewModel.addSet(61L)
+        runCurrent()
+
+        // Complete set 2
+        viewModel.completeSet(61L, 2)
+        runCurrent()
+
+        // Change set 1 time — should NOT cascade to completed set 2
+        viewModel.onTimeChanged(61L, 1, "45")
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.first().sets
+        assertEquals("Set 1 should have time 45", "45", sets.find { it.setOrder == 1 }?.timeSeconds)
+        assertEquals("Completed set 2 time should remain empty", "", sets.find { it.setOrder == 2 }?.timeSeconds ?: "")
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `onTimeChanged does not cascade warmup time to work sets`() = vmTest {
+        val exercise = Exercise(
+            id = 62L, name = "Dead Hang", muscleGroup = "Back", equipmentType = "Bodyweight",
+            exerciseType = ExerciseType.TIMED
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        viewModel.addSet(62L)
+        runCurrent()
+        viewModel.addSet(62L)
+        runCurrent()
+
+        // Make set 1 a warmup
+        viewModel.selectSetType(62L, 1, SetType.WARMUP)
+        runCurrent()
+
+        // Change warmup set 1 time — should NOT cascade to work sets 2 and 3
+        viewModel.onTimeChanged(62L, 1, "15")
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.first().sets
+        assertEquals("Warmup set 1 should have time 15", "15", sets.find { it.setOrder == 1 }?.timeSeconds)
+        assertEquals("Work set 2 should NOT be updated", "", sets.find { it.setOrder == 2 }?.timeSeconds ?: "")
+        assertEquals("Work set 3 should NOT be updated", "", sets.find { it.setOrder == 3 }?.timeSeconds ?: "")
 
         viewModel.cancelWorkout()
         runCurrent()

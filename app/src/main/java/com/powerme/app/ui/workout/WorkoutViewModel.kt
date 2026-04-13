@@ -876,6 +876,64 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
+    fun onTimeChanged(exerciseId: Long, setOrder: Int, raw: String) {
+        val result = SurgicalValidator.parseReps(raw)
+        if (result is SurgicalValidator.ValidationResult.Invalid) return  // discard silently
+        _workoutState.update { state ->
+            val ex = state.exercises.find { it.exercise.id == exerciseId }
+            val changedSetType = ex?.sets?.find { it.setOrder == setOrder }?.setType ?: SetType.NORMAL
+            val isWarmupGroup = changedSetType == SetType.WARMUP
+            // Cascade only within the same type group (warmup→warmup, work→work)
+            val groupSets = ex?.sets?.filter { s ->
+                if (isWarmupGroup) s.setType == SetType.WARMUP else s.setType != SetType.WARMUP
+            } ?: emptyList()
+            val groupMinOrder = groupSets.minOfOrNull { it.setOrder } ?: setOrder
+            val isFirstInGroup = setOrder == groupMinOrder
+            val prevFirstGroupTime = groupSets.find { it.setOrder == groupMinOrder }?.timeSeconds ?: ""
+            state.copy(exercises = state.exercises.map { e ->
+                if (e.exercise.id != exerciseId) return@map e
+                e.copy(sets = e.sets.map { set ->
+                    when {
+                        set.setOrder == setOrder -> {
+                            val effectiveTime = when (result) {
+                                is SurgicalValidator.ValidationResult.Valid -> raw.trim()
+                                is SurgicalValidator.ValidationResult.Empty -> ""
+                                else -> return@map set
+                            }
+                            set.copy(timeSeconds = effectiveTime)
+                        }
+                        // Cascade within group: first set in group changed → fill group sets that
+                        // are blank OR still equal to whatever the first group set had before
+                        isFirstInGroup && !set.isCompleted &&
+                            (if (isWarmupGroup) set.setType == SetType.WARMUP else set.setType != SetType.WARMUP) &&
+                            (set.timeSeconds.isBlank() || set.timeSeconds == prevFirstGroupTime) &&
+                            result is SurgicalValidator.ValidationResult.Valid ->
+                            set.copy(timeSeconds = raw.trim())
+                        else -> set
+                    }
+                })
+            })
+        }
+        if (!_workoutState.value.isEditMode && result is SurgicalValidator.ValidationResult.Valid) {
+            debouncedSaveTimedSet(exerciseId, setOrder)
+        }
+    }
+
+    private fun debouncedSaveTimedSet(exerciseId: Long, setOrder: Int) {
+        saveJobs[exerciseId to setOrder]?.cancel()
+        saveJobs[exerciseId to setOrder] = viewModelScope.launch {
+            delay(300)
+            val set = _workoutState.value.exercises
+                .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
+                ?: return@launch
+            if (set.id.isBlank() || set.id.startsWith("edit_")) return@launch
+            val unit = currentUnit
+            val weight = SurgicalValidator.parseDecimal(set.weight)
+                .let { if (it is SurgicalValidator.ValidationResult.Valid) UnitConverter.inputWeightToKg(it.value, unit) else 0.0 }
+            workoutSetDao.updateTimedSet(set.id, weight, set.timeSeconds.toIntOrNull() ?: 0, set.rpeValue, set.isCompleted)
+        }
+    }
+
     private fun debouncedSaveSet(exerciseId: Long, setOrder: Int) {
         saveJobs[exerciseId to setOrder]?.cancel()
         saveJobs[exerciseId to setOrder] = viewModelScope.launch {
