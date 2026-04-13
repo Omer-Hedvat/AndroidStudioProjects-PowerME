@@ -5,6 +5,7 @@ import com.powerme.app.analytics.BoazPerformanceAnalyzer
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.database.ExerciseDao
 import com.powerme.app.data.database.RoutineDao
+import com.powerme.app.data.database.Workout
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
 import com.powerme.app.data.database.RoutineExerciseDao
@@ -50,6 +51,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -1862,5 +1864,39 @@ class WorkoutViewModelTest {
         viewModel.cancelWorkout(); runCurrent()
 
         assertFalse("Mode must be cleared after cancelWorkout", viewModel.workoutState.value.isSupersetSelectMode)
+    }
+
+    // -------------------------------------------------------------------------
+    // routineName denormalization
+    // -------------------------------------------------------------------------
+
+    /**
+     * When a routine-based workout is finished, finishWorkout() must write the routine name
+     * into the routineName field of the Workout entity so History cards retain the name
+     * even after the routine is deleted (onDelete = SET_NULL would null routineId).
+     */
+    @Test
+    fun `finishWorkout stores routineName on Workout entity for routine-based workouts`() = vmTest {
+        val routine = Routine(id = "42", name = "Pull Day")
+        runBlocking {
+            whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("42"))
+                .thenReturn(WorkoutBootstrap(workoutId = "w42", ghostMap = emptyMap(), workoutSets = emptyList()))
+            whenever(mockRoutineExerciseDao.getForRoutine("42")).thenReturn(emptyList())
+            whenever(mockRoutineDao.getRoutineById("42")).thenReturn(routine)
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutDao.updateWorkout(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.deleteIncompleteSetsByWorkout(any())).thenReturn(Unit)
+            whenever(mockBoazPerformanceAnalyzer.compare(any(), any())).thenReturn(emptyList())
+        }
+
+        viewModel.startWorkoutFromRoutine("42")
+        runCurrent()
+
+        viewModel.finishWorkout()
+        runCurrent()
+
+        val captor = argumentCaptor<Workout>()
+        verify(mockWorkoutDao).updateWorkout(captor.capture())
+        assertEquals("Pull Day", captor.firstValue.routineName)
     }
 }

@@ -33,6 +33,7 @@ class WorkoutRepository @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val workoutSetDao: WorkoutSetDao,
     private val routineExerciseDao: RoutineExerciseDao,
+    private val routineDao: RoutineDao,
     private val database: PowerMeDatabase
 ) {
     fun getAllWorkouts(): Flow<List<Workout>> {
@@ -102,9 +103,11 @@ class WorkoutRepository @Inject constructor(
             val now = System.currentTimeMillis()
             val routineExercises = routineExerciseDao.getForRoutine(routineId)
             val workoutId = UUID.randomUUID().toString()
+            val routineName = routineDao.getRoutineById(routineId)?.name
             workoutDao.insertWorkout(
-                Workout(id = workoutId, routineId = routineId, timestamp = now,
-                    durationSeconds = 0, totalVolume = 0.0, startTimeMs = now, updatedAt = now)
+                Workout(id = workoutId, routineId = routineId, routineName = routineName,
+                    timestamp = now, durationSeconds = 0, totalVolume = 0.0,
+                    startTimeMs = now, updatedAt = now)
             )
             val sets = routineExercises.flatMap { re ->
                 val storedWeights = re.setWeightsJson.splitCsv(re.sets)

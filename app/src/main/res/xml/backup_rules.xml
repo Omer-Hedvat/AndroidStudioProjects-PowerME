@@ -6,8 +6,8 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Exclude the DataStore prefs file so the Firestore restore gate flag
+         (has_restored_once) is never carried over to a fresh install.
+         Room DB is already excluded from backup by the system (too large). -->
+    <exclude domain="file" path="datastore/app_settings.preferences_pb" />
 </full-backup-content>

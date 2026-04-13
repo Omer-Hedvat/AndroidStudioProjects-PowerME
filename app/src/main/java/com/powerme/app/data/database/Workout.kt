@@ -1,5 +1,6 @@
 package com.powerme.app.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -21,6 +22,8 @@ data class Workout(
     @PrimaryKey
     val id: String,                        // UUID string — no autoGenerate; caller pre-generates
     val routineId: String?,
+    @ColumnInfo(defaultValue = "NULL")
+    val routineName: String? = null,
     val timestamp: Long,
     val durationSeconds: Int,
     val totalVolume: Double,

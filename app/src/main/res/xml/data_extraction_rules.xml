@@ -5,10 +5,9 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- Exclude the DataStore prefs file so the Firestore restore gate flag
+             (has_restored_once) is never carried over to a fresh install. -->
+        <exclude domain="file" path="datastore/app_settings.preferences_pb" />
     </cloud-backup>
     <!--
     <device-transfer>

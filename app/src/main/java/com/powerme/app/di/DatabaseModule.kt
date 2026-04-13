@@ -513,6 +513,19 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_35_36 = object : Migration(35, 36) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Denormalize routine name onto workouts so History cards retain the name
+            // even after the routine is deleted (onDelete = SET_NULL nullifies routineId).
+            db.execSQL("ALTER TABLE workouts ADD COLUMN routineName TEXT DEFAULT NULL")
+            db.execSQL("""
+                UPDATE workouts SET routineName = (
+                    SELECT name FROM routines WHERE routines.id = workouts.routineId
+                ) WHERE routineId IS NOT NULL
+            """.trimIndent())
+        }
+    }
+
     private val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix index name mismatch on exercise_muscle_groups:
@@ -862,7 +875,8 @@ object DatabaseModule {
                 MIGRATION_31_32,
                 MIGRATION_32_33,
                 MIGRATION_33_34,
-                MIGRATION_34_35
+                MIGRATION_34_35,
+                MIGRATION_35_36
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -1049,10 +1063,13 @@ object DatabaseModule {
         routineDao: RoutineDao,
         routineExerciseDao: RoutineExerciseDao,
         exerciseDao: ExerciseDao,
-        userDao: UserDao
+        userDao: UserDao,
+        userSettingsDao: UserSettingsDao,
+        appSettingsDataStore: AppSettingsDataStore
     ): com.powerme.app.data.sync.FirestoreSyncManager =
         com.powerme.app.data.sync.FirestoreSyncManager(
-            firestore, auth, database, workoutDao, workoutSetDao, routineDao, routineExerciseDao, exerciseDao, userDao
+            firestore, auth, database, workoutDao, workoutSetDao, routineDao, routineExerciseDao,
+            exerciseDao, userDao, userSettingsDao, appSettingsDataStore
         )
 
     @Provides

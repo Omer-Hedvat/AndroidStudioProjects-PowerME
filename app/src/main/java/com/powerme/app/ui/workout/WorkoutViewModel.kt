@@ -423,7 +423,9 @@ class WorkoutViewModel @Inject constructor(
                     ExerciseWithSets(exercise = exercise, sets = activeSets)
                 }
             }
-            val name = activeWorkout.routineId?.let { routineDao.getRoutineById(it)?.name } ?: "Workout"
+            val name = activeWorkout.routineName
+                ?: activeWorkout.routineId?.let { routineDao.getRoutineById(it)?.name }
+                ?: "Workout"
             _workoutState.update {
                 it.copy(
                     isActive = true,
@@ -1197,6 +1199,7 @@ class WorkoutViewModel @Inject constructor(
                     Workout(
                         id = workoutId,
                         routineId = state.routineId.takeIf { it.isNotBlank() },
+                        routineName = if (state.routineId.isNotBlank()) state.workoutName else null,
                         timestamp = state.startTime!!,
                         durationSeconds = durationSeconds,
                         totalVolume = totalVolume,

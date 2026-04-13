@@ -309,6 +309,36 @@ class HistoryViewModelTest {
     // ── Month group ordering ────────────────────────────────────────────────────
 
     /**
+     * Case: routineId is null (routine was deleted after workout) but routineName is set.
+     * The denormalized routineName must survive and be exposed by the ViewModel — the
+     * History card should show the name rather than falling back to "Workout — date".
+     */
+    @Test
+    fun `denormalized routineName survives when routineId is null after routine deletion`() =
+        runTest(testDispatcher) {
+            // routineId = null (default in makeRow) simulates SET_NULL after routine deletion;
+            // routineName is the denormalized snapshot that should survive.
+            val rows = listOf(
+                makeRow(id = 1L, exerciseName = "Squat", routineName = "Push Day", setCount = 3)
+            )
+            whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames())
+                .thenReturn(flowOf(rows))
+
+            val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
+
+            val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
+            val job = launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.workouts.collect { results.add(it) }
+            }
+            advanceUntilIdle()
+            job.cancel()
+
+            val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+            assertEquals(1, summaries.size)
+            assertEquals("Push Day", summaries[0].routineName)
+        }
+
+    /**
      * Groups must be sorted most-recent month first regardless of input order.
      * Uses epoch-ms timestamps far enough apart to land in different months.
      */

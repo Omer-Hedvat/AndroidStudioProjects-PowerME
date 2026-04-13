@@ -50,7 +50,7 @@ interface WorkoutDao {
     @Query("""
         SELECT w.id, w.routineId, w.timestamp, w.durationSeconds, w.totalVolume,
                w.notes, w.isCompleted, w.startTimeMs, w.endTimeMs, e.name AS exerciseName,
-               r.name AS routineName,
+               COALESCE(w.routineName, r.name) AS routineName,
                (SELECT COUNT(*) FROM workout_sets ws2 WHERE ws2.workoutId = w.id AND ws2.isCompleted = 1 AND ws2.setType != 'WARMUP') AS setCount,
                (SELECT CASE WHEN EXISTS (
                    SELECT 1 FROM workout_sets ws3

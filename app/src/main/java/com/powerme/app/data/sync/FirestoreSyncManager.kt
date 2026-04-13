@@ -3,6 +3,9 @@ package com.powerme.app.data.sync
 import androidx.room.withTransaction
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.ThemeMode
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,15 +23,20 @@ data class SyncResult(
     val workoutsImported: Int = 0,
     val routinesImported: Int = 0,
     val profileImported: Boolean = false,
+    val settingsImported: Boolean = false,
     val error: String? = null
 ) {
     fun toUserMessage() = when {
         !success -> "Sync failed: ${error ?: "unknown"}"
-        workoutsImported == 0 && routinesImported == 0 && !profileImported -> "Already up to date"
+        workoutsImported == 0 && routinesImported == 0 && !profileImported && !settingsImported -> "Already up to date"
         else -> buildString {
             if (profileImported) append("Profile restored")
-            if (workoutsImported > 0 || routinesImported > 0) {
+            if (settingsImported) {
                 if (profileImported) append(", ")
+                append("Settings restored")
+            }
+            if (workoutsImported > 0 || routinesImported > 0) {
+                if (profileImported || settingsImported) append(", ")
                 append("$workoutsImported workouts, $routinesImported routines imported")
             }
         }
@@ -45,7 +53,9 @@ class FirestoreSyncManager @Inject constructor(
     private val routineDao: RoutineDao,
     private val routineExerciseDao: RoutineExerciseDao,
     private val exerciseDao: ExerciseDao,
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val userSettingsDao: UserSettingsDao,
+    private val appSettingsDataStore: AppSettingsDataStore
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -85,6 +95,30 @@ class FirestoreSyncManager @Inject constructor(
         }
     }
 
+    fun pushSettings() {
+        val uid = auth.currentUser?.uid ?: return
+        scope.launch {
+            val settings = userSettingsDao.getSettingsOnce() ?: return@launch
+            userRef(uid).collection("settings").document("data")
+                .set(settings.toFirestoreMap())
+        }
+    }
+
+    fun pushAppPreferences() {
+        val uid = auth.currentUser?.uid ?: return
+        scope.launch {
+            val map = mapOf(
+                "themeMode"      to appSettingsDataStore.themeMode.first().name,
+                "unitSystem"     to appSettingsDataStore.unitSystem.first().name,
+                "dailyStepTarget" to appSettingsDataStore.dailyStepTarget.first(),
+                "keepScreenOn"   to appSettingsDataStore.keepScreenOn.first(),
+                "language"       to appSettingsDataStore.language.first(),
+                "enrichmentModel" to appSettingsDataStore.enrichmentModel.first()
+            )
+            userRef(uid).collection("appPreferences").document("data").set(map)
+        }
+    }
+
     // ── Pull ────────────────────────────────────────────────────────────────
 
     /**
@@ -109,7 +143,49 @@ class FirestoreSyncManager @Inject constructor(
         }
     }
 
-    /** Fire-and-forget full sync — workouts + routines only, used after profile is already pulled. */
+    /** Pulls UserSettings from Firestore. Returns true if settings were imported. */
+    suspend fun pullSettings(): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        return try {
+            val doc = userRef(uid).collection("settings").document("data").get().await()
+            if (!doc.exists()) return false
+            val remoteUpdatedAt = doc.getLong("updatedAt") ?: 0L
+            val localUpdatedAt = userSettingsDao.getSettingsOnce()?.updatedAt ?: 0L
+            if (remoteUpdatedAt >= localUpdatedAt) {
+                val settings = doc.toUserSettings() ?: return false
+                userSettingsDao.insertSettings(settings)
+                true
+            } else false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Pulls AppSettingsDataStore preferences (theme, unit system, etc.) from Firestore. */
+    suspend fun pullAppPreferences(): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        return try {
+            val doc = userRef(uid).collection("appPreferences").document("data").get().await()
+            if (!doc.exists()) return false
+            doc.getString("themeMode")?.let { name ->
+                ThemeMode.entries.firstOrNull { it.name == name }
+                    ?.let { appSettingsDataStore.setThemeMode(it) }
+            }
+            doc.getString("unitSystem")?.let { name ->
+                UnitSystem.entries.firstOrNull { it.name == name }
+                    ?.let { appSettingsDataStore.setUnitSystem(it) }
+            }
+            doc.getLong("dailyStepTarget")?.let { appSettingsDataStore.setDailyStepTarget(it.toInt()) }
+            doc.getBoolean("keepScreenOn")?.let { appSettingsDataStore.setKeepScreenOn(it) }
+            doc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
+            doc.getString("enrichmentModel")?.let { appSettingsDataStore.setEnrichmentModel(it) }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Fire-and-forget full sync — used after profile is already pulled on first sign-in. */
     fun launchBackgroundSync() {
         scope.launch { pullFromCloud() }
     }
@@ -118,17 +194,29 @@ class FirestoreSyncManager @Inject constructor(
         val uid = auth.currentUser?.uid
             ?: return SyncResult(success = false, error = "Not signed in")
         return try {
-            // Fetch profile, workouts, and routines in parallel to minimise round-trip latency
-            val (profileDoc, workoutDocs, routineDocs) = coroutineScope {
-                val profile = async { userRef(uid).collection("profile").document("data").get().await() }
-                val workouts = async { userRef(uid).collection("workouts").get().await() }
-                val routines = async { userRef(uid).collection("routines").get().await() }
-                Triple(profile.await(), workouts.await(), routines.await())
+            // Fetch all collections in parallel to minimise round-trip latency
+            val profileDoc: com.google.firebase.firestore.DocumentSnapshot
+            val settingsDoc: com.google.firebase.firestore.DocumentSnapshot
+            val appPrefsDoc: com.google.firebase.firestore.DocumentSnapshot
+            val workoutDocs: com.google.firebase.firestore.QuerySnapshot
+            val routineDocs: com.google.firebase.firestore.QuerySnapshot
+            coroutineScope {
+                val profileDeferred  = async { userRef(uid).collection("profile").document("data").get().await() }
+                val settingsDeferred = async { userRef(uid).collection("settings").document("data").get().await() }
+                val appPrefsDeferred = async { userRef(uid).collection("appPreferences").document("data").get().await() }
+                val workoutsDeferred = async { userRef(uid).collection("workouts").get().await() }
+                val routinesDeferred = async { userRef(uid).collection("routines").get().await() }
+                profileDoc  = profileDeferred.await()
+                settingsDoc = settingsDeferred.await()
+                appPrefsDoc = appPrefsDeferred.await()
+                workoutDocs = workoutsDeferred.await()
+                routineDocs = routinesDeferred.await()
             }
 
             var workoutsImported = 0
             var routinesImported = 0
             var profileImported = false
+            var settingsImported = false
 
             if (profileDoc.exists()) {
                 val remoteUpdatedAt = profileDoc.getLong("updatedAt") ?: 0L
@@ -140,6 +228,34 @@ class FirestoreSyncManager @Inject constructor(
                         profileImported = true
                     }
                 }
+            }
+
+            if (settingsDoc.exists()) {
+                val remoteUpdatedAt = settingsDoc.getLong("updatedAt") ?: 0L
+                val localUpdatedAt = userSettingsDao.getSettingsOnce()?.updatedAt ?: 0L
+                if (remoteUpdatedAt >= localUpdatedAt) {
+                    val settings = settingsDoc.toUserSettings()
+                    if (settings != null) {
+                        userSettingsDao.insertSettings(settings)
+                        settingsImported = true
+                    }
+                }
+            }
+
+            // App preferences are not versioned with updatedAt — always apply if present
+            if (appPrefsDoc.exists()) {
+                appPrefsDoc.getString("themeMode")?.let { name ->
+                    ThemeMode.entries.firstOrNull { it.name == name }
+                        ?.let { appSettingsDataStore.setThemeMode(it) }
+                }
+                appPrefsDoc.getString("unitSystem")?.let { name ->
+                    UnitSystem.entries.firstOrNull { it.name == name }
+                        ?.let { appSettingsDataStore.setUnitSystem(it) }
+                }
+                appPrefsDoc.getLong("dailyStepTarget")?.let { appSettingsDataStore.setDailyStepTarget(it.toInt()) }
+                appPrefsDoc.getBoolean("keepScreenOn")?.let { appSettingsDataStore.setKeepScreenOn(it) }
+                appPrefsDoc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
+                appPrefsDoc.getString("enrichmentModel")?.let { appSettingsDataStore.setEnrichmentModel(it) }
             }
 
             for (doc in workoutDocs.documents) {
@@ -180,7 +296,7 @@ class FirestoreSyncManager @Inject constructor(
                 }
             }
 
-            SyncResult(success = true, workoutsImported = workoutsImported, routinesImported = routinesImported, profileImported = profileImported)
+            SyncResult(success = true, workoutsImported = workoutsImported, routinesImported = routinesImported, profileImported = profileImported, settingsImported = settingsImported)
         } catch (e: Exception) {
             SyncResult(success = false, error = e.message)
         }
@@ -286,6 +402,7 @@ class FirestoreSyncManager @Inject constructor(
 private fun Workout.toFirestoreMap(sets: List<WorkoutSet>, exerciseMap: Map<Long, Exercise>): Map<String, Any?> = mapOf(
     "id" to id,
     "routineId" to routineId,
+    "routineName" to routineName,
     "timestamp" to timestamp,
     "durationSeconds" to durationSeconds,
     "totalVolume" to totalVolume,
@@ -349,6 +466,16 @@ private fun RoutineExercise.toFirestoreMap(exercise: Exercise?): Map<String, Any
     "setRepsJson" to setRepsJson
 )
 
+// ── UserSettings serialization ────────────────────────────────────────────────
+
+private fun UserSettings.toFirestoreMap(): Map<String, Any?> = mapOf(
+    "availablePlates"          to availablePlates,
+    "restTimerAudioEnabled"    to restTimerAudioEnabled,
+    "restTimerHapticsEnabled"  to restTimerHapticsEnabled,
+    "language"                 to language,
+    "updatedAt"                to updatedAt
+)
+
 // ── User serialization ───────────────────────────────────────────────────────
 
 private fun User.toFirestoreMap(): Map<String, Any?> = mapOf(
@@ -390,6 +517,17 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toUser(): User? {
     )
 }
 
+private fun com.google.firebase.firestore.DocumentSnapshot.toUserSettings(): UserSettings? {
+    return UserSettings(
+        id                    = 1,
+        availablePlates       = getString("availablePlates") ?: "0.5,1.25,2.5,5,10,15,20,25",
+        restTimerAudioEnabled = getBoolean("restTimerAudioEnabled") ?: true,
+        restTimerHapticsEnabled = getBoolean("restTimerHapticsEnabled") ?: true,
+        language              = getString("language") ?: "Hebrew",
+        updatedAt             = getLong("updatedAt") ?: 0L
+    )
+}
+
 // ── Deserialization helpers (non-suspend, used for simple fields) ────────────
 
 private fun com.google.firebase.firestore.DocumentSnapshot.toWorkout(): Workout? {
@@ -397,6 +535,7 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toWorkout(): Workout?
     return Workout(
         id = id,
         routineId = getString("routineId"),
+        routineName = getString("routineName"),
         timestamp = getLong("timestamp") ?: return null,
         durationSeconds = getLong("durationSeconds")?.toInt() ?: 0,
         totalVolume = getDouble("totalVolume") ?: 0.0,

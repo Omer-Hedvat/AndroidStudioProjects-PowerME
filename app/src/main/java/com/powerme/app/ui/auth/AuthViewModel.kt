@@ -125,11 +125,13 @@ class AuthViewModel @Inject constructor(
     private suspend fun applyNewUserGate() {
         val alreadyRestored = appSettingsDataStore.hasRestoredOnce.first()
         if (!alreadyRestored) {
-            appSettingsDataStore.setHasRestoredOnce(true)
             // Block only on the profile pull so needsProfileSetup is correct before navigation.
             // Workouts and routines sync in the background without delaying sign-in.
+            // Flag is set AFTER a successful pull — if the pull fails (network error) the next
+            // sign-in will retry rather than being permanently skipped.
             firestoreSyncManager.pullProfileOnly()
             firestoreSyncManager.launchBackgroundSync()
+            appSettingsDataStore.setHasRestoredOnce(true)
         }
         val dbUser = userSessionManager.getCurrentUser()
         _uiState.update {
