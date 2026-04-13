@@ -15,9 +15,6 @@
     <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_HEIGHT" />
-    <uses-permission android:name="android.permission.health.READ_BASAL_METABOLIC_RATE" />
-    <uses-permission android:name="android.permission.health.READ_BONE_MASS" />
-    <uses-permission android:name="android.permission.health.READ_LEAN_BODY_MASS" />
 
     <!-- Declare that this app queries Health Connect -->
     <queries>

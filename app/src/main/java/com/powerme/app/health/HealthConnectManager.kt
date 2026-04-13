@@ -3,12 +3,9 @@ package com.powerme.app.health
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.BodyFatRecord
-import androidx.health.connect.client.records.BoneMassRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
-import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -42,9 +39,6 @@ data class HealthConnectReadResult(
     val hrv: Double?,
     val rhr: Int?,
     val steps: Int?,
-    val bmr: Double? = null,            // kcal/day
-    val boneMassKg: Double? = null,     // kg
-    val leanBodyMassKg: Double? = null, // kg
     val lastSyncTimestamp: Long?
 )
 
@@ -60,8 +54,7 @@ class HealthConnectManager @Inject constructor(
 ) {
 
     companion object {
-        // Core permissions — all 7 must be granted for the card to show "connected" state.
-        val CORE_PERMISSIONS: Set<String> = setOf(
+        val ALL_PERMISSIONS: Set<String> = setOf(
             HealthPermission.getReadPermission(WeightRecord::class),
             HealthPermission.getReadPermission(BodyFatRecord::class),
             HealthPermission.getReadPermission(HeightRecord::class),
@@ -70,15 +63,6 @@ class HealthConnectManager @Inject constructor(
             HealthPermission.getReadPermission(RestingHeartRateRecord::class),
             HealthPermission.getReadPermission(StepsRecord::class),
         )
-        // Optional body-composition permissions from smart scales (e.g. Renpho).
-        // Graceful degradation: tiles show "--" when these are denied.
-        val BODY_COMPOSITION_PERMISSIONS: Set<String> = setOf(
-            HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
-            HealthPermission.getReadPermission(BoneMassRecord::class),
-            HealthPermission.getReadPermission(LeanBodyMassRecord::class),
-        )
-        // Full set requested at permission-grant time.
-        val ALL_PERMISSIONS: Set<String> = CORE_PERMISSIONS + BODY_COMPOSITION_PERMISSIONS
     }
 
     /**
@@ -97,16 +81,14 @@ class HealthConnectManager @Inject constructor(
     }
 
     /**
-     * Returns true if all 7 core READ permissions are granted.
-     * The 3 optional body-composition permissions (BMR, bone mass, lean body mass)
-     * are requested but not required — their tiles show "--" when denied.
+     * Returns true if all 7 READ permissions are granted.
      */
     suspend fun checkPermissionsGranted(): Boolean = withContext(Dispatchers.IO) {
         try {
             if (!isAvailable()) return@withContext false
             val client = HealthConnectClient.getOrCreate(context)
             val granted = client.permissionController.getGrantedPermissions()
-            CORE_PERMISSIONS.all { it in granted }
+            ALL_PERMISSIONS.all { it in granted }
         } catch (e: Exception) {
             android.util.Log.w("PowerME_HC", "checkPermissionsGranted failed", e)
             false
