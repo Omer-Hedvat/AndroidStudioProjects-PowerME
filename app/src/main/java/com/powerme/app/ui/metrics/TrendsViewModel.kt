@@ -58,6 +58,13 @@ class TrendsViewModel @Inject constructor(
         loadAll()
     }
 
+    /** Reload readiness data (call on ON_RESUME to pick up fresh HC syncs). */
+    fun refreshReadiness() {
+        viewModelScope.launch {
+            loadReadiness()
+        }
+    }
+
     fun setTimeRange(range: TrendsTimeRange) {
         if (_timeRange.value == range) return
         _timeRange.value = range

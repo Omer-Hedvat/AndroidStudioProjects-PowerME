@@ -27,7 +27,8 @@ data class DraftExercise(
     val exerciseName: String,
     val muscleGroup: String,
     val sets: Int = 3,
-    val order: Int
+    val order: Int,
+    val supersetGroupId: String? = null
 )
 
 @HiltViewModel
@@ -51,6 +52,12 @@ class TemplateBuilderViewModel @Inject constructor(
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
+    private val _isOrganizeMode = MutableStateFlow(false)
+    val isOrganizeMode: StateFlow<Boolean> = _isOrganizeMode.asStateFlow()
+
+    private val _selectedExerciseIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedExerciseIds: StateFlow<Set<Long>> = _selectedExerciseIds.asStateFlow()
+
     init {
         if (routineId != "new" && routineId.isNotBlank()) {
             viewModelScope.launch {
@@ -65,7 +72,8 @@ class TemplateBuilderViewModel @Inject constructor(
                         exerciseName = ex.exerciseName,
                         muscleGroup = ex.muscleGroup,
                         sets = ex.sets,
-                        order = i
+                        order = i,
+                        supersetGroupId = ex.supersetGroupId
                     )
                 }
             }
@@ -97,9 +105,16 @@ class TemplateBuilderViewModel @Inject constructor(
     }
 
     fun removeExercise(exerciseId: Long) {
-        _draftExercises.value = _draftExercises.value
+        val updated = _draftExercises.value
             .filter { it.exerciseId != exerciseId }
             .mapIndexed { i, d -> d.copy(order = i) }
+        // Dissolve any superset that now has only 1 member
+        val groupCounts = updated.groupBy { it.supersetGroupId }.filterKeys { it != null }
+        val soloGroups = groupCounts.filterValues { it.size == 1 }.keys
+        _draftExercises.value = if (soloGroups.isEmpty()) updated
+            else updated.map { if (it.supersetGroupId in soloGroups) it.copy(supersetGroupId = null) else it }
+        // Remove from selection if present
+        _selectedExerciseIds.value = _selectedExerciseIds.value - exerciseId
     }
 
     fun incrementSets(exerciseId: Long) {
@@ -121,11 +136,39 @@ class TemplateBuilderViewModel @Inject constructor(
         }.mapIndexed { idx, draft -> draft.copy(order = idx) }
     }
 
+    fun enterOrganizeMode() {
+        _selectedExerciseIds.value = emptySet()
+        _isOrganizeMode.value = true
+    }
+
+    fun exitOrganizeMode() {
+        _isOrganizeMode.value = false
+        _selectedExerciseIds.value = emptySet()
+    }
+
+    fun toggleExerciseSelection(exerciseId: Long) {
+        val current = _selectedExerciseIds.value
+        _selectedExerciseIds.value = if (exerciseId in current) current - exerciseId else current + exerciseId
+    }
+
+    fun commitSupersetGroup() {
+        val selected = _selectedExerciseIds.value
+        if (selected.size < 2) return
+        val groupId = UUID.randomUUID().toString()
+        _draftExercises.value = _draftExercises.value.map { d ->
+            if (d.exerciseId in selected) d.copy(supersetGroupId = groupId) else d
+        }
+        _selectedExerciseIds.value = emptySet()
+        // Stay in organize mode for further grouping
+    }
+
     fun save(onDone: () -> Unit) {
         if (_routineName.value.isBlank()) return
         if (_isSaving.value) return
         viewModelScope.launch {
             _isSaving.value = true
+            _isOrganizeMode.value = false
+            _selectedExerciseIds.value = emptySet()
             try {
                 val drafts = _draftExercises.value
                 val rid: String = database.withTransaction {
@@ -155,7 +198,8 @@ class TemplateBuilderViewModel @Inject constructor(
                                     sets = d.sets,
                                     reps = 10,
                                     restTime = 90,
-                                    order = i
+                                    order = i,
+                                    supersetGroupId = d.supersetGroupId
                                 )
                             }
                         )

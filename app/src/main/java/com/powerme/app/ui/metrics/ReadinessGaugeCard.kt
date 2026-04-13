@@ -48,6 +48,7 @@ import kotlin.math.sin
 @Composable
 fun ReadinessGaugeCard(
     readinessScore: ReadinessEngine.ReadinessScore,
+    hcAvailability: HcAvailability,
     hrvDelta: Double?,
     rhrDelta: Double?,
     sleepMinutes: Int?,
@@ -74,7 +75,7 @@ fun ReadinessGaugeCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             when (readinessScore) {
-                is ReadinessEngine.ReadinessScore.NoData -> NoDataContent()
+                is ReadinessEngine.ReadinessScore.NoData -> NoDataContent(hcAvailability)
                 is ReadinessEngine.ReadinessScore.Calibrating -> CalibratingContent(readinessScore)
                 is ReadinessEngine.ReadinessScore.Score -> ScoreContent(
                     score = readinessScore,
@@ -88,7 +89,17 @@ fun ReadinessGaugeCard(
 }
 
 @Composable
-private fun NoDataContent() {
+private fun NoDataContent(hcAvailability: HcAvailability) {
+    val message = when (hcAvailability) {
+        HcAvailability.AVAILABLE_GRANTED ->
+            "Sync Health Connect to start tracking readiness. Needs HRV, RHR, or sleep data."
+        HcAvailability.AVAILABLE_NOT_GRANTED ->
+            "Connect Health Connect in Settings to unlock Readiness"
+        HcAvailability.UNAVAILABLE ->
+            "Health Connect is not available on this device"
+        HcAvailability.CHECKING ->
+            "Checking Health Connect…"
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -96,7 +107,7 @@ private fun NoDataContent() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Connect Health Connect in Settings to unlock Readiness",
+            text = message,
             fontSize = 14.sp,
             color = ProSubGrey,
             modifier = Modifier.padding(horizontal = 16.dp)

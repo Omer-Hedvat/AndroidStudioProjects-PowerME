@@ -1,6 +1,8 @@
 package com.powerme.app.ui.workouts
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,7 +13,9 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.text.KeyboardActions
@@ -31,6 +35,7 @@ import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.ui.theme.supersetColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +46,8 @@ fun TemplateBuilderScreen(
     val routineName by viewModel.routineName.collectAsState()
     val draftExercises by viewModel.draftExercises.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
+    val isOrganizeMode by viewModel.isOrganizeMode.collectAsState()
+    val selectedExerciseIds by viewModel.selectedExerciseIds.collectAsState()
 
     var isReorderMode by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
@@ -111,6 +118,48 @@ fun TemplateBuilderScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Organize mode CAB
+            if (isOrganizeMode) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { viewModel.exitOrganizeMode() }) {
+                            Text("Done", fontWeight = FontWeight.Bold)
+                        }
+                        Text(
+                            text = if (selectedExerciseIds.isEmpty()) "Organize exercises"
+                                   else "Organize \u2022 ${selectedExerciseIds.size} selected",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        IconButton(
+                            onClick = { viewModel.commitSupersetGroup() },
+                            enabled = selectedExerciseIds.size >= 2
+                        ) {
+                            Icon(
+                                Icons.Default.Sync,
+                                contentDescription = "Group as superset",
+                                tint = if (selectedExerciseIds.size >= 2)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            )
+                        }
+                    }
+                }
+            }
+
             if (draftExercises.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -144,14 +193,19 @@ fun TemplateBuilderScreen(
                 ) {
                     items(draftExercises, key = { it.exerciseId }) { draft ->
                         ReorderableItem(reorderState, key = draft.exerciseId) { isDragging ->
-                            if (isReorderMode) {
-                                CollapsedTemplateDraftRow(
+                            when {
+                                isOrganizeMode -> TemplateSupersetSelectRow(
+                                    draft = draft,
+                                    isSelected = draft.exerciseId in selectedExerciseIds,
+                                    onToggle = { viewModel.toggleExerciseSelection(draft.exerciseId) },
+                                    dragHandleModifier = Modifier.draggableHandle()
+                                )
+                                isReorderMode -> CollapsedTemplateDraftRow(
                                     draft = draft,
                                     isDragging = isDragging,
                                     onDragStopped = { isReorderMode = false }
                                 )
-                            } else {
-                                DraftExerciseRow(
+                                else -> DraftExerciseRow(
                                     draft = draft,
                                     onLongPress = { isReorderMode = true },
                                     onIncrement = { viewModel.incrementSets(draft.exerciseId) },
@@ -164,16 +218,30 @@ fun TemplateBuilderScreen(
                 }
             }
 
-            // Footer: Add Exercises button
-            OutlinedButton(
-                onClick = { navController.navigate("exercise_picker") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Add Exercises")
+            // Footer buttons
+            if (!isOrganizeMode) {
+                if (draftExercises.size >= 2) {
+                    OutlinedButton(
+                        onClick = { viewModel.enterOrganizeMode() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Organize Exercises")
+                    }
+                }
+                OutlinedButton(
+                    onClick = { navController.navigate("exercise_picker") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add Exercises")
+                }
             }
         }
     }
@@ -192,64 +260,75 @@ private fun DraftExerciseRow(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = PowerMeDefaults.subtleCardElevation()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = draft.exerciseName,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                SuggestionChip(
-                    onClick = {},
-                    label = { Text(draft.muscleGroup, fontSize = 11.sp) },
-                    colors = SuggestionChipDefaults.suggestionChipColors(
-                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        labelColor = MaterialTheme.colorScheme.primary
-                    )
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            // Superset spine
+            if (draft.supersetGroupId != null) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .fillMaxHeight()
+                        .background(supersetColor(draft.supersetGroupId))
                 )
             }
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = draft.exerciseName,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    SuggestionChip(
+                        onClick = {},
+                        label = { Text(draft.muscleGroup, fontSize = 11.sp) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            labelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
 
-            // Sets stepper
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
+                // Sets stepper
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Default.Remove,
+                            contentDescription = "Decrease sets",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        text = "${draft.sets} sets",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.widthIn(min = 56.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Increase sets",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Remove button
+                IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
                     Icon(
-                        Icons.Default.Remove,
-                        contentDescription = "Decrease sets",
+                        Icons.Default.Delete,
+                        contentDescription = "Remove exercise",
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(18.dp)
                     )
                 }
-                Text(
-                    text = "${draft.sets} sets",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.widthIn(min = 56.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Increase sets",
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            // Remove button
-            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Remove exercise",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(18.dp)
-                )
             }
         }
     }
@@ -297,6 +376,72 @@ private fun ReorderableCollectionItemScope.CollapsedTemplateDraftRow(
                 onClick = {},
                 label = { Text(draft.muscleGroup, fontSize = 11.sp) }
             )
+        }
+    }
+}
+
+@Composable
+private fun ReorderableCollectionItemScope.TemplateSupersetSelectRow(
+    draft: DraftExercise,
+    isSelected: Boolean,
+    onToggle: () -> Unit,
+    dragHandleModifier: Modifier = Modifier
+) {
+    val backgroundColor = if (isSelected)
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    else
+        MaterialTheme.colorScheme.surface
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() },
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = PowerMeDefaults.subtleCardElevation()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.DragHandle,
+                contentDescription = "Drag to reorder",
+                modifier = dragHandleModifier,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggle() }
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = draft.exerciseName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                SuggestionChip(
+                    onClick = {},
+                    label = { Text(draft.muscleGroup, fontSize = 11.sp) },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        labelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+            if (draft.supersetGroupId != null) {
+                Icon(
+                    imageVector = Icons.Default.Link,
+                    contentDescription = "In superset",
+                    tint = supersetColor(draft.supersetGroupId),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

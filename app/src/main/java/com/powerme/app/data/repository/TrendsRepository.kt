@@ -27,6 +27,9 @@ class TrendsRepository @Inject constructor(
 ) {
 
     suspend fun getReadinessScore(): ReadinessEngine.ReadinessScore {
+        // Use getLatestSync first to check if any data exists at all
+        val latest = healthConnectSyncDao.getLatestSync()
+            ?: return ReadinessEngine.ReadinessScore.NoData
         val syncs = healthConnectSyncDao.getRecentSyncs().first()
         return ReadinessEngine.compute(syncs)
     }

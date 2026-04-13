@@ -1,6 +1,7 @@
 package com.powerme.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import kotlin.math.abs
 
 // PowerME v6.0 Design System — Pro Tracker Palette
 
@@ -39,3 +40,19 @@ val LightOnSurface  = Slate900
 val LightPrimary    = Color(0xFF6B3FA0)   // Darkened violet — WCAG AA on white (~6.5:1)
 val LightSecondary  = Color(0xFF7D3B65)   // Darkened berry — WCAG AA on white (~6:1)
 val LightError      = Color(0xFFB3261E)   // M3 standard light error
+
+// ── Superset spine color palette ─────────────────────────────────────────────
+val SupersetPalette = listOf(
+    Color(0xFFE91E8C),  // Pink
+    Color(0xFF4CAF50),  // Green
+    Color(0xFFFFEB3B),  // Yellow
+    Color(0xFFFF9800),  // Orange
+    Color(0xFF00BCD4),  // Cyan
+    Color(0xFF9C27B0),  // Purple
+    Color(0xFFFF5722),  // Deep Orange
+    Color(0xFF03A9F4),  // Light Blue
+)
+
+fun supersetColor(groupId: String?): Color =
+    if (groupId == null) Color.Transparent
+    else SupersetPalette[abs(groupId.hashCode()) % SupersetPalette.size]

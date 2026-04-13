@@ -45,6 +45,7 @@ fun MetricsScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.loadBodyVitals()
+                trendsViewModel.refreshReadiness()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -70,6 +71,7 @@ fun MetricsScreen(
         item {
             ReadinessGaugeCard(
                 readinessScore = readinessScore,
+                hcAvailability = uiState.bodyVitals.hcAvailability,
                 hrvDelta = readinessSubMetrics.hrvDelta,
                 rhrDelta = readinessSubMetrics.rhrDelta,
                 sleepMinutes = readinessSubMetrics.sleepMinutes
