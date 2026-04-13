@@ -370,7 +370,9 @@ Used when `ExerciseType == TIMED`.
 
 Columns: SET | WEIGHT | TIME | RPE | CHECK
 
-Data updated via `updateTimedSet(exerciseId, setOrder, weight, timeSeconds, rpe, completed)`.
+**Weight input** routes through `onWeightChanged(exerciseId, setOrder, raw)` — same cascade logic as STRENGTH sets.
+**Time input** routes through `onTimeChanged(exerciseId, setOrder, raw)` — cascades to subsequent sets (see §13.1).
+**RPE + completion** updates route through `updateTimedSet(exerciseId, setOrder, weight, timeSeconds, rpe, completed)`.
 
 **Time input — MM:SS formatter:** The TIME field in `TimedSetRow` must use the same live `MM:SS` formatter as `CardioSetRow`. The user types raw digits; the field formats them into `MM:SS` in real-time. The stored value remains integer seconds. Keyboard type: `KeyboardType.Number`.
 
@@ -792,7 +794,7 @@ This cascade **only fires when the changed set is the first set of its type grou
 
 **Type isolation rule:** Changing a WARMUP set cascades only to other WARMUP sets. Changing the first WORK set cascades only to WORK sets (NORMAL + DROP + FAILURE). Values never cross group boundaries.
 
-**Trigger:** `onWeightChanged` or `onRepsChanged` in `WorkoutViewModel`, but only when editing the **first set in its type group** (lowest `setOrder` within the same group).
+**Trigger:** `onWeightChanged`, `onRepsChanged`, or `onTimeChanged` in `WorkoutViewModel`, but only when editing the **first set in its type group** (lowest `setOrder` within the same group). `onTimeChanged` applies to TIMED exercises only.
 
 **Cascade target:** All sets in the same exercise AND same type group where:
 1. `isCompleted == false`
