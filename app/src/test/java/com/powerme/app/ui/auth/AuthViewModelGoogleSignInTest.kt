@@ -62,6 +62,7 @@ class AuthViewModelGoogleSignInTest {
         // Default: already restored — auto-restore is a no-op for all existing tests
         runBlocking {
             whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(true))
+            whenever(mockAppSettingsDataStore.setHasRestoredOnce(any())).thenReturn(Unit)
             whenever(mockFirestoreSyncManager.pullFromCloud()).thenReturn(SyncResult(success = true))
             whenever(mockFirestoreSyncManager.pullProfileOnly()).thenReturn(false)
         }
