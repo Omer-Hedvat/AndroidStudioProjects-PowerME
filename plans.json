@@ -416,6 +416,10 @@
     "timestamp": "2026-04-13T17:00:00Z"
   },
   {
+    "plan": "Tabata skip-last-rest toggle polish. Renamed label from 'Skip last rest period' to 'Skip last rest'. Fixed Switch thumb color: replaced hardcoded onPrimary with onSurface for both checkedThumbColor and uncheckedThumbColor — produces white thumb in dark theme (ProCloudGrey), black thumb in light theme. Track colors unchanged (primary when on, surfaceVariant when off). Files: ToolsScreen.kt, TOOLS_SPEC.md, CLAUDE.md.",
+    "timestamp": "2026-04-14T12:00:00Z"
+  },
+  {
     "plan": "Centisecond display for all Clocks tab timers. Added tickEpochMs: Long = 0L to ToolsUiState. Set System.currentTimeMillis() into tickEpochMs at each 1-second tick in runStopwatch(), runCountdown(), runEmom(), and both WORK/REST loops of runTabata(). Cleared tickEpochMs = 0L in pauseTimer(), resetTimer(), and finishTimer(). In TimerDisplay composable: derived elapsedSinceTickMs via LaunchedEffect(tickEpochMs) loop at 16ms intervals; computed centiseconds (00–99 counting up for Stopwatch, 99–00 counting down for countdown modes); replaced single time Text with Row containing main MM:SS at 48sp Bold + dimmer .cc suffix at 28sp Normal alpha 0.55f when running. Progress bar now interpolates smoothly using elapsedSinceTickMs. No changes to ClocksTimerBridge, audio alerts, phase transitions, or setup countdown.",
     "timestamp": "2026-04-14T00:00:00Z"
   },

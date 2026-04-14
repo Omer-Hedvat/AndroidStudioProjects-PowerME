@@ -41,6 +41,7 @@ enum class TimerPhase { IDLE, SETUP, WORK, REST }
 | `elapsedSeconds` | Int | 0 | Elapsed time (stopwatch) |
 | `currentRound` | Int | 0 | Active round number |
 | `isRunning` | Boolean | false | Timer active flag |
+| `tickEpochMs` | Long | 0L | Wall-clock ms when current displayed second started; set at each 1s tick, cleared on pause/reset/finish; drives centisecond display |
 
 ### Setup Time Config (shared across all modes)
 | Property | Default | Notes |
@@ -177,12 +178,16 @@ Column(fillMaxSize, padding=horizontal 16dp / vertical 12dp)
 **ModeCard:** 52dp height, 16dp icon, 6dp grid spacing. Selected: primary bg, onPrimary text. Unselected: surface bg, muted text.
 
 ### TimerDisplay
-- **Timer text:** 48sp, Bold, `MonoTextStyle` (JetBrainsMono + `tnum`), format `%02d:%02d`, box padding 16dp
+- **Timer text:** `Row(verticalAlignment = Bottom)` — two `Text` elements side by side:
+  - Main time: `%02d:%02d` at 48sp Bold MonoTextStyle (JetBrainsMono + `tnum`)
+  - Centiseconds: `.%02d` at 28sp Normal MonoTextStyle, `textColor @ 0.55α`, `padding(bottom = 4dp)` for baseline alignment — shown only when `isRunning && phase != IDLE && phase != SETUP && tickEpochMs > 0`
+  - Centisecond direction: Stopwatch counts 00→99; all countdown modes count 99→00
+  - Derived via `LaunchedEffect(tickEpochMs)` loop at ~16ms intervals using wall clock; disappears immediately on pause/reset
 - **Round counter** (TABATA/EMOM only): 18sp, MonoTextStyle, 0.8α
   - TABATA: `"Round X / Y"`
   - EMOM: `"Round X / Y"`
 - **Phase label:** 14sp, JetBrainsMono, 0.7α
-- **Progress line:** `LinearProgressIndicator`, `fillMaxWidth()`, visible only when `phase != IDLE`. Shrinks from 100% → 0% as the current phase elapses. Always `TimerGreen` color; track `TimerGreen @ 0.2α`. Not shown for Stopwatch (open-ended). Progress = `displaySeconds / totalPhaseSeconds` where `totalPhaseSeconds` is: Countdown → configured total; EMOM → `emomRoundSeconds`; Tabata WORK → `workSeconds`; Tabata REST → `restSeconds`.
+- **Progress line:** `LinearProgressIndicator`, `fillMaxWidth()`, visible only when `phase != IDLE`. Smoothly interpolates within each second using `elapsedSinceTickMs` when running (sub-second accuracy); falls back to whole-second steps when paused. Not shown for Stopwatch (open-ended). Always `TimerGreen` color; track `TimerGreen @ 0.2α`.
 
 **Background/Text Color by Phase:**
 | Phase | Background | Text |
@@ -200,7 +205,7 @@ Column(fillMaxSize, padding=horizontal 16dp / vertical 12dp)
 
 All "Warn before finish" fields fire a `WARNING` alert when `remaining == warnAt`. "Setup time (sec)" is a single shared field across all modes (`setupSecondsText` in state), default "0".
 
-**Tabata skip-last-rest row:** `Row(SpaceBetween)` — left side is a `Column` with label "Skip last rest period" (14sp) and subtitle "End after last work interval" (11sp, 0.5α); right side is a `Switch`.
+**Tabata skip-last-rest row:** `Row(SpaceBetween)` — left side is a `Column` with label "Skip last rest" (14sp) and subtitle "End after last work interval" (11sp, 0.5α); right side is a `Switch` with `checkedThumbColor = onSurface`, `uncheckedThumbColor = onSurface`, `checkedTrackColor = primary`, `uncheckedTrackColor = surfaceVariant` — produces white thumb on dark theme, black thumb on light theme.
 
 `TimerConfigField`: **label-above compact design** — `Column` with small-caps `labelSmall` label (Barlow Medium, `onSurface @ 0.5α` unfocused / `primary` focused) above a `Box` with `surfaceVariant` fill (`shapes.small` corners, 12/10dp padding). Value rendered via `BasicTextField` (18sp JetBrainsMono SemiBold). A 2dp `Box` below the container lights up in `primary` on focus as the only border indicator. No outline border at any time. Uses `rememberSelectAllState()` + `MutableInteractionSource` for focus tracking and select-all-on-tap behavior. Digit-only filter unchanged.
 
