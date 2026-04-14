@@ -27,8 +27,6 @@ android {
         if (localPropertiesFile.exists()) {
             properties.load(localPropertiesFile.inputStream())
         }
-        val geminiApiKey = properties.getProperty("GEMINI_API_KEY", "")
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
         val googleWebClientId = properties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
@@ -87,9 +85,6 @@ dependencies {
 
     // DataStore
     implementation(libs.androidx.datastore.preferences)
-
-    // Google AI (Gemini)
-    implementation(libs.google.generativeai)
 
     // Kotlinx Serialization
     implementation(libs.kotlinx.serialization.json)

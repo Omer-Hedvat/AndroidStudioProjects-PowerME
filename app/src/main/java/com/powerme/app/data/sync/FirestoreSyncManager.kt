@@ -112,8 +112,7 @@ class FirestoreSyncManager @Inject constructor(
                 "unitSystem"     to appSettingsDataStore.unitSystem.first().name,
                 "dailyStepTarget" to appSettingsDataStore.dailyStepTarget.first(),
                 "keepScreenOn"   to appSettingsDataStore.keepScreenOn.first(),
-                "language"       to appSettingsDataStore.language.first(),
-                "enrichmentModel" to appSettingsDataStore.enrichmentModel.first()
+                "language"       to appSettingsDataStore.language.first()
             )
             userRef(uid).collection("appPreferences").document("data").set(map)
         }
@@ -151,8 +150,7 @@ class FirestoreSyncManager @Inject constructor(
                 "unitSystem"      to appSettingsDataStore.unitSystem.first().name,
                 "dailyStepTarget" to appSettingsDataStore.dailyStepTarget.first(),
                 "keepScreenOn"    to appSettingsDataStore.keepScreenOn.first(),
-                "language"        to appSettingsDataStore.language.first(),
-                "enrichmentModel" to appSettingsDataStore.enrichmentModel.first()
+                "language"        to appSettingsDataStore.language.first()
             )
             userRef(uid).collection("appPreferences").document("data").set(prefsMap).await()
             SyncResult(success = true, workoutsImported = workouts.size, routinesImported = routines.size, profileImported = true, settingsImported = true)
@@ -220,7 +218,6 @@ class FirestoreSyncManager @Inject constructor(
             doc.getLong("dailyStepTarget")?.let { appSettingsDataStore.setDailyStepTarget(it.toInt()) }
             doc.getBoolean("keepScreenOn")?.let { appSettingsDataStore.setKeepScreenOn(it) }
             doc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
-            doc.getString("enrichmentModel")?.let { appSettingsDataStore.setEnrichmentModel(it) }
             true
         } catch (e: Exception) {
             false
@@ -297,7 +294,6 @@ class FirestoreSyncManager @Inject constructor(
                 appPrefsDoc.getLong("dailyStepTarget")?.let { appSettingsDataStore.setDailyStepTarget(it.toInt()) }
                 appPrefsDoc.getBoolean("keepScreenOn")?.let { appSettingsDataStore.setKeepScreenOn(it) }
                 appPrefsDoc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
-                appPrefsDoc.getString("enrichmentModel")?.let { appSettingsDataStore.setEnrichmentModel(it) }
             }
 
             // Routines must be restored before workouts — workouts FK-reference routines via routineId

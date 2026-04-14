@@ -3,6 +3,7 @@ package com.powerme.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -81,7 +82,7 @@ fun WorkoutInputField(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val pillShape = MaterialTheme.shapes.small
     val textFieldValue = remember { mutableStateOf(TextFieldValue(value)) }
-    val focusedForSelectAll = remember { mutableStateOf(false) }
+    val selectAllTrigger = remember { mutableStateOf(0) }
 
     // Keep internal state in sync when external value changes (e.g. cascade fill)
     LaunchedEffect(value) {
@@ -90,9 +91,18 @@ fun WorkoutInputField(
         }
     }
 
-    // Wait for IME cursor placement, then select all
-    LaunchedEffect(focusedForSelectAll.value) {
-        if (focusedForSelectAll.value) {
+    // Increment trigger on every tap (press release) so select-all fires each time the user taps
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interaction ->
+            if (interaction is PressInteraction.Release) {
+                selectAllTrigger.value++
+            }
+        }
+    }
+
+    // Wait for IME cursor placement, then select all — fires on every trigger increment
+    LaunchedEffect(selectAllTrigger.value) {
+        if (selectAllTrigger.value > 0) {
             delay(50)
             val t = textFieldValue.value.text
             textFieldValue.value = textFieldValue.value.copy(selection = TextRange(0, t.length))
@@ -112,10 +122,7 @@ fun WorkoutInputField(
                 if (isFocused) Modifier.border(1.dp, MaterialTheme.colorScheme.primary, pillShape)
                 else Modifier
             )
-            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .onFocusChanged { focusState ->
-                focusedForSelectAll.value = focusState.isFocused
-            },
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
         enabled = enabled,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),

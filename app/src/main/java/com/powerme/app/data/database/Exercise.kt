@@ -21,6 +21,8 @@ data class Exercise(
     val warmupRestSeconds: Int = 30,   // Rest after warmup sets (v32)
     @ColumnInfo(defaultValue = "0")
     val dropSetRestSeconds: Int = 0,   // Rest after drop sets — 0 = no rest (v32)
+    @ColumnInfo(defaultValue = "0")
+    val restAfterLastSet: Boolean = false, // When false, skip rest timer after the last set (v38)
     val exerciseType: ExerciseType = ExerciseType.STRENGTH,
     val setupNotes: String? = null, // Persistent form cues
     val barType: BarType = BarType.STANDARD,

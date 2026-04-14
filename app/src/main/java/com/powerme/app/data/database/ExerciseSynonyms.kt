@@ -22,47 +22,81 @@ object ExerciseSynonyms {
         // Overhead / Shoulder Press
         "military"   to listOf("overhead press"),
         "ohp"        to listOf("overhead press"),
+        "arnold"     to listOf("arnold press"),
 
-        // Romanian Deadlift
-        "rdl"        to listOf("romanian"),
-        "romanian"   to listOf("rdl"),
-        "stiffleg"   to listOf("romanian deadlift"),
+        // Deadlifts
+        "rdl"        to listOf("romanian deadlift"),
+        "romanian"   to listOf("rdl", "romanian deadlift"),
+        "stiffleg"   to listOf("stiff-leg deadlift", "romanian deadlift"),
+        "sldl"       to listOf("stiff-leg deadlift"),
+        "goodmorning" to listOf("good morning"),
 
         // Equipment shorthand
         "db"         to listOf("dumbbell"),
         "bb"         to listOf("barbell"),
         "kb"         to listOf("kettlebell"),
+        "ez"         to listOf("ez bar"),
+        "sm"         to listOf("smith machine"),
+        "smith"      to listOf("smith machine"),
 
         // Rows
         "bentover"   to listOf("barbell row"),
+        "meadows"    to listOf("meadows row"),
+        "pendlay"    to listOf("pendlay row"),
 
         // Chest / Fly
-        "pecdeck"    to listOf("chest fly"),
-        "crossover"  to listOf("cable fly"),
+        "pecdeck"    to listOf("pec deck fly", "chest fly"),
+        "crossover"  to listOf("cable crossover", "cable fly"),
+        "cgbp"       to listOf("close-grip bench press"),
+        "flyes"      to listOf("chest fly", "rear delt fly"),
 
         // Glutes / Hips
         "hipthrust"  to listOf("hip thrust"),
         "glute"      to listOf("hip thrust", "glute bridge"),
 
         // Hamstrings
-        "nordic"     to listOf("hamstring curl"),
-        "ghd"        to listOf("hamstring"),
+        "nordic"     to listOf("nordic curl", "hamstring curl"),
+        "ghd"        to listOf("hamstring curl", "hamstring"),
+        "legcurl"    to listOf("leg curl"),
 
         // Triceps
-        "skull"      to listOf("tricep extension"),
-        "jm"         to listOf("tricep press"),
+        "skull"      to listOf("skull crusher"),
+        "skullcrusher" to listOf("skull crusher"),
+        "jm"         to listOf("jm press"),
+        "pushdown"   to listOf("tricep pushdown"),
+        "pressdown"  to listOf("tricep pushdown"),
+        "kickback"   to listOf("tricep kickback"),
 
-        // Rear delts
-        "facepull"   to listOf("rear delt"),
+        // Rear delts / Shoulders
+        "facepull"   to listOf("face pull", "rear delt"),
+        "laterals"   to listOf("lateral raise"),
 
         // Calves
         "calf"       to listOf("calf raise"),
 
-        // Misc
-        "shrug"      to listOf("trap"),
+        // Misc / Movement Nicknames & Spelling Variants
+        "deads"      to listOf("deadlift"),
         "chinup"     to listOf("chin-up"),
         "pullup"     to listOf("pull-up"),
-        "paused"     to listOf("pause"),
+        "pushup"     to listOf("push-up"),
+        "stepup"     to listOf("step-up"),
+        "muscleup"   to listOf("muscle-up"),
+        "pulldown"   to listOf("lat pulldown"),
+        "paused"     to listOf("pause squat", "pause"),
+
+        // Apostrophe edge-cases (apostrophe is not stripped by toSearchName)
+        "farmers"    to listOf("farmer's walk"),
+        "farmerwalk" to listOf("farmer's walk"),
+
+        // CrossFit / shorthand abbreviations
+        "hspu"       to listOf("handstand push-up"),
+        "ttb"        to listOf("toes-to-bar"),
+        "t2b"        to listOf("toes-to-bar"),
+        "c2b"        to listOf("chest-to-bar"),
+        "ohs"        to listOf("overhead squat"),
+
+        // Other compound-word entries that searchName handles for most but not all users
+        "abwheel"    to listOf("ab wheel")
     )
 
     /**

@@ -37,7 +37,7 @@ class RestTimerNotifier(private val context: Context) {
     fun playTone() {
         try {
             val toneGenerator = ToneGenerator(resolveStream(), 100)
-            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 200) // 200ms beep
+            toneGenerator.startTone(ToneGenerator.TONE_DTMF_S, 200) // 200ms beep
 
             // Release after a delay
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -128,7 +128,7 @@ class RestTimerNotifier(private val context: Context) {
     private fun playBeep(durationMs: Int, volume: Int = 100) {
         try {
             val tg = ToneGenerator(resolveStream(), volume)
-            tg.startTone(ToneGenerator.TONE_PROP_BEEP, durationMs)
+            tg.startTone(ToneGenerator.TONE_DTMF_S, durationMs)
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 tg.release()
             }, durationMs.toLong() + 100)

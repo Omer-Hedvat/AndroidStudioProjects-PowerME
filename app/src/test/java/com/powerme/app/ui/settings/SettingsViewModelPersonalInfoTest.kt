@@ -11,7 +11,6 @@ import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
-import com.powerme.app.util.SecurePreferencesManager
 import com.powerme.app.util.UserSessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -45,7 +44,6 @@ class SettingsViewModelPersonalInfoTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private lateinit var mockSecurePreferencesManager: SecurePreferencesManager
     private lateinit var mockUserSettingsDao: UserSettingsDao
     private lateinit var mockDatabase: PowerMeDatabase
     private lateinit var mockMetricLogRepository: MetricLogRepository
@@ -71,7 +69,6 @@ class SettingsViewModelPersonalInfoTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
 
-        mockSecurePreferencesManager = mock()
         mockUserSettingsDao = mock()
         mockDatabase = mock()
         mockMetricLogRepository = mock()
@@ -101,7 +98,6 @@ class SettingsViewModelPersonalInfoTest {
     }
 
     private fun buildViewModel(): SettingsViewModel = SettingsViewModel(
-        securePreferencesManager = mockSecurePreferencesManager,
         userSettingsDao = mockUserSettingsDao,
         database = mockDatabase,
         metricLogRepository = mockMetricLogRepository,

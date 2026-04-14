@@ -1,5 +1,62 @@
 # PowerME Database Upgrade Log
 
+## v38 — Rest After Last Set Flag
+
+**Migration:** `MIGRATION_37_38`
+
+### Changes
+
+Schema change on `exercises` table:
+- `ALTER TABLE exercises ADD COLUMN restAfterLastSet INTEGER NOT NULL DEFAULT 0` — when `false` (default), the rest timer is suppressed after the final set of an exercise; when `true`, rest timer fires as normal; configurable per exercise via "Set Rest Timers" dialog
+- `Exercise.restAfterLastSet: Boolean = false` field added
+- `WorkoutViewModel.completeSet()` checks `isLastSet && !ex.exercise.restAfterLastSet` to gate rest timer start
+- `UpdateRestTimersDialog` gains a "Rest after last set" toggle switch; `onUpdateExerciseRestTimers` lambda signature gains a 4th `restAfterLastSet: Boolean` param
+- `ExerciseDao.updateRestTimers()` updated to persist the new column
+
+---
+
+## v37 — Remove Chat Messages Table
+
+**Migration:** `MIGRATION_36_37`
+
+### Changes
+
+Data removal — Gemini/chat infrastructure removed:
+- `DROP TABLE IF EXISTS chat_messages` — removes the Gemini chat message table
+- Removed `ChatMessage` entity, `ChatMessageDao`, and `ChatRepository`
+- `PowerMeDatabase` version bumped 36 → 37; `ChatMessage::class` removed from `@Database(entities = [...])`
+
+---
+
+## v36 — Routine Name Denormalization
+
+**Migration:** `MIGRATION_35_36`
+
+### Changes
+
+Schema change on `workouts` table:
+- `ALTER TABLE workouts ADD COLUMN routineName TEXT DEFAULT NULL` — snapshot of the routine name at workout creation time
+- Back-fills from `routines.name` for rows where `routineId IS NOT NULL`
+- History cards now retain routine name even after the routine is deleted (FK is `SET_NULL`, but `routineName` snapshot persists)
+- `WorkoutDao.getAllCompletedWorkoutsWithExerciseNames` uses `COALESCE(w.routineName, r.name)` for display
+- `WorkoutRepository.instantiateWorkoutFromRoutine()` stamps `routineName` at creation
+- `WorkoutViewModel.finishWorkout()` writes `routineName` on the saved entity
+
+---
+
+## v35 — Sync Foundation
+
+**Migration:** `MIGRATION_34_35`
+
+### Changes
+
+Sync identity and conflict-resolution columns across multiple tables:
+- Added `syncId TEXT NOT NULL DEFAULT ''` (stable cross-device Firestore identity, UUID-backfilled) to: `exercises`, `exercise_muscle_groups`, `medical_ledger`, `metric_log`, `gym_profiles`, `warmup_log`, `warmup_library`, `state_history`
+- Added `updatedAt INTEGER NOT NULL DEFAULT 0` (LWW epoch-ms) to: `exercises`, `medical_ledger`, `gym_profiles`, `user_settings`, `users`
+- Existing rows backfilled with SQLite `randomblob`-based UUID v4
+
+---
+
 ## v34 — Date of Birth
 
 **Migration:** `MIGRATION_33_34`

@@ -10,7 +10,6 @@ import androidx.room.TypeConverters
         Exercise::class,
         Workout::class,
         WorkoutSet::class,
-        ChatMessage::class,
         HealthStats::class,
         WarmupLog::class,
         WarmupLibrary::class,
@@ -24,7 +23,7 @@ import androidx.room.TypeConverters
         RoutineExercise::class,
         ExerciseMuscleGroup::class
     ],
-    version = 36,
+    version = 38,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -33,7 +32,6 @@ abstract class PowerMeDatabase : RoomDatabase() {
     abstract fun exerciseDao(): ExerciseDao
     abstract fun workoutDao(): WorkoutDao
     abstract fun workoutSetDao(): WorkoutSetDao
-    abstract fun chatMessageDao(): ChatMessageDao
     abstract fun healthStatsDao(): HealthStatsDao
     abstract fun warmupLogDao(): WarmupLogDao
     abstract fun warmupLibraryDao(): WarmupLibraryDao

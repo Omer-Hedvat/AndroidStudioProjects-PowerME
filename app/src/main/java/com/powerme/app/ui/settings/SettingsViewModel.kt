@@ -19,7 +19,6 @@ import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.util.DatabaseExporter
-import com.powerme.app.util.SecurePreferencesManager
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -94,7 +93,6 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val securePreferencesManager: SecurePreferencesManager,
     private val userSettingsDao: UserSettingsDao,
     private val database: PowerMeDatabase,
     private val metricLogRepository: MetricLogRepository,
@@ -549,7 +547,6 @@ class SettingsViewModel @Inject constructor(
             try {
                 database.clearAllTables()
                 Firebase.auth.currentUser?.delete()?.await()
-                securePreferencesManager.clearApiKey()
                 appSettingsDataStore.setLanguage("Hebrew")
             } catch (e: Exception) {
                 android.util.Log.e("SettingsViewModel", "Delete account error", e)

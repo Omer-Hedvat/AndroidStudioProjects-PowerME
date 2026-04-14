@@ -64,7 +64,6 @@ class PreMigrationValidator(private val context: Context) {
             workoutSetCount = getTableCount(database, "workout_sets"),
             exerciseCount = getTableCount(database, "exercises"),
             routineCount = getTableCount(database, "routines"),
-            chatMessageCount = getTableCount(database, "chat_messages"),
             healthStatsCount = getTableCount(database, "health_stats"),
             warmupLogCount = getTableCount(database, "warmup_log"),
             healthConnectSyncCount = getTableCount(database, "health_connect_sync")
@@ -101,7 +100,6 @@ class PreMigrationValidator(private val context: Context) {
             workoutSetCount = getTableCount(database, "workout_sets"),
             exerciseCount = getTableCount(database, "exercises"),
             routineCount = getTableCount(database, "routines"),
-            chatMessageCount = getTableCount(database, "chat_messages"),
             healthStatsCount = getTableCount(database, "health_stats"),
             warmupLogCount = getTableCount(database, "warmup_log"),
             healthConnectSyncCount = getTableCount(database, "health_connect_sync")
@@ -114,8 +112,6 @@ class PreMigrationValidator(private val context: Context) {
         validationResults.add(validateTable("workout_sets", snapshot.workoutSetCount, postSnapshot.workoutSetCount))
         validationResults.add(validateTable("exercises", snapshot.exerciseCount, postSnapshot.exerciseCount))
         validationResults.add(validateTable("routines", snapshot.routineCount, postSnapshot.routineCount))
-        validationResults.add(validateTable("chat_messages", snapshot.chatMessageCount, postSnapshot.chatMessageCount))
-
         // Optional tables (may be added in new versions)
         if (!allowNewTables || snapshot.healthStatsCount > 0) {
             validationResults.add(validateTable("health_stats", snapshot.healthStatsCount, postSnapshot.healthStatsCount))
@@ -301,7 +297,6 @@ class PreMigrationValidator(private val context: Context) {
         report.appendLine("  Workout Sets: ${snapshot.workoutSetCount}")
         report.appendLine("  Exercises: ${snapshot.exerciseCount}")
         report.appendLine("  Routines: ${snapshot.routineCount}")
-        report.appendLine("  Chat Messages: ${snapshot.chatMessageCount}")
         report.appendLine("  Health Stats: ${snapshot.healthStatsCount}")
         report.appendLine("  Warmup Logs: ${snapshot.warmupLogCount}")
         report.appendLine("  Health Connect Syncs: ${snapshot.healthConnectSyncCount}")
@@ -311,7 +306,6 @@ class PreMigrationValidator(private val context: Context) {
         report.appendLine("  Workout Sets: ${getTableCount(database, "workout_sets")}")
         report.appendLine("  Exercises: ${getTableCount(database, "exercises")}")
         report.appendLine("  Routines: ${getTableCount(database, "routines")}")
-        report.appendLine("  Chat Messages: ${getTableCount(database, "chat_messages")}")
         report.appendLine("  Health Stats: ${getTableCount(database, "health_stats")}")
         report.appendLine("  Warmup Logs: ${getTableCount(database, "warmup_log")}")
         report.appendLine("  Health Connect Syncs: ${getTableCount(database, "health_connect_sync")}")
@@ -333,7 +327,6 @@ data class MigrationSnapshot(
     val workoutSetCount: Int,
     val exerciseCount: Int,
     val routineCount: Int,
-    val chatMessageCount: Int,
     val healthStatsCount: Int,
     val warmupLogCount: Int,
     val healthConnectSyncCount: Int

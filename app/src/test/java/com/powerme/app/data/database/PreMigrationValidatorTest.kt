@@ -81,7 +81,6 @@ class PreMigrationValidatorTest {
             workoutSetCount = 500,
             exerciseCount = 50,
             routineCount = 10,
-            chatMessageCount = 200,
             healthStatsCount = 30,
             warmupLogCount = 75,
             healthConnectSyncCount = 15
@@ -101,7 +100,6 @@ class PreMigrationValidatorTest {
         assertEquals(originalSnapshot.workoutSetCount, deserializedSnapshot.workoutSetCount)
         assertEquals(originalSnapshot.exerciseCount, deserializedSnapshot.exerciseCount)
         assertEquals(originalSnapshot.routineCount, deserializedSnapshot.routineCount)
-        assertEquals(originalSnapshot.chatMessageCount, deserializedSnapshot.chatMessageCount)
         assertEquals(originalSnapshot.healthStatsCount, deserializedSnapshot.healthStatsCount)
         assertEquals(originalSnapshot.warmupLogCount, deserializedSnapshot.warmupLogCount)
         assertEquals(originalSnapshot.healthConnectSyncCount, deserializedSnapshot.healthConnectSyncCount)
@@ -121,14 +119,13 @@ class PreMigrationValidatorTest {
             workoutSetCount = 500,
             exerciseCount = 50,
             routineCount = 10,
-            chatMessageCount = 200,
             healthStatsCount = 30,
             warmupLogCount = 75,
             healthConnectSyncCount = 15
         )
 
         // Mock post-migration counts (same as pre-migration)
-        setupMockCounts(100, 500, 50, 10, 200, 30, 75, 15)
+        setupMockCounts(100, 500, 50, 10, 30, 75, 15)
 
         // Validate
         val isValid = validator.validatePostMigration(mockDatabase, snapshot, 8)
@@ -150,14 +147,13 @@ class PreMigrationValidatorTest {
             workoutSetCount = 500,
             exerciseCount = 50,
             routineCount = 10,
-            chatMessageCount = 200,
             healthStatsCount = 30,
             warmupLogCount = 75,
             healthConnectSyncCount = 15
         )
 
         // Mock post-migration counts (increased - e.g., seeded exercises)
-        setupMockCounts(100, 500, 150, 10, 200, 30, 75, 15) // +100 exercises
+        setupMockCounts(100, 500, 150, 10, 30, 75, 15) // +100 exercises
 
         // Validate
         val isValid = validator.validatePostMigration(mockDatabase, snapshot, 8)
@@ -179,14 +175,13 @@ class PreMigrationValidatorTest {
             workoutSetCount = 500,
             exerciseCount = 50,
             routineCount = 10,
-            chatMessageCount = 200,
             healthStatsCount = 30,
             warmupLogCount = 75,
             healthConnectSyncCount = 15
         )
 
         // Mock post-migration counts (DECREASED - data loss!)
-        setupMockCounts(95, 500, 50, 10, 200, 30, 75, 15) // Lost 5 workouts!
+        setupMockCounts(95, 500, 50, 10, 30, 75, 15) // Lost 5 workouts!
 
         // Validate
         val isValid = validator.validatePostMigration(mockDatabase, snapshot, 8)
@@ -208,14 +203,13 @@ class PreMigrationValidatorTest {
             workoutSetCount = 500,
             exerciseCount = 50,
             routineCount = 10,
-            chatMessageCount = 200,
             healthStatsCount = 0, // Table didn't exist
             warmupLogCount = 0,   // Table didn't exist
             healthConnectSyncCount = 0 // Table didn't exist
         )
 
         // Mock post-migration counts (new tables now have data)
-        setupMockCounts(100, 500, 50, 10, 200, 30, 75, 15)
+        setupMockCounts(100, 500, 50, 10, 30, 75, 15)
 
         // Validate with allowNewTables = true
         val isValid = validator.validatePostMigration(mockDatabase, snapshot, 8, allowNewTables = true)
@@ -232,7 +226,6 @@ class PreMigrationValidatorTest {
         workoutSets: Int,
         exercises: Int,
         routines: Int,
-        chatMessages: Int,
         healthStats: Int,
         warmupLogs: Int,
         healthConnectSyncs: Int
@@ -241,7 +234,6 @@ class PreMigrationValidatorTest {
         setupMockCursor("workout_sets", workoutSets)
         setupMockCursor("exercises", exercises)
         setupMockCursor("routines", routines)
-        setupMockCursor("chat_messages", chatMessages)
         setupMockCursor("health_stats", healthStats)
         setupMockCursor("warmup_log", warmupLogs)
         setupMockCursor("health_connect_sync", healthConnectSyncs)

@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.data.database.Exercise
-import com.powerme.app.ui.components.MagicAddDialog
 import com.powerme.app.ui.theme.FormCuesGold
 import com.powerme.app.ui.theme.PowerMeDefaults
 
@@ -44,7 +43,6 @@ fun ExercisesScreen(
     val uiState by viewModel.uiState.collectAsState()
     val muscleGroupFilters by viewModel.muscleGroupFilters.collectAsState()
     val equipmentFilters by viewModel.equipmentFilters.collectAsState()
-    var showMagicAddDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
     var selectedExercise by remember { mutableStateOf<Exercise?>(null) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
@@ -242,27 +240,6 @@ fun ExercisesScreen(
             }
         }
 
-        // FABs (hidden in picker mode)
-        if (!pickerMode) {
-            FloatingActionButton(
-                onClick = { showMagicAddDialog = true },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.surface
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Exercise")
-            }
-        }
-    }
-
-    // MagicAdd Dialog
-    if (showMagicAddDialog) {
-        MagicAddDialog(
-            onExerciseAdded = { _ -> showMagicAddDialog = false },
-            onDismiss = { showMagicAddDialog = false }
-        )
     }
 
     // Exercise detail sheet — shown when user taps an exercise card

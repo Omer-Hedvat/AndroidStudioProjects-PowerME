@@ -29,13 +29,10 @@ import com.powerme.app.data.repository.MedicalLedgerRepository
 import com.powerme.app.data.repository.StateHistoryRepository
 import com.powerme.app.data.repository.WarmupRepository
 import com.powerme.app.data.repository.WorkoutRepository
-import com.powerme.app.ui.chat.MedicalRestrictionsDoc
 import com.powerme.app.util.ClocksTimerBridge
 import com.powerme.app.util.RestTimerNotifier
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.util.WorkoutTimerService
-import com.powerme.app.warmup.WarmupPrescription
-import com.powerme.app.warmup.WarmupService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -163,9 +160,6 @@ data class ActiveWorkoutState(
     val exercises: List<ExerciseWithSets> = emptyList(),
     val availableExercises: List<Exercise> = emptyList(),
     val notes: String = "",
-    val warmupPrescription: WarmupPrescription? = null,
-    val isLoadingWarmup: Boolean = false,
-    val warmupCompleted: Boolean = false,
     val restTimer: RestTimerState = RestTimerState(),
     val standaloneTimer: RestTimerState = RestTimerState(),
     val isMinimized: Boolean = false,
@@ -192,7 +186,6 @@ class WorkoutViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val workoutRepository: WorkoutRepository,
     private val warmupRepository: WarmupRepository,
-    private val warmupService: WarmupService,
     private val workoutDao: WorkoutDao,
     private val workoutSetDao: com.powerme.app.data.database.WorkoutSetDao,
     private val routineExerciseDao: com.powerme.app.data.database.RoutineExerciseDao,
@@ -266,14 +259,10 @@ class WorkoutViewModel @Inject constructor(
     private val _workoutState = MutableStateFlow(ActiveWorkoutState())
     val workoutState: StateFlow<ActiveWorkoutState> = _workoutState.asStateFlow()
 
-    private val _medicalDoc = MutableStateFlow<MedicalRestrictionsDoc?>(null)
-    val medicalDoc: StateFlow<MedicalRestrictionsDoc?> = _medicalDoc.asStateFlow()
-
     private val saveJobs = mutableMapOf<Pair<Long, Int>, Job>()
 
     init {
         loadAvailableExercises()
-        loadMedicalDoc()
         rehydrateIfNeeded()
         context.bindService(
             Intent(context, WorkoutTimerService::class.java),
@@ -369,11 +358,6 @@ class WorkoutViewModel @Inject constructor(
         ) }
     }
 
-    private fun loadMedicalDoc() {
-        viewModelScope.launch {
-            _medicalDoc.value = medicalLedgerRepository.getRestrictionsDoc()
-        }
-    }
 
     private fun loadAvailableExercises() {
         viewModelScope.launch {
@@ -985,6 +969,8 @@ class WorkoutViewModel @Inject constructor(
                 val nextSet = ex?.sets
                     ?.filter { !it.isCompleted && it.setOrder > setOrder }
                     ?.minByOrNull { it.setOrder }
+                val isLastSet = nextSet == null
+                if (isLastSet && ex?.exercise?.restAfterLastSet != true) return
                 val override = if (completedSet != null && ex != null) {
                     _workoutState.value.restTimeOverrides["${exerciseId}_${setOrder}"]
                         ?: computeRestDuration(completedSet.setType, nextSet?.setType, ex.exercise)
@@ -1468,74 +1454,6 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun requestWarmup() {
-        viewModelScope.launch {
-            try {
-                _workoutState.update { it.copy(isLoadingWarmup = true) }
-
-                // Get recent warmups
-                val recentWarmups = warmupRepository.getLast10Warmups()
-
-                // Determine routine name based on exercises (simplified)
-                val routineName = "Routine A" // Could be determined from exercise selection
-
-                // Get main exercises from current workout
-                val mainExercises = _workoutState.value.exercises.map { it.exercise.name }
-
-                // User injury profile — loaded from MedicalLedger at runtime
-                val injuryProfile = emptyList<String>()
-
-                // Generate warmup prescription
-                val prescription = warmupService.generateWarmup(
-                    routineName = routineName,
-                    injuryProfile = injuryProfile,
-                    recentWarmups = recentWarmups,
-                    mainExercises = mainExercises.ifEmpty { listOf("General warmup") }
-                )
-
-                _workoutState.update {
-                    it.copy(
-                        warmupPrescription = prescription,
-                        isLoadingWarmup = false
-                    )
-                }
-            } catch (e: Exception) {
-                _workoutState.update { it.copy(isLoadingWarmup = false) }
-            }
-        }
-    }
-
-    fun logWarmupAsPerformed() {
-        viewModelScope.launch {
-            val prescription = _workoutState.value.warmupPrescription ?: return@launch
-            val currentTime = System.currentTimeMillis()
-
-            val warmupLogs = prescription.exercises.map { exercise ->
-                WarmupLog(
-                    workoutId = _workoutState.value.workoutId,
-                    exerciseName = exercise.name,
-                    timestamp = currentTime,
-                    targetJoint = warmupService.parseTargetJoint(exercise.targetJoint),
-                    durationSeconds = exercise.duration,
-                    reps = exercise.reps
-                )
-            }
-
-            warmupRepository.insertWarmups(warmupLogs)
-
-            _workoutState.update {
-                it.copy(
-                    warmupCompleted = true,
-                    warmupPrescription = null
-                )
-            }
-        }
-    }
-
-    fun dismissWarmup() {
-        _workoutState.update { it.copy(warmupPrescription = null) }
-    }
-
     private var timerJob: kotlinx.coroutines.Job? = null
     private var elapsedTimerJob: kotlinx.coroutines.Job? = null
 
@@ -1589,6 +1507,7 @@ class WorkoutViewModel @Inject constructor(
             ?.exercise ?: return
 
         val restDuration = overrideSeconds ?: exercise.restDurationSeconds
+        if (restDuration <= 0) return
 
         if (serviceBound && timerService != null) {
             // Set identity fields before delegating to service.
@@ -1796,11 +1715,11 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    /** Update all three rest timer durations (work, warmup, drop) for an exercise and persist. */
-    fun updateExerciseRestTimers(exerciseId: Long, workSeconds: Int, warmupSeconds: Int, dropSeconds: Int) {
+    /** Update all three rest timer durations (work, warmup, drop) and restAfterLastSet for an exercise and persist. */
+    fun updateExerciseRestTimers(exerciseId: Long, workSeconds: Int, warmupSeconds: Int, dropSeconds: Int, restAfterLastSet: Boolean) {
         viewModelScope.launch {
             try {
-                exerciseDao.updateRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds)
+                exerciseDao.updateRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds, restAfterLastSet)
                 val prefix = "${exerciseId}_"
                 _workoutState.update { state ->
                     state.copy(
@@ -1809,7 +1728,8 @@ class WorkoutViewModel @Inject constructor(
                                 ex.copy(exercise = ex.exercise.copy(
                                     restDurationSeconds = workSeconds,
                                     warmupRestSeconds = warmupSeconds,
-                                    dropSetRestSeconds = dropSeconds
+                                    dropSetRestSeconds = dropSeconds,
+                                    restAfterLastSet = restAfterLastSet
                                 ))
                             else ex
                         },

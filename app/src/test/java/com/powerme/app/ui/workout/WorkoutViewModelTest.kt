@@ -25,7 +25,6 @@ import com.powerme.app.data.repository.WorkoutRepository
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.util.ClocksTimerBridge
-import com.powerme.app.warmup.WarmupService
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -102,7 +101,6 @@ class WorkoutViewModelTest {
     private lateinit var mockExerciseRepository: ExerciseRepository
     private lateinit var mockWorkoutRepository: WorkoutRepository
     private lateinit var mockWarmupRepository: WarmupRepository
-    private lateinit var mockWarmupService: WarmupService
     private lateinit var mockMedicalLedgerRepository: MedicalLedgerRepository
     private lateinit var mockBoazPerformanceAnalyzer: BoazPerformanceAnalyzer
     private lateinit var mockStateHistoryRepository: StateHistoryRepository
@@ -126,7 +124,7 @@ class WorkoutViewModelTest {
         mockExerciseRepository = mock()
         mockWorkoutRepository = mock()
         mockWarmupRepository = mock()
-        mockWarmupService = mock()
+
         mockMedicalLedgerRepository = mock()
         mockBoazPerformanceAnalyzer = mock()
         mockStateHistoryRepository = mock()
@@ -176,7 +174,6 @@ class WorkoutViewModelTest {
             exerciseRepository = mockExerciseRepository,
             workoutRepository = mockWorkoutRepository,
             warmupRepository = mockWarmupRepository,
-            warmupService = mockWarmupService,
             workoutDao = mockWorkoutDao,
             workoutSetDao = mockWorkoutSetDao,
             routineExerciseDao = mockRoutineExerciseDao,
@@ -830,15 +827,17 @@ class WorkoutViewModelTest {
             whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.deleteSetById(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
         }
 
         viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
+        viewModel.addSet(21L) // 2nd set so set 1 is not the last set
         runCurrent()
 
-        // Complete the set to start the rest timer
+        // Complete set 1 (not the last set) to start the rest timer
         viewModel.completeSet(21L, 1)
         runCurrent()
 
@@ -854,7 +853,7 @@ class WorkoutViewModelTest {
 
         val timerAfterDelete = viewModel.workoutState.value.restTimer
         assertFalse("Rest timer should be cancelled after deleting the set", timerAfterDelete.isActive)
-        assertTrue("Exercise should have no sets after deletion", viewModel.workoutState.value.exercises.first().sets.isEmpty())
+        assertEquals("Exercise should have 1 set remaining after deletion", 1, viewModel.workoutState.value.exercises.first().sets.size)
 
         viewModel.cancelWorkout()
         runCurrent()
@@ -932,15 +931,17 @@ class WorkoutViewModelTest {
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
             whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
         }
 
         viewModel.startWorkout("")
         runCurrent()
 
         viewModel.addExercise(exercise)
+        viewModel.addSet(23L) // 2nd set so set 1 is not the last set
         runCurrent()
 
-        // Complete set 1 to activate rest timer
+        // Complete set 1 (not the last set) to activate rest timer
         viewModel.completeSet(23L, 1)
         runCurrent()
 
@@ -973,7 +974,7 @@ class WorkoutViewModelTest {
         assertTrue(hidden.contains("7_1"))
 
         // Set Rest Timers for exercise 5
-        viewModel.updateExerciseRestTimers(5L, 90, 30, 0)
+        viewModel.updateExerciseRestTimers(5L, 90, 30, 0, false)
         runCurrent()
 
         val updated = viewModel.workoutState.value.hiddenRestSeparators
@@ -2012,5 +2013,93 @@ class WorkoutViewModelTest {
         val captor = argumentCaptor<Workout>()
         verify(mockWorkoutDao).updateWorkout(captor.capture())
         assertEquals("Pull Day", captor.firstValue.routineName)
+    }
+
+    // -------------------------------------------------------------------------
+    // Rest after last set + zero-duration guard
+    // -------------------------------------------------------------------------
+
+    /** Helper: setup exercise with [setCount] sets and given restAfterLastSet flag. */
+    private suspend fun setupExerciseWithSetsAndLastSetFlag(
+        exerciseId: Long,
+        restSeconds: Int,
+        setCount: Int,
+        restAfterLastSet: Boolean
+    ) {
+        val exercise = Exercise(
+            id = exerciseId, name = "Last Set Ex", muscleGroup = "Back",
+            equipmentType = "Barbell", restDurationSeconds = restSeconds,
+            restAfterLastSet = restAfterLastSet
+        )
+        whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+        whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+
+        viewModel.startWorkout("")
+        viewModel.addExercise(exercise)
+        repeat(setCount - 1) { viewModel.addSet(exerciseId) }
+    }
+
+    @Test
+    fun `completeSet last set with restAfterLastSet=false skips timer`() = vmTest {
+        runBlocking { setupExerciseWithSetsAndLastSetFlag(70L, 90, 1, restAfterLastSet = false) }
+        runCurrent()
+
+        viewModel.completeSet(70L, 1)
+        runCurrent()
+
+        val isActive = viewModel.workoutState.value.restTimer.isActive
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertFalse("No rest timer should fire after last set when restAfterLastSet=false", isActive)
+    }
+
+    @Test
+    fun `completeSet last set with restAfterLastSet=true starts timer`() = vmTest {
+        runBlocking { setupExerciseWithSetsAndLastSetFlag(71L, 90, 1, restAfterLastSet = true) }
+        runCurrent()
+
+        viewModel.completeSet(71L, 1)
+        runCurrent()
+
+        val isActive = viewModel.workoutState.value.restTimer.isActive
+        val totalSeconds = viewModel.workoutState.value.restTimer.totalSeconds
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertTrue("Rest timer should fire after last set when restAfterLastSet=true", isActive)
+        assertEquals("Timer should use restDurationSeconds (90s)", 90, totalSeconds)
+    }
+
+    @Test
+    fun `startRestTimer with 0 duration does not start timer`() = vmTest {
+        runBlocking { setupExerciseWithSets(72L, 0, 2) }
+        runCurrent()
+
+        viewModel.completeSet(72L, 1)
+        runCurrent()
+
+        val isActive = viewModel.workoutState.value.restTimer.isActive
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertFalse("Timer with 0s duration should not start", isActive)
+    }
+
+    @Test
+    fun `completeSet non-last set with 0 restDurationSeconds skips timer`() = vmTest {
+        runBlocking { setupExerciseWithSets(73L, 0, 3) }
+        runCurrent()
+
+        viewModel.completeSet(73L, 1)
+        runCurrent()
+
+        val isActive = viewModel.workoutState.value.restTimer.isActive
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertFalse("Timer with 0s exercise rest should not start even on non-last set", isActive)
     }
 }

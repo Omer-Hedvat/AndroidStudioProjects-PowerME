@@ -11,10 +11,6 @@ import com.powerme.app.data.database.*
 import com.powerme.app.data.repository.MedicalLedgerRepository
 import com.powerme.app.data.repository.RoutineRepository
 import com.powerme.app.data.repository.StateHistoryRepository
-import com.powerme.app.util.GeminiResponseLogger
-import com.powerme.app.util.GoalDocumentManager
-import com.powerme.app.util.ModelRouter
-import com.powerme.app.util.StatePatchManager
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.util.UserSessionManager
 import com.powerme.app.util.WakeLockManager
@@ -526,6 +522,20 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_36_37 = object : Migration(36, 37) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Remove chat_messages table — Gemini chat feature removed
+            db.execSQL("DROP TABLE IF EXISTS chat_messages")
+        }
+    }
+
+    private val MIGRATION_37_38 = object : Migration(37, 38) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add restAfterLastSet flag — controls whether a rest timer fires after the final set
+            db.execSQL("ALTER TABLE exercises ADD COLUMN restAfterLastSet INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     private val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix index name mismatch on exercise_muscle_groups:
@@ -876,7 +886,9 @@ object DatabaseModule {
                 MIGRATION_32_33,
                 MIGRATION_33_34,
                 MIGRATION_34_35,
-                MIGRATION_35_36
+                MIGRATION_35_36,
+                MIGRATION_36_37,
+                MIGRATION_37_38
             )
             .fallbackToDestructiveMigration()
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
@@ -925,12 +937,6 @@ object DatabaseModule {
         @ApplicationContext context: Context
     ): DatabaseSeeder {
         return DatabaseSeeder(exerciseDao, warmupLibraryDao, context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideChatMessageDao(database: PowerMeDatabase): ChatMessageDao {
-        return database.chatMessageDao()
     }
 
     @Provides
@@ -1003,14 +1009,6 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideGeminiResponseLogger(
-        @ApplicationContext context: Context
-    ): GeminiResponseLogger {
-        return GeminiResponseLogger(context)
-    }
-
-    @Provides
-    @Singleton
     fun provideMasterExerciseSeeder(
         @ApplicationContext context: Context,
         exerciseDao: ExerciseDao
@@ -1040,15 +1038,6 @@ object DatabaseModule {
         @ApplicationContext context: Context
     ): WakeLockManager {
         return WakeLockManager(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideModelRouter(
-        appSettings: AppSettingsDataStore,
-        securePreferencesManager: com.powerme.app.util.SecurePreferencesManager
-    ): ModelRouter {
-        return ModelRouter(appSettings, securePreferencesManager)
     }
 
     @Provides

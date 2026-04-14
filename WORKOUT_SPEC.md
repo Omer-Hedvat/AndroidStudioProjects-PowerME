@@ -273,13 +273,17 @@ SET | PREV | WEIGHT | REPS | RPE | ✓
 
 Style: `labelSmall`, `onSurfaceVariant` color, no background. The header does NOT scroll — it renders inside `ExerciseCard`, not as a `LazyColumn` `stickyHeader()`. One header per exercise card.
 
-Row background: `surfaceVariant` when completed, `transparent` otherwise.
+Row background: `TimerGreen.copy(alpha = 0.08f)` when completed (`set.isCompleted`), `surface` otherwise. Applied at the `SetWithRestRow` wrapper level so it covers all exercise types (strength, cardio, timed).
 
 **Touch target minimums:** The SET badge `Box` and the CHECK `IconButton` must both use `Modifier.minimumInteractiveComponentSize()` (48dp minimum). The RPE column `Box` must be padded so its clickable area fills the full 44dp row height and the entire column width — never smaller.
 
 **Keyboard types:** `WorkoutInputField` for weight must always pass `keyboardType = KeyboardType.Decimal`. `WorkoutInputField` for reps must always pass `keyboardType = KeyboardType.Number`. These are not defaults — they must be set explicitly at the call site in `WorkoutSetRow`.
 
-**"Touched" set indicator:** If a set has partial data entered (`weight.isNotBlank() || reps.isNotBlank()`) **and** `isCompleted == false`, apply a subtle 2dp left-edge border in `primary.copy(alpha = 0.4f)` to the row. This visually distinguishes a partially-filled set from a completely empty, untouched row. No indicator when the set is fully blank, and no indicator when it is completed (completed row uses the `surfaceVariant` background instead).
+**Select-all on tap:** `WorkoutInputField` selects all existing text on every tap — including taps that occur while the field is already focused. Implemented by collecting `PressInteraction.Release` from the `MutableInteractionSource` and incrementing a counter that keys a `LaunchedEffect`. The effect waits 50ms (to let the IME place its cursor first) then replaces the selection with `TextRange(0, text.length)`. This fires on the first focus tap and on every subsequent tap into the same field.
+
+**Row spacing:** A 2dp `Spacer` is inserted between consecutive set rows (between `SetWithRestRow` items) within the `forEachIndexed` loop, excluding after the last row. This does not affect the rest separator — the `RestSeparator` within `SetWithRestRow` is not affected.
+
+**"Touched" set indicator:** If a set has partial data entered (`weight.isNotBlank() || reps.isNotBlank()`) **and** `isCompleted == false`, apply a subtle 2dp left-edge border in `primary.copy(alpha = 0.4f)` to the row. This visually distinguishes a partially-filled set from a completely empty, untouched row. No indicator when the set is fully blank, and no indicator when it is completed (completed rows use the green `TimerGreen.copy(alpha = 0.08f)` background instead).
 
 #### 4.4.1 PREV Column — Ghost Label Format
 
@@ -696,9 +700,10 @@ Tapping the SET badge opens an **anchored `DropdownMenu`** positioned directly o
 | Failure | `F` | Failure | `(?)` icon button |
 
 - Each row shows the **visual badge** (coloured, same style as the set row badge) + the **label text** + a **(?) icon button** right-aligned.
-- Tapping a type row: selects that type + dismisses the dropdown.
+- Tapping a type row: selects that type + dismisses the dropdown + calls `focusManager.clearFocus()` to prevent the keyboard from re-appearing.
 - Tapping the **(?)** icon: opens a small `AlertDialog` explaining what that set type means and how it affects volume calculations and PR eligibility. Does not select the type.
-- **"Delete Timer"** `TextButton` (error color) at the bottom of the dropdown — removes the per-set rest override for this row.
+- **"Delete Timer"** `TextButton` (error color) at the bottom of the dropdown — removes the per-set rest override for this row. Also calls `focusManager.clearFocus()` on click.
+- Dismissing the dropdown via back/tap-outside also calls `focusManager.clearFocus()`.
 
 > **Legacy `SetTypePickerSheet` is deleted.** The `ModalBottomSheet`-based picker has been replaced by the anchored `DropdownMenu` approach described above. Do not reintroduce the sheet.
 

@@ -47,8 +47,8 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
-import com.powerme.app.ui.components.MagicAddDialog
 import com.powerme.app.ui.components.WorkoutInputField
+import com.powerme.app.ui.exercises.ExercisesScreen
 import com.powerme.app.util.UnitConverter
 import com.powerme.app.ui.theme.*
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -81,6 +81,7 @@ private const val REPS_COL_WEIGHT   = 0.22f
 private const val RPE_COL_WEIGHT    = 0.13f
 private const val CHECK_COL_WEIGHT  = 0.10f
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveWorkoutScreen(
     onWorkoutFinished: () -> Unit = {},
@@ -89,7 +90,6 @@ fun ActiveWorkoutScreen(
     viewModel: WorkoutViewModel = hiltViewModel()
 ) {
     val workoutState by viewModel.workoutState.collectAsState()
-    val medicalDoc by viewModel.medicalDoc.collectAsState()
     val clocksTimerState by viewModel.clocksTimerState.collectAsState()
     val unitSystem by viewModel.unitSystem.collectAsState()
     var showExerciseDialog by remember { mutableStateOf(false) }
@@ -334,13 +334,17 @@ fun ActiveWorkoutScreen(
     } // end Box
 
     if (showExerciseDialog) {
-        MagicAddDialog(
-            onDismiss = { showExerciseDialog = false },
-            onExerciseAdded = { exercise ->
-                viewModel.addExercise(exercise)
-                showExerciseDialog = false
-            }
-        )
+        ModalBottomSheet(onDismissRequest = { showExerciseDialog = false }) {
+            ExercisesScreen(
+                pickerMode = true,
+                onExercisesSelected = { ids ->
+                    ids.forEach { id ->
+                        workoutState.availableExercises.find { it.id == id }?.let { viewModel.addExercise(it) }
+                    }
+                    showExerciseDialog = false
+                }
+            )
+        }
     }
 
     if (showTimerControls) {
@@ -372,74 +376,6 @@ private fun LazyListScope.activeWorkoutListItems(
     reorderableLazyListState: sh.calvin.reorderable.ReorderableLazyListState? = null,
     unitSystem: UnitSystem = UnitSystem.METRIC
 ) {
-    // Warmup section
-    if (!workoutState.warmupCompleted && workoutState.exercises.isEmpty()) {
-        item {
-            Button(
-                onClick = { viewModel.requestWarmup() },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.background
-                ),
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !workoutState.isLoadingWarmup
-            ) {
-                if (workoutState.isLoadingWarmup) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.background,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Getting Warmup...")
-                } else {
-                    Icon(Icons.Default.FitnessCenter, contentDescription = "Get Warmup")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("GET WARMUP", fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-    }
-
-    // Display warmup prescription
-    workoutState.warmupPrescription?.let { prescription ->
-        item {
-            WarmupPrescriptionCard(
-                prescription = prescription,
-                onLogAsPerformed = { viewModel.logWarmupAsPerformed() },
-                onDismiss = { viewModel.dismissWarmup() }
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-
-    if (workoutState.warmupCompleted && workoutState.exercises.isNotEmpty()) {
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "✓ Warmup completed",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-    }
-
     // Organize Mode CAB — persistent; user exits only via Done
     if (workoutState.isSupersetSelectMode) {
         item {
@@ -526,6 +462,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     activeTimerRemainingSeconds = activeTimerRemainingSeconds,
                     activeTimerTotalSeconds = activeTimerTotalSeconds,
                     unitSystem = unitSystem,
+                    availableExercises = workoutState.availableExercises,
                     restTimeOverrides = workoutState.restTimeOverrides,
                     hiddenRestSeparators = workoutState.hiddenRestSeparators,
                     isEditMode = isEditMode,
@@ -547,7 +484,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
                     onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
                     onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
-                    onUpdateExerciseRestTimers = { work, warmup, drop -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop) },
+                    onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
                     onAddWarmupSets = { viewModel.addWarmupSetsToExercise(exerciseWithSets.exercise.id) },
                     onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
                     onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
@@ -570,6 +507,7 @@ private fun LazyListScope.activeWorkoutListItems(
                 activeTimerRemainingSeconds = activeTimerRemainingSeconds,
                 activeTimerTotalSeconds = activeTimerTotalSeconds,
                 unitSystem = unitSystem,
+                availableExercises = workoutState.availableExercises,
                 restTimeOverrides = workoutState.restTimeOverrides,
                 hiddenRestSeparators = workoutState.hiddenRestSeparators,
                 isEditMode = isEditMode,
@@ -591,7 +529,7 @@ private fun LazyListScope.activeWorkoutListItems(
                 onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
                 onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
                 onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
-                onUpdateExerciseRestTimers = { work, warmup, drop -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop) },
+                onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
                 onAddWarmupSets = { viewModel.addWarmupSetsToExercise(exerciseWithSets.exercise.id) },
                 onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
                 onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
@@ -655,7 +593,7 @@ private fun LazyListScope.activeWorkoutListItems(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ExerciseCard(
     exerciseWithSets: ExerciseWithSets,
@@ -666,6 +604,7 @@ private fun ExerciseCard(
     activeTimerRemainingSeconds: Int,
     activeTimerTotalSeconds: Int,
     unitSystem: UnitSystem = UnitSystem.METRIC,
+    availableExercises: List<Exercise> = emptyList(),
     onToggleSelect: () -> Unit,
     onAddSet: () -> Unit,
     onDeleteSet: (Int) -> Unit,
@@ -688,7 +627,7 @@ private fun ExerciseCard(
     onRemoveExercise: () -> Unit,
     onUpdateSessionNote: (String) -> Unit,
     onUpdateStickyNote: (String) -> Unit,
-    onUpdateExerciseRestTimers: (workSeconds: Int, warmupSeconds: Int, dropSeconds: Int) -> Unit,
+    onUpdateExerciseRestTimers: (workSeconds: Int, warmupSeconds: Int, dropSeconds: Int, restAfterLastSet: Boolean) -> Unit,
     onAddWarmupSets: () -> Unit,
     onEnterSupersetMode: () -> Unit,
     onRemoveFromSuperset: () -> Unit,
@@ -858,7 +797,7 @@ private fun ExerciseCard(
                             val isThisTimerActive = (activeTimerExerciseId == exerciseId) && (activeTimerSetOrder == set.setOrder)
                             val isNotLastSet = index < exerciseWithSets.sets.size - 1
                             val isSeparatorHidden = separatorKey in hiddenRestSeparators
-                            val shouldShowSeparator = (isThisTimerActive || isNotLastSet) && !isSeparatorHidden
+                            val shouldShowSeparator = (isThisTimerActive || (isNotLastSet && effectiveRest > 0)) && !isSeparatorHidden
                             val nextIncompleteIdx = (index + 1 until exerciseWithSets.sets.size)
                                 .firstOrNull { !exerciseWithSets.sets[it].isCompleted }
 
@@ -890,6 +829,9 @@ private fun ExerciseCard(
                                     onRepsDone = { onCompleteSet(set.setOrder) },
                                     isEditMode = isEditMode
                                 )
+                            }
+                            if (index < exerciseWithSets.sets.lastIndex) {
+                                Spacer(modifier = Modifier.height(2.dp))
                             }
                         }
 
@@ -946,13 +888,17 @@ private fun ExerciseCard(
     }
 
     if (showReplaceDialog) {
-        MagicAddDialog(
-            onDismiss = { showReplaceDialog = false },
-            onExerciseAdded = { newExercise ->
-                onReplaceExercise(newExercise)
-                showReplaceDialog = false
-            }
-        )
+        ModalBottomSheet(onDismissRequest = { showReplaceDialog = false }) {
+            ExercisesScreen(
+                pickerMode = true,
+                onExercisesSelected = { ids ->
+                    ids.firstOrNull()?.let { id ->
+                        availableExercises.find { it.id == id }?.let { onReplaceExercise(it) }
+                    }
+                    showReplaceDialog = false
+                }
+            )
+        }
     }
 
     if (showSessionNoteDialog) {
@@ -1020,9 +966,10 @@ private fun ExerciseCard(
             workSeconds = exerciseWithSets.exercise.restDurationSeconds,
             warmupSeconds = exerciseWithSets.exercise.warmupRestSeconds,
             dropSeconds = exerciseWithSets.exercise.dropSetRestSeconds,
+            restAfterLastSet = exerciseWithSets.exercise.restAfterLastSet,
             onDismiss = { showRestTimerSheet = false },
-            onConfirm = { work, warmup, drop ->
-                onUpdateExerciseRestTimers(work, warmup, drop)
+            onConfirm = { work, warmup, drop, restAfterLast ->
+                onUpdateExerciseRestTimers(work, warmup, drop, restAfterLast)
                 showRestTimerSheet = false
             }
         )
@@ -1081,7 +1028,9 @@ private fun SetWithRestRow(
             modifier = Modifier.zIndex(1f),
             backgroundContent = { SwipeToDeleteBackground(setSwipeState.progress) }
         ) {
-            Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+            Box(modifier = Modifier.fillMaxWidth().background(
+                if (set.isCompleted) TimerGreen.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
+            )) {
                 when (exerciseType) {
                     ExerciseType.CARDIO -> CardioSetRow(set, onUpdateCardioSet, onCompleteSet)
                     ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged)
@@ -1166,8 +1115,9 @@ private fun UpdateRestTimersDialog(
     workSeconds: Int,
     warmupSeconds: Int,
     dropSeconds: Int,
+    restAfterLastSet: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (workSeconds: Int, warmupSeconds: Int, dropSeconds: Int) -> Unit
+    onConfirm: (workSeconds: Int, warmupSeconds: Int, dropSeconds: Int, restAfterLastSet: Boolean) -> Unit
 ) {
     val workMinsTfv = remember { mutableStateOf(TextFieldValue((workSeconds / 60).toString())) }
     val workSecsTfv = remember { mutableStateOf(TextFieldValue("%02d".format(workSeconds % 60))) }
@@ -1175,6 +1125,7 @@ private fun UpdateRestTimersDialog(
     val warmupSecsTfv = remember { mutableStateOf(TextFieldValue("%02d".format(warmupSeconds % 60))) }
     val dropMinsTfv = remember { mutableStateOf(TextFieldValue((dropSeconds / 60).toString())) }
     val dropSecsTfv = remember { mutableStateOf(TextFieldValue("%02d".format(dropSeconds % 60))) }
+    var restAfterLastSetState by remember { mutableStateOf(restAfterLastSet) }
     val scope = rememberCoroutineScope()
 
     fun toSeconds(mins: String, secs: String): Int {
@@ -1268,6 +1219,18 @@ private fun UpdateRestTimersDialog(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Rest after last set", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = restAfterLastSetState,
+                        onCheckedChange = { restAfterLastSetState = it }
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1275,7 +1238,8 @@ private fun UpdateRestTimersDialog(
                 onClick = { onConfirm(
                     toSeconds(workMinsTfv.value.text, workSecsTfv.value.text),
                     toSeconds(warmupMinsTfv.value.text, warmupSecsTfv.value.text),
-                    toSeconds(dropMinsTfv.value.text, dropSecsTfv.value.text)
+                    toSeconds(dropMinsTfv.value.text, dropSecsTfv.value.text),
+                    restAfterLastSetState
                 ) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
@@ -1483,27 +1447,7 @@ private fun formatElapsed(seconds: Int): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
 
-@Composable
-private fun WarmupPrescriptionCard(prescription: com.powerme.app.warmup.WarmupPrescription, onLogAsPerformed: () -> Unit, onDismiss: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Warmup Prescription", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Dismiss") }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            prescription.exercises.forEach { step ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(step.name, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onLogAsPerformed, modifier = Modifier.fillMaxWidth()) { Text("LOG AS PERFORMED") }
-        }
-    }
-}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1577,7 +1521,7 @@ fun WorkoutSetRow(
                 }
                 DropdownMenu(
                     expanded = showSetTypeMenu,
-                    onDismissRequest = { showSetTypeMenu = false }
+                    onDismissRequest = { showSetTypeMenu = false; focusManager.clearFocus() }
                 ) {
                     listOf(
                         Triple(SetType.NORMAL, "${set.setOrder}", MaterialTheme.colorScheme.onSurface),
@@ -1610,13 +1554,13 @@ fun WorkoutSetRow(
                                     }
                                 }
                             },
-                            onClick = { onSelectSetType(type); showSetTypeMenu = false }
+                            onClick = { onSelectSetType(type); showSetTypeMenu = false; focusManager.clearFocus() }
                         )
                     }
                     HorizontalDivider()
                     DropdownMenuItem(
                         text = { Text("Delete Timer", color = MaterialTheme.colorScheme.error) },
-                        onClick = { onDeleteTimer(); showSetTypeMenu = false }
+                        onClick = { onDeleteTimer(); showSetTypeMenu = false; focusManager.clearFocus() }
                     )
                 }
             }
