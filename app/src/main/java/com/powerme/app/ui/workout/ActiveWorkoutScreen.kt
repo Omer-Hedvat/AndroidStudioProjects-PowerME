@@ -1228,7 +1228,11 @@ private fun UpdateRestTimersDialog(
                     Text("Rest after last set", style = MaterialTheme.typography.bodyMedium)
                     Switch(
                         checked = restAfterLastSetState,
-                        onCheckedChange = { restAfterLastSetState = it }
+                        onCheckedChange = { restAfterLastSetState = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface
+                        )
                     )
                 }
             }
