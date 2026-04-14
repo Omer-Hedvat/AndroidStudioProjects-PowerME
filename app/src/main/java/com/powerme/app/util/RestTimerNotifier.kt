@@ -1,8 +1,10 @@
 package com.powerme.app.util
 
+import android.annotation.SuppressLint
 import android.content.Context
-import android.media.ToneGenerator
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -25,12 +27,16 @@ class RestTimerNotifier(private val context: Context) {
         }
     }
 
+    private val audioManager: AudioManager by lazy {
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+
     /**
      * Play a short tone to alert the user.
      */
     fun playTone() {
         try {
-            val toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+            val toneGenerator = ToneGenerator(resolveStream(), 100)
             toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 200) // 200ms beep
 
             // Release after a delay
@@ -65,18 +71,10 @@ class RestTimerNotifier(private val context: Context) {
     }
 
     /**
-     * Play a short single warning beep (different from end-of-round).
+     * Play a 150 ms warning beep (2 s / 1 s remaining).
      */
     fun playWarningBeep() {
-        try {
-            val toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 70)
-            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 150) // shorter, softer beep
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                toneGenerator.release()
-            }, 250)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        playBeep(150)
     }
 
     /**
@@ -92,19 +90,12 @@ class RestTimerNotifier(private val context: Context) {
     }
 
     /**
-     * Play a long end-of-timer beep plus vibration (used at remaining == 0).
+     * Play the finish beep sequence plus vibration (used at remaining == 0).
+     * Pattern: 2 short beeps + 1 longer beep.
      */
     fun notifyEnd(audioEnabled: Boolean = true, hapticsEnabled: Boolean = true) {
         if (audioEnabled) {
-            try {
-                val toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-                toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 800)
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    toneGenerator.release()
-                }, 900)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            playBeep(600)
         }
         if (hapticsEnabled) {
             vibrate()
@@ -113,15 +104,37 @@ class RestTimerNotifier(private val context: Context) {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
+    /**
+     * Returns STREAM_MUSIC when external audio output (headphones/Bluetooth) is connected
+     * so sound routes through earphones; falls back to STREAM_ALARM on speaker to bypass
+     * silent mode.
+     */
+    @SuppressLint("InlinedApi")
+    private fun resolveStream(): Int {
+        val externalTypes = setOf(
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,  // API 31+ constant; safe to include on older APIs
+        )
+        val hasExternal = audioManager
+            .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            .any { it.type in externalTypes }
+        return if (hasExternal) AudioManager.STREAM_MUSIC else AudioManager.STREAM_ALARM
+    }
+
     private fun playBeep(durationMs: Int, volume: Int = 100) {
         try {
-            val tg = ToneGenerator(AudioManager.STREAM_ALARM, volume)
+            val tg = ToneGenerator(resolveStream(), volume)
             tg.startTone(ToneGenerator.TONE_PROP_BEEP, durationMs)
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 tg.release()
             }, durationMs.toLong() + 100)
         } catch (e: Exception) { e.printStackTrace() }
     }
+
 
     /** Pattern 1 — short sharp pulse (50 ms) for WARNING / COUNTDOWN_TICK */
     fun hapticShortPulse() {
@@ -154,12 +167,12 @@ class RestTimerNotifier(private val context: Context) {
     /**
      * Fires synchronized audio + haptic for each timer event type.
      *
-     * ROUND_START     — 600 ms beep        + Pattern 2 haptic  (phase beginning)
-     * WARNING         — 2 × 150 ms beeps   + Pattern 1 × 2     (user-configured warn-at)
-     * COUNTDOWN_TICK  — 200 ms beep        + Pattern 1          (last 2 s / 1 s)
-     * FINISH          — [150+150+800 ms]   + Pattern 2 haptic   (phase / workout end)
+     * ROUND_START     — 600 ms beep               + Pattern 2 haptic  (phase beginning)
+     * WARNING         — 2 × 150 ms beeps           + Pattern 1 × 2     (user-configured warn-at)
+     * COUNTDOWN_TICK  — 200 ms beep               + Pattern 1          (last 2 s / 1 s)
+     * FINISH          — 300 ms beep                + Pattern 2 haptic   (phase / workout end)
      *
-     * All tones use STREAM_ALARM — bypasses DND and silent mode.
+     * Audio stream: STREAM_MUSIC when headphones/Bluetooth connected, STREAM_ALARM otherwise.
      */
     fun triggerAudioAlert(alertType: AlertType) {
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -177,14 +190,12 @@ class RestTimerNotifier(private val context: Context) {
                 }, 300)
             }
             AlertType.COUNTDOWN_TICK -> {
-                playBeep(200)
+                playBeep(150)
                 hapticShortPulse()
             }
             AlertType.FINISH -> {
-                playBeep(150)
-                handler.postDelayed({ playBeep(150) }, 300)
-                handler.postDelayed({ playBeep(800) }, 600)
-                hapticPhasePattern()                         // fires immediately with first beep
+                playBeep(600)
+                hapticPhasePattern()
             }
         }
     }

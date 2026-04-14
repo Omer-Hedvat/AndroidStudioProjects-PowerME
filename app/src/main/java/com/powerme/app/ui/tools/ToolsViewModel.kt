@@ -53,7 +53,8 @@ data class ToolsUiState(
     // Setup time — preparation countdown before main timer starts (shared across all modes)
     val setupSeconds: Int = 0,
     val setupSecondsText: String = "0",
-    val setupSecondsRemaining: Int = 0
+    val setupSecondsRemaining: Int = 0,
+    val tickEpochMs: Long = 0L
 )
 
 @HiltViewModel
@@ -166,7 +167,7 @@ class ToolsViewModel @Inject constructor(
     fun pauseTimer() {
         timerJob?.cancel()
         clocksTimerBridge.clear()
-        _uiState.update { it.copy(isRunning = false) }
+        _uiState.update { it.copy(isRunning = false, tickEpochMs = 0L) }
     }
 
     fun resetTimer() {
@@ -180,7 +181,8 @@ class ToolsViewModel @Inject constructor(
                 displaySeconds = 0,
                 elapsedSeconds = 0,
                 currentRound = 0,
-                setupSecondsRemaining = 0
+                setupSecondsRemaining = 0,
+                tickEpochMs = 0L
             )
         }
     }
@@ -226,7 +228,7 @@ class ToolsViewModel @Inject constructor(
             var remaining = roundDuration
             var warnedThisRound = false
             while (remaining > 0 && _uiState.value.isRunning) {
-                _uiState.update { it.copy(displaySeconds = remaining) }
+                _uiState.update { it.copy(displaySeconds = remaining, tickEpochMs = System.currentTimeMillis()) }
                 clocksTimerBridge.update(remaining, roundDuration)
                 if (warnAt != null && remaining == warnAt && !warnedThisRound) {
                     warnedThisRound = true
@@ -262,7 +264,7 @@ class ToolsViewModel @Inject constructor(
             var workRemaining = workTotal
             var warnedWork = false
             while (workRemaining > 0 && _uiState.value.isRunning) {
-                _uiState.update { it.copy(displaySeconds = workRemaining) }
+                _uiState.update { it.copy(displaySeconds = workRemaining, tickEpochMs = System.currentTimeMillis()) }
                 clocksTimerBridge.update(workRemaining, workTotal)
                 if (warnAt != null && workRemaining == warnAt && !warnedWork) {
                     warnedWork = true
@@ -285,7 +287,7 @@ class ToolsViewModel @Inject constructor(
                 var restRemaining = restTotal
                 var warnedRest = false
                 while (restRemaining > 0 && _uiState.value.isRunning) {
-                    _uiState.update { it.copy(displaySeconds = restRemaining) }
+                    _uiState.update { it.copy(displaySeconds = restRemaining, tickEpochMs = System.currentTimeMillis()) }
                     clocksTimerBridge.update(restRemaining, restTotal)
                     if (warnAt != null && restRemaining == warnAt && !warnedRest) {
                         warnedRest = true
@@ -311,7 +313,7 @@ class ToolsViewModel @Inject constructor(
         _uiState.update { it.copy(phase = TimerPhase.WORK) }
 
         while (_uiState.value.isRunning) {
-            _uiState.update { it.copy(elapsedSeconds = elapsed) }
+            _uiState.update { it.copy(elapsedSeconds = elapsed, tickEpochMs = System.currentTimeMillis()) }
             delay(1000L)
             elapsed++
         }
@@ -330,7 +332,7 @@ class ToolsViewModel @Inject constructor(
         _uiState.update { it.copy(phase = TimerPhase.WORK) }
 
         while (remaining > 0 && _uiState.value.isRunning) {
-            _uiState.update { it.copy(displaySeconds = remaining) }
+            _uiState.update { it.copy(displaySeconds = remaining, tickEpochMs = System.currentTimeMillis()) }
             clocksTimerBridge.update(remaining, total)
             if (warnAt != null && remaining == warnAt && !warnedThisRound) {
                 warnedThisRound = true
@@ -350,7 +352,7 @@ class ToolsViewModel @Inject constructor(
         restTimerNotifier.triggerAudioAlert(AlertType.FINISH)
         clocksTimerBridge.clear()
         wakeLockManager.release()
-        _uiState.update { it.copy(isRunning = false, phase = TimerPhase.IDLE) }
+        _uiState.update { it.copy(isRunning = false, phase = TimerPhase.IDLE, tickEpochMs = 0L) }
     }
 
     override fun onCleared() {

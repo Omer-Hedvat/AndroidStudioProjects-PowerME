@@ -285,22 +285,44 @@ private fun TimerDisplay(state: ToolsUiState) {
     val minutes = displayValue / 60
     val seconds = displayValue % 60
 
+    // Centiseconds: shown only while actively running (not during setup/idle/paused)
+    val showCentiseconds = state.isRunning
+        && state.phase != TimerPhase.IDLE
+        && state.phase != TimerPhase.SETUP
+        && state.tickEpochMs > 0L
+    val isCountingUp = state.mode == TimerMode.STOPWATCH
+
+    // Wall-clock elapsed ms since the current second started; updates at ~60fps
+    var elapsedSinceTickMs by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(state.tickEpochMs) {
+        if (!showCentiseconds) return@LaunchedEffect
+        while (true) {
+            elapsedSinceTickMs = (System.currentTimeMillis() - state.tickEpochMs).coerceAtLeast(0L)
+            kotlinx.coroutines.delay(16L)
+        }
+    }
+
+    val centiseconds: Int? = if (showCentiseconds) {
+        val raw = ((elapsedSinceTickMs % 1000) / 10).toInt()
+        if (isCountingUp) raw else (99 - raw).coerceIn(0, 99)
+    } else null
+
     // Compute progress (1f=full, 0f=done). Null means no progress line.
-    val progress: Float? = when {
-        state.phase == TimerPhase.SETUP ->
-            state.displaySeconds.toFloat() / state.setupSeconds.coerceAtLeast(1)
+    // When centiseconds are active, interpolate smoothly within the current second.
+    val progressTotal: Int? = when {
+        state.phase == TimerPhase.SETUP -> state.setupSeconds.coerceAtLeast(1)
         state.phase == TimerPhase.IDLE -> null
         state.mode == TimerMode.STOPWATCH -> null
-        state.mode == TimerMode.COUNTDOWN -> {
-            val total = (state.countdownMinutes * 60 + state.countdownSeconds).coerceAtLeast(1)
-            state.displaySeconds.toFloat() / total
-        }
-        state.mode == TimerMode.EMOM -> state.displaySeconds.toFloat() / state.emomRoundSeconds.coerceAtLeast(1)
-        state.mode == TimerMode.TABATA && state.phase == TimerPhase.WORK ->
-            state.displaySeconds.toFloat() / state.workSeconds.coerceAtLeast(1)
-        state.mode == TimerMode.TABATA && state.phase == TimerPhase.REST ->
-            state.displaySeconds.toFloat() / state.restSeconds.coerceAtLeast(1)
+        state.mode == TimerMode.COUNTDOWN -> (state.countdownMinutes * 60 + state.countdownSeconds).coerceAtLeast(1)
+        state.mode == TimerMode.EMOM -> state.emomRoundSeconds.coerceAtLeast(1)
+        state.mode == TimerMode.TABATA && state.phase == TimerPhase.WORK -> state.workSeconds.coerceAtLeast(1)
+        state.mode == TimerMode.TABATA && state.phase == TimerPhase.REST -> state.restSeconds.coerceAtLeast(1)
         else -> null
+    }
+    val progress: Float? = progressTotal?.let { total ->
+        val base = displayValue.toFloat()
+        val smooth = if (centiseconds != null) elapsedSinceTickMs / 1000f else 0f
+        ((base - smooth) / total).coerceIn(0f, 1f)
     }
 
     Box(
@@ -311,15 +333,31 @@ private fun TimerDisplay(state: ToolsUiState) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "%02d:%02d".format(minutes, seconds),
-                style = MonoTextStyle.copy(
-                    fontSize = 48.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                ),
-                textAlign = TextAlign.Center
-            )
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "%02d:%02d".format(minutes, seconds),
+                    style = MonoTextStyle.copy(
+                        fontSize = 48.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                if (centiseconds != null) {
+                    Text(
+                        text = ".%02d".format(centiseconds),
+                        style = MonoTextStyle.copy(
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = textColor.copy(alpha = 0.55f)
+                        ),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
             if (state.mode == TimerMode.TABATA || state.mode == TimerMode.EMOM) {
                 if (state.currentRound > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -446,7 +484,7 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Skip last rest period", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                    Text("Skip last rest", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
                     Text(
                         "End after last work interval",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
@@ -456,7 +494,12 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 Switch(
                     checked = state.tabataSkipLastRest,
                     onCheckedChange = { viewModel.toggleTabataSkipLastRest() },
-                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.onPrimary, checkedTrackColor = MaterialTheme.colorScheme.primary)
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 )
             }
         }
