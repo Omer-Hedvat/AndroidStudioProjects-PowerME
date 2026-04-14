@@ -11,6 +11,7 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.powerme.app.data.database.HealthConnectSync
@@ -217,10 +218,14 @@ class HealthConnectManager @Inject constructor(
             val client = HealthConnectClient.getOrCreate(context)
             if (!hasPermission(client, StepsRecord::class)) return@withContext null
             val todayStart = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
-            val now = Instant.now()
-            val total = client.readRecords(ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(todayStart, now)))
-                .records.sumOf { it.count }
-            if (total > 0) total.toInt() else null
+            val response = client.aggregate(
+                AggregateRequest(
+                    metrics = setOf(StepsRecord.COUNT_TOTAL),
+                    timeRangeFilter = TimeRangeFilter.between(todayStart, Instant.now())
+                )
+            )
+            val total = response[StepsRecord.COUNT_TOTAL]
+            if (total != null && total > 0) total.toInt() else null
         } catch (e: Exception) { null }
     }
 }
