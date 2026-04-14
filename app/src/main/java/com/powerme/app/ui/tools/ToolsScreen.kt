@@ -7,6 +7,9 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -28,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.ui.theme.JetBrainsMono
 import com.powerme.app.ui.theme.MonoTextStyle
+import com.powerme.app.ui.theme.ReadinessAmber
 import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.ui.theme.TimerRed
 import kotlinx.coroutines.launch
@@ -261,12 +265,14 @@ private fun ModeCard(
 @Composable
 private fun TimerDisplay(state: ToolsUiState) {
     val backgroundColor = when (state.phase) {
+        TimerPhase.SETUP -> ReadinessAmber.copy(alpha = 0.2f)
         TimerPhase.WORK -> TimerGreen.copy(alpha = 0.2f)
         TimerPhase.REST -> TimerRed.copy(alpha = 0.2f)
         TimerPhase.IDLE -> Color.Transparent
     }
     val idlePrimaryColor = MaterialTheme.colorScheme.primary
     val textColor = when (state.phase) {
+        TimerPhase.SETUP -> ReadinessAmber
         TimerPhase.WORK -> TimerGreen
         TimerPhase.REST -> TimerRed
         TimerPhase.IDLE -> idlePrimaryColor
@@ -281,6 +287,8 @@ private fun TimerDisplay(state: ToolsUiState) {
 
     // Compute progress (1f=full, 0f=done). Null means no progress line.
     val progress: Float? = when {
+        state.phase == TimerPhase.SETUP ->
+            state.displaySeconds.toFloat() / state.setupSeconds.coerceAtLeast(1)
         state.phase == TimerPhase.IDLE -> null
         state.mode == TimerMode.STOPWATCH -> null
         state.mode == TimerMode.COUNTDOWN -> {
@@ -370,11 +378,23 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            TimerConfigField(
-                label = "Warn before finish (sec)",
-                value = state.emomWarnAtSecondsText,
-                onValueChange = viewModel::updateEmomWarnAtSecondsText
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TimerConfigField(
+                    label = "Warn before finish (sec)",
+                    value = state.emomWarnAtSecondsText,
+                    onValueChange = viewModel::updateEmomWarnAtSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+                TimerConfigField(
+                    label = "Setup time (sec)",
+                    value = state.setupSecondsText,
+                    onValueChange = viewModel::updateSetupSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
         TimerMode.TABATA -> {
             // Work / Rest / Rounds in a single row
@@ -402,11 +422,23 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            TimerConfigField(
-                label = "Warn before finish (sec)",
-                value = state.tabataWarnAtSecondsText,
-                onValueChange = viewModel::updateTabataWarnAtSecondsText
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TimerConfigField(
+                    label = "Warn before finish (sec)",
+                    value = state.tabataWarnAtSecondsText,
+                    onValueChange = viewModel::updateTabataWarnAtSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+                TimerConfigField(
+                    label = "Setup time (sec)",
+                    value = state.setupSecondsText,
+                    onValueChange = viewModel::updateSetupSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -437,14 +469,30 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 onPreset = viewModel::setCountdownPreset
             )
             Spacer(modifier = Modifier.height(8.dp))
-            TimerConfigField(
-                label = "Warn before finish (sec)",
-                value = state.countdownWarnAtSecondsText,
-                onValueChange = viewModel::updateCountdownWarnAtSecondsText
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TimerConfigField(
+                    label = "Warn before finish (sec)",
+                    value = state.countdownWarnAtSecondsText,
+                    onValueChange = viewModel::updateCountdownWarnAtSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+                TimerConfigField(
+                    label = "Setup time (sec)",
+                    value = state.setupSecondsText,
+                    onValueChange = viewModel::updateSetupSecondsText,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
         TimerMode.STOPWATCH -> {
-            // No config needed for stopwatch
+            TimerConfigField(
+                label = "Setup time (sec)",
+                value = state.setupSecondsText,
+                onValueChange = viewModel::updateSetupSecondsText
+            )
         }
     }
 }
@@ -589,28 +637,55 @@ private fun TimerConfigField(
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {
     val (tfv, selectAllMod) = rememberSelectAllState(value)
-    OutlinedTextField(
-        value = tfv.value,
-        onValueChange = { newTfv ->
-            val newText = newTfv.text
-            if (newText.isEmpty() || newText.all { it.isDigit() }) {
-                tfv.value = newTfv
-                onValueChange(newText)
-            }
-        },
-        label = { Text(label, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = modifier.then(selectAllMod),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-            cursorColor = MaterialTheme.colorScheme.primary
-        ),
-        textStyle = MonoTextStyle,
-        singleLine = true
-    )
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val accentColor = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
+
+    Column(modifier = modifier) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isFocused) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            maxLines = 1
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(surfaceColor, shape = MaterialTheme.shapes.small)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            BasicTextField(
+                value = tfv.value,
+                onValueChange = { newTfv ->
+                    val newText = newTfv.text
+                    if (newText.isEmpty() || newText.all { it.isDigit() }) {
+                        tfv.value = newTfv
+                        onValueChange(newText)
+                    }
+                },
+                textStyle = MonoTextStyle.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                interactionSource = interactionSource,
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(accentColor),
+                modifier = selectAllMod.fillMaxWidth()
+            )
+        }
+        // Focused accent line
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(
+                    color = if (isFocused) accentColor else Color.Transparent,
+                    shape = MaterialTheme.shapes.small
+                )
+        )
+    }
 }

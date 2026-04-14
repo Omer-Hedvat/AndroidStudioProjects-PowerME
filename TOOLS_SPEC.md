@@ -25,7 +25,7 @@ ViewModel scope: **screen-scoped** (not NavHost-scoped). Timer state resets on t
 
 ```kotlin
 enum class TimerMode { EMOM, TABATA, STOPWATCH, COUNTDOWN }
-enum class TimerPhase { IDLE, WORK, REST }
+enum class TimerPhase { IDLE, SETUP, WORK, REST }
 ```
 
 ---
@@ -41,6 +41,13 @@ enum class TimerPhase { IDLE, WORK, REST }
 | `elapsedSeconds` | Int | 0 | Elapsed time (stopwatch) |
 | `currentRound` | Int | 0 | Active round number |
 | `isRunning` | Boolean | false | Timer active flag |
+
+### Setup Time Config (shared across all modes)
+| Property | Default | Notes |
+|----------|---------|-------|
+| `setupSeconds` | 0 | Preparation countdown duration |
+| `setupSecondsText` | "0" | Text field value (dual-property pattern) |
+| `setupSecondsRemaining` | 0 | Persists across pause/resume during setup |
 
 ### TABATA Config
 | Property | Default | Text Field |
@@ -78,6 +85,17 @@ startTimer() → val work = "".toIntOrNull()?.takeIf { it > 0 } ?: 20
 ---
 
 ## §4 — Timer Mechanics
+
+### Setup Countdown (`runSetupCountdown`)
+Runs before the main timer in all 4 modes when `setupSeconds > 0`.
+1. If `setupSeconds == 0`, skip immediately (no-op)
+2. Phase → SETUP (amber display color — `ReadinessAmber`)
+3. Resume from `setupSecondsRemaining` if non-zero (supports pause/resume mid-setup)
+4. Loop: `COUNTDOWN_TICK` alert → delay 1s → decrement; updates `clocksTimerBridge`
+5. On completion: clears `setupSecondsRemaining`, fires `ROUND_START` → main timer begins
+6. If paused during setup: returns `false`, main `run*()` method returns early
+
+UI field: `TimerConfigField("Setup time (sec)")` shown in all 4 mode config sections.
 
 ### Stopwatch (`runStopwatch`)
 1. Phase → WORK
@@ -169,21 +187,22 @@ Column(fillMaxSize, padding=horizontal 16dp / vertical 12dp)
 **Background/Text Color by Phase:**
 | Phase | Background | Text |
 |-------|-----------|------|
-| WORK | `TimerGreen` (#34D399) @ 0.2α | `TimerGreen` |
-| REST | `TimerRed` (#FF1744) @ 0.2α | `TimerRed` |
+| SETUP | `ReadinessAmber` (#FFB74D) @ 0.2α | `ReadinessAmber` |
+| WORK | `TimerGreen` (#4CC990) @ 0.2α | `TimerGreen` |
+| REST | `TimerRed` (#E04458) @ 0.2α | `TimerRed` |
 | IDLE | transparent | `primary` |
 
 ### ConfigInputs
-- **Stopwatch:** none
-- **Countdown:** MM:SS Roulette Picker + "Warn before finish (sec)" `TimerConfigField` (default "2")
-- **Tabata:** `Row` of Work (s) / Rest (s) / Rounds (3 equal columns) + "Warn before finish (sec)" below + Skip-last-rest row
-- **EMOM:** `Row` of Round (sec) / Rounds (2 equal columns) + "Warn before finish (sec)" below
+- **Stopwatch:** Setup time field only
+- **Countdown:** MM:SS Roulette Picker + `Row` of "Warn before finish (sec)" / "Setup time (sec)"
+- **Tabata:** `Row` of Work (s) / Rest (s) / Rounds + `Row` of "Warn before finish (sec)" / "Setup time (sec)" + Skip-last-rest row
+- **EMOM:** `Row` of Round (sec) / Rounds + `Row` of "Warn before finish (sec)" / "Setup time (sec)"
 
-All "Warn before finish" fields share the same label text and fire a `WARNING` alert when `remaining == warnAt`.
+All "Warn before finish" fields fire a `WARNING` alert when `remaining == warnAt`. "Setup time (sec)" is a single shared field across all modes (`setupSecondsText` in state), default "0".
 
 **Tabata skip-last-rest row:** `Row(SpaceBetween)` — left side is a `Column` with label "Skip last rest period" (14sp) and subtitle "End after last work interval" (11sp, 0.5α); right side is a `Switch`.
 
-`TimerConfigField`: `OutlinedTextField`, digit-only filter, `surfaceVariant` bg, primary border (focused) / 0.4α (unfocused), MonoTextStyle. Accepts an optional `modifier` parameter (defaults to `fillMaxWidth()`). Uses `rememberSelectAllState()` from `ui/components/WorkoutInputField.kt` for select-all-on-focus behaviour.
+`TimerConfigField`: **label-above compact design** — `Column` with small-caps `labelSmall` label (Barlow Medium, `onSurface @ 0.5α` unfocused / `primary` focused) above a `Box` with `surfaceVariant` fill (`shapes.small` corners, 12/10dp padding). Value rendered via `BasicTextField` (18sp JetBrainsMono SemiBold). A 2dp `Box` below the container lights up in `primary` on focus as the only border indicator. No outline border at any time. Uses `rememberSelectAllState()` + `MutableInteractionSource` for focus tracking and select-all-on-tap behavior. Digit-only filter unchanged.
 
 #### Countdown Roulette Picker
 
@@ -225,11 +244,13 @@ Icons: `PlayArrow`/`Pause` (toggle), `Refresh` (reset).
 ## §8 — State Machine
 
 ```
-IDLE ──startTimer()──→ WORK
-WORK ──phase ends──→ REST   (TABATA only, unless skip-last-rest on final round)
-REST ──phase ends──→ WORK   (next round)
-WORK ──all rounds──→ IDLE   (via finishTimer)
-Any  ──resetTimer()──→ IDLE
+IDLE  ──startTimer()─────────→ SETUP (if setupSeconds > 0) → WORK
+IDLE  ──startTimer()─────────→ WORK  (if setupSeconds == 0)
+SETUP ──countdown complete──→ WORK
+WORK  ──phase ends──────────→ REST   (TABATA only, unless skip-last-rest on final round)
+REST  ──phase ends──────────→ WORK   (next round)
+WORK  ──all rounds──────────→ IDLE   (via finishTimer)
+Any   ──resetTimer()────────→ IDLE
 ```
 
 `setMode()` only allowed when `!isRunning` — resets to IDLE.
@@ -254,4 +275,4 @@ Any  ──resetTimer()──→ IDLE
 | `RestTimerNotifier` | Audio + haptic alerts | Created in ViewModel |
 | `WakeLockManager` | Device wake lock | Hilt singleton |
 | `MonoTextStyle` / `JetBrainsMono` | Timer typography | `ui/theme/Type.kt` |
-| `TimerGreen` / `TimerRed` | Phase colors | `ui/theme/Color.kt` |
+| `TimerGreen` / `TimerRed` / `ReadinessAmber` | Phase colors | `ui/theme/Color.kt` |

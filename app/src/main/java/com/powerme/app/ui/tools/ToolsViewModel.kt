@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class TimerMode { EMOM, TABATA, STOPWATCH, COUNTDOWN }
-enum class TimerPhase { IDLE, WORK, REST }
+enum class TimerPhase { IDLE, SETUP, WORK, REST }
 
 data class ToolsUiState(
     val mode: TimerMode = TimerMode.EMOM,
@@ -49,7 +49,11 @@ data class ToolsUiState(
     // Warn-before-finish fields (all countdown modes)
     val tabataWarnAtSecondsText: String = "2",
     val emomWarnAtSecondsText: String = "2",
-    val countdownWarnAtSecondsText: String = "2"
+    val countdownWarnAtSecondsText: String = "2",
+    // Setup time — preparation countdown before main timer starts (shared across all modes)
+    val setupSeconds: Int = 0,
+    val setupSecondsText: String = "0",
+    val setupSecondsRemaining: Int = 0
 )
 
 @HiltViewModel
@@ -101,6 +105,9 @@ class ToolsViewModel @Inject constructor(
     fun updateCountdownWarnAtSecondsText(text: String) {
         _uiState.update { it.copy(countdownWarnAtSecondsText = text) }
     }
+    fun updateSetupSecondsText(text: String) {
+        _uiState.update { it.copy(setupSecondsText = text, setupSeconds = text.toIntOrNull()?.coerceAtLeast(0) ?: it.setupSeconds) }
+    }
     fun updateCountdownMinutes(minutes: Int) {
         _uiState.update { it.copy(countdownMinutes = minutes.coerceIn(0, 59)) }
     }
@@ -135,11 +142,13 @@ class ToolsViewModel @Inject constructor(
         val rounds = state.totalRoundsText.toIntOrNull()?.takeIf { it > 0 } ?: state.totalRounds
         val countdownTotal = (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 } ?: 60
         val (cdMins, cdSecs) = countdownTotal / 60 to countdownTotal % 60
+        val setup = state.setupSecondsText.toIntOrNull()?.coerceAtLeast(0) ?: state.setupSeconds
 
         _uiState.update { it.copy(
             emomRoundSeconds = emomRound, emomTotalRounds = emomTotal,
             workSeconds = work, restSeconds = rest, totalRounds = rounds,
-            countdownMinutes = cdMins, countdownSeconds = cdSecs, isRunning = true
+            countdownMinutes = cdMins, countdownSeconds = cdSecs,
+            setupSeconds = setup, isRunning = true
         ) }
 
         wakeLockManager.acquire()
@@ -170,12 +179,43 @@ class ToolsViewModel @Inject constructor(
                 phase = TimerPhase.IDLE,
                 displaySeconds = 0,
                 elapsedSeconds = 0,
-                currentRound = 0
+                currentRound = 0,
+                setupSecondsRemaining = 0
             )
         }
     }
 
+    /**
+     * Runs the preparation countdown before the main timer. Returns true if completed normally,
+     * false if paused/cancelled mid-countdown. When setup = 0, returns true immediately.
+     */
+    private suspend fun runSetupCountdown(): Boolean {
+        val setupTotal = _uiState.value.setupSeconds
+        if (setupTotal <= 0) return true
+
+        // Resume from remaining if paused mid-setup, otherwise start fresh
+        val startFrom = _uiState.value.setupSecondsRemaining.takeIf { it > 0 } ?: setupTotal
+
+        _uiState.update { it.copy(phase = TimerPhase.SETUP) }
+
+        var remaining = startFrom
+        while (remaining > 0 && _uiState.value.isRunning) {
+            _uiState.update { it.copy(displaySeconds = remaining, setupSecondsRemaining = remaining) }
+            clocksTimerBridge.update(remaining, setupTotal)
+            restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+            delay(1000L)
+            remaining--
+        }
+
+        if (!_uiState.value.isRunning) return false
+
+        _uiState.update { it.copy(setupSecondsRemaining = 0, displaySeconds = 0) }
+        restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
+        return true
+    }
+
     private suspend fun runEmom() {
+        if (!runSetupCountdown()) return
         val totalRounds   = _uiState.value.emomTotalRounds
         val roundDuration = _uiState.value.emomRoundSeconds
         val warnAt        = _uiState.value.emomWarnAtSecondsText.toIntOrNull()
@@ -205,6 +245,7 @@ class ToolsViewModel @Inject constructor(
     }
 
     private suspend fun runTabata() {
+        if (!runSetupCountdown()) return
         val state        = _uiState.value
         var round        = state.currentRound
         val totalRounds  = state.totalRounds
@@ -265,6 +306,7 @@ class ToolsViewModel @Inject constructor(
     }
 
     private suspend fun runStopwatch() {
+        if (!runSetupCountdown()) return
         var elapsed = _uiState.value.elapsedSeconds
         _uiState.update { it.copy(phase = TimerPhase.WORK) }
 
@@ -276,6 +318,7 @@ class ToolsViewModel @Inject constructor(
     }
 
     private suspend fun runCountdown() {
+        if (!runSetupCountdown()) return
         val state = _uiState.value
         // total is always the configured duration (preserved across pause/resume via startTimer())
         val total = (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 } ?: 60
