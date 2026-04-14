@@ -1,5 +1,9 @@
 package com.powerme.app.ui.exercises
 
+import com.powerme.app.data.database.Exercise
+import com.powerme.app.data.database.matchesSearchTokens
+import com.powerme.app.data.database.toSearchName
+import com.powerme.app.data.database.toSearchTokens
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -119,6 +123,128 @@ class ExerciseFilterTest {
         assertEquals(priority[5], result[5])
         val tail = result.drop(priority.size)
         assertEquals("tail should be alphabetical", tail.sorted(), tail)
+    }
+
+    // --- Elastic search (token-based matching) ---
+
+    private fun makeExercise(name: String) = Exercise(
+        id = 0, name = name, muscleGroup = "Legs", equipmentType = "Barbell",
+        searchName = name.toSearchName()
+    )
+
+    @Test
+    fun `reversed word order matches — squat back finds Back Squat`() {
+        val exercise = makeExercise("Back Squat")
+        val tokens = "squat back".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `reversed word order matches — curl bicep finds Bicep Curl`() {
+        val exercise = makeExercise("Bicep Curl")
+        val tokens = "curl bicep".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `single token still works — squat matches Back Squat`() {
+        val exercise = makeExercise("Back Squat")
+        val tokens = "squat".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `empty tokens matches everything`() {
+        val exercise = makeExercise("Back Squat")
+        assertTrue(exercise.matchesSearchTokens(emptyList()))
+    }
+
+    @Test
+    fun `partial token matches — squ matches Back Squat`() {
+        val exercise = makeExercise("Back Squat")
+        val tokens = "squ".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `all tokens must match — no false positive`() {
+        val exercise = makeExercise("Back Squat")
+        val tokens = "squat bench".toSearchTokens()
+        assertFalse(exercise.matchesSearchTokens(tokens))
+    }
+
+    // --- Synonym expansion ---
+
+    @Test
+    fun `military press finds Overhead Press via synonym`() {
+        val exercise = makeExercise("Standing Barbell Overhead Press")
+        val tokens = "military press".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `ohp finds Overhead Press via synonym`() {
+        val exercise = makeExercise("Standing Barbell Overhead Press")
+        val tokens = "ohp".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `rdl finds Romanian Deadlift via synonym`() {
+        val exercise = makeExercise("Romanian Deadlift (RDL) - BB")
+        val tokens = "rdl".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `db rdl finds Romanian Deadlift Dumbbell via synonym`() {
+        val exercise = makeExercise("Romanian Deadlift (RDL) - Dumbbell")
+        val tokens = "db rdl".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `synonym does not cause false positive across unrelated exercises`() {
+        val exercise = makeExercise("Leg Press")
+        val tokens = "military press".toSearchTokens()
+        // "military" expands to "overhead press" — not in "Leg Press"; should NOT match
+        assertFalse(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `ohp does not match Overhead Squat`() {
+        val exercise = makeExercise("Overhead Squat")
+        val tokens = "ohp".toSearchTokens()
+        // "ohp" expands to "overhead press" (phrase) — "Overhead Squat" lacks "press"; NO match
+        assertFalse(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `ohp does not match Overhead Tricep Extension`() {
+        val exercise = makeExercise("Overhead Tricep Extension")
+        val tokens = "ohp".toSearchTokens()
+        assertFalse(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `ohp does not match Plank Shoulder Tap`() {
+        val exercise = makeExercise("Plank Shoulder Tap")
+        val tokens = "ohp".toSearchTokens()
+        assertFalse(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `facepull matches Face Pull despite space difference`() {
+        val exercise = makeExercise("Face Pull")
+        val tokens = "facepull".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    @Test
+    fun `military alone finds Overhead Press`() {
+        val exercise = makeExercise("Standing Barbell Overhead Press")
+        val tokens = "military".toSearchTokens()
+        assertTrue(exercise.matchesSearchTokens(tokens))
     }
 
     @Test

@@ -133,13 +133,12 @@ backEntry?.savedStateHandle?.remove<ArrayList<Long>>("selected_exercises")
 ### 4.1 Search
 
 - **Widget:** `OutlinedTextField` with trailing `✕` clear icon (visible when query is non-empty). Tapping clears field and resets results.
-- **Normalization:** Query is passed through `String.toSearchName()` (lowercase, strips hyphens/spaces/parentheses) at the ViewModel boundary — once per keystroke, not per exercise. Never re-normalize inside the filter predicate.
-- **Target column:** `searchName` (pre-normalized, added in DB v25).
-- **Matching:** Substring match against `exercise.searchName`. Example: `"rdl"` matches `"romaniandoadliftrdlbb"`.
-- **Debounce:** 300 ms — implemented via `distinctUntilChanged() + debounce(300)` on a `MutableStateFlow<String>` in `ExercisesViewModel`. No direct `LaunchedEffect` debounce in Compose.
-- **Ranking:** Prefix matches ranked above contains-matches (`CASE WHEN searchName LIKE ? || '%' THEN 0 ELSE 1 END`).
-- **Limit:** DAO returns at most 25 results when a non-empty query is active.
-- **Future:** Also match substrings of `muscleGroup` and `equipmentType`. Not yet implemented — extend `ExerciseDao.searchExercises()` to query these columns.
+- **Tokenisation:** Query is split into whitespace-delimited tokens via `String.toSearchTokens()` (trim → lowercase → split on `\s+`). Each token is matched independently.
+- **Word-order independent:** All tokens must match, but order doesn't matter. `"squat back"` finds `"Back Squat"`.
+- **Synonym expansion:** Each token is expanded through `ExerciseSynonyms.expandToken()` before matching. Synonyms are phrase-level (e.g. `"military"` → `"overhead press"`) to avoid false positives from single-word expansion. Synonym dictionary lives in `data/database/ExerciseSynonyms.kt` — add entries there, no migration needed.
+- **Matching per token:** An exercise matches a token if `exercise.name.contains(term, ignoreCase=true)` OR `exercise.searchName.contains(term.toSearchName())` for any term in the expanded set. The dual check handles both phrase synonyms (against `name`) and space-collapsed queries like `"facepull"` matching `"Face Pull"` (against `searchName`).
+- **In-memory filtering:** `ExercisesViewModel` loads all exercises via `getAllExercises()` and filters in-memory via `applyFilters()`. No SQL search used for the main screen.
+- **MagicAdd search path:** `ExerciseRepository.searchExercises()` also uses token + synonym expansion, fetches all via `getAllExercisesSync()`, filters in-memory, ranks prefix matches first, limits to 25. The legacy `ExerciseDao.searchExercises()` SQL method is no longer called.
 
 ### 4.2 Muscle Group Filter Chips
 
@@ -167,10 +166,12 @@ backEntry?.savedStateHandle?.remove<ArrayList<Long>>("selected_exercises")
 ### 4.4 Filter Logic (AND-Combined)
 
 ```
+val tokens = searchQuery.toSearchTokens()   // word-order-independent token list
+
 filtered = allExercises
+    .filter { it.matchesSearchTokens(tokens) }  // token + synonym expansion; empty tokens = match all
     .filter { activeMuscleFilters.isEmpty() || it.muscleGroup in activeMuscleFilters }
     .filter { activeEquipmentFilters.isEmpty() || it.equipmentType.trim().equalsAny(activeEquipmentFilters, ignoreCase = true) }
-    .filter { normalizedQuery.isEmpty() || it.searchName.contains(normalizedQuery) }
 ```
 
 Toggling any filter or changing the search query re-runs `applyFilters()`.

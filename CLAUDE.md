@@ -46,6 +46,7 @@
 - Clocks tab (Stopwatch, Timer, Tabata, EMOM) with countdown beeps, skip-last-rest, pre-finish alerts, input validation; TABATA and EMOM use persistent side-by-side Start+Reset buttons (always visible, PlayArrow/Pause icons); STOPWATCH and COUNTDOWN use icon-labeled toggle+reset layout
 - StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository, BoazPerformanceAnalyzer (V2 stub). Full spec in `HISTORY_ANALYTICS_SPEC.md`.
 - ExercisesScreen: tap opens ExerciseDetailSheet (ModalBottomSheet) with Form Cues (muted gold banner) + YouTube TextButton. Full spec in `EXERCISES_SPEC.md §5–§6`.
+- **Elastic search (Exercises tab + MagicAdd):** token-based word-order-independent search (`String.toSearchTokens()` splits query into words; all tokens must match exercise name in any order); synonym expansion via `ExerciseSynonyms` object in `data/database/ExerciseSynonyms.kt` — phrase-level synonyms (`"military"` → `"overhead press"`, `"ohp"` → `"overhead press"`, `"rdl"` → `"romanian"`, `"facepull"` → `"rear delt"`, etc.); `Exercise.matchesSearchTokens()` checks both `name` (phrase match) and `searchName` (normalized match for space-collapsed terms); add synonyms to `ExerciseSynonyms.SYNONYMS` — no migration needed.
 
 **Color System:** Pro Tracker v6.0 palette. Dark tokens (neutral, no purple tint in backgrounds): `ProBackground=#101010`, `ProSurface=#1C1C1C`, `ProSurfaceVar=#282828`, `ProViolet=#9B7DDB` (primary), `ProMagenta=#9E6B8A` (secondary), `ProCloudGrey=#EDEDEF` (text, neutral near-white), `ProSubGrey=#A0A0A0` (medium text), `ProOutline=#383838`, `ProError=#E05555`. Semantic: `TimerGreen=#4CC990`, `TimerRed=#E04458`, `FormCuesGold=#5A4D1A`, `ReadinessAmber=#FFB74D` (moderate readiness tier). Full token reference, ThemeMode system, typography, semantic colors, and token usage rules in `THEME_SPEC.md`.
 
@@ -85,9 +86,9 @@
 
 **SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides parseDecimal() (locale-aware, accepts commas+periods), parseReps() (integer only), isLeakedMetric() for runtime checks, MIGRATION_SQL const val for Room @Query and Migration (v17→v18), and MIGRATION_SQL_V19 for the "181.5 cm:" prefix cleanse (v18→v19). No inline try-catch in ViewModels or Composables.
 
-**Health Connect permissions:** 7 READ permissions: READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. Optional body-composition permissions (READ_BASAL_METABOLIC_RATE, READ_BONE_MASS, READ_LEAN_BODY_MASS) were removed — `HealthConnectReadResult` no longer has bmr/boneMassKg/leanBodyMassKg fields; `MetricType` enum is WEIGHT, BODY_FAT, CALORIES, HEIGHT only. Height sync: `getLatestHeight()` in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink).
+**Health Connect permissions:** 7 READ permissions: READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. `MetricType` enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT. Height sync: `getLatestHeight()` in HealthConnectManager (365-day window); SettingsViewModel saves to both MetricLog (MetricType.HEIGHT) and User entity (dual-sink).
 
-**Unit Test Coverage (src/test/, 20 files, ~347 tests total — all passing):**
+**Unit Test Coverage (src/test/, 20 files, ~364 tests total — all passing):**
 - `actions/ActionParserTest.kt` — 11 tests
 - `actions/ActionExecutorTest.kt` — 10 tests
 - `data/ExerciseDaoTest.kt` — DAO tests
@@ -101,7 +102,7 @@
 - `analytics/StatisticalEngineTest.kt` — 13 tests (mean, stdDev, zScore, Pearson, 1RM, Bayesian 1RM, rateOfChange — outlier/quartile tests removed with dead code)
 - `analytics/ReadinessEngineTest.kt` — 16 tests (NoData, Calibrating threshold, all-metrics happy path, high/low score clamping, RHR negation, null metric redistribution, tier boundaries)
 - `ui/history/HistoryViewModelTest.kt` — 13 tests (+ denormalized routineName survives routine deletion)
-- `ui/exercises/ExerciseFilterTest.kt` — 7 tests (canonical equipment/muscle-group validation, no-duplicates, legacy value exclusion)
+- `ui/exercises/ExerciseFilterTest.kt` — 24 tests (canonical equipment/muscle-group validation, no-duplicates, legacy value exclusion; elastic token search: word-order-independent, partial, empty; synonym expansion: military/ohp → overhead press, rdl, db, facepull → face pull, false-positive guards)
 - `ui/workout/WorkoutViewModelTest.kt` — 55 tests (includes 2 completeSet toggle + 5 rest timer/override + 5 per-set-type rest + 5 cascade/routine-sync + 1 selectSetType + 2 deleteSet timer cancel + 2 deleteRestSeparator + 1 updateExerciseRestTimers clears hidden separators + 4 edit mode + 1 helper + 2 Step E collapse/reorder + 1 Step F STRUCTURE sync + 9 Organize Mode + 1 routineName denormalization)
 - `ui/settings/SettingsViewModelHealthConnectTest.kt` — 7 tests (HC availability, permissions, sync flow)
 - `ui/settings/SettingsViewModelPersonalInfoTest.kt` — 8 tests (load/defaults, field updates, gender toggle, training target add/remove, save, no-op on null user, dismiss message)
@@ -130,6 +131,38 @@ Read the relevant spec before touching files in that domain.
 | `SETTINGS_SPEC.md` | ✅ Complete | Settings screen — all 10 cards, Personal Info edit, Body Metrics, HC sync, SettingsViewModel state |
 | `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v36, schema changes |
 | `DB_ARCHITECTURE.md` | ✅ Exists | Core entity relationships, template-to-instance pattern, UUID migration, workout lifecycle |
+
+---
+
+## Bug Tracking
+
+Bugs are tracked in `bugs_to_fix/`. Each bug is a separate `.md` file.
+
+**File naming:** `BUG_<short-slug>.md` (e.g. `BUG_rest_timer_flicker.md`)
+
+**File format:**
+```markdown
+# BUG: <title>
+
+## Status
+[ ] Open / [x] Fixed
+
+## Description
+<what is broken and where>
+
+## Steps to Reproduce
+1. ...
+
+## Assets
+- Images: `bugs_to_fix/assets/<slug>/screenshot.png`
+- Videos: `bugs_to_fix/assets/<slug>/recording.mp4`
+- Related spec: `WORKOUT_SPEC.md §X`
+
+## Fix Notes
+<populated after the fix is applied>
+```
+
+When assigned a bug from this folder: read the `.md` file, check linked assets, fix the issue, mark **Status** as `[x] Fixed`, fill **Fix Notes**, then run the QA protocol (build → tests → screenshot).
 
 ---
 

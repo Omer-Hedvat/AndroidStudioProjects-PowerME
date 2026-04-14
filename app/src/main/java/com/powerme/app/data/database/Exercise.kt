@@ -37,3 +37,14 @@ data class Exercise(
 )
 
 fun String.toSearchName(): String = lowercase().replace(Regex("[\\s\\-()]"), "")
+
+fun String.toSearchTokens(): List<String> = trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+
+fun Exercise.matchesSearchTokens(tokens: List<String>): Boolean =
+    tokens.isEmpty() || tokens.all { token ->
+        ExerciseSynonyms.expandToken(token).any { term ->
+            // Check against display name (handles multi-word phrases like "overhead press")
+            // and searchName (handles space-collapsed terms like "facepull" → "Face Pull")
+            name.contains(term, ignoreCase = true) || searchName.contains(term.toSearchName())
+        }
+    }

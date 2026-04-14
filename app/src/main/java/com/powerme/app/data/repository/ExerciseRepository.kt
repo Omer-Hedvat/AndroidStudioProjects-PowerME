@@ -2,7 +2,8 @@ package com.powerme.app.data.repository
 
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseDao
-import com.powerme.app.data.database.toSearchName
+import com.powerme.app.data.database.matchesSearchTokens
+import com.powerme.app.data.database.toSearchTokens
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,7 +37,16 @@ class ExerciseRepository @Inject constructor(
     }
 
     suspend fun searchExercises(query: String): List<Exercise> {
-        return exerciseDao.searchExercises(query.trim().toSearchName())
+        val tokens = query.toSearchTokens()
+        if (tokens.isEmpty()) return emptyList()
+        return exerciseDao.getAllExercisesSync()
+            .filter { it.matchesSearchTokens(tokens) }
+            .sortedWith(
+                compareBy<Exercise> {
+                    if (it.name.startsWith(tokens.first(), ignoreCase = true)) 0 else 1
+                }.thenBy { it.name }
+            )
+            .take(25)
     }
 
     suspend fun getExercisesByIds(ids: List<Long>): List<Exercise> {

@@ -3,7 +3,8 @@ package com.powerme.app.ui.exercises
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.database.Exercise
-import com.powerme.app.data.database.toSearchName
+import com.powerme.app.data.database.matchesSearchTokens
+import com.powerme.app.data.database.toSearchTokens
 import com.powerme.app.data.repository.ExerciseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,12 +97,12 @@ class ExercisesViewModel @Inject constructor(
     }
 
     private fun applyFilters() {
-        val query = _uiState.value.searchQuery.trim().toSearchName()
+        val tokens = _uiState.value.searchQuery.toSearchTokens()
         val muscles = _uiState.value.selectedMuscles
         val equipment = _uiState.value.selectedEquipment
 
         val filtered = allExercises.filter { exercise ->
-            val matchesQuery = query.isEmpty() || exercise.searchName.contains(query)
+            val matchesQuery = exercise.matchesSearchTokens(tokens)
             val matchesMuscle = muscles.isEmpty() ||
                 muscles.any { it.equals(exercise.muscleGroup, ignoreCase = true) }
             val matchesEquipment = equipment.isEmpty() ||
