@@ -42,9 +42,6 @@ data class HealthConnectReadResult(
     val lastSyncTimestamp: Long?
 )
 
-/**
- * Manager for Health Connect integration.
- */
 @Singleton
 class HealthConnectManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -65,14 +62,11 @@ class HealthConnectManager @Inject constructor(
         )
     }
 
-    fun isAvailable(): Boolean {
-        return HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
-    }
+    fun isAvailable(): Boolean =
+        HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
 
-    private suspend fun hasPermission(client: HealthConnectClient, record: KClass<out Record>): Boolean {
-        return HealthPermission.getReadPermission(record) in
-            client.permissionController.getGrantedPermissions()
-    }
+    private suspend fun hasPermission(client: HealthConnectClient, record: KClass<out Record>): Boolean =
+        HealthPermission.getReadPermission(record) in client.permissionController.getGrantedPermissions()
 
     suspend fun checkPermissionsGranted(): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -91,15 +85,10 @@ class HealthConnectManager @Inject constructor(
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
             if (!hasPermission(client, WeightRecord::class)) return@withContext null
-            val end = Instant.now()
-            val start = end.minus(30, ChronoUnit.DAYS)
-            val response = client.readRecords(
-                ReadRecordsRequest(WeightRecord::class, TimeRangeFilter.between(start, end))
-            )
-            response.records.maxByOrNull { it.time }?.weight?.inKilograms
-        } catch (e: Exception) {
-            null
-        }
+            val end = Instant.now(); val start = end.minus(30, ChronoUnit.DAYS)
+            client.readRecords(ReadRecordsRequest(WeightRecord::class, TimeRangeFilter.between(start, end)))
+                .records.maxByOrNull { it.time }?.weight?.inKilograms
+        } catch (e: Exception) { null }
     }
 
     suspend fun getLatestHeight(): Float? = withContext(Dispatchers.IO) {
@@ -107,15 +96,10 @@ class HealthConnectManager @Inject constructor(
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
             if (!hasPermission(client, HeightRecord::class)) return@withContext null
-            val end = Instant.now()
-            val start = end.minus(365, ChronoUnit.DAYS)
-            val response = client.readRecords(
-                ReadRecordsRequest(HeightRecord::class, TimeRangeFilter.between(start, end))
-            )
-            response.records.maxByOrNull { it.time }?.height?.inMeters?.times(100)?.toFloat()
-        } catch (e: Exception) {
-            null
-        }
+            val end = Instant.now(); val start = end.minus(365, ChronoUnit.DAYS)
+            client.readRecords(ReadRecordsRequest(HeightRecord::class, TimeRangeFilter.between(start, end)))
+                .records.maxByOrNull { it.time }?.height?.inMeters?.times(100)?.toFloat()
+        } catch (e: Exception) { null }
     }
 
     suspend fun getLatestBodyFat(): Double? = withContext(Dispatchers.IO) {
@@ -123,15 +107,10 @@ class HealthConnectManager @Inject constructor(
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
             if (!hasPermission(client, BodyFatRecord::class)) return@withContext null
-            val end = Instant.now()
-            val start = end.minus(30, ChronoUnit.DAYS)
-            val response = client.readRecords(
-                ReadRecordsRequest(BodyFatRecord::class, TimeRangeFilter.between(start, end))
-            )
-            response.records.maxByOrNull { it.time }?.percentage?.value
-        } catch (e: Exception) {
-            null
-        }
+            val end = Instant.now(); val start = end.minus(30, ChronoUnit.DAYS)
+            client.readRecords(ReadRecordsRequest(BodyFatRecord::class, TimeRangeFilter.between(start, end)))
+                .records.maxByOrNull { it.time }?.percentage?.value
+        } catch (e: Exception) { null }
     }
 
     suspend fun syncHealthData() = withContext(Dispatchers.IO) {
@@ -145,32 +124,16 @@ class HealthConnectManager @Inject constructor(
             val previousSync = healthConnectSyncDao.getLatestSync()
             val highFatigueFlag = sleepDuration?.let { it < 420 } ?: false
             val anomalousRecoveryFlag = if (previousSync?.hrv != null && hrv != null) {
-                val hrvDrop = ((previousSync.hrv - hrv) / previousSync.hrv) * 100
-                hrvDrop > 10.0
-            } else {
-                false
-            }
-            healthConnectSyncDao.insertSync(
-                HealthConnectSync(
-                    date = today,
-                    sleepDurationMinutes = sleepDuration,
-                    hrv = hrv,
-                    rhr = rhr,
-                    steps = steps,
-                    highFatigueFlag = highFatigueFlag,
-                    anomalousRecoveryFlag = anomalousRecoveryFlag,
-                    syncTimestamp = System.currentTimeMillis()
-                )
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+                ((previousSync.hrv - hrv) / previousSync.hrv) * 100 > 10.0
+            } else false
+            healthConnectSyncDao.insertSync(HealthConnectSync(
+                date = today, sleepDurationMinutes = sleepDuration, hrv = hrv, rhr = rhr, steps = steps,
+                highFatigueFlag = highFatigueFlag, anomalousRecoveryFlag = anomalousRecoveryFlag,
+                syncTimestamp = System.currentTimeMillis()
+            ))
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
-    /**
-     * Reads all 7 data types concurrently and returns the result.
-     * Does NOT write to Room — use syncAndRead() for a full sync + read.
-     */
     suspend fun readAllData(): HealthConnectReadResult = coroutineScope {
         val weight       = async { getLatestWeight() }
         val height       = async { getLatestHeight() }
@@ -187,10 +150,6 @@ class HealthConnectManager @Inject constructor(
         )
     }
 
-    /**
-     * Full sync: reads all 7 data types once (in parallel), writes the daily Room record,
-     * and returns the result.
-     */
     suspend fun syncAndRead(): HealthConnectReadResult {
         val result = readAllData()
         withContext(Dispatchers.IO) {
@@ -201,27 +160,19 @@ class HealthConnectManager @Inject constructor(
                 val anomalousRecoveryFlag = if (previousSync?.hrv != null && result.hrv != null) {
                     ((previousSync.hrv - result.hrv) / previousSync.hrv) * 100 > 10.0
                 } else false
-                healthConnectSyncDao.insertSync(
-                    HealthConnectSync(
-                        date = today,
-                        sleepDurationMinutes = result.sleepMinutes,
-                        hrv = result.hrv, rhr = result.rhr, steps = result.steps,
-                        highFatigueFlag = highFatigueFlag,
-                        anomalousRecoveryFlag = anomalousRecoveryFlag,
-                        syncTimestamp = System.currentTimeMillis()
-                    )
-                )
+                healthConnectSyncDao.insertSync(HealthConnectSync(
+                    date = today, sleepDurationMinutes = result.sleepMinutes,
+                    hrv = result.hrv, rhr = result.rhr, steps = result.steps,
+                    highFatigueFlag = highFatigueFlag, anomalousRecoveryFlag = anomalousRecoveryFlag,
+                    syncTimestamp = System.currentTimeMillis()
+                ))
                 result.weight?.let { metricLogRepository.upsertTodayIfChanged(MetricType.WEIGHT, it) }
                 result.bodyFat?.let { metricLogRepository.upsertTodayIfChanged(MetricType.BODY_FAT, it) }
                 result.height?.let { metricLogRepository.upsertTodayIfChanged(MetricType.HEIGHT, it.toDouble()) }
                 userSessionManager.updateBodyMetricsFromHc(
-                    weightKg = result.weight,
-                    bodyFatPercent = result.bodyFat,
-                    heightCm = result.height?.toDouble()
+                    weightKg = result.weight, bodyFatPercent = result.bodyFat, heightCm = result.height?.toDouble()
                 )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
         return result
     }
@@ -231,17 +182,11 @@ class HealthConnectManager @Inject constructor(
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
             if (!hasPermission(client, SleepSessionRecord::class)) return@withContext null
-            val end = Instant.now()
-            val start = end.minus(30, ChronoUnit.DAYS)
-            val response = client.readRecords(
-                ReadRecordsRequest(SleepSessionRecord::class, TimeRangeFilter.between(start, end))
-            )
-            response.records
-                .maxByOrNull { it.endTime }
+            val end = Instant.now(); val start = end.minus(30, ChronoUnit.DAYS)
+            client.readRecords(ReadRecordsRequest(SleepSessionRecord::class, TimeRangeFilter.between(start, end)))
+                .records.maxByOrNull { it.endTime }
                 ?.let { ChronoUnit.MINUTES.between(it.startTime, it.endTime).toInt() }
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
     suspend fun getHeartRateVariability(): Double? = withContext(Dispatchers.IO) {
@@ -249,15 +194,10 @@ class HealthConnectManager @Inject constructor(
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
             if (!hasPermission(client, HeartRateVariabilityRmssdRecord::class)) return@withContext null
-            val end = Instant.now()
-            val start = end.minus(30, ChronoUnit.DAYS)
-            val response = client.readRecords(
-                ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, TimeRangeFilter.between(start, end))
-            )
-            response.records.maxByOrNull { it.time }?.heartRateVariabilityMillis
-        } catch (e: Exception) {
-            null
-        }
+            val end = Instant.now(); val start = end.minus(30, ChronoUnit.DAYS)
+            client.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, TimeRangeFilter.between(start, end)))
+                .records.maxByOrNull { it.time }?.heartRateVariabilityMillis
+        } catch (e: Exception) { null }
     }
 
     suspend fun getRestingHeartRate(): Int? = withContext(Dispatchers.IO) {
@@ -265,15 +205,10 @@ class HealthConnectManager @Inject constructor(
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
             if (!hasPermission(client, RestingHeartRateRecord::class)) return@withContext null
-            val end = Instant.now()
-            val start = end.minus(30, ChronoUnit.DAYS)
-            val response = client.readRecords(
-                ReadRecordsRequest(RestingHeartRateRecord::class, TimeRangeFilter.between(start, end))
-            )
-            response.records.maxByOrNull { it.time }?.beatsPerMinute?.toInt()
-        } catch (e: Exception) {
-            null
-        }
+            val end = Instant.now(); val start = end.minus(30, ChronoUnit.DAYS)
+            client.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, TimeRangeFilter.between(start, end)))
+                .records.maxByOrNull { it.time }?.beatsPerMinute?.toInt()
+        } catch (e: Exception) { null }
     }
 
     suspend fun getSteps(): Int? = withContext(Dispatchers.IO) {
@@ -281,17 +216,11 @@ class HealthConnectManager @Inject constructor(
             if (!isAvailable()) return@withContext null
             val client = HealthConnectClient.getOrCreate(context)
             if (!hasPermission(client, StepsRecord::class)) return@withContext null
-            val todayStart = LocalDate.now()
-                .atStartOfDay(ZoneId.systemDefault())
-                .toInstant()
+            val todayStart = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
             val now = Instant.now()
-            val response = client.readRecords(
-                ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(todayStart, now))
-            )
-            val total = response.records.sumOf { it.count }
+            val total = client.readRecords(ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(todayStart, now)))
+                .records.sumOf { it.count }
             if (total > 0) total.toInt() else null
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
     }
 }

@@ -202,8 +202,8 @@ private fun formatDurationMs(ms: Long): String {
 @Composable
 private fun WorkoutHistoryCard(item: WorkoutWithExerciseSummary, unitSystem: UnitSystem = UnitSystem.METRIC, onClick: () -> Unit = {}) {
     val dateLabel = SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(Date(item.timestamp))
-    val titleLabel = item.routineName
-        ?: "Workout — ${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(item.timestamp))}"
+    val dateSuffix = SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(item.timestamp))
+    val titleLabel = "${item.routineName ?: "Workout"} — $dateSuffix"
     val showDuration = item.endTimeMs > 0L || item.durationSeconds > 0
 
     Card(

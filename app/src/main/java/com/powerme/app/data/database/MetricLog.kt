@@ -16,7 +16,7 @@ data class MetricLog(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
     val type: MetricType,
-    val value: Double,    // kg for weight, % for body fat, kcal for calories
+    val value: Double,
     @ColumnInfo(defaultValue = "")
-    val syncId: String = UUID.randomUUID().toString() // Stable cross-device identity for Firestore (v35)
+    val syncId: String = UUID.randomUUID().toString()
 )

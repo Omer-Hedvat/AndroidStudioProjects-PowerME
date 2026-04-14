@@ -86,8 +86,6 @@ class MetricsViewModel @Inject constructor(
         }
     }
 
-    // Recomputes deltas AND refreshes the primary weight/bodyFat/bmi values from
-    // the latest MetricLog entries so the card stays current whenever the DB flows emit.
     private fun recomputeDeltas() {
         val state = _uiState.value
         val latestWeight = state.weightEntries.lastOrNull()?.value
@@ -105,7 +103,6 @@ class MetricsViewModel @Inject constructor(
         }
     }
 
-    // Sets the CHECKING spinner, then delegates to the shared suspend body.
     fun loadBodyVitals() {
         viewModelScope.launch {
             _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(hcAvailability = HcAvailability.CHECKING)) }
@@ -113,8 +110,6 @@ class MetricsViewModel @Inject constructor(
         }
     }
 
-    // Shared suspend body — no CHECKING state set here so it can be called from syncHealthConnect()
-    // without flashing the "Checking…" UI while isSyncing is already true.
     private suspend fun doLoadBodyVitals() {
         val available = healthConnectManager.isAvailable()
         if (!available) {
@@ -129,31 +124,27 @@ class MetricsViewModel @Inject constructor(
 
         val user = userSessionManager.getCurrentUser()
         val latestSync = healthConnectSyncDao.getLatestSync()
-        val weightKg = _uiState.value.weightEntries.lastOrNull()?.value
-            ?: user?.weightKg?.toDouble()
-        val bodyFatPct = _uiState.value.bodyFatEntries.lastOrNull()?.value
-            ?: user?.bodyFatPercent?.toDouble()
+        val weightKg = _uiState.value.weightEntries.lastOrNull()?.value ?: user?.weightKg?.toDouble()
+        val bodyFatPct = _uiState.value.bodyFatEntries.lastOrNull()?.value ?: user?.bodyFatPercent?.toDouble()
         val heightCm = user?.heightCm?.toDouble()
         val bmi = computeBmi(weightKg, heightCm)
 
         _uiState.update {
-            it.copy(
-                bodyVitals = it.bodyVitals.copy(
-                    hcAvailability = HcAvailability.AVAILABLE_GRANTED,
-                    age = user?.ageYears,
-                    weightKg = weightKg,
-                    bodyFatPct = bodyFatPct,
-                    heightCm = heightCm,
-                    bmi = bmi,
-                    sleepMinutes = latestSync?.sleepDurationMinutes,
-                    hrvMs = latestSync?.hrv,
-                    rhrBpm = latestSync?.rhr,
-                    stepsToday = latestSync?.steps,
-                    lastSyncTimestamp = latestSync?.syncTimestamp,
-                    weightDelta7d = compute7dDelta(_uiState.value.weightEntries),
-                    bodyFatDelta7d = compute7dDelta(_uiState.value.bodyFatEntries)
-                )
-            )
+            it.copy(bodyVitals = it.bodyVitals.copy(
+                hcAvailability = HcAvailability.AVAILABLE_GRANTED,
+                age = user?.ageYears,
+                weightKg = weightKg,
+                bodyFatPct = bodyFatPct,
+                heightCm = heightCm,
+                bmi = bmi,
+                sleepMinutes = latestSync?.sleepDurationMinutes,
+                hrvMs = latestSync?.hrv,
+                rhrBpm = latestSync?.rhr,
+                stepsToday = latestSync?.steps,
+                lastSyncTimestamp = latestSync?.syncTimestamp,
+                weightDelta7d = compute7dDelta(_uiState.value.weightEntries),
+                bodyFatDelta7d = compute7dDelta(_uiState.value.bodyFatEntries)
+            ))
         }
     }
 
@@ -164,9 +155,7 @@ class MetricsViewModel @Inject constructor(
                 healthConnectManager.syncAndRead()
                 doLoadBodyVitals()
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(bodyVitals = it.bodyVitals.copy(syncError = e.message ?: "Sync failed"))
-                }
+                _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(syncError = e.message ?: "Sync failed")) }
             } finally {
                 _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(isSyncing = false)) }
             }
@@ -174,32 +163,21 @@ class MetricsViewModel @Inject constructor(
     }
 
     fun saveMetrics() {
-        val weightStr = _uiState.value.weightInput.trim()
-        val bodyFatStr = _uiState.value.bodyFatInput.trim()
-        val weight = weightStr.toDoubleOrNull()
-        val bodyFat = bodyFatStr.toDoubleOrNull()
-
+        val weight = _uiState.value.weightInput.trim().toDoubleOrNull()
+        val bodyFat = _uiState.value.bodyFatInput.trim().toDoubleOrNull()
         if (weight == null && bodyFat == null) return
-
         viewModelScope.launch {
             _uiState.update { it.copy(isSavingMetrics = true) }
             weight?.let { metricLogRepository.log(MetricType.WEIGHT, it) }
             bodyFat?.let { metricLogRepository.log(MetricType.BODY_FAT, it) }
             _uiState.update {
-                it.copy(
-                    isSavingMetrics = false,
-                    weightInput = "",
-                    bodyFatInput = "",
-                    metricSaveMessage = "Logged successfully"
-                )
+                it.copy(isSavingMetrics = false, weightInput = "", bodyFatInput = "", metricSaveMessage = "Logged successfully")
             }
         }
     }
 
     fun deleteMetric(entry: MetricLog) {
-        viewModelScope.launch {
-            metricLogRepository.delete(entry)
-        }
+        viewModelScope.launch { metricLogRepository.delete(entry) }
     }
 
     fun dismissMetricSaveMessage() {
