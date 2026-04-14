@@ -879,6 +879,17 @@ object DatabaseModule {
                 MIGRATION_35_36
             )
             .fallbackToDestructiveMigration()
+            .addCallback(object : androidx.room.RoomDatabase.Callback() {
+                override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    super.onOpen(db)
+                    // Repair workouts where routineName was lost (e.g., pre-v36 Firestore sync overwrite)
+                    db.execSQL("""
+                        UPDATE workouts SET routineName = (
+                            SELECT r.name FROM routines r WHERE r.id = workouts.routineId
+                        ) WHERE routineId IS NOT NULL AND routineName IS NULL AND isCompleted = 1
+                    """.trimIndent())
+                }
+            })
             .build()
     }
 

@@ -119,6 +119,48 @@ class FirestoreSyncManager @Inject constructor(
         }
     }
 
+    /** Pushes all local workouts, routines, profile, settings, and preferences to Firestore. */
+    suspend fun pushAllToCloud(): SyncResult {
+        val uid = auth.currentUser?.uid
+            ?: return SyncResult(success = false, error = "Not signed in")
+        return try {
+            val workouts = workoutDao.getAllWorkouts().first().filter { !it.isArchived }
+            val routines = routineDao.getAllRoutines().first().filter { !it.isArchived }
+            for (workout in workouts) {
+                val sets = workoutSetDao.getSetsForWorkout(workout.id).first()
+                val exerciseIds = sets.map { it.exerciseId }.toSet().toList()
+                val exerciseMap = exerciseDao.getByIds(exerciseIds).associateBy { it.id }
+                userRef(uid).collection("workouts").document(workout.id)
+                    .set(workout.toFirestoreMap(sets, exerciseMap)).await()
+            }
+            for (routine in routines) {
+                val exercises = routineExerciseDao.getForRoutine(routine.id)
+                val exerciseIds = exercises.map { it.exerciseId }.toSet().toList()
+                val exerciseMap = exerciseDao.getByIds(exerciseIds).associateBy { it.id }
+                userRef(uid).collection("routines").document(routine.id)
+                    .set(routine.toFirestoreMap(exercises, exerciseMap)).await()
+            }
+            userDao.getCurrentUser()?.let { user ->
+                userRef(uid).collection("profile").document("data").set(user.toFirestoreMap()).await()
+            }
+            userSettingsDao.getSettingsOnce()?.let { settings ->
+                userRef(uid).collection("settings").document("data").set(settings.toFirestoreMap()).await()
+            }
+            val prefsMap = mapOf(
+                "themeMode"       to appSettingsDataStore.themeMode.first().name,
+                "unitSystem"      to appSettingsDataStore.unitSystem.first().name,
+                "dailyStepTarget" to appSettingsDataStore.dailyStepTarget.first(),
+                "keepScreenOn"    to appSettingsDataStore.keepScreenOn.first(),
+                "language"        to appSettingsDataStore.language.first(),
+                "enrichmentModel" to appSettingsDataStore.enrichmentModel.first()
+            )
+            userRef(uid).collection("appPreferences").document("data").set(prefsMap).await()
+            SyncResult(success = true, workoutsImported = workouts.size, routinesImported = routines.size, profileImported = true, settingsImported = true)
+        } catch (e: Exception) {
+            SyncResult(success = false, error = e.message)
+        }
+    }
+
     // ── Pull ────────────────────────────────────────────────────────────────
 
     /**
@@ -258,25 +300,7 @@ class FirestoreSyncManager @Inject constructor(
                 appPrefsDoc.getString("enrichmentModel")?.let { appSettingsDataStore.setEnrichmentModel(it) }
             }
 
-            for (doc in workoutDocs.documents) {
-                val remoteUpdatedAt = doc.getLong("updatedAt") ?: 0L
-                val localWorkout = workoutDao.getWorkoutById(doc.id)
-                val localUpdatedAt = localWorkout?.updatedAt ?: 0L
-
-                if (remoteUpdatedAt >= localUpdatedAt) {
-                    val workout = doc.toWorkout() ?: continue
-                    database.withTransaction {
-                        workoutDao.insertWorkout(workout)  // REPLACE strategy
-                        if (!workout.isArchived) {
-                            val sets = doc.toWorkoutSetsResolved(doc.id)
-                            workoutSetDao.deleteSetsForWorkout(doc.id)
-                            if (sets.isNotEmpty()) workoutSetDao.insertSets(sets)
-                        }
-                    }
-                    workoutsImported++
-                }
-            }
-
+            // Routines must be restored before workouts — workouts FK-reference routines via routineId
             for (doc in routineDocs.documents) {
                 val remoteUpdatedAt = doc.getLong("updatedAt") ?: 0L
                 val localRoutine = routineDao.getRoutineById(doc.id)
@@ -284,15 +308,46 @@ class FirestoreSyncManager @Inject constructor(
 
                 if (remoteUpdatedAt >= localUpdatedAt) {
                     val routine = doc.toRoutine() ?: continue
-                    database.withTransaction {
-                        routineDao.insertRoutine(routine)  // REPLACE strategy
-                        if (!routine.isArchived) {
-                            val exercises = doc.toRoutineExercisesResolved(doc.id)
-                            routineExerciseDao.deleteAllForRoutine(doc.id)
-                            if (exercises.isNotEmpty()) routineExerciseDao.insertAll(exercises)
+                    try {
+                        database.withTransaction {
+                            routineDao.insertRoutine(routine)  // REPLACE strategy
+                            if (!routine.isArchived) {
+                                val exercises = doc.toRoutineExercisesResolved(doc.id)
+                                routineExerciseDao.deleteAllForRoutine(doc.id)
+                                if (exercises.isNotEmpty()) routineExerciseDao.insertAll(exercises)
+                            }
                         }
+                        routinesImported++
+                    } catch (e: Exception) {
+                        android.util.Log.w("PowerME_Sync", "Skipping routine ${doc.id}: ${e.message}")
                     }
-                    routinesImported++
+                }
+            }
+
+            for (doc in workoutDocs.documents) {
+                val remoteUpdatedAt = doc.getLong("updatedAt") ?: 0L
+                val localWorkout = workoutDao.getWorkoutById(doc.id)
+                val localUpdatedAt = localWorkout?.updatedAt ?: 0L
+
+                if (remoteUpdatedAt >= localUpdatedAt) {
+                    val workout = doc.toWorkout() ?: continue
+                    // Preserve local routineName if remote lacks it (pre-v36 Firestore docs)
+                    val mergedWorkout = if (workout.routineName == null && localWorkout?.routineName != null) {
+                        workout.copy(routineName = localWorkout.routineName)
+                    } else workout
+                    try {
+                        database.withTransaction {
+                            workoutDao.insertWorkout(mergedWorkout)  // REPLACE strategy
+                            if (!mergedWorkout.isArchived) {
+                                val sets = doc.toWorkoutSetsResolved(doc.id)
+                                workoutSetDao.deleteSetsForWorkout(doc.id)
+                                if (sets.isNotEmpty()) workoutSetDao.insertSets(sets)
+                            }
+                        }
+                        workoutsImported++
+                    } catch (e: Exception) {
+                        android.util.Log.w("PowerME_Sync", "Skipping workout ${doc.id}: ${e.message}")
+                    }
                 }
             }
 
@@ -323,8 +378,9 @@ class FirestoreSyncManager @Inject constructor(
             val ex = exerciseDao.getByNameAndEquipment(name, equipment)
             if (ex != null) return ex.id
         }
-        // Legacy format (no identity fields): trust the raw ID as-is
-        return rawId
+        // Legacy format (no identity fields): verify the raw ID exists locally before using it
+        if (rawId != null && exerciseDao.getByIds(listOf(rawId)).isNotEmpty()) return rawId
+        return null
     }
 
     // ── Private pull helpers (suspend, can call exerciseDao) ────────────────

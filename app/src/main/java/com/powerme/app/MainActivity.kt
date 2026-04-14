@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.ThemeMode
+import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.navigation.PowerMeApp
 import com.powerme.app.ui.theme.PowerMETheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,6 +23,18 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var appSettingsDataStore: AppSettingsDataStore
+    @Inject lateinit var firestoreSyncManager: FirestoreSyncManager
+
+    private var lastSyncMs = 0L
+
+    override fun onStart() {
+        super.onStart()
+        val now = System.currentTimeMillis()
+        if (now - lastSyncMs > 5 * 60 * 1000L) {
+            lastSyncMs = now
+            firestoreSyncManager.launchBackgroundSync()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()

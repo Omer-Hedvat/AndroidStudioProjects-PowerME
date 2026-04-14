@@ -477,13 +477,44 @@ fun SettingsScreen(
                 SettingsCard(title = "Cloud Sync") {
                     if (!uiState.isSignedIn) {
                         Text(
-                            text = "Sign in to enable cloud restore",
+                            text = "Sign in to enable cloud sync",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                     } else {
+                        val busy = uiState.isBackingUpToCloud || uiState.isRestoringFromCloud
+                        // Back Up Now
                         Text(
-                            text = "Restore workouts and routines from your cloud backup. Uses last-write-wins conflict resolution.",
+                            text = "Upload all local workouts, routines, and settings to your cloud account.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (uiState.isBackingUpToCloud) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                Text("Backing up…")
+                            }
+                        } else {
+                            Button(
+                                onClick = viewModel::backupToCloud,
+                                enabled = !busy
+                            ) {
+                                Text("Back Up Now")
+                            }
+                        }
+                        uiState.backupMessage?.let { msg ->
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(msg, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Restore from Cloud
+                        Text(
+                            text = "Download and restore workouts and routines from your cloud backup.",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -494,12 +525,16 @@ fun SettingsScreen(
                                 Text("Restoring from cloud…")
                             }
                         } else {
-                            Button(
+                            OutlinedButton(
                                 onClick = viewModel::restoreFromCloud,
-                                enabled = !uiState.isRestoringFromCloud
+                                enabled = !busy
                             ) {
                                 Text("Restore from Cloud")
                             }
+                        }
+                        uiState.cloudRestoreMessage?.let { msg ->
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(msg, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }

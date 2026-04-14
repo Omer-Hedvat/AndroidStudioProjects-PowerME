@@ -69,6 +69,8 @@ data class SettingsUiState(
     val isSignedIn: Boolean = false,
     val isRestoringFromCloud: Boolean = false,
     val cloudRestoreMessage: String? = null,
+    val isBackingUpToCloud: Boolean = false,
+    val backupMessage: String? = null,
     // Health Connect
     val healthConnectChecking: Boolean = true,
     val healthConnectAvailable: Boolean = false,
@@ -428,6 +430,27 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissCloudRestoreMessage() {
         _uiState.update { it.copy(cloudRestoreMessage = null) }
+    }
+
+    fun backupToCloud() {
+        if (auth.currentUser == null) {
+            _uiState.update { it.copy(backupMessage = "Sign in to back up to cloud") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isBackingUpToCloud = true, backupMessage = null) }
+            val result = firestoreSyncManager.pushAllToCloud()
+            val message = if (result.success) {
+                "Backed up: ${result.workoutsImported} workouts, ${result.routinesImported} routines"
+            } else {
+                "Backup failed: ${result.error ?: "unknown"}"
+            }
+            _uiState.update { it.copy(isBackingUpToCloud = false, backupMessage = message) }
+        }
+    }
+
+    fun dismissBackupMessage() {
+        _uiState.update { it.copy(backupMessage = null) }
     }
 
     fun recheckHealthConnectPermissions() {
