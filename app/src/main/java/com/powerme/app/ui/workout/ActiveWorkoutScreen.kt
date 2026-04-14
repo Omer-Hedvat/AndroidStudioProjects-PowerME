@@ -68,6 +68,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -1028,9 +1029,10 @@ private fun SetWithRestRow(
             modifier = Modifier.zIndex(1f),
             backgroundContent = { SwipeToDeleteBackground(setSwipeState.progress) }
         ) {
-            Box(modifier = Modifier.fillMaxWidth().background(
-                if (set.isCompleted) TimerGreen.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
-            )) {
+            val rowBg = if (set.isCompleted)
+                TimerGreen.copy(alpha = 0.12f).compositeOver(MaterialTheme.colorScheme.surface)
+            else MaterialTheme.colorScheme.surface
+            Box(modifier = Modifier.fillMaxWidth().background(rowBg)) {
                 when (exerciseType) {
                     ExerciseType.CARDIO -> CardioSetRow(set, onUpdateCardioSet, onCompleteSet)
                     ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged)
@@ -1226,12 +1228,13 @@ private fun UpdateRestTimersDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Rest after last set", style = MaterialTheme.typography.bodyMedium)
+                    val thumbColor = if (isSystemInDarkTheme()) Color.White else Color.Black
                     Switch(
                         checked = restAfterLastSetState,
                         onCheckedChange = { restAfterLastSetState = it },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.onSurface,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface
+                            checkedThumbColor = thumbColor,
+                            uncheckedThumbColor = thumbColor
                         )
                     )
                 }
