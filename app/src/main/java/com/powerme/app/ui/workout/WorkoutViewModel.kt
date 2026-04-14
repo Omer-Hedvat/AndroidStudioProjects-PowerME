@@ -446,6 +446,7 @@ class WorkoutViewModel @Inject constructor(
             maximizeWorkout()
             return
         }
+        _workoutState.update { it.copy(editModeSaved = false) }
         viewModelScope.launch {
             val bootstrap = workoutRepository.instantiateWorkoutFromRoutine(routineId)
             val routineExercises = routineExerciseDao.getForRoutine(routineId)
@@ -502,6 +503,7 @@ class WorkoutViewModel @Inject constructor(
             maximizeWorkout()
             return
         }
+        _workoutState.update { it.copy(editModeSaved = false) }
         viewModelScope.launch {
             val id = workoutRepository.createEmptyWorkout(routineId.takeIf { it.isNotBlank() })
             _workoutState.update {
@@ -1976,6 +1978,32 @@ class WorkoutViewModel @Inject constructor(
             _workoutState.update { it.copy(supersetCandidateIds = emptySet()) }
         }
         // Mode stays active — user taps Done to exit Organize Mode.
+    }
+
+    /** Ungroup selected exercises from their superset(s).
+     *  If fewer than 2 members remain in a group after removal, the entire group is dissolved.
+     *  Clears [supersetCandidateIds] but keeps [isSupersetSelectMode] true. */
+    fun ungroupSelectedExercises() {
+        val candidates = _workoutState.value.supersetCandidateIds
+        if (candidates.isEmpty()) return
+        _workoutState.update { state ->
+            val affectedGroups = state.exercises
+                .filter { it.exercise.id in candidates && it.supersetGroupId != null }
+                .mapNotNull { it.supersetGroupId }
+                .toSet()
+            var updated = state.exercises.map { ex ->
+                if (ex.exercise.id in candidates) ex.copy(supersetGroupId = null) else ex
+            }
+            for (groupId in affectedGroups) {
+                val remaining = updated.count { it.supersetGroupId == groupId }
+                if (remaining < 2) {
+                    updated = updated.map { ex ->
+                        if (ex.supersetGroupId == groupId) ex.copy(supersetGroupId = null) else ex
+                    }
+                }
+            }
+            state.copy(exercises = updated, supersetCandidateIds = emptySet())
+        }
     }
 
     /** Exit Organize Mode (superset-select mode), discarding any unconfirmed selection. */

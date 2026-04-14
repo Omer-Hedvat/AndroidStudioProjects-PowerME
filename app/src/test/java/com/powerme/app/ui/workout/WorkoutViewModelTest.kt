@@ -1088,6 +1088,46 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    fun `startWorkoutFromRoutine clears editModeSaved synchronously before coroutine runs`() = vmTest {
+        runBlocking {
+            setupEditModeRoutine()
+            whenever(mockRoutineExerciseDao.updateSets(any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineExerciseDao.updateRepsAndWeight(any(), any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineExerciseDao.updateSetTypesJson(any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineExerciseDao.updateSetWeightsAndReps(any(), any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineExerciseDao.updateSupersetGroupId(any(), any(), any())).thenReturn(Unit)
+            whenever(mockRoutineDao.updateRoutine(any())).thenReturn(Unit)
+            whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("99"))
+                .thenReturn(WorkoutBootstrap(workoutId = "w-99", ghostMap = emptyMap(), workoutSets = emptyList()))
+        }
+
+        // Simulate the edit → save flow that leaves editModeSaved = true
+        viewModel.startEditMode("99")
+        runCurrent()
+        Thread.sleep(100)
+        runCurrent()
+        viewModel.saveRoutineEdits()
+        runCurrent()
+        assertTrue("pre-condition: editModeSaved should be true", viewModel.workoutState.value.editModeSaved)
+
+        // Call startWorkoutFromRoutine — do NOT runCurrent so the coroutine hasn't executed yet
+        viewModel.startWorkoutFromRoutine("99")
+
+        // editModeSaved must be false immediately (synchronous clear), before the coroutine runs
+        assertFalse(
+            "editModeSaved must be cleared synchronously so ActiveWorkoutScreen doesn't call onWorkoutFinished",
+            viewModel.workoutState.value.editModeSaved
+        )
+
+        // Drain the coroutine to avoid leaking timers
+        runCurrent()
+        Thread.sleep(100)
+        runCurrent()
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
     fun `cancelEditMode resets state completely`() = vmTest {
         runBlocking { setupEditModeRoutine() }
 
@@ -1864,6 +1904,80 @@ class WorkoutViewModelTest {
         viewModel.cancelWorkout(); runCurrent()
 
         assertFalse("Mode must be cleared after cancelWorkout", viewModel.workoutState.value.isSupersetSelectMode)
+    }
+
+    @Test
+    fun `ungroupSelectedExercises removes one exercise from superset keeping the rest grouped`() = vmTest {
+        // Need 3 exercises: group exercises 1 and 2 and 3 together
+        threeExerciseWorkout()
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.toggleSupersetCandidate(2L); runCurrent()
+        viewModel.toggleSupersetCandidate(3L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        val groupId = viewModel.workoutState.value.exercises.find { it.exercise.id == 1L }?.supersetGroupId
+        assertNotNull("Exercises must be grouped before ungroup test", groupId)
+
+        // Now select just exercise 1 and ungroup it
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.ungroupSelectedExercises(); runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertNull("Exercise 1 must not have a supersetGroupId", state.exercises.find { it.exercise.id == 1L }?.supersetGroupId)
+        assertEquals("Exercise 2 must still have its supersetGroupId", groupId, state.exercises.find { it.exercise.id == 2L }?.supersetGroupId)
+        assertEquals("Exercise 3 must still have its supersetGroupId", groupId, state.exercises.find { it.exercise.id == 3L }?.supersetGroupId)
+        assertTrue("Candidates must be cleared after ungroup", state.supersetCandidateIds.isEmpty())
+        assertTrue("Organize Mode must remain active after ungroup", state.isSupersetSelectMode)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `ungroupSelectedExercises dissolves entire group when fewer than 2 members would remain`() = vmTest {
+        threeExerciseWorkout()
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.toggleSupersetCandidate(2L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        assertNotNull("Exercises must be grouped before ungroup test",
+            viewModel.workoutState.value.exercises.find { it.exercise.id == 1L }?.supersetGroupId)
+
+        // Select both and ungroup
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.toggleSupersetCandidate(2L); runCurrent()
+        viewModel.ungroupSelectedExercises(); runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertNull("Exercise 1 must have no supersetGroupId", state.exercises.find { it.exercise.id == 1L }?.supersetGroupId)
+        assertNull("Exercise 2 must have no supersetGroupId", state.exercises.find { it.exercise.id == 2L }?.supersetGroupId)
+        assertTrue("Candidates must be cleared after ungroup", state.supersetCandidateIds.isEmpty())
+        assertTrue("Organize Mode must remain active after ungroup", state.isSupersetSelectMode)
+
+        viewModel.cancelWorkout(); runCurrent()
+    }
+
+    @Test
+    fun `ungroupSelectedExercises with empty candidates is a no-op`() = vmTest {
+        threeExerciseWorkout()
+        viewModel.enterSupersetSelectMode(); runCurrent()
+        viewModel.toggleSupersetCandidate(1L); runCurrent()
+        viewModel.toggleSupersetCandidate(2L); runCurrent()
+        viewModel.commitSupersetSelection(); runCurrent()
+
+        val groupIdBefore = viewModel.workoutState.value.exercises.find { it.exercise.id == 1L }?.supersetGroupId
+
+        // Call ungroup with no selection — candidates already cleared by commitSupersetSelection
+        viewModel.ungroupSelectedExercises(); runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertEquals("Group must be unchanged when no candidates selected", groupIdBefore,
+            state.exercises.find { it.exercise.id == 1L }?.supersetGroupId)
+        assertEquals("Group must be unchanged when no candidates selected", groupIdBefore,
+            state.exercises.find { it.exercise.id == 2L }?.supersetGroupId)
+
+        viewModel.cancelWorkout(); runCurrent()
     }
 
     // -------------------------------------------------------------------------

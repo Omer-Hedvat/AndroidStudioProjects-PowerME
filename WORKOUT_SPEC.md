@@ -385,11 +385,13 @@ Organize Mode is the single unified mode for reordering and grouping exercises i
 **Entry:** Management Hub kebab → **Organize Exercises** → calls `enterSupersetSelectMode(fromExerciseId)` → sets `isSupersetSelectMode = true`. If the triggering exercise is already in a superset, all group members are pre-selected.
 
 **While active (`isSupersetSelectMode = true`):**
-- All `ExerciseCard` items are replaced by compact `SupersetSelectRow` rows (checkbox + exercise name + muscle chip + drag handle).
+- All `ExerciseCard` items are replaced by compact `SupersetSelectRow` rows (checkbox + exercise name + muscle chip + drag handle). Exercises already in a superset show a colored `Link` icon.
 - A Contextual Action Bar at the top of the list shows:
   - Left: **Done** `TextButton` — calls `exitSupersetSelectMode()`; exits organize mode.
   - Center: title `"Organize exercises"` (empty selection) or `"Organize • N selected"` (N ≥ 1).
-  - Right: **Group** `IconButton` (Sync icon) — calls `commitSupersetSelection()`; enabled when ≥ 2 candidates selected.
+  - Right: **contextual icon button** — behavior depends on selection:
+    - **Group** (Sync icon) — shown when selected exercises are NOT all in the same superset; enabled when ≥ 2 selected; calls `commitSupersetSelection()`.
+    - **Ungroup** (LinkOff icon) — shown when all selected exercises share the same `supersetGroupId`; always enabled when visible; calls `ungroupSelectedExercises()`.
 - Tapping a `SupersetSelectRow` toggles the exercise in `supersetCandidateIds`.
 - Drag handles (`Modifier.draggableHandle`) on each row enable reorder at any time within the mode via `reorderExercise(fromIdx, toIdx)`.
 
@@ -398,6 +400,11 @@ Organize Mode is the single unified mode for reordering and grouping exercises i
 - After commit: `supersetCandidateIds` is cleared, but `isSupersetSelectMode` remains `true`.
 - The user can immediately select another set of exercises and commit another superset, or drag to reorder — all within the same Organize Mode session.
 - If < 2 candidates are selected, the commit is a no-op; the mode stays active.
+
+**Ungroup behaviour:**
+- `ungroupSelectedExercises()` sets `supersetGroupId = null` on all selected exercises.
+- If removing the selected exercises from a group would leave fewer than 2 members, the entire group is dissolved (all remaining members also cleared).
+- After ungroup: `supersetCandidateIds` is cleared, `isSupersetSelectMode` remains `true`.
 
 **Exit:** Only via the **Done** button (or `cancelWorkout()`/`finishWorkout()` lifecycle teardown). There is no auto-exit on any action.
 

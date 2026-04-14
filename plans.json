@@ -426,5 +426,9 @@
   {
     "plan": "Exercise synonym expansion. New ExerciseSynonyms.kt object in data/database/ — Map<String, List<String>> keyed on normalized token, values are phrase-level synonyms (e.g. 'military' → 'overhead press', 'ohp' → 'overhead press', 'rdl' → 'romanian', 'facepull' → 'rear delt'). Exercise.matchesSearchTokens() expanded to call ExerciseSynonyms.expandToken() per token and check both name (phrase) and searchName (normalized). Phrase-level values prevent false positives from individual-word expansion. ExerciseFilterTest.kt grows to 24 tests including synonym and false-positive regression cases.",
     "timestamp": "2026-04-14T13:00:00Z"
+  },
+  {
+    "plan": "Organize Mode ungroup superset. Added ungroupSelectedExercises() to WorkoutViewModel — removes selected exercises from their supersetGroupId, auto-dissolves group if fewer than 2 members remain, clears supersetCandidateIds, keeps isSupersetSelectMode=true. CAB icon made contextual: shows LinkOff (Ungroup) when all selected exercises share the same supersetGroupId, otherwise shows existing Sync (Group) icon. 3 new unit tests in WorkoutViewModelTest covering: partial ungroup (group survives), full ungroup (group dissolves), no-op with empty selection. Files: WorkoutViewModel.kt, ActiveWorkoutScreen.kt, WorkoutViewModelTest.kt.",
+    "timestamp": "2026-04-14T14:00:00Z"
   }
 ]

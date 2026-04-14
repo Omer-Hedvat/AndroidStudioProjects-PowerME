@@ -464,11 +464,22 @@ private fun LazyListScope.activeWorkoutListItems(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Medium
                     )
-                    IconButton(
-                        onClick = { viewModel.commitSupersetSelection() },
-                        enabled = workoutState.supersetCandidateIds.size >= 2
-                    ) {
-                        Icon(Icons.Default.Sync, contentDescription = "Group selected exercises", tint = MaterialTheme.colorScheme.primary)
+                    val candidates = workoutState.supersetCandidateIds
+                    val selectedExs = workoutState.exercises.filter { it.exercise.id in candidates }
+                    val allInSameSuperset = candidates.isNotEmpty() &&
+                        selectedExs.all { it.supersetGroupId != null } &&
+                        selectedExs.map { it.supersetGroupId }.toSet().size == 1
+                    if (allInSameSuperset) {
+                        IconButton(onClick = { viewModel.ungroupSelectedExercises() }) {
+                            Icon(Icons.Default.LinkOff, contentDescription = "Ungroup selected exercises", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    } else {
+                        IconButton(
+                            onClick = { viewModel.commitSupersetSelection() },
+                            enabled = candidates.size >= 2
+                        ) {
+                            Icon(Icons.Default.Sync, contentDescription = "Group selected exercises", tint = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             }
@@ -1415,16 +1426,16 @@ private fun RestSeparator(restSeconds: Int, isActive: Boolean = false, liveRemai
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(30.dp),
-                contentAlignment = Alignment.Center
+                    .height(30.dp)
+                    .clickable(onClick = onActiveClick),
             ) {
                 // key resets animateFloatAsState on each timer activation so it starts at the
                 // correct fraction (not 0), then smoothly interpolates 1s per tick backwards.
                 key(liveTotalSeconds) {
                     val rawProgress = if (liveTotalSeconds > 0) liveRemainingSeconds.toFloat() / liveTotalSeconds.toFloat() else 0f
-                    // Width fraction: 1.0 at timer start → 0.35 when timer reaches 0
+                    // Width fraction: 1.0 at timer start → 0.0 when timer reaches 0
                     val animatedWidth by animateFloatAsState(
-                        targetValue = 0.35f + 0.65f * rawProgress,
+                        targetValue = rawProgress,
                         animationSpec = tween(1000, easing = LinearEasing),
                         label = "restWidth"
                     )
@@ -1434,18 +1445,18 @@ private fun RestSeparator(restSeconds: Int, isActive: Boolean = false, liveRemai
                             .height(30.dp)
                             .clip(CircleShape)
                             .background(NeonPurple.copy(alpha = flashAlpha.value))
-                            .clickable(onClick = onActiveClick),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = formatSecs(liveRemainingSeconds),
-                            color = NeonPurple,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            fontFamily = JetBrainsMono
-                        )
-                    }
+                            .align(Alignment.CenterStart)
+                    )
                 }
+                // Text stays centered over the full row regardless of pill width
+                Text(
+                    text = formatSecs(liveRemainingSeconds),
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    fontFamily = JetBrainsMono,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         } else {
             Row(
