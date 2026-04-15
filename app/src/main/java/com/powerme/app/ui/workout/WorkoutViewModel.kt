@@ -176,11 +176,14 @@ data class ActiveWorkoutState(
     val hiddenRestSeparators: Set<String> = emptySet(),
     val isEditMode: Boolean = false,
     val editModeSaved: Boolean = false,  // one-shot navigation trigger (like pendingWorkoutSummary)
-    val editModeSnapshot: List<ExerciseWithSets> = emptyList(),
+    val editModeDirty: Boolean = false,
     val showEditGuard: Boolean = false,
     val deletedSetClipboard: Map<Long, DeletedSetClipboard> = emptyMap(),
     val collapsedExerciseIds: Set<Long> = emptySet()
 )
+
+private fun ActiveWorkoutState.markDirtyIfEditing(): ActiveWorkoutState =
+    if (isEditMode) copy(editModeDirty = true) else this
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
@@ -555,7 +558,6 @@ class WorkoutViewModel @Inject constructor(
                     workoutId = null,
                     startTime = null,
                     exercises = exercises,
-                    editModeSnapshot = exercises,
                     workoutName = name,
                     elapsedSeconds = 0,
                     routineSnapshot = emptyList(),
@@ -640,10 +642,8 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun editModeHasChanges(): Boolean {
-        val s = _workoutState.value
-        return s.isEditMode && s.exercises != s.editModeSnapshot
-    }
+    fun editModeHasChanges(): Boolean =
+        _workoutState.value.let { it.isEditMode && it.editModeDirty }
 
     fun addExercise(exercise: Exercise) {
         val currentExercises = _workoutState.value.exercises
@@ -710,7 +710,7 @@ class WorkoutViewModel @Inject constructor(
             )
 
             _workoutState.update {
-                it.copy(exercises = currentExercises + newExerciseWithSets)
+                it.copy(exercises = currentExercises + newExerciseWithSets).markDirtyIfEditing()
             }
         }
     }
@@ -763,7 +763,7 @@ class WorkoutViewModel @Inject constructor(
                         if (ex.exercise.id == exerciseId) ex.copy(sets = ex.sets + newSet) else ex
                     },
                     deletedSetClipboard = if (clipboard != null) s.deletedSetClipboard - exerciseId else s.deletedSetClipboard
-                )
+                ).markDirtyIfEditing()
             }
         }
     }
@@ -789,7 +789,7 @@ class WorkoutViewModel @Inject constructor(
                     exerciseWithSets
                 }
             }
-            state.copy(exercises = updatedExercises)
+            state.copy(exercises = updatedExercises).markDirtyIfEditing()
         }
     }
 
@@ -829,7 +829,7 @@ class WorkoutViewModel @Inject constructor(
                         else -> set
                     }
                 })
-            })
+            }).markDirtyIfEditing()
         }
         if (!_workoutState.value.isEditMode && result is SurgicalValidator.ValidationResult.Valid) {
             debouncedSaveSet(exerciseId, setOrder)
@@ -872,7 +872,7 @@ class WorkoutViewModel @Inject constructor(
                         else -> set
                     }
                 })
-            })
+            }).markDirtyIfEditing()
         }
         if (!_workoutState.value.isEditMode && result is SurgicalValidator.ValidationResult.Valid) {
             debouncedSaveSet(exerciseId, setOrder)
@@ -915,7 +915,7 @@ class WorkoutViewModel @Inject constructor(
                         else -> set
                     }
                 })
-            })
+            }).markDirtyIfEditing()
         }
         if (!_workoutState.value.isEditMode && result is SurgicalValidator.ValidationResult.Valid) {
             debouncedSaveTimedSet(exerciseId, setOrder)
@@ -968,7 +968,7 @@ class WorkoutViewModel @Inject constructor(
                     wasCompleted = set.isCompleted
                     set.copy(isCompleted = !set.isCompleted)
                 })
-            })
+            }).markDirtyIfEditing()
         }
         if (!isEditMode) {
             val updatedSet = _workoutState.value.exercises
@@ -1011,7 +1011,7 @@ class WorkoutViewModel @Inject constructor(
                     if (set.setOrder != setOrder) return@map set
                     set.copy(rpeValue = rpe)
                 })
-            })
+            }).markDirtyIfEditing()
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
@@ -1042,7 +1042,7 @@ class WorkoutViewModel @Inject constructor(
                     exerciseWithSets
                 }
             }
-            state.copy(exercises = updatedExercises)
+            state.copy(exercises = updatedExercises).markDirtyIfEditing()
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
@@ -1081,7 +1081,7 @@ class WorkoutViewModel @Inject constructor(
                     exerciseWithSets
                 }
             }
-            state.copy(exercises = updatedExercises)
+            state.copy(exercises = updatedExercises).markDirtyIfEditing()
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
@@ -1132,7 +1132,7 @@ class WorkoutViewModel @Inject constructor(
                 deletedSetClipboard = if (clipboardEntry != null) {
                     state.deletedSetClipboard + (exerciseId to clipboardEntry)
                 } else state.deletedSetClipboard
-            )
+            ).markDirtyIfEditing()
         }
     }
 
@@ -1155,7 +1155,7 @@ class WorkoutViewModel @Inject constructor(
                     if (set.setOrder != setOrder) return@map set
                     set.copy(setType = setType)
                 })
-            })
+            }).markDirtyIfEditing()
         }
         val updated = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
@@ -1654,7 +1654,7 @@ class WorkoutViewModel @Inject constructor(
                     } else ex
                 },
                 activeSupersetExerciseId = exerciseId1
-            )
+            ).markDirtyIfEditing()
         }
     }
 
@@ -1674,7 +1674,7 @@ class WorkoutViewModel @Inject constructor(
                     }
                 },
                 activeSupersetExerciseId = if (state.activeSupersetExerciseId == exerciseId) null else state.activeSupersetExerciseId
-            )
+            ).markDirtyIfEditing()
         }
     }
 
@@ -1687,7 +1687,7 @@ class WorkoutViewModel @Inject constructor(
                     if (ex.exercise.id in exerciseIds) ex.copy(supersetGroupId = groupId) else ex
                 },
                 activeSupersetExerciseId = exerciseIds.firstOrNull()
-            )
+            ).markDirtyIfEditing()
         }
     }
 
@@ -1697,7 +1697,7 @@ class WorkoutViewModel @Inject constructor(
             state.copy(
                 exercises = state.exercises.filter { it.exercise.id != exerciseId },
                 snackbarMessage = "Exercise removed"
-            )
+            ).markDirtyIfEditing()
         }
     }
 
@@ -1708,7 +1708,7 @@ class WorkoutViewModel @Inject constructor(
                 exercises = state.exercises.map { ex ->
                     if (ex.exercise.id == oldId) ex.copy(exercise = newExercise) else ex
                 }
-            )
+            ).markDirtyIfEditing()
         }
     }
 
@@ -1719,7 +1719,7 @@ class WorkoutViewModel @Inject constructor(
                 exercises = state.exercises.map { ex ->
                     if (ex.exercise.id == exerciseId) ex.copy(sessionNote = note) else ex
                 }
-            )
+            ).markDirtyIfEditing()
         }
     }
 
@@ -1736,7 +1736,7 @@ class WorkoutViewModel @Inject constructor(
                         exercises = state.exercises.map { ex ->
                             if (ex.exercise.id == exerciseId) ex.copy(stickyNote = note) else ex
                         }
-                    )
+                    ).markDirtyIfEditing()
                 }
             } catch (e: Exception) {
                 _workoutState.update { it.copy(snackbarMessage = "Failed to save sticky note") }
@@ -1756,7 +1756,7 @@ class WorkoutViewModel @Inject constructor(
                                 ex.copy(exercise = ex.exercise.copy(restDurationSeconds = seconds))
                             else ex
                         }
-                    )
+                    ).markDirtyIfEditing()
                 }
             } catch (e: Exception) {
                 _workoutState.update { it.copy(snackbarMessage = "Failed to update rest timer") }
@@ -1783,7 +1783,7 @@ class WorkoutViewModel @Inject constructor(
                             else ex
                         },
                         hiddenRestSeparators = state.hiddenRestSeparators.filterNot { it.startsWith(prefix) }.toSet()
-                    )
+                    ).markDirtyIfEditing()
                 }
             } catch (e: Exception) {
                 _workoutState.update { it.copy(snackbarMessage = "Failed to update rest timers") }
@@ -1903,7 +1903,7 @@ class WorkoutViewModel @Inject constructor(
                                 ex.copy(sets = warmupSets + shifted)
                             } else ex
                         }
-                    )
+                    ).markDirtyIfEditing()
                 }
             } catch (e: Exception) {
                 _workoutState.update { it.copy(snackbarMessage = "Failed to add warmup sets") }
@@ -1971,7 +1971,7 @@ class WorkoutViewModel @Inject constructor(
                     }
                 }
             }
-            state.copy(exercises = updated, supersetCandidateIds = emptySet())
+            state.copy(exercises = updated, supersetCandidateIds = emptySet()).markDirtyIfEditing()
         }
     }
 
@@ -1988,7 +1988,7 @@ class WorkoutViewModel @Inject constructor(
                 val item = list.removeAt(fromIndex)
                 list.add(toIndex, item)
             }
-            state.copy(exercises = list)
+            state.copy(exercises = list).markDirtyIfEditing()
         }
     }
 
@@ -2061,7 +2061,7 @@ class WorkoutViewModel @Inject constructor(
                         exerciseWithSets
                     }
                 }
-                state.copy(exercises = updatedExercises)
+                state.copy(exercises = updatedExercises).markDirtyIfEditing()
             }
         }
     }
@@ -2082,7 +2082,7 @@ class WorkoutViewModel @Inject constructor(
                     exerciseWithSets
                 }
             }
-            state.copy(exercises = updatedExercises)
+            state.copy(exercises = updatedExercises).markDirtyIfEditing()
         }
     }
 

@@ -15,4 +15,6 @@ In routine edit mode (`ActiveWorkoutScreen`), pressing the system back button or
 6. **Actual:** "Discard Changes?" dialog appears
 
 ## Fix Notes
-Added `editModeSnapshot: List<ExerciseWithSets>` to `ActiveWorkoutState`, populated when `startEditMode()` loads exercises. Both the `BackHandler` and the Close `IconButton` now check `exercises != editModeSnapshot` before deciding whether to show the dialog. If nothing changed, they call `cancelEditMode()` + navigate directly. If something changed, they show the dialog as before.
+**Initial fix (committed):** Added `editModeSnapshot` snapshot comparison — `exercises != editModeSnapshot`. Confirmed structurally correct but in practice the comparison always returned `false`, so the dialog never appeared.
+
+**Root-cause fix:** Replaced snapshot comparison with an explicit `editModeDirty: Boolean` flag. Added `private fun ActiveWorkoutState.markDirtyIfEditing()` extension helper and chained it onto all 26 exercise-mutating `_workoutState.update` calls. `editModeHasChanges()` now returns `it.isEditMode && it.editModeDirty`. Flag resets to `false` automatically when `cancelEditMode()` / `saveRoutineEdits()` replace the state with a fresh `ActiveWorkoutState()`.
