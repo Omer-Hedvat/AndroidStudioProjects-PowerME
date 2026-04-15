@@ -24,6 +24,9 @@ interface ExerciseDao {
     @Delete
     suspend fun deleteExercise(exercise: Exercise)
 
+    @Delete
+    suspend fun deleteExercises(exercises: List<Exercise>)
+
     // Synchronous methods for seeder
     @Query("SELECT * FROM exercises ORDER BY name ASC")
     suspend fun getAllExercisesSync(): List<Exercise>

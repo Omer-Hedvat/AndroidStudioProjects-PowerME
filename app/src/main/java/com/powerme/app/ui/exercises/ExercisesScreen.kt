@@ -1,7 +1,5 @@
 package com.powerme.app.ui.exercises
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -10,27 +8,38 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.data.database.Exercise
+import com.powerme.app.data.database.ExerciseType
+import com.powerme.app.ui.theme.ExercisePlyometricOrange
+import com.powerme.app.ui.theme.ExerciseStretchTeal
 import com.powerme.app.ui.theme.FormCuesGold
 import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.ui.theme.ReadinessAmber
+import com.powerme.app.ui.theme.TimerGreen
 
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -272,6 +281,48 @@ fun ExercisesScreen(
     }
 }
 
+private fun exerciseTypeIcon(type: ExerciseType): ImageVector = when (type) {
+    ExerciseType.STRENGTH   -> Icons.Default.FitnessCenter
+    ExerciseType.CARDIO     -> Icons.Default.DirectionsRun
+    ExerciseType.TIMED      -> Icons.Default.Timer
+    ExerciseType.PLYOMETRIC -> Icons.Default.FlashOn
+    ExerciseType.STRETCH    -> Icons.Default.SelfImprovement
+}
+
+private fun exerciseTypeColor(type: ExerciseType, primaryColor: Color): Color = when (type) {
+    ExerciseType.STRENGTH   -> primaryColor
+    ExerciseType.CARDIO     -> TimerGreen
+    ExerciseType.TIMED      -> ReadinessAmber
+    ExerciseType.PLYOMETRIC -> ExercisePlyometricOrange
+    ExerciseType.STRETCH    -> ExerciseStretchTeal
+}
+
+@Composable
+private fun ExerciseTagChip(label: String, color: Color) {
+    Surface(
+        shape = MaterialTheme.shapes.extraSmall,
+        color = color.copy(alpha = 0.15f)
+    ) {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = color,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
+private fun MetaItem(icon: ImageVector, label: String, tint: Color) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(11.dp))
+        Text(text = label, fontSize = 10.sp, color = tint)
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ExerciseCard(
@@ -280,13 +331,14 @@ private fun ExerciseCard(
     onLongPress: () -> Unit,
     isSelected: Boolean = false
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val typeColor = exerciseTypeColor(exercise.exerciseType, primaryColor)
+    val typeIcon  = exerciseTypeIcon(exercise.exerciseType)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongPress
-            ),
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress),
         colors = PowerMeDefaults.cardColors(),
         elevation = PowerMeDefaults.cardElevation()
     ) {
@@ -294,54 +346,92 @@ private fun ExerciseCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = exercise.name,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(color = typeColor.copy(alpha = 0.15f), shape = CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = typeIcon,
+                        contentDescription = exercise.exerciseType.name,
+                        tint = typeColor,
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Surface(
-                            shape = MaterialTheme.shapes.extraSmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                text = exercise.muscleGroup,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = exercise.name,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (exercise.isFavorite) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Favorite",
+                                tint = ReadinessAmber,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
-                        Surface(
-                            shape = MaterialTheme.shapes.extraSmall,
-                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                text = exercise.equipmentType,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ExerciseTagChip(exercise.muscleGroup, primaryColor)
+                        ExerciseTagChip(exercise.equipmentType, MaterialTheme.colorScheme.secondary)
+                        if (exercise.isCustom) {
+                            ExerciseTagChip("Custom", MaterialTheme.colorScheme.tertiary)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(5.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MetaItem(
+                            icon = Icons.Default.Timer,
+                            label = "${exercise.restDurationSeconds}s rest",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                        if (exercise.setupNotes?.isNotBlank() == true) {
+                            MetaItem(
+                                icon = Icons.Default.Info,
+                                label = "Form cues",
+                                tint = FormCuesGold.copy(alpha = 0.85f)
                             )
                         }
                     }
                 }
             }
+
             if (isSelected) {
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                        .background(primaryColor.copy(alpha = 0.12f))
                 )
                 Icon(
                     Icons.Default.CheckCircle,
                     contentDescription = "Selected",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = primaryColor,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
@@ -357,7 +447,6 @@ fun ExerciseDetailSheet(
     exercise: Exercise,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     var showFormCues by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -410,27 +499,6 @@ fun ExerciseDetailSheet(
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(10.dp)
                     )
-                }
-            }
-            // YouTube link
-            exercise.youtubeVideoId?.takeIf { it.isNotBlank() }?.let { videoId ->
-                TextButton(
-                    onClick = {
-                        val uri = Uri.parse("vnd.youtube:$videoId")
-                        val intent = Intent(Intent.ACTION_VIEW, uri)
-                        if (intent.resolveActivity(context.packageManager) != null) {
-                            context.startActivity(intent)
-                        } else {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW,
-                                    Uri.parse("https://www.youtube.com/watch?v=$videoId"))
-                            )
-                        }
-                    }
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Watch on YouTube")
                 }
             }
         }

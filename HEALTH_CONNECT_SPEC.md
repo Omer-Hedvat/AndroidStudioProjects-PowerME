@@ -242,11 +242,168 @@ These flags are computed on every sync. Used by Coach Carter / Boaz analytics (f
 
 ---
 
-## 8. Phase B — Writes (Placeholder)
+## 8. Phase B — Write Completed Workouts to Health Connect
 
-Phase B will add:
-- `WRITE_EXERCISE` permission declaration
-- Write completed workouts as `ExerciseSessionRecord` to HC in `WorkoutViewModel.finishWorkout()`
-- Import external exercise sessions from HC into History tab
+**Status:** Specified, not yet implemented.
 
-No implementation in Phase A. See `WORKOUT_SPEC.md` for the `finishWorkout()` flow that Phase B will extend.
+When the user finishes a workout, PowerME writes an `ExerciseSessionRecord` to Health Connect. This makes the session visible in Google Fit, Samsung Health, and any other app connected to Health Connect on the device.
+
+---
+
+### 8.1 New Permission
+
+Add one write permission alongside the existing read set:
+
+| Permission | Record Class | Purpose |
+|---|---|---|
+| `WRITE_EXERCISE` | `ExerciseSessionRecord` | Push completed workouts to HC |
+
+**`ALL_PERMISSIONS` in `HealthConnectManager`** — add:
+```kotlin
+HealthPermission.getWritePermission(ExerciseSessionRecord::class)
+```
+
+**`health_permissions.xml`** — add:
+```xml
+<uses-permission android:name="android.permission.health.WRITE_EXERCISE"/>
+```
+
+**`AndroidManifest.xml`** — add the same `<uses-permission>` tag in the Health Connect permission block.
+
+`WRITE_EXERCISE` is requested alongside all existing read permissions at the existing "Connect" flow. No separate permission prompt needed — both granted in one system dialog.
+
+`checkPermissionsGranted()` must **not** be changed to require `WRITE_EXERCISE` — the Body Vitals card must still reach `AVAILABLE_GRANTED` even if the user denies the write permission. Write permission is best-effort: check it separately before writing, skip silently if denied.
+
+---
+
+### 8.2 `ExerciseSessionRecord` — What We Write
+
+| HC Field | Source | Notes |
+|---|---|---|
+| `startTime` | `Workout.startTimeMs.toInstant()` | Epoch ms → `Instant` |
+| `endTime` | `Workout.endTimeMs.toInstant()` | Epoch ms → `Instant` |
+| `startZoneOffset` | `ZoneId.systemDefault().rules.getOffset(startTime)` | Device local offset at workout start |
+| `endZoneOffset` | `ZoneId.systemDefault().rules.getOffset(endTime)` | Device local offset at workout end |
+| `exerciseType` | Derived from exercises (see §8.3) | `Int` constant from `ExerciseSessionRecord` |
+| `title` | `Workout.routineName` | `null` for ad-hoc workouts |
+| `notes` | `Workout.notes` | `null` if no session note |
+| `clientRecordId` | `Workout.id` (UUID) | Prevents duplicate writes if `finishWorkout()` is retried |
+| `segments` | Not included (Phase B) | No per-exercise timestamps tracked yet |
+
+`clientRecordId` is critical: if `finishWorkout()` runs twice for the same workout (e.g. retry after a crash), HC will update the existing record rather than create a duplicate.
+
+---
+
+### 8.3 Exercise Type Mapping
+
+HC requires a single `exerciseType` for the session. Determine it from the exercises in the workout:
+
+```kotlin
+fun deriveHcExerciseType(exercises: List<ActiveExercise>): Int {
+    val types = exercises.map { it.exercise.exerciseType }.toSet()
+    return when {
+        types.all { it == ExerciseType.STRETCH }     -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
+        types.any { it == ExerciseType.CARDIO }      -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+        else                                          -> ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING
+    }
+}
+```
+
+| Workout composition | HC exercise type |
+|---|---|
+| All STRENGTH / TIMED / PLYOMETRIC (or mixed) | `EXERCISE_TYPE_WEIGHTLIFTING` |
+| Any CARDIO exercise present | `EXERCISE_TYPE_OTHER_WORKOUT` |
+| All STRETCH | `EXERCISE_TYPE_YOGA` |
+
+`EXERCISE_TYPE_WEIGHTLIFTING` is the correct type for strength training — it is distinct from `EXERCISE_TYPE_STRENGTH_TRAINING` (which HC treats as machine-guided/PT sessions). Use `WEIGHTLIFTING` for free-weight and barbell workouts.
+
+---
+
+### 8.4 Write Method — `HealthConnectManager`
+
+Add a new suspend function:
+
+```kotlin
+suspend fun writeWorkoutSession(workout: Workout, exercises: List<ActiveExercise>) {
+    // No-op guards
+    if (!isAvailable()) return
+    if (workout.startTimeMs == 0L || workout.endTimeMs == 0L) return
+
+    val client = HealthConnectClient.getOrCreate(context)
+    val granted = client.permissionController.getGrantedPermissions()
+    if (HealthPermission.getWritePermission(ExerciseSessionRecord::class) !in granted) return
+
+    val startInstant = Instant.ofEpochMilli(workout.startTimeMs)
+    val endInstant   = Instant.ofEpochMilli(workout.endTimeMs)
+    val zoneRules    = ZoneId.systemDefault().rules
+
+    val record = ExerciseSessionRecord(
+        startTime        = startInstant,
+        endTime          = endInstant,
+        startZoneOffset  = zoneRules.getOffset(startInstant),
+        endZoneOffset    = zoneRules.getOffset(endInstant),
+        exerciseType     = deriveHcExerciseType(exercises),
+        title            = workout.routineName,
+        notes            = workout.notes,
+        metadata         = Metadata(clientRecordId = workout.id)
+    )
+
+    try {
+        client.insertRecords(listOf(record))
+    } catch (e: Exception) {
+        android.util.Log.w("PowerME_HC", "writeWorkoutSession failed", e)
+        // Fire-and-forget: failure must not surface to the user or block finishWorkout()
+    }
+}
+```
+
+---
+
+### 8.5 Hook-in Point — `WorkoutViewModel.finishWorkout()`
+
+Call `writeWorkoutSession` **after** the DB write and Firestore push succeed. It is fire-and-forget inside the same coroutine — exceptions are caught inside `writeWorkoutSession` so the post-workout summary always shows.
+
+```kotlin
+// In finishWorkout(), after firestoreSyncManager.pushWorkout(workoutId):
+healthConnectManager.writeWorkoutSession(
+    workout  = <the Workout object just written to DB>,
+    exercises = state.exercises
+)
+```
+
+`healthConnectManager` must be injected into `WorkoutViewModel` via Hilt (add `@Inject` constructor parameter). `HealthConnectManager` is already a `@Singleton`.
+
+**Ordering guarantee:** HC write happens after Room commit and after Firestore push. If the HC write fails, the workout is still saved locally and in Firestore — data is never lost.
+
+---
+
+### 8.6 Manifest — `READ_EXERCISE`
+
+The Phase A note said to omit `READ_EXERCISE` until Phase B. Now that Phase B is specified:
+
+- Add `READ_EXERCISE` to both `AndroidManifest.xml` and `health_permissions.xml`.
+- Add `HealthPermission.getReadPermission(ExerciseSessionRecord::class)` to `ALL_PERMISSIONS` in `HealthConnectManager`.
+- `READ_EXERCISE` is not used in Phase B's read flow — it is included so HC's pre-flight permission scanner doesn't flag the app as declaring writes without a matching read.
+
+---
+
+### 8.7 Permission Rationale Text
+
+Add a new paragraph to `PermissionsRationaleActivity` for the write permission:
+
+> **Workout sessions** — PowerME writes your completed workouts to Health Connect so they appear in Google Fit and other connected apps. Your workout data stays on your device and is never sent to PowerME's servers.
+
+---
+
+### 8.8 Error Handling & Edge Cases
+
+| Scenario | Behaviour |
+|---|---|
+| HC not installed | `isAvailable()` returns false → skip silently |
+| `WRITE_EXERCISE` not granted | Permission check inside `writeWorkoutSession` → skip silently |
+| `startTimeMs == 0` or `endTimeMs == 0` | Guard at top of `writeWorkoutSession` → skip silently |
+| HC client throws | Caught inside `writeWorkoutSession`, logged, not re-thrown |
+| `finishWorkout()` called twice | `clientRecordId = workout.id` → HC upserts rather than duplicates |
+| Workout duration < 1 minute | Write as-is — no minimum duration enforced |
+
+Do **not** surface HC write errors in the post-workout UI. Users do not expect a "Health Connect write failed" message after finishing a lift.

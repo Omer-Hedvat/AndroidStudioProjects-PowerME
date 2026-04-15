@@ -146,7 +146,8 @@ class UnitConverterTest {
     fun `formatNumber strips trailing zeros`() {
         assertEquals("80", UnitConverter.formatNumber(80.0))
         assertEquals("80.5", UnitConverter.formatNumber(80.5))
-        assertEquals("32.3", UnitConverter.formatNumber(32.25))
+        assertEquals("32.25", UnitConverter.formatNumber(32.25))
+        assertEquals("176.37", UnitConverter.formatNumber(176.37))
     }
 
     // ── formatWeightRaw ───────────────────────────────────────────────────────

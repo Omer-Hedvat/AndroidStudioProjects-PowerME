@@ -1,5 +1,13 @@
 # CSV Import — Feature Spec
 
+| | |
+|---|---|
+| **Phase** | P5 |
+| **Status** | `not-started` |
+| **Effort** | L |
+| **Depends on** | — |
+| **Roadmap** | `ROADMAP.md §P5` |
+
 ## Overview
 
 A universal workout history importer that reads CSV exports from any major fitness app and loads them into PowerME's database. The importer auto-detects known formats (Strong, Hevy, FitBod, etc.) and falls back to an interactive column-mapping UI for unknown formats.
@@ -108,7 +116,7 @@ Before importing, the user can configure:
 
 ## Database Changes
 
-Requires a new migration (v37):
+Requires a new migration. **Current DB is v38 (April 2026) — assign the next available version at implementation time. Verify `PowerMeDatabase.kt` version before implementing.**
 
 ```sql
 -- Tag imported workouts for undo and filtering
@@ -144,7 +152,7 @@ ALTER TABLE workouts ADD COLUMN importBatchId TEXT DEFAULT NULL;
 | `data/database/WorkoutDao.kt` | Add `getByImportBatch(batchId)`, `softDeleteBatch(batchId)` |
 | `data/repository/WorkoutRepository.kt` | Add `importWorkouts(batch)`, `undoImport(batchId)` |
 | `ui/settings/SettingsScreen.kt` | Add "Import Workout History" button to Data & Backup card |
-| `PowerMEDatabase.kt` | Bump version 36→37, add Migration_36_37 |
+| `PowerMEDatabase.kt` | Bump to next available version after v38, add migration |
 
 ---
 

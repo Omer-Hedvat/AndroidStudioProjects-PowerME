@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,7 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.data.database.RoutineExerciseWithName
 import com.powerme.app.data.database.workingSets
 import com.powerme.app.ui.theme.PowerMeDefaults
-import com.powerme.app.ui.theme.supersetColor
+import com.powerme.app.ui.theme.buildSupersetColorMap
 
 @Composable
 fun WorkoutsScreen(
@@ -448,6 +449,9 @@ private fun RoutineOverviewSheet(
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val supersetColorMap = remember(exerciseDetails) {
+        buildSupersetColorMap(exerciseDetails.map { it.supersetGroupId })
+    }
 
     val recencyLabel = when (summary.daysSincePerformed) {
         null -> "Never"
@@ -588,7 +592,7 @@ private fun RoutineOverviewSheet(
                                 modifier = Modifier
                                     .width(4.dp)
                                     .fillMaxHeight()
-                                    .background(supersetColor(ex.supersetGroupId))
+                                    .background(supersetColorMap[ex.supersetGroupId] ?: Color.Transparent)
                             )
                         }
                         Row(

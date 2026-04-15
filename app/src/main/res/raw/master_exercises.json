@@ -1,7 +1,7 @@
 {
-  "version": "1.6",
-  "lastUpdated": "2026-03-15",
-  "totalExercises": 244,
+  "version": "1.7",
+  "lastUpdated": "2026-04-15",
+  "totalExercises": 240,
   "exercises": [
     {
       "name": "Barbell Back Squat",
@@ -2706,20 +2706,6 @@
       "isCustom": false
     },
     {
-      "name": "Handstand Push-up",
-      "muscleGroup": "Shoulders",
-      "equipmentType": "Bodyweight",
-      "exerciseType": "STRENGTH",
-      "familyId": "handstand_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Push up from handstand against wall.",
-      "committeeNotes": "Vertical pressing power.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false
-    },
-    {
       "name": "Archer Push-up",
       "muscleGroup": "Chest",
       "equipmentType": "Bodyweight",
@@ -2846,20 +2832,6 @@
       "isCustom": false
     },
     {
-      "name": "Decline Push-up",
-      "muscleGroup": "Chest",
-      "equipmentType": "Bench",
-      "exerciseType": "STRENGTH",
-      "familyId": "pushup_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Feet on elevated surface.",
-      "committeeNotes": "Harder variation, upper chest focus.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false
-    },
-    {
       "name": "Hindu Push-up",
       "muscleGroup": "Shoulders",
       "equipmentType": "Bodyweight",
@@ -2910,34 +2882,6 @@
       "youtubeVideoId": null,
       "setupNotes": "Lower slowly from the top of a pull-up.",
       "committeeNotes": "Building pull-up strength.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false
-    },
-    {
-      "name": "Chin-up",
-      "muscleGroup": "Back",
-      "equipmentType": "Pull-up Bar",
-      "exerciseType": "STRENGTH",
-      "familyId": "pullup_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Underhand grip pull-up.",
-      "committeeNotes": "Bicep and lat focus.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false
-    },
-    {
-      "name": "Neutral Grip Pull-up",
-      "muscleGroup": "Back",
-      "equipmentType": "Pull-up Bar",
-      "exerciseType": "STRENGTH",
-      "familyId": "pullup_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Palms facing each other.",
-      "committeeNotes": "Elbow friendly pull-up.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,

@@ -8,6 +8,7 @@ import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.util.SurgicalValidator
+import com.powerme.app.util.UnitConverter
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.Workout
 import com.powerme.app.data.database.WorkoutDao
@@ -107,8 +108,7 @@ class WorkoutDetailViewModel @Inject constructor(
         val initialEdits = _uiState.value.exerciseGroups
             .flatMap { it.sets }
             .associate { set ->
-                val weightStr = if (set.weight == set.weight.toLong().toDouble())
-                    set.weight.toLong().toString() else "%.1f".format(set.weight)
+                val weightStr = UnitConverter.formatWeightRaw(set.weight, unitSystem.value)
                 set.id to PendingEdit(weight = weightStr, reps = set.reps.toString())
             }
         _uiState.value = _uiState.value.copy(isEditMode = true, pendingEdits = initialEdits)

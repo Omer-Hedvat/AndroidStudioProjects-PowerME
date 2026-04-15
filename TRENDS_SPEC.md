@@ -1069,16 +1069,36 @@ A stylized human body outline rendered in Compose Canvas (or an SVG-to-Canvas co
 
 ### What Is Needed
 
-1. **`ExerciseStressVector` entity** — Maps each exercise to the joints/tendons it stresses with a stress coefficient (0.0–1.0). Would need to be defined for all 150+ master exercises.
+1. **`ExerciseStressVector` entity** — Maps each exercise to the joints/tendons it stresses with a stress coefficient (0.0–1.0).
 2. **Stress accumulation algorithm** — Sum of (volume × stressCoefficient) per tissue, decayed exponentially over days since last training.
 3. **SVG paths** — Vector path data for each body region (anterior/posterior deltoid, elbow joint, knee joint, lower back, etc.) or a rasterized image with overlay Canvas drawing.
 4. **New DB table** — `exercise_stress_vectors(exerciseId, bodyRegion, stressCoefficient)`
 
-### Blocking Issues
+### Stress Vector Data Strategy
 
-- No SVG rendering library in current dependencies (Coil doesn't handle interactive SVGs)
-- Data entry burden: stress vectors for 150+ exercises is significant editorial work
-- Algorithm validation: clinical biomechanics review needed to avoid misleading users
+**Phase 1 — Manual science-sourced seed (~30 most common exercises):**
+Hand-define stress vectors for the top 30 exercises (squat, deadlift, bench press, OHP, barbell row, pull-up, chin-up, Romanian deadlift, leg press, lunge, incline press, dip, curl, tricep pushdown, lateral raise, face pull, hip thrust, cable row, leg curl, leg extension, plank, push-up, Arnold press, front squat, sumo deadlift, good morning, Bulgarian split squat, Nordic curl, shrug, farmers carry). Use published exercise science literature (Schoenfeld, NSCA guidelines) as the source.
+
+**Phase 2 — Gemini-generated expansion (remaining 120+ exercises):**
+Use Gemini API to generate stress vectors for all remaining exercises in `master_exercises.json`. Prompt template:
+```
+Given the exercise "{exerciseName}" (primary muscle: {primaryMuscle}, equipment: {equipmentType}),
+provide stress coefficients (0.0–1.0) for each body region it loads:
+[anterior_deltoid, posterior_deltoid, elbow_joint, wrist_joint, knee_joint,
+ hip_joint, lower_back, upper_back, pecs, lats, quads, hamstrings, glutes,
+ calves, core, neck_cervical]
+Base your answer on biomechanical and exercise science literature.
+Return as JSON: {"region": coefficient, ...}
+```
+Review Gemini output before committing — flag any coefficient > 0.8 for manual verification.
+
+**Phase 3 — Ongoing correction:**
+As users log workouts, surface a "Does this feel right?" feedback mechanism. Aggregate corrections to refine coefficients over time.
+
+### Blocking Issues (remaining)
+
+- No SVG rendering library in current dependencies — add `com.caverock:androidsvg-aar` or use custom Canvas paths
+- Algorithm validation: flag coefficients > 0.8 for biomechanics review before shipping
 
 ### Interaction Design (when built)
 

@@ -91,12 +91,12 @@ object UnitConverter {
      *   80.0   → "80"
      *   80.5   → "80.5"
      *   32.25  → "32.25"
-     *   176.37 → "176.4"   (1 decimal place max for lbs to avoid clutter)
+     *   176.37 → "176.37"
      */
     fun formatNumber(value: Double): String = when {
         value == value.toLong().toDouble() -> value.toLong().toString()
         value * 10 == (value * 10).toLong().toDouble() -> "%.1f".format(value)
-        else -> "%.1f".format(value)
+        else -> "%.2f".format(value)
     }
 
     /**

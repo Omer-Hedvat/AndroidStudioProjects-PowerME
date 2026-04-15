@@ -1,5 +1,13 @@
 # Health Connect — Extended Read Records Spec
 
+| | |
+|---|---|
+| **Phase** | P4 |
+| **Status** | `not-started` |
+| **Effort** | M |
+| **Depends on** | — |
+| **Roadmap** | `ROADMAP.md §P4` |
+
 ## Overview
 
 This spec covers the five additional Health Connect record types not yet read in Phase A. They extend `HealthConnectManager`, `HealthConnectSync`, and the Body & Vitals card with richer fitness and recovery signals.
@@ -203,7 +211,7 @@ enum class MetricType {
 
 ### 4.3 Migration
 
-Bump DB version to the next available (currently 37 is claimed by CSV Import spec — coordinate).  
+**Current DB is v38 (April 2026) — assign the next available version at implementation time. Coordinate with any other pending P2/P3 migrations that may have bumped the version. Verify `PowerMEDatabase.kt` before implementing.**  
 SQL additions on `health_connect_sync`:
 
 ```sql

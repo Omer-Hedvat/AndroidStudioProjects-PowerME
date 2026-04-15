@@ -39,7 +39,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "1.6"  // bumped: consolidate equipment synonyms → Bench; Wall → Bodyweight
+        private const val CURRENT_VERSION = "1.7"  // bumped: remove 4 duplicate lowercase-"up" exercise entries
     }
 
     private val json = Json {
@@ -120,8 +120,10 @@ class MasterExerciseSeeder @Inject constructor(
             var insertedCount = 0
             var updatedCount = 0
             var skippedCount = 0
+            val masterNames = mutableSetOf<String>()
 
             masterData.exercises.forEach { masterExercise ->
+                masterNames += masterExercise.name
                 val existing = existingByName[masterExercise.name]
 
                 when {
@@ -149,12 +151,21 @@ class MasterExerciseSeeder @Inject constructor(
                 }
             }
 
+            // Delete non-custom exercises removed from the JSON master list
+            val staleExercises = existingExercises.filter { !it.isCustom && it.name !in masterNames }
+            if (staleExercises.isNotEmpty()) {
+                exerciseDao.deleteExercises(staleExercises)
+                staleExercises.forEach { Log.d(TAG, "Deleted stale exercise: ${it.name}") }
+            }
+            val deletedCount = staleExercises.size
+
             val totalSeeded = insertedCount + updatedCount
             Log.i(TAG, """
                 Seeding complete:
                 - Inserted: $insertedCount new exercises
                 - Updated: $updatedCount existing exercises
                 - Skipped: $skippedCount custom exercises
+                - Deleted (stale): $deletedCount exercises
                 - Total master exercises: ${masterData.exercises.size}
                 - Total database exercises: ${exerciseDao.getExerciseCountSync()}
             """.trimIndent())

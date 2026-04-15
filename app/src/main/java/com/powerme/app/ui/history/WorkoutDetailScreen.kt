@@ -5,6 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,7 +38,7 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
 import com.powerme.app.ui.theme.TimerGreen
-import com.powerme.app.ui.theme.supersetColor
+import com.powerme.app.ui.theme.buildSupersetColorMap
 import com.powerme.app.util.UnitConverter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -59,6 +60,9 @@ fun WorkoutDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val unitSystem by viewModel.unitSystem.collectAsState()
+    val supersetColorMap = remember(uiState.exerciseGroups) {
+        buildSupersetColorMap(uiState.exerciseGroups.map { it.sets.firstOrNull()?.supersetGroupId })
+    }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
 
@@ -224,8 +228,10 @@ fun WorkoutDetailScreen(
             // Exercise groups
             items(uiState.exerciseGroups) { group ->
                 val isExpanded = uiState.expandedExerciseIds.contains(group.exerciseId)
+                val supersetId = group.sets.firstOrNull()?.supersetGroupId
                 ExerciseDetailCard(
                     group = group,
+                    supersetColor = supersetColorMap[supersetId] ?: Color.Transparent,
                     isExpanded = isExpanded,
                     unitSystem = unitSystem,
                     isEditMode = uiState.isEditMode,
@@ -242,6 +248,7 @@ fun WorkoutDetailScreen(
 @Composable
 private fun ExerciseDetailCard(
     group: ExerciseGroup,
+    supersetColor: Color = Color.Transparent,
     isExpanded: Boolean,
     unitSystem: UnitSystem = UnitSystem.METRIC,
     isEditMode: Boolean = false,
@@ -268,7 +275,7 @@ private fun ExerciseDetailCard(
                     modifier = Modifier
                         .width(4.dp)
                         .fillMaxHeight()
-                        .background(supersetColor(supersetId))
+                        .background(supersetColor)
                 )
             }
             Column(modifier = Modifier.weight(1f).padding(12.dp)) {
@@ -552,6 +559,8 @@ private fun BasicEditField(
         ),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
             focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,

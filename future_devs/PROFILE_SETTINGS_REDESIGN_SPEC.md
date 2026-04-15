@@ -238,4 +238,45 @@ ALTER TABLE users ADD COLUMN trainingAgeYears INTEGER NOT NULL DEFAULT 0;
 
 ---
 
+## QA Checklist (§1–§3, implemented April 2026)
+
+### Navigation
+- [ ] Sign in — TopAppBar shows two icons: AccountCircle (left) and Settings gear (right)
+- [ ] Tap AccountCircle → Profile screen opens with back arrow and title "Profile"
+- [ ] Tap back → returns to the previous tab
+- [ ] Tap Settings gear → Settings screen opens (unchanged behaviour)
+
+### Settings screen (trimmed)
+- [ ] Settings screen no longer contains a "Personal Info" card
+- [ ] Settings screen no longer contains a "Body Metrics" card
+- [ ] All remaining cards present: Appearance, Units, Health Connect, Rest Timer, Display & Workout, Data Export, Cloud Sync, Privacy
+
+### Profile screen — Personal Info
+- [ ] Personal Info card shows all fields: Name, Date of Birth, Avg Sleep, Children, Gender, Occupation, Chronotype, Training Goals
+- [ ] Edit a field and tap "Save Changes" → shows spinner, then "Saved ✓" for ~2 s
+- [ ] Re-open Profile → saved values persist
+
+### Profile screen — Body Metrics
+- [ ] Body Metrics card shows Weight, Body Fat, Height inputs with "Last: …" summary lines
+- [ ] Enter values and save → "Last:" labels update on next open
+
+### Profile screen — Fitness Level (§3)
+- [ ] Four tappable tiles: Novice, Trained, Experienced, Athlete — each shows label + description
+- [ ] Tapping a tile highlights it (`primaryContainer` fill + `primary` border); previously selected tile deselects
+- [ ] Training Age slider moves 0–30 and shows the current value
+- [ ] Close and re-open Profile → selected tile and slider value persist
+
+### Profile screen — Health History (§2)
+- [ ] Health History card shows "+" button
+- [ ] Tap "+" → ModalBottomSheet opens with fields: Type (segmented), Title, Body Region, Severity, Start Date, Notes
+- [ ] Fill fields and tap Save → entry appears in the list with a colored left border:
+  - SEVERE → red (`ProError`)
+  - MODERATE → amber
+  - MILD → grey
+  - RESOLVED → green (`TimerGreen`)
+- [ ] Tap an existing entry → edit sheet opens pre-filled; save updates the entry
+- [ ] Empty state text shown when no entries exist
+- [ ] Add a SEVERE entry with affected exercises → open Exercise Library → those exercises show an "Avoid" warning badge
+- [ ] Mark that entry as RESOLVED → "Avoid" badge disappears from those exercises
+
 *Written April 2026.*

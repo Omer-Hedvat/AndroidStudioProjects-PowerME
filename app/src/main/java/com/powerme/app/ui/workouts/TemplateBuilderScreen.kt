@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -35,7 +36,7 @@ import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.powerme.app.ui.theme.PowerMeDefaults
-import com.powerme.app.ui.theme.supersetColor
+import com.powerme.app.ui.theme.buildSupersetColorMap
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +47,9 @@ fun TemplateBuilderScreen(
     val routineName by viewModel.routineName.collectAsState()
     val draftExercises by viewModel.draftExercises.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
+    val supersetColorMap = remember(draftExercises) {
+        buildSupersetColorMap(draftExercises.map { it.supersetGroupId })
+    }
     val isOrganizeMode by viewModel.isOrganizeMode.collectAsState()
     val selectedExerciseIds by viewModel.selectedExerciseIds.collectAsState()
 
@@ -196,6 +200,7 @@ fun TemplateBuilderScreen(
                             when {
                                 isOrganizeMode -> TemplateSupersetSelectRow(
                                     draft = draft,
+                                    supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
                                     isSelected = draft.exerciseId in selectedExerciseIds,
                                     onToggle = { viewModel.toggleExerciseSelection(draft.exerciseId) },
                                     dragHandleModifier = Modifier.draggableHandle()
@@ -207,6 +212,7 @@ fun TemplateBuilderScreen(
                                 )
                                 else -> DraftExerciseRow(
                                     draft = draft,
+                                    supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
                                     onLongPress = { isReorderMode = true },
                                     onIncrement = { viewModel.incrementSets(draft.exerciseId) },
                                     onDecrement = { viewModel.decrementSets(draft.exerciseId) },
@@ -250,6 +256,7 @@ fun TemplateBuilderScreen(
 @Composable
 private fun DraftExerciseRow(
     draft: DraftExercise,
+    supersetColor: Color = Color.Transparent,
     onLongPress: () -> Unit = {},
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
@@ -267,7 +274,7 @@ private fun DraftExerciseRow(
                     modifier = Modifier
                         .width(4.dp)
                         .fillMaxHeight()
-                        .background(supersetColor(draft.supersetGroupId))
+                        .background(supersetColor)
                 )
             }
             Row(
@@ -383,6 +390,7 @@ private fun ReorderableCollectionItemScope.CollapsedTemplateDraftRow(
 @Composable
 private fun ReorderableCollectionItemScope.TemplateSupersetSelectRow(
     draft: DraftExercise,
+    supersetColor: Color = Color.Transparent,
     isSelected: Boolean,
     onToggle: () -> Unit,
     dragHandleModifier: Modifier = Modifier
@@ -438,7 +446,7 @@ private fun ReorderableCollectionItemScope.TemplateSupersetSelectRow(
                 Icon(
                     imageVector = Icons.Default.Link,
                     contentDescription = "In superset",
-                    tint = supersetColor(draft.supersetGroupId),
+                    tint = supersetColor,
                     modifier = Modifier.size(20.dp)
                 )
             }

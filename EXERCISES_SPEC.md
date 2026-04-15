@@ -204,17 +204,29 @@ When `activeGymProfileId` is non-null, the ViewModel loads the corresponding `Gy
 ### 5.1 Layout
 
 ```
-┌─────────────────────────────────────────────┐
-│  [✓] (picker only)   Exercise Name          │
-│       [Muscle Chip]  [Equipment Chip]        │
-│       [Missing Equipment] (soft-lock only)   │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  [Type Badge]  Exercise Name                            ⭐   │
+│                [Muscle Chip]  [Equipment Chip]  [Custom]     │
+│                ⏱ 90s rest  •  📋 Form cues (when present)   │
+│                [Missing Equipment] (soft-lock only)          │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-- **Name:** `titleMedium`, `onSurface` color.
-- **Muscle Tag:** compact inline `Surface(shape = RoundedCornerShape(4.dp))` with `Text(fontSize = 11.sp)`, `primary @ 0.15α` background, `primary` text color.
-- **Equipment Tag:** compact inline `Surface(shape = RoundedCornerShape(4.dp))` with `Text(fontSize = 11.sp)`, `secondary @ 0.15α` background, `secondary` text color. Label uses `toEquipmentDisplayName()`.
-- **Checkmark overlay:** Picker mode only, when `exercise.id in selectedExerciseIds`. Top-right corner. Background: `primaryContainer`, icon: `Icons.Default.Check`.
+- **Type Badge:** 38×38dp `Box` with `CircleShape`, `typeColor @ 0.15α` background, 20dp icon centered. Color + icon keyed on `ExerciseType`:
+  - `STRENGTH` → `FitnessCenter` icon, `primary` color
+  - `CARDIO` → `FlashOn` icon, `TimerGreen`
+  - `TIMED` → `Timer` icon, `ReadinessAmber`
+  - `PLYOMETRIC` → `FlashOn` icon, `Color(0xFFFF9800)` orange
+  - `STRETCH` → `SelfImprovement` icon, `Color(0xFF4DD0E1)` teal
+- **Name:** `fontSize = 15.sp`, `FontWeight.Bold`, `primary` color. Takes `weight(1f)`.
+- **Favorite Star:** `Icons.Default.Star`, `ReadinessAmber` tint, 16dp, shown only when `exercise.isFavorite == true` at end of name row.
+- **Muscle Tag:** compact inline `Surface(shape = extraSmall)` with `Text(fontSize = 11.sp)`, `primary @ 0.15α` background, `primary` text color.
+- **Equipment Tag:** compact inline `Surface(shape = extraSmall)` with `Text(fontSize = 11.sp)`, `secondary @ 0.15α` background, `secondary` text color.
+- **Custom Badge:** compact inline `Surface`, `tertiary @ 0.20α` background, `tertiary` text color. Label `"Custom"`. Shown only when `exercise.isCustom == true`.
+- **Meta row:** Always shown. Contains:
+  - Rest duration: `Timer` icon (11dp, `onSurfaceVariant @ 0.6α`) + `"${restDurationSeconds}s rest"` text (10sp, `onSurfaceVariant @ 0.7α`).
+  - Form cues indicator: `Info` icon (11dp, `FormCuesGold @ 0.85α`) + `"Form cues"` text (10sp, `FormCuesGold @ 0.85α`). Shown only when `exercise.setupNotes?.isNotBlank() == true`.
+- **Checkmark overlay:** Picker mode only, when `exercise.id in selectedExerciseIds`. Top-right corner `CheckCircle` icon, `primary` tint.
 - **Missing Equipment tag:** Soft-lock only. `errorContainer` background chip.
 - **Soft-lock opacity:** `Modifier.alpha(if (isSoftLocked) 0.5f else 1.0f)`.
 
@@ -238,7 +250,7 @@ When `activeGymProfileId` is non-null, the ViewModel loads the corresponding `Gy
 
 ### 5.4 What Does NOT Appear on the Card
 - Animation previews — exercise animations appear only in the detail sheet.
-- Form cues — only in the detail sheet.
+- Full form cues text — only in the detail sheet. The card shows a `"Form cues"` indicator label when `setupNotes` is non-blank, but the text itself is not rendered on the card.
 - Set count or weight history — only in the detail sheet History tab.
 
 ---
@@ -402,8 +414,8 @@ Sheet visibility driven by `var selectedExercise by remember { mutableStateOf<Ex
 └──────────────────────────────────────────────────┘
 ```
 
-- **Source:** Local asset at `assets/exercise_animations/{searchName}.webp`. Convention-based path — no DB column needed.
-- **Loader:** Coil `AsyncImage` composable with an `ImageLoader` configured with `coil-gif` decoder (provides Animated WebP support). Zero network calls.
+- **Source:** Local asset at `assets/exercise_animations/{searchName}.webp`. Convention-based path — no DB column needed. See §11 for how assets are produced.
+- **Loader:** Coil `AsyncImage` composable with an `ImageLoader` configured with `coil-gif` decoder (provides Animated WebP support). Zero network calls at runtime.
 - **Looping:** Coil's GIF/WebP decoder loops by default. No manual replay logic needed.
 - **Fallback:** If the asset file is missing, display a muted placeholder illustration (`Icons.Default.FitnessCenter` centered on a `surfaceVariant` background, 200.dp height).
 - **Size constraint:** `fillMaxWidth()`, fixed height 200.dp, `ContentScale.Fit`, `clip(RoundedCornerShape(12.dp))`.
@@ -503,4 +515,127 @@ Compact list of the last 3–5 completed sessions for this exercise.
 
 10. **Coil WebP Dependency** — `io.coil-kt:coil-compose` + `io.coil-kt:coil-gif` are required dependencies for hero animations. No ExoPlayer or YouTube SDK in the dependency graph.
 
-11. **APK Size Discipline** — All exercise animations must be highly compressed Animated WebP files. Target < 150 KB per animation. Total animation asset budget < 25 MB to prevent APK bloat.
+11. **APK Size Discipline** — All exercise animations must be Animated WebP files converted at quality 75. Target < 200 KB per animation. Deliver via Android App Bundle so only the assets for the user's device are downloaded — no hard total cap, but keep the full set under 50 MB before bundling.
+
+---
+
+## 11. Exercise Animation Asset Pipeline
+
+**Status:** Not yet executed. Animations are not bundled in the current build. The UI fallback placeholder renders for all exercises until assets are added.
+
+### 11.1 Source
+
+**ExerciseDB** — free, open exercise GIF library with 1,300+ exercises.
+
+| Property | Value |
+|---|---|
+| URL | https://exercisedb.io |
+| API | RapidAPI host `exercisedb.p.rapidapi.com` (free tier: 500 req/day) |
+| Format | GIF, ~200–600 KB each |
+| Coverage | ~1,300 exercises — superset of our 150+ library |
+| License | Free for non-commercial use; check terms before shipping commercially |
+
+**Alternative free source:** `github.com/wger-project/wger` — open-source fitness app with CC-licensed exercise images.
+
+### 11.2 Naming Convention
+
+Asset files must be named exactly `{exercise.searchName}.webp` where `searchName` is the pre-normalised field already stored in the DB:
+
+```kotlin
+// String.toSearchName() in Exercise.kt
+fun String.toSearchName(): String = lowercase().replace(Regex("[\\s\\-()]"), "")
+
+// Examples:
+"Bench Press"        → "benchpress.webp"
+"Romanian Deadlift"  → "romaniadeadlift.webp"   // ← note: 'n' not 'an'
+"Lat Pulldown"       → "latpulldown.webp"
+"Face Pull"          → "facepull.webp"
+```
+
+Place all files in: `app/src/main/assets/exercise_animations/`
+
+The Coil loader resolves the path as `file:///android_asset/exercise_animations/{searchName}.webp`. If the file is missing, the fallback placeholder renders automatically (§8.2).
+
+### 11.3 Conversion Pipeline
+
+**Prerequisites (one-time setup):**
+```bash
+brew install ffmpeg          # macOS — handles GIF → Animated WebP
+```
+
+**Single file:**
+```bash
+ffmpeg -i input.gif \
+  -vf "fps=12,scale=400:-1:flags=lanczos" \
+  -loop 0 \
+  -quality 75 \
+  output.webp
+```
+
+**Batch conversion (all GIFs in a folder):**
+```bash
+for f in gifs/*.gif; do
+  name=$(basename "$f" .gif)
+  ffmpeg -i "$f" \
+    -vf "fps=12,scale=400:-1:flags=lanczos" \
+    -loop 0 -quality 75 \
+    "assets/$name.webp" \
+  done
+```
+
+**Parameter rationale:**
+
+| Parameter | Value | Reason |
+|---|---|---|
+| `fps=12` | 12 frames/sec | Smooth enough for exercise demo; halving from 24fps cuts file size ~40% |
+| `scale=400:-1` | 400px wide, height auto | Matches `fillMaxWidth()` at 200dp on hdpi screens; no upscaling waste |
+| `lanczos` | Lanczos filter | Best quality downsample filter for motion |
+| `loop=0` | Infinite loop | Required for Coil to loop the animation |
+| `quality=75` | 75/100 | Good visual quality; tweak down to 65 if files are still too large |
+
+### 11.4 ExerciseDB → PowerME Name Mapping
+
+ExerciseDB uses full display names (e.g. `"Barbell Bench Press"`). Our `searchName` strips spaces and hyphens. The mapping step:
+
+1. Download the ExerciseDB exercise list (one API call returns all ~1,300 names).
+2. For each PowerME exercise, compute `searchName` and look for an ExerciseDB entry whose `name.toSearchName()` matches. Close matches can be resolved manually.
+3. Download matching GIFs.
+4. Run batch conversion from §11.3.
+5. Rename output files to `{powermeName.toSearchName()}.webp`.
+
+**Unmatched exercises** (custom or rare movements not in ExerciseDB): leave as missing — the fallback placeholder renders. Add to a `missing_animations.txt` tracking file so they can be sourced later.
+
+### 11.5 Coverage Priority
+
+Execute in this order to ship the most-used animations first:
+
+| Priority | Exercises | Rationale |
+|---|---|---|
+| P0 | Squat, Deadlift, Bench Press, OHP, Row, Pull-up, Chin-up, Romanian Deadlift, Leg Press, Hip Thrust | Compound movements — used in nearly every programme |
+| P1 | All remaining Chest, Back, Legs, Shoulders exercises | High frequency muscle groups |
+| P2 | Arms, Core exercises | Isolation movements |
+| P3 | Cardio, Full Body, Stretch exercises | Lower workout frequency |
+| P4 | Custom user-created exercises | Cannot be sourced — always use fallback |
+
+### 11.6 Quality Check Before Committing
+
+After converting, verify each file:
+```bash
+# Check file size — flag anything over 200 KB
+find app/src/main/assets/exercise_animations/ -name "*.webp" -size +200k
+
+# Quick visual check — open in browser
+open app/src/main/assets/exercise_animations/benchpress.webp
+```
+
+If a file exceeds 200 KB, re-run with `-quality 65` or `-vf "fps=10,scale=320:-1"`.
+
+### 11.7 App Bundle Delivery
+
+Exercise animations live in `src/main/assets/` which is included in the base APK by default. For a 150-exercise set at ~120 KB average, total ≈ 18 MB — acceptable in the base module.
+
+If coverage grows beyond 200 exercises or average size creeps up, move animations to a **Play Asset Delivery** fast-follow pack:
+```
+app/src/main/play/asset-packs/exercise_animations/src/main/assets/exercise_animations/
+```
+This delivers assets after install, keeping the base APK lean. Not needed until the asset set exceeds ~40 MB uncompressed.
