@@ -6,26 +6,22 @@ Wrap up a completed feature implementation. Argument: short feature name (e.g. `
 - Argument: `$ARGUMENTS`
 - If blank, run `git diff HEAD~1 --name-only` and `git status` to infer from changed files
 
-### 2. Update relevant spec files
-- Find which `*_SPEC.md` files cover the changed domain (see Feature Specs table in `CLAUDE.md`)
-- Update every spec that is now out of date — new state machines, UI components, data contracts, invariants
-- If the feature adds a new spec file, link it in the Feature Specs table in `CLAUDE.md`
+### 2. Update `ROADMAP.md`
+- Find the feature's row and set its status to `done`
+- If the feature was split into steps, mark each completed step as `done`
 
-### 3. Update `CLAUDE.md` "Current State" section
-- Add new features to the **Main Features Implemented** list
+### 3. Update the feature's spec file
+- If built from a `future_devs/<NAME>_SPEC.md`: update its status header to `done`, append a **How to QA** section at the bottom
+- If the feature lives in an implemented spec (e.g. `WORKOUT_SPEC.md`): update any sections that are now out of date — new state machines, UI components, data contracts, invariants
+
+### 4. Update `CLAUDE.md` "Current State" section
+- Add the feature to the **Main Features Implemented** list
 - Update **Database** section if schema version changed
 - Update **Unit Tests** count if new tests were added
-- Update any other facts (entity count, DAO count, etc.) that changed
+- Move the spec file row from the **Future** table to **Implemented** (if applicable)
 
-### 4. Update `DB_UPGRADE.md` (only if schema changed)
+### 5. Update `DB_UPGRADE.md` (only if schema changed)
 - Document the migration: version bump, new tables/columns, migration SQL
-
-### 5. Append to `plans.json`
-- Add a new entry at the end of the JSON array:
-  ```json
-  { "plan": "<feature name> — <concise description of what was built: screens, ViewModels, DAOs, migrations, test files touched>.", "timestamp": "<ISO-8601 UTC now>" }
-  ```
-- Never remove or overwrite existing entries
 
 ### 6. Run /simplify
 - Invoke the simplify skill to review changed code for quality and efficiency
