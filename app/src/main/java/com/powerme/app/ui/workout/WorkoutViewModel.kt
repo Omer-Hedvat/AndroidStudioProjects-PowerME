@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.sync.FirestoreSyncManager
+import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.util.UnitConverter
 import com.powerme.app.data.database.Routine
@@ -202,6 +203,7 @@ class WorkoutViewModel @Inject constructor(
     private val firestoreSyncManager: FirestoreSyncManager,
     private val clocksTimerBridge: ClocksTimerBridge,
     private val appSettingsDataStore: AppSettingsDataStore,
+    private val healthConnectManager: HealthConnectManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -1198,25 +1200,25 @@ class WorkoutViewModel @Inject constructor(
 
                 // Update the existing workout record (created at workout start via Iron Vault)
                 val workoutId = state.workoutId ?: return@launch
-                workoutDao.updateWorkout(
-                    Workout(
-                        id = workoutId,
-                        routineId = state.routineId.takeIf { it.isNotBlank() },
-                        routineName = if (state.routineId.isNotBlank()) state.workoutName else null,
-                        timestamp = state.startTime!!,
-                        durationSeconds = durationSeconds,
-                        totalVolume = totalVolume,
-                        notes = state.notes.ifBlank { null },
-                        isCompleted = true,
-                        startTimeMs = state.startTime!!,
-                        endTimeMs = endTime,
-                        updatedAt = endTime
-                    )
+                val finishedWorkout = Workout(
+                    id = workoutId,
+                    routineId = state.routineId.takeIf { it.isNotBlank() },
+                    routineName = if (state.routineId.isNotBlank()) state.workoutName else null,
+                    timestamp = state.startTime!!,
+                    durationSeconds = durationSeconds,
+                    totalVolume = totalVolume,
+                    notes = state.notes.ifBlank { null },
+                    isCompleted = true,
+                    startTimeMs = state.startTime!!,
+                    endTimeMs = endTime,
+                    updatedAt = endTime
                 )
+                workoutDao.updateWorkout(finishedWorkout)
                 // Clean up skeleton rows the user never filled in
                 workoutSetDao.deleteIncompleteSetsByWorkout(workoutId)
                 // Push to Firestore (fire-and-forget; SDK queues when offline)
                 firestoreSyncManager.pushWorkout(workoutId)
+                healthConnectManager.writeWorkoutSession(finishedWorkout, state.exercises)
 
                 // Update lastPerformed on the routine (Risk 4 fix)
                 if (state.routineId.isNotBlank()) {

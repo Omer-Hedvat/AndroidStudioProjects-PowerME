@@ -244,7 +244,12 @@ These flags are computed on every sync. Used by Coach Carter / Boaz analytics (f
 
 ## 8. Phase B — Write Completed Workouts to Health Connect
 
-**Status:** Specified, not yet implemented.
+**Status:** ✅ Implemented & wrapped.
+
+**Implementation notes:**
+- `CORE_PERMISSIONS` (7 reads) gates "Connected" UI state; `ALL_PERMISSIONS` = CORE + READ_EXERCISE + WRITE_EXERCISE (used only in the permission launcher). `checkPermissionsGranted()` and `onHealthConnectPermissionResult()` both check `CORE_PERMISSIONS` — denying write permission never blocks "Connected" state.
+- `Metadata.manualEntry(workout.id)` used (SDK 1.1.0-rc01 constructor is internal; factory method is the public API).
+- `writeWorkoutSession()` has two overloads: `List<ExerciseWithSets>` (live path from `finishWorkout()`) and `List<ExerciseType>` (backfill path — see `future_devs/HC_BACKFILL_SPEC.md`).
 
 When the user finishes a workout, PowerME writes an `ExerciseSessionRecord` to Health Connect. This makes the session visible in Google Fit, Samsung Health, and any other app connected to Health Connect on the device.
 
@@ -407,3 +412,14 @@ Add a new paragraph to `PermissionsRationaleActivity` for the write permission:
 | Workout duration < 1 minute | Write as-is — no minimum duration enforced |
 
 Do **not** surface HC write errors in the post-workout UI. Users do not expect a "Health Connect write failed" message after finishing a lift.
+
+---
+
+### 8.9 How to QA
+
+1. On device, open **Settings → Health Connect** and grant PowerME the **Workout sessions** write permission (appears alongside the existing read permissions)
+2. Complete a full strength workout (start → log at least one set → Finish)
+3. Open the **Health Connect** app → **Browse → Exercise** → confirm the session appears with the correct start/end time and title (routine name or empty for ad-hoc)
+4. Finish the same workout again from history (test dedup): the HC session should still show only once (clientRecordId prevents duplicates)
+5. Revoke the write permission and finish another workout — confirm the app does **not** crash and the post-workout summary still shows normally
+6. Test with HC not installed or unavailable — confirm graceful no-op

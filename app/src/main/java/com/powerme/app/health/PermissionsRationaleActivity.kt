@@ -61,6 +61,7 @@ private fun PermissionsRationaleScreen(onDone: () -> Unit) {
             PermissionItem("Heart Rate Variability (HRV)", "HRV drops indicate recovery debt. PowerME uses this to detect anomalous recovery patterns.")
             PermissionItem("Resting Heart Rate", "Elevated RHR can signal overtraining or illness. Used alongside HRV for recovery scoring.")
             PermissionItem("Steps", "Daily step count contributes to total activity load tracking.")
+            PermissionItem("Workout sessions", "PowerME writes your completed workouts to Health Connect so they appear in Google Fit and other connected apps. Your workout data stays on your device and is never sent to PowerME's servers.")
 
             Text(
                 "PowerME never sells or shares your health data. All data remains on your device and your personal cloud backup.",

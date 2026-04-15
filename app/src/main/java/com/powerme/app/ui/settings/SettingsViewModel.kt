@@ -307,8 +307,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onHealthConnectPermissionResult(granted: Set<String>) {
-        android.util.Log.d("PowerME_HC", "onPermissionResult: granted=${granted.size} perms, expected=${HealthConnectManager.ALL_PERMISSIONS.size}, set=$granted")
-        if (granted.containsAll(HealthConnectManager.ALL_PERMISSIONS)) {
+        android.util.Log.d("PowerME_HC", "onPermissionResult: granted=${granted.size} perms, expected=${HealthConnectManager.CORE_PERMISSIONS.size}, set=$granted")
+        if (granted.containsAll(HealthConnectManager.CORE_PERMISSIONS)) {
             android.util.Log.d("PowerME_HC", "onPermissionResult: allGranted=true")
             _uiState.update {
                 it.copy(healthConnectPermissionsGranted = true, healthConnectPermissionsDenied = false)

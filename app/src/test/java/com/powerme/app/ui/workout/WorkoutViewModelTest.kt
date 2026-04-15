@@ -3,6 +3,7 @@ package com.powerme.app.ui.workout
 import android.content.Context
 import com.powerme.app.analytics.BoazPerformanceAnalyzer
 import com.powerme.app.data.sync.FirestoreSyncManager
+import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.data.database.ExerciseDao
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.Workout
@@ -106,6 +107,7 @@ class WorkoutViewModelTest {
     private lateinit var mockStateHistoryRepository: StateHistoryRepository
     private lateinit var mockClocksTimerBridge: ClocksTimerBridge
     private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
+    private lateinit var mockHealthConnectManager: HealthConnectManager
     private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
     private lateinit var mockContext: Context
 
@@ -130,6 +132,7 @@ class WorkoutViewModelTest {
         mockStateHistoryRepository = mock()
         mockClocksTimerBridge = mock()
         mockFirestoreSyncManager = mock()
+        mockHealthConnectManager = mock()
         mockAppSettingsDataStore = mock()
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         mockContext = mock()
@@ -185,6 +188,7 @@ class WorkoutViewModelTest {
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
             context = mockContext
         )

@@ -88,6 +88,8 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Trends Step 4 — MuscleGroupVolumeCard | `TRENDS_CHARTS_SPEC.md §Step 4` | M | `not-started` | — |
 | Trends Step 5 — EffectiveSetsCard | `TRENDS_CHARTS_SPEC.md §Step 5` | M | `not-started` | — |
 | HC Extended Reads (HR, Calories, VO₂ Max, Distance, SpO₂) | `HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | M | `not-started` | — |
+| HC Phase B — Write workouts to Health Connect | `HEALTH_CONNECT_SPEC.md §8` | S | `wrapped` | — |
+| HC Backfill — Push last 90 days to Health Connect on permission grant | `future_devs/HC_BACKFILL_SPEC.md` | S | `not-started` | HC Phase B ✅ |
 | History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `not-started` | Trends Step 3 (E1RM) ✅ + History Summary Step A ✅ |
 
 ---
@@ -132,6 +134,8 @@ P3 (health history)      ── requires ─────────────
 
 P4 (trends steps 2-5)    ──────────────────────────────► ship anytime (independent)
 P4 (HC extended reads)   ──────────────────────────────► ship anytime
+P4 (HC write workouts)   ──────────────────────────────► ship anytime
+P4 (HC backfill)         ── requires ──────────────────► HC Phase B ✅
 P4 (deep-link step B)    ── requires ──────────────────► trends step 3 + history summary A
 
 P5 (steps trend card)    ── requires ──────────────────► HC extended reads (calories)

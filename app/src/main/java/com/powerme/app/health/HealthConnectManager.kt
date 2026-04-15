@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.Record
@@ -13,11 +14,15 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.time.TimeRangeFilter
+import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.HealthConnectSync
 import com.powerme.app.data.database.HealthConnectSyncDao
 import com.powerme.app.data.database.MetricType
+import com.powerme.app.data.database.Workout
 import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.ui.workout.ExerciseWithSets
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +57,8 @@ class HealthConnectManager @Inject constructor(
 ) {
 
     companion object {
-        val ALL_PERMISSIONS: Set<String> = setOf(
+        /** The 7 read permissions that determine "Connected" status in the UI. */
+        val CORE_PERMISSIONS: Set<String> = setOf(
             HealthPermission.getReadPermission(WeightRecord::class),
             HealthPermission.getReadPermission(BodyFatRecord::class),
             HealthPermission.getReadPermission(HeightRecord::class),
@@ -60,6 +66,15 @@ class HealthConnectManager @Inject constructor(
             HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
             HealthPermission.getReadPermission(RestingHeartRateRecord::class),
             HealthPermission.getReadPermission(StepsRecord::class),
+        )
+
+        /**
+         * Full permission set requested in the Connect flow.
+         * Includes WRITE_EXERCISE — best-effort: denied write never blocks "Connected" state.
+         */
+        val ALL_PERMISSIONS: Set<String> = CORE_PERMISSIONS + setOf(
+            HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+            HealthPermission.getWritePermission(ExerciseSessionRecord::class),
         )
     }
 
@@ -74,7 +89,7 @@ class HealthConnectManager @Inject constructor(
             if (!isAvailable()) return@withContext false
             val client = HealthConnectClient.getOrCreate(context)
             val granted = client.permissionController.getGrantedPermissions()
-            ALL_PERMISSIONS.all { it in granted }
+            CORE_PERMISSIONS.all { it in granted }
         } catch (e: Exception) {
             android.util.Log.w("PowerME_HC", "checkPermissionsGranted failed", e)
             false
@@ -227,5 +242,47 @@ class HealthConnectManager @Inject constructor(
             val total = response[StepsRecord.COUNT_TOTAL]
             if (total != null && total > 0) total.toInt() else null
         } catch (e: Exception) { null }
+    }
+
+    /**
+     * Writes a completed workout as an [ExerciseSessionRecord] to Health Connect.
+     * Fire-and-forget: failures are logged but never surfaced to the user.
+     * Uses [Workout.id] as [clientRecordId] to prevent duplicate writes on retry.
+     */
+    suspend fun writeWorkoutSession(workout: Workout, exercises: List<ExerciseWithSets>) {
+        if (!isAvailable()) return
+        if (workout.startTimeMs == 0L || workout.endTimeMs == 0L) return
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val granted = client.permissionController.getGrantedPermissions()
+            if (HealthPermission.getWritePermission(ExerciseSessionRecord::class) !in granted) return
+
+            val startInstant = Instant.ofEpochMilli(workout.startTimeMs)
+            val endInstant = Instant.ofEpochMilli(workout.endTimeMs)
+            val zoneRules = ZoneId.systemDefault().rules
+
+            val record = ExerciseSessionRecord(
+                startTime = startInstant,
+                endTime = endInstant,
+                startZoneOffset = zoneRules.getOffset(startInstant),
+                endZoneOffset = zoneRules.getOffset(endInstant),
+                exerciseType = deriveHcExerciseType(exercises),
+                title = workout.routineName,
+                notes = workout.notes,
+                metadata = Metadata.manualEntry(workout.id)
+            )
+            client.insertRecords(listOf(record))
+        } catch (e: Exception) {
+            android.util.Log.w("PowerME_HC", "writeWorkoutSession failed", e)
+        }
+    }
+
+    private fun deriveHcExerciseType(exercises: List<ExerciseWithSets>): Int {
+        val types = exercises.map { it.exercise.exerciseType }
+        return when {
+            types.all { it == ExerciseType.STRETCH } -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
+            types.any { it == ExerciseType.CARDIO }  -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            else                                      -> ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING
+        }
     }
 }
