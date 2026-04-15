@@ -108,7 +108,7 @@ UI field: `TimerConfigField("Setup time (sec)")` shown in all 4 mode config sect
 2. Parse optional `countdownWarnAtSecondsText`
 3. Phase → WORK
 4. Loop: display → warn check → delay 1s → decrement
-5. Warning threshold → `triggerAudioAlert(AlertType.WARNING)`; last 2 seconds → `triggerAudioAlert(AlertType.COUNTDOWN_TICK)`
+5. Warning threshold → `triggerAudioAlert(AlertType.WARNING)`; last 3 seconds → `triggerAudioAlert(AlertType.COUNTDOWN_TICK)`
 6. On `remaining == 0` → `finishTimer()`
 - **Pause/Resume:** always resumes from `displaySeconds` (remaining time). Only Reset/Stop reverts to configured `countdownTotalSeconds`.
 
@@ -139,7 +139,7 @@ Alerts dispatched via `RestTimerNotifier` (ToneGenerator on `STREAM_ALARM` — b
 |-----------|-------|--------|-------------|
 | `ROUND_START` | 600ms beep | Phase pattern (150-150-150-500ms) | TABATA/EMOM round start |
 | `WARNING` | 2 × 150ms beeps | Short pulse × 2 | TABATA/EMOM/COUNTDOWN pre-configured warning |
-| `COUNTDOWN_TICK` | 200ms beep | Short pulse (50ms) | Last 2 seconds of any phase |
+| `COUNTDOWN_TICK` | 200ms beep | Short pulse (50ms) | Last 3 seconds of any phase |
 | `FINISH` | 150+150+800ms beeps | Phase pattern | Phase completion |
 
 ---
@@ -281,3 +281,49 @@ Any   ──resetTimer()────────→ IDLE
 | `WakeLockManager` | Device wake lock | Hilt singleton |
 | `MonoTextStyle` / `JetBrainsMono` | Timer typography | `ui/theme/Type.kt` |
 | `TimerGreen` / `TimerRed` / `ReadinessAmber` | Phase colors | `ui/theme/Color.kt` |
+
+---
+
+## §11 — How to QA: 3-Second Countdown Beep
+
+### Feature
+All timers beep at 3s, 2s, and 1s before timeout (previously only at 2s and 1s). Finish beep at 0s is unchanged.
+
+### QA Checklist
+
+**Clocks tab — Countdown**
+1. Open Tools tab → Countdown
+2. Set timer to 6 seconds (or more)
+3. Tap Start
+4. Listen: you should hear a short beep at **3s**, **2s**, and **1s** remaining
+5. At 0s, hear the long finish beep
+6. Reset and verify no beeps during the first few seconds (only the last 3 trigger beeps)
+
+**Clocks tab — EMOM**
+1. Set Round duration to 6s, Rounds to 2
+2. Tap Start
+3. At the end of each round: hear short beeps at 3s, 2s, 1s → long finish beep
+4. Verify both rounds behave identically
+
+**Clocks tab — Tabata**
+1. Set Work to 6s, Rest to 6s, Rounds to 2
+2. Tap Start
+3. End of WORK phase: beeps at 3s, 2s, 1s → finish beep
+4. End of REST phase: beeps at 3s, 2s, 1s → finish beep
+5. Verify both rounds and both phases behave identically
+
+**Active workout — rest timer**
+1. Start an active workout, complete a set on an exercise with rest timer ≥ 5s
+2. As the rest countdown approaches 0: hear beeps at 3s, 2s, 1s remaining
+3. At 0s, hear the long finish beep
+
+**Active workout — timed exercise (e.g. Plank)**
+1. Start an active workout with a timed set (exercise with time-based sets, e.g. Plank)
+2. Set time to ≥ 6 seconds, start the timer
+3. At 3s, 2s, 1s remaining: hear short beeps
+4. At 0s: hear finish beep and set auto-completes
+
+**Edge case: short timer (≤ 3s)**
+1. Set Countdown to 2 seconds
+2. Tap Start — hear beeps at 2s and 1s (no 3s beep since timer starts at 2)
+3. Set Countdown to 3 seconds — hear beeps at 3s, 2s, 1s

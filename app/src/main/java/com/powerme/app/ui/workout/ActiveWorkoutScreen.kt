@@ -1836,7 +1836,7 @@ fun TimedSetRow(
             while (remainingSeconds > 0) {
                 delay(1000L)
                 remainingSeconds--
-                if (remainingSeconds == 2 || remainingSeconds == 1) {
+                if (remainingSeconds in 1..3) {
                     onTimerWarningTick()
                 }
             }

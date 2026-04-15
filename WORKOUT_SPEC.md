@@ -404,7 +404,7 @@ IDLE → RUNNING → PAUSED → RUNNING
 | PAUSED | SET \| remaining MM:SS (muted) \| ▶ Resume \| ✓ Mark Done \| ↺ Reset |
 | COMPLETED | SET \| WEIGHT input \| TIME input \| RPE input \| (empty spacer) \| CHECK (TimerGreen filled) |
 
-**Countdown implementation:** `LaunchedEffect(timerState)` — when `RUNNING`, loops with `delay(1000L)` decrementing `remainingSeconds`. Warning beep + haptic fires at 2s and 1s remaining. On reaching 0, transitions to `COMPLETED`, calls `onTimerFinished()` (audio/haptic via ViewModel), then calls `onCompleteSet()`.
+**Countdown implementation:** `LaunchedEffect(timerState)` — when `RUNNING`, loops with `delay(1000L)` decrementing `remainingSeconds`. Warning beep + haptic fires at 3s, 2s, and 1s remaining. On reaching 0, transitions to `COMPLETED`, calls `onTimerFinished()` (audio/haptic via ViewModel), then calls `onCompleteSet()`.
 
 **External completion:** A `LaunchedEffect(set.isCompleted)` watches for the user tapping the checkbox directly while the timer is running and transitions to `COMPLETED`, cancelling the countdown coroutine.
 

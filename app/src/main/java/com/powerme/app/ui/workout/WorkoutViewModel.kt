@@ -1506,7 +1506,7 @@ class WorkoutViewModel @Inject constructor(
     private fun onTimerTick(remaining: Int) {
         // Fall back to defaults when the settings row hasn't been created yet.
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
-        if (remaining == 2 || remaining == 1) {
+        if (remaining in 1..3) {
             if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
             if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
         }
@@ -1589,7 +1589,7 @@ class WorkoutViewModel @Inject constructor(
                 for (i in restDuration downTo 0) {
                     _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
                     val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
-                    if (i == 2 || i == 1) {
+                    if (i in 1..3) {
                         if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
                         if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
                     }
@@ -1866,7 +1866,7 @@ class WorkoutViewModel @Inject constructor(
                 for (i in durationSeconds downTo 0) {
                     _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
                     val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
-                    if (i == 2 || i == 1) {
+                    if (i in 1..3) {
                         if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
                         if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
                     }

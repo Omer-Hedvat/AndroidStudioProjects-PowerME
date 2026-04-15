@@ -234,7 +234,7 @@ class ToolsViewModel @Inject constructor(
                     warnedThisRound = true
                     restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
                 }
-                if (remaining == 2 || remaining == 1) {
+                if (remaining in 1..3) {
                     restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
                 }
                 delay(1000L)
@@ -270,7 +270,7 @@ class ToolsViewModel @Inject constructor(
                     warnedWork = true
                     restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
                 }
-                if (workRemaining == 2 || workRemaining == 1) {
+                if (workRemaining in 1..3) {
                     restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
                 }
                 delay(1000L)
@@ -293,7 +293,7 @@ class ToolsViewModel @Inject constructor(
                         warnedRest = true
                         restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
                     }
-                    if (restRemaining == 2 || restRemaining == 1) {
+                    if (restRemaining in 1..3) {
                         restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
                     }
                     delay(1000L)
@@ -338,7 +338,7 @@ class ToolsViewModel @Inject constructor(
                 warnedThisRound = true
                 restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
             }
-            if (remaining == 2 || remaining == 1) restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+            if (remaining in 1..3) restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
             delay(1000L)
             remaining--
         }

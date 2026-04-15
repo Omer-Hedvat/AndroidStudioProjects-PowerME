@@ -16,7 +16,9 @@
 | `not-started` | Ready to build (all dependencies met) |
 | `in-progress` | Currently being implemented |
 | `blocked` | Waiting on another feature listed in "Depends on" |
-| `done` | Shipped |
+| `completed` | Dev done, tests pass, ready for QA on device |
+| `wrapped` | User QA'd and ran `/wrap_feature` (simplify + build + test + commit + push) |
+| `done` | Legacy status — same as `wrapped` (used by older shipped items) |
 
 ## Effort Legend
 
@@ -37,6 +39,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | Set row spacing (2dp → 8dp) | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §2` | XS | `done` | — |
+| 3-second countdown beep on all timers | `TOOLS_SPEC.md §5` | XS | `completed` | — |
 
 ---
 
