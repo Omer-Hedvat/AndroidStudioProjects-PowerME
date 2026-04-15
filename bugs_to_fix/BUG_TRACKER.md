@@ -14,6 +14,8 @@ Single source of truth for bug status across sessions.
 | [BUG_keyboard_pops_on_set_type_change](BUG_keyboard_pops_on_set_type_change.md) | Keyboard pops up when changing set type in active workout | ✅ Fixed & Committed | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
 | [BUG_duplicate_exercises](BUG_duplicate_exercises.md) | Duplicate exercises in master_exercises.json | ✅ Fixed & Committed | `master_exercises.json`, `MasterExerciseSeeder.kt`, `ExerciseDao.kt` |
 | [BUG_edit_mode_false_discard_prompt](BUG_edit_mode_false_discard_prompt.md) | Discard Changes dialog shown even when nothing changed in edit mode | ✅ Fixed & Committed | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt` |
+| [BUG_detail_single_decimal](BUG_detail_single_decimal.md) | Workout detail (from summary) shows weights with only 1 decimal place | 🔴 Open | — |
+| [BUG_detail_double_edit_mode](BUG_detail_double_edit_mode.md) | Workout detail has two redundant edit modes; inner edit mode has unreadable values | 🔴 Open | — |
 
 ---
 
