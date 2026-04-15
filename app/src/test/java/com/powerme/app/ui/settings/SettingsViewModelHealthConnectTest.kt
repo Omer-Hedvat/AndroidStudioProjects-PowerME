@@ -6,12 +6,9 @@ import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettingsDao
-import com.powerme.app.data.database.MetricType
-import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
-import com.powerme.app.util.UserSessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -46,9 +43,7 @@ class SettingsViewModelHealthConnectTest {
 
     private lateinit var mockUserSettingsDao: UserSettingsDao
     private lateinit var mockDatabase: PowerMeDatabase
-    private lateinit var mockMetricLogRepository: MetricLogRepository
     private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
-    private lateinit var mockUserSessionManager: UserSessionManager
     private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
     private lateinit var mockAuth: FirebaseAuth
     private lateinit var mockHealthConnectManager: HealthConnectManager
@@ -72,9 +67,7 @@ class SettingsViewModelHealthConnectTest {
 
         mockUserSettingsDao = mock()
         mockDatabase = mock()
-        mockMetricLogRepository = mock()
         mockAppSettingsDataStore = mock()
-        mockUserSessionManager = mock()
         mockFirestoreSyncManager = mock()
         mockAuth = mock()
         mockHealthConnectManager = mock()
@@ -84,13 +77,7 @@ class SettingsViewModelHealthConnectTest {
         whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(false))
         whenever(mockAppSettingsDataStore.themeMode).thenReturn(flowOf(ThemeMode.DARK))
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
-        whenever(mockMetricLogRepository.getByType(MetricType.WEIGHT)).thenReturn(flowOf(emptyList()))
-        whenever(mockMetricLogRepository.getByType(MetricType.BODY_FAT)).thenReturn(flowOf(emptyList()))
         whenever(mockAuth.currentUser).thenReturn(null)
-
-        runBlocking {
-            whenever(mockUserSessionManager.getCurrentUser()).thenReturn(null)
-        }
     }
 
     @After
@@ -101,9 +88,7 @@ class SettingsViewModelHealthConnectTest {
     private fun buildViewModel(): SettingsViewModel = SettingsViewModel(
         userSettingsDao = mockUserSettingsDao,
         database = mockDatabase,
-        metricLogRepository = mockMetricLogRepository,
         appSettingsDataStore = mockAppSettingsDataStore,
-        userSessionManager = mockUserSessionManager,
         firestoreSyncManager = mockFirestoreSyncManager,
         auth = mockAuth,
         context = mock(),

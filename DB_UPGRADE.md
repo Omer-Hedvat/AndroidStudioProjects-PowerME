@@ -1,5 +1,44 @@
 # PowerME Database Upgrade Log
 
+## v41 — Session Rating on Workouts
+
+**Migration:** `MIGRATION_40_41`
+
+### Changes
+
+- **Table:** `workouts`
+- Added: `sessionRating INTEGER` — optional 1–5 star rating for the workout session
+
+---
+
+## v40 — Health History Ledger
+
+**Migration:** `MIGRATION_39_40`
+
+### Changes
+
+- Created `health_history_entries` table — stores user injury, surgery, condition, and restriction history
+- Columns: `id TEXT PK`, `userId TEXT`, `type TEXT` (INJURY/SURGERY/CONDITION/RESTRICTION/OTHER), `title TEXT`, `bodyRegion TEXT`, `severity TEXT` (MILD/MODERATE/SEVERE/RESOLVED), `startDate INTEGER`, `resolvedDate INTEGER`, `notes TEXT`, `affectedExerciseIds TEXT`, `createdAt INTEGER`, `isArchived INTEGER DEFAULT 0`, `firestoreId TEXT DEFAULT ''`, `lastModifiedAt INTEGER DEFAULT 0`
+- New entity: `HealthHistoryEntry` with `HealthHistoryType` and `HealthHistorySeverity` enums
+- New DAO: `HealthHistoryDao` — `getActiveEntries()` Flow, `getById()`, `insert()`, `softDelete()`, `getAllForSync()`
+- New repository: `HealthHistoryRepository` — CRUD + `rebuildMedicalLedger()` auto-mapping (SEVERE+ongoing → red list, MODERATE+ongoing → yellow list, RESOLVED → removed from both)
+- Hilt providers added to `DatabaseModule`
+
+---
+
+## v39 — Fitness Level + Training Age on Users
+
+**Migration:** `MIGRATION_38_39`
+
+### Changes
+
+- **Table:** `users`
+- Added: `experienceLevel TEXT` — `ExperienceLevel` enum name (NOVICE/TRAINED/EXPERIENCED/ATHLETE), nullable default
+- Added: `trainingAgeYears INTEGER` — years of consistent training (0–30+), nullable default
+- New `ExperienceLevel` enum in `User.kt` with `displayName` and `description` labels
+
+---
+
 ## v38 — Rest After Last Set Flag
 
 **Migration:** `MIGRATION_37_38`

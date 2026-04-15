@@ -536,6 +536,45 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_38_39 = object : Migration(38, 39) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add fitness level columns to users (Profile redesign P2)
+            db.execSQL("ALTER TABLE users ADD COLUMN experienceLevel TEXT")
+            db.execSQL("ALTER TABLE users ADD COLUMN trainingAgeYears INTEGER")
+        }
+    }
+
+    private val MIGRATION_39_40 = object : Migration(39, 40) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Create health history entries table (Profile redesign P3)
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS health_history_entries (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    userId TEXT NOT NULL,
+                    type TEXT NOT NULL DEFAULT 'INJURY',
+                    title TEXT NOT NULL,
+                    bodyRegion TEXT,
+                    severity TEXT NOT NULL DEFAULT 'MODERATE',
+                    startDate INTEGER,
+                    resolvedDate INTEGER,
+                    notes TEXT,
+                    affectedExerciseIds TEXT,
+                    createdAt INTEGER NOT NULL,
+                    isArchived INTEGER NOT NULL DEFAULT 0,
+                    firestoreId TEXT NOT NULL DEFAULT '',
+                    lastModifiedAt INTEGER NOT NULL DEFAULT 0
+                )
+            """.trimIndent())
+        }
+    }
+
+    private val MIGRATION_40_41 = object : Migration(40, 41) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add sessionRating column to workouts (History Summary Redesign Step A)
+            db.execSQL("ALTER TABLE workouts ADD COLUMN sessionRating INTEGER DEFAULT NULL")
+        }
+    }
+
     private val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix index name mismatch on exercise_muscle_groups:
@@ -888,7 +927,10 @@ object DatabaseModule {
                 MIGRATION_34_35,
                 MIGRATION_35_36,
                 MIGRATION_36_37,
-                MIGRATION_37_38
+                MIGRATION_37_38,
+                MIGRATION_38_39,
+                MIGRATION_39_40,
+                MIGRATION_40_41
             )
             .fallbackToDestructiveMigration()
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
@@ -1082,4 +1124,17 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideTrendsDao(database: PowerMeDatabase): TrendsDao = database.trendsDao()
+
+    @Provides
+    @Singleton
+    fun provideHealthHistoryDao(database: PowerMeDatabase): com.powerme.app.data.database.HealthHistoryDao =
+        database.healthHistoryDao()
+
+    @Provides
+    @Singleton
+    fun provideHealthHistoryRepository(
+        healthHistoryDao: com.powerme.app.data.database.HealthHistoryDao,
+        medicalLedgerRepository: com.powerme.app.data.repository.MedicalLedgerRepository
+    ): com.powerme.app.data.repository.HealthHistoryRepository =
+        com.powerme.app.data.repository.HealthHistoryRepository(healthHistoryDao, medicalLedgerRepository)
 }

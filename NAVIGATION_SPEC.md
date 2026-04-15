@@ -40,6 +40,7 @@
 | `trends` | Bottom tab | — | Screen-scoped | UI label: **Trends** · Composable: `MetricsScreen` |
 | `workout` | Full-screen overlay | — | NavHost-scoped `WorkoutViewModel` | Shares the same instance as all tabs |
 | `settings` | Push | — | Screen-scoped | — |
+| `profile` | Push | — | Screen-scoped | Accessed via AccountCircle icon in TopAppBar (left of Settings gear) |
 | `workout_detail/{workoutId}` | Push | `workoutId: Long` | Screen-scoped | Accessed from History tab |
 | `template_builder/{routineId}` | Push | `routineId: Long` | Screen-scoped | `routineId = -1` sentinel = new routine (see below) |
 | `exercise_picker` | Push | — | Screen-scoped | Returns result via `savedStateHandle` |
@@ -347,9 +348,11 @@ The `workout` overlay animation is specified in `WORKOUT_SPEC.md §20.3` and rep
 ### 10.1 TopAppBar
 
 - **Left:** App logo image (`ic_powerme_logo_source`, 36dp height, aspect-ratio locked). No text title.
-- **Right:** Settings `IconButton` (Settings icon, `primary` tint) → navigates to `settings` route.
+- **Right (actions, left to right):**
+  1. Profile `IconButton` (`Icons.Default.AccountCircle`, `primary` tint) → navigates to `profile` route.
+  2. Settings `IconButton` (Settings icon, `primary` tint) → navigates to `settings` route.
 - **Container color:** `MaterialTheme.colorScheme.surface`
-- No back button, no search, no other actions.
+- No back button, no search, no other actions beyond Profile + Settings.
 
 ### 10.2 BottomNavigationBar
 

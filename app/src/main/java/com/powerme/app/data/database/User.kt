@@ -8,6 +8,13 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.Period
 
+enum class ExperienceLevel(val displayName: String, val description: String) {
+    NOVICE("Novice", "< 1 year training"),
+    TRAINED("Trained", "1–3 years"),
+    EXPERIENCED("Experienced", "3–5 years"),
+    ATHLETE("Athlete", "5+ years / competitive")
+}
+
 @Entity(tableName = "users")
 data class User(
     @PrimaryKey val email: String,
@@ -24,9 +31,11 @@ data class User(
     val weightKg: Float? = null,
     val bodyFatPercent: Float? = null,
     val gender: String? = null,           // MALE | FEMALE | OTHER
-    val trainingTargets: String? = null,   // comma-separated: Hypertrophy,Strength,...
+    val trainingTargets: String? = null,  // comma-separated: Hypertrophy,Strength,...
     @ColumnInfo(defaultValue = "0")
-    val updatedAt: Long = 0L // Epoch ms, set on every mutation (v35)
+    val updatedAt: Long = 0L,             // Epoch ms, set on every mutation (v35)
+    val experienceLevel: String? = null,  // ExperienceLevel enum name (v39)
+    val trainingAgeYears: Int? = null     // 0-30 (v39)
 )
 
 /**

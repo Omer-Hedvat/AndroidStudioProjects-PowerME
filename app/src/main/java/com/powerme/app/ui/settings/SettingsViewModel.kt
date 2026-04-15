@@ -10,17 +10,12 @@ import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
-import com.powerme.app.util.UnitConverter
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettings
 import com.powerme.app.data.database.UserSettingsDao
-import com.powerme.app.data.database.MetricType
-import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.util.DatabaseExporter
-import com.powerme.app.util.SurgicalValidator
-import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,17 +42,6 @@ data class SettingsUiState(
     // Account deletion
     val showDeleteAccountDialog: Boolean = false,
     val isDeletingAccount: Boolean = false,
-    // Body metrics
-    val weightInput: String = "",
-    val bodyFatInput: String = "",
-    val heightInput: String = "",
-    val lastWeight: Double? = null,
-    val lastBodyFat: Double? = null,
-    val lastHeight: Float? = null,
-    val isSavingMetrics: Boolean = false,
-    // For imperial height input (feet + inches as separate fields)
-    val heightFeetInput: String = "",
-    val heightInchesInput: String = "",
     // Keep screen on
     val keepScreenOn: Boolean = false,
     // Appearance
@@ -77,27 +61,14 @@ data class SettingsUiState(
     val healthConnectPermissionsDenied: Boolean = false,
     val healthConnectSyncing: Boolean = false,
     val healthConnectData: HealthConnectReadResult? = null,
-    val healthConnectError: String? = null,
-    // Personal Info
-    val nameInput: String = "",
-    val dateOfBirth: Long? = null,
-    val averageSleepHoursInput: String = "",
-    val parentalLoadInput: String = "",
-    val gender: String = "",
-    val occupationType: String = "",
-    val chronotype: String = "",
-    val selectedTrainingTargets: Set<String> = emptySet(),
-    val isSavingPersonalInfo: Boolean = false,
-    val personalInfoSaveMessage: String? = null
+    val healthConnectError: String? = null
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userSettingsDao: UserSettingsDao,
     private val database: PowerMeDatabase,
-    private val metricLogRepository: MetricLogRepository,
     private val appSettingsDataStore: AppSettingsDataStore,
-    private val userSessionManager: UserSessionManager,
     private val firestoreSyncManager: FirestoreSyncManager,
     private val auth: FirebaseAuth,
     @ApplicationContext private val context: Context,
@@ -110,99 +81,9 @@ class SettingsViewModel @Inject constructor(
     init {
         loadUserSettings()
         loadAppSettings()
-        observeMetricLogs()
-        loadUserHeight()
-        loadPersonalInfo()
         _uiState.update { it.copy(isSignedIn = auth.currentUser != null) }
         checkHealthConnectStatus()
     }
-
-    private fun loadUserHeight() {
-        viewModelScope.launch {
-            val user = userSessionManager.getCurrentUser()
-            val h = user?.heightCm
-            if (h != null) {
-                val unit = _uiState.value.unitSystem
-                if (unit == UnitSystem.IMPERIAL) {
-                    val (feet, inches) = UnitConverter.cmToFeetInches(h.toDouble())
-                    _uiState.update {
-                        it.copy(lastHeight = h, heightFeetInput = feet.toString(), heightInchesInput = inches.toString())
-                    }
-                } else {
-                    _uiState.update { it.copy(lastHeight = h, heightInput = h.toInt().toString()) }
-                }
-            }
-        }
-    }
-
-    private fun loadPersonalInfo() {
-        viewModelScope.launch {
-            val user = userSessionManager.getCurrentUser() ?: return@launch
-            val targets = user.trainingTargets
-                ?.split(",")
-                ?.map { it.trim() }
-                ?.filter { it.isNotBlank() }
-                ?.toSet()
-                ?: emptySet()
-            _uiState.update {
-                it.copy(
-                    nameInput = user.name ?: "",
-                    dateOfBirth = user.dateOfBirth,
-                    averageSleepHoursInput = user.averageSleepHours?.toString() ?: "",
-                    parentalLoadInput = user.parentalLoad?.toString() ?: "",
-                    gender = user.gender ?: "",
-                    occupationType = user.occupationType ?: "",
-                    chronotype = user.chronotype ?: "",
-                    selectedTrainingTargets = targets
-                )
-            }
-        }
-    }
-
-    fun updateNameInput(value: String) { _uiState.update { it.copy(nameInput = value) } }
-    fun updateDateOfBirth(epochMs: Long?) { _uiState.update { it.copy(dateOfBirth = epochMs) } }
-    fun updateSleepHoursInput(value: String) { _uiState.update { it.copy(averageSleepHoursInput = value) } }
-    fun updateParentalLoadInput(value: String) { _uiState.update { it.copy(parentalLoadInput = value) } }
-    fun updateGender(value: String) { _uiState.update { it.copy(gender = if (it.gender == value) "" else value) } }
-    fun updateOccupationType(value: String) { _uiState.update { it.copy(occupationType = value) } }
-    fun updateChronotype(value: String) { _uiState.update { it.copy(chronotype = value) } }
-    fun toggleTrainingTarget(target: String) {
-        _uiState.update {
-            val updated = if (target in it.selectedTrainingTargets)
-                it.selectedTrainingTargets - target
-            else
-                it.selectedTrainingTargets + target
-            it.copy(selectedTrainingTargets = updated)
-        }
-    }
-
-    fun savePersonalInfo() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSavingPersonalInfo = true, personalInfoSaveMessage = null) }
-            try {
-                val current = userSessionManager.getCurrentUser() ?: return@launch
-                val targets = _uiState.value.selectedTrainingTargets
-                    .joinToString(",")
-                    .takeIf { it.isNotBlank() }
-                val updated = current.copy(
-                    name = _uiState.value.nameInput.trim().takeIf { it.isNotBlank() },
-                    dateOfBirth = _uiState.value.dateOfBirth,
-                    averageSleepHours = _uiState.value.averageSleepHoursInput.toFloatOrNull(),
-                    parentalLoad = _uiState.value.parentalLoadInput.toIntOrNull(),
-                    gender = _uiState.value.gender.takeIf { it.isNotBlank() },
-                    occupationType = _uiState.value.occupationType.takeIf { it.isNotBlank() },
-                    chronotype = _uiState.value.chronotype.takeIf { it.isNotBlank() },
-                    trainingTargets = targets
-                )
-                userSessionManager.saveUser(updated)
-                _uiState.update { it.copy(isSavingPersonalInfo = false, personalInfoSaveMessage = "Saved") }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isSavingPersonalInfo = false, personalInfoSaveMessage = "Save failed: ${e.message}") }
-            }
-        }
-    }
-
-    fun dismissPersonalInfoSaveMessage() { _uiState.update { it.copy(personalInfoSaveMessage = null) } }
 
     private fun loadAppSettings() {
         viewModelScope.launch {
@@ -311,95 +192,6 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissExportMessages() {
         _uiState.update { it.copy(exportSuccessMessage = null, exportErrorMessage = null) }
-    }
-
-    private fun observeMetricLogs() {
-        viewModelScope.launch {
-            metricLogRepository.getByType(MetricType.WEIGHT).collect { entries ->
-                val latestKg = entries.lastOrNull()?.value
-                _uiState.update { state ->
-                    val displayWeight = latestKg?.let { UnitConverter.displayWeight(it, state.unitSystem) }
-                    state.copy(
-                        lastWeight = latestKg,
-                        weightInput = if (state.weightInput.isEmpty() && displayWeight != null)
-                            "%.1f".format(displayWeight) else state.weightInput
-                    )
-                }
-            }
-        }
-        viewModelScope.launch {
-            metricLogRepository.getByType(MetricType.BODY_FAT).collect { entries ->
-                val latest = entries.lastOrNull()?.value
-                _uiState.update { state ->
-                    state.copy(
-                        lastBodyFat = latest,
-                        bodyFatInput = if (state.bodyFatInput.isEmpty() && latest != null)
-                            "%.1f".format(latest) else state.bodyFatInput
-                    )
-                }
-            }
-        }
-    }
-
-    fun updateWeightInput(value: String) { _uiState.update { it.copy(weightInput = value) } }
-    fun updateBodyFatInput(value: String) { _uiState.update { it.copy(bodyFatInput = value) } }
-    fun updateHeightInput(value: String) {
-        val result = SurgicalValidator.parseDecimal(value)
-        if (result !is SurgicalValidator.ValidationResult.Invalid) {
-            _uiState.update { it.copy(heightInput = value) }
-        }
-    }
-    fun updateHeightFeetInput(value: String) { _uiState.update { it.copy(heightFeetInput = value) } }
-    fun updateHeightInchesInput(value: String) { _uiState.update { it.copy(heightInchesInput = value) } }
-
-    fun saveBodyMetrics() {
-        val unit = _uiState.value.unitSystem
-        val weightResult = SurgicalValidator.parseDecimal(_uiState.value.weightInput.trim())
-        val bodyFatResult = SurgicalValidator.parseDecimal(_uiState.value.bodyFatInput.trim())
-
-        // Convert display weight → kg for storage
-        val weightDisplay = (weightResult as? SurgicalValidator.ValidationResult.Valid)?.value
-        val weightKg = weightDisplay?.let { UnitConverter.inputWeightToKg(it, unit) }
-        val bodyFat = (bodyFatResult as? SurgicalValidator.ValidationResult.Valid)?.value
-
-        // Resolve height → cm for storage
-        val heightCm: Float? = if (unit == UnitSystem.IMPERIAL) {
-            val feet = _uiState.value.heightFeetInput.trim().toIntOrNull()
-            val inches = _uiState.value.heightInchesInput.trim().toIntOrNull() ?: 0
-            if (feet != null) UnitConverter.feetInchesToCm(feet, inches).toFloat() else null
-        } else {
-            val heightResult = SurgicalValidator.parseDecimal(_uiState.value.heightInput.trim())
-            (heightResult as? SurgicalValidator.ValidationResult.Valid)?.value?.toFloat()
-        }
-
-        if (weightKg == null && bodyFat == null && heightCm == null) return
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSavingMetrics = true) }
-            // MetricLog sink — always store in metric
-            weightKg?.let { metricLogRepository.log(MetricType.WEIGHT, it) }
-            bodyFat?.let { metricLogRepository.log(MetricType.BODY_FAT, it) }
-            heightCm?.toDouble()?.let { metricLogRepository.log(MetricType.HEIGHT, it) }
-            // User entity sink
-            val currentUser = userSessionManager.getCurrentUser()
-            if (currentUser != null) {
-                val updated = currentUser.copy(
-                    weightKg = weightKg?.toFloat() ?: currentUser.weightKg,
-                    bodyFatPercent = bodyFat?.toFloat() ?: currentUser.bodyFatPercent,
-                    heightCm = heightCm ?: currentUser.heightCm
-                )
-                userSessionManager.saveUser(updated)
-            }
-            _uiState.update {
-                val displayWeight = weightKg?.let { w -> UnitConverter.displayWeight(w, unit) }
-                it.copy(
-                    isSavingMetrics = false,
-                    weightInput = displayWeight?.let { w -> "%.1f".format(w) } ?: it.weightInput,
-                    bodyFatInput = bodyFat?.let { bf -> "%.1f".format(bf) } ?: it.bodyFatInput,
-                    heightInput = if (unit == UnitSystem.METRIC) heightCm?.toInt()?.toString() ?: it.heightInput else it.heightInput,
-                    lastHeight = heightCm ?: it.lastHeight
-                )
-            }
-        }
     }
 
     fun toggleKeepScreenOn() {

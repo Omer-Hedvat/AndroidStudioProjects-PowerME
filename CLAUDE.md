@@ -8,7 +8,7 @@
 - Language: Kotlin 2.0.21
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
-- Database: Room (v38, 17 entities, 17 DAOs)
+- Database: Room (v41, 17 entities, 18 DAOs)
 - Auth/Backend: Firebase Auth (email/password + Google Sign-In via Credential Manager) + Firestore
 - Health: Health Connect API
 - Charts: Vico (Material 3)
@@ -27,7 +27,7 @@
 - Google Fonts: `BarlowCondensed` + `Barlow` via GoogleFont.Provider; 11 M3 typography roles; fallback to system sans-serif.
 - Shape system: `PowerMeShapes` (6/10/16/24/32dp); `PowerMeDefaults` in `ui/theme/Defaults.kt`. See THEME_SPEC.md §7–§9.
 - Nav tab order: Workouts / History / Exercises / Tools / Trends
-- Exercise library (150+ exercises, YouTube demos, muscle groups, equipment types)
+- Exercise library (150+ exercises, muscle groups, equipment types)
 - Multi-select muscle group + equipment filter chips in Exercises tab (AND-combined). See EXERCISES_SPEC.md §4.
 - Firebase Auth (email/password + Google Sign-In): two-step Credential Manager strategy; account linking flow; debug SHA-1 registered. See PROFILE_SETUP_SPEC.md.
 - User profile (DOB, height, weight, gender, goals, chronotype, occupation); two-step onboarding. See PROFILE_SETUP_SPEC.md + SETTINGS_SPEC.md.
@@ -35,6 +35,9 @@
 - Health Connect sync: sleep, HRV, RHR, steps; 7 READ permissions; anomaly detection; PermissionsRationaleActivity with Android 13+14 fallbacks. See HEALTH_CONNECT_SPEC.md.
 - **Health Connect Body & Vitals card** (Trends tab): 3×3 grid (Age/Weight/BMI/BodyFat/Height/Steps/Sleep/HRV/RHR); 4 states (CHECKING/UNAVAILABLE/NOT_GRANTED/GRANTED). See HEALTH_CONNECT_SPEC.md.
 - Injury / medical ledger (red-list / yellow-list exercises)
+- **Profile/Settings split** — separate `ProfileScreen` (route `profile`) and trimmed `SettingsScreen`. Profile icon (AccountCircle) + Settings gear in TopAppBar actions. `ProfileViewModel` owns Personal Info, Body Metrics, Fitness Level, Health History. See `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md`.
+- **Fitness Level card** in ProfileScreen — 4 tappable cards (Novice/Trained/Experienced/Athlete) + training age slider (0–30). Persisted to `User` entity via `experienceLevel` + `trainingAgeYears` columns (v39).
+- **Health History ledger** in ProfileScreen — injuries/surgeries/conditions with severity tiers; add/edit via `ModalBottomSheet`; auto-rebuilds `MedicalLedger` red/yellow lists on save. `HealthHistoryEntry` entity in `health_history_entries` table (v40).
 - Performance metrics, trends, and charts
 - State history auditing trail
 - DataStore preferences (plates config, timers, language, keepScreenOn, dailyStepTarget)
@@ -42,21 +45,29 @@
 - **ReadinessGaugeCard** — Custom Canvas arc (240° sweep gradient), needle dot, NoData/Calibrating/Score states. See TRENDS_SPEC.md.
 - Clocks tab (Stopwatch, Timer, Tabata, EMOM): centiseconds display, countdown beeps, haptics, wake lock. See TOOLS_SPEC.md.
 - StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository. See HISTORY_ANALYTICS_SPEC.md.
-- ExerciseDetailSheet (ModalBottomSheet): Form Cues (gold banner) + YouTube TextButton. See EXERCISES_SPEC.md §5–§6.
+- ExerciseDetailSheet (ModalBottomSheet): Form Cues (gold banner). YouTube TextButton removed (deprecated field). See EXERCISES_SPEC.md §5–§6.
 - **Elastic search**: token-based word-order-independent; synonym expansion via `ExerciseSynonyms`. See EXERCISES_SPEC.md.
 - **Firestore cloud sync**: push on finish/save/archive; LWW pull; settings + app preferences sync; "Back Up Now" + auto-restore on foreground. See SETTINGS_SPEC.md.
 
 **Color System:** Pro Tracker v6.0. See THEME_SPEC.md for all tokens, DarkColorScheme, LightColorScheme, semantic colors, and usage rules.
 
-**Database:** Room v38 — 16 entities, 16 DAOs. Migrations v6→v38 covered. See `DB_UPGRADE.md` for full history.
-Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38).
+**Database:** Room v41 — 17 entities, 18 DAOs (`TrendsDao` is query-only, no corresponding entity). Migrations v6→v41 covered. See `DB_UPGRADE.md` for full history.
+Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38), `experienceLevel`/`trainingAgeYears` on users (v39), `health_history_entries` table (v40), `sessionRating` on workouts (v41).
 
 **SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides `parseDecimal()`, `parseReps()`, `isLeakedMetric()`, `MIGRATION_SQL`, `MIGRATION_SQL_V19`. No inline try-catch in ViewModels or Composables.
 
 **Health Connect permissions:** 7 READ permissions: READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. `MetricType` enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT. Height sync via `getLatestHeight()` (365-day window); dual-sink to MetricLog + User entity.
 
-**Unit Tests (src/test/, 17 files, ~332 tests — all passing):**
-ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), SettingsVM-PersonalInfo(8), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7)
+**Unit Tests (src/test/, 18 files, ~339 tests — all passing):**
+ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), ProfileVM-PersonalInfo(7), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7)
+
+---
+
+## Feature Roadmap
+
+`ROADMAP.md` at the project root is the single source of truth for all planned features — phases P0–P6, statuses, effort sizes, and dependency map. **Check it before starting any new feature work.**
+
+Future feature specs live in `future_devs/`. Each spec has a metadata header (Phase, Status, Effort, Depends on). Do not implement anything from `future_devs/` without first checking `ROADMAP.md` to confirm dependencies are met and updating the status to `in-progress`.
 
 ---
 
@@ -64,10 +75,12 @@ ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator
 
 Read the relevant spec before touching files in that domain.
 
+### Implemented
+
 | Spec File | Status | Domain |
 |---|---|---|
 | `WORKOUT_SPEC.md` | ✅ Complete | Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary, warmup, notes, minimize/maximize, Iron Vault |
-| `EXERCISES_SPEC.md` | ✅ Exists | Exercise library (150+ exercises), search/filter UI, ExerciseDetailSheet, equipment display, YouTube demo intent, picker mode |
+| `EXERCISES_SPEC.md` | ✅ Exists | Exercise library (150+ exercises), search/filter UI, ExerciseDetailSheet, equipment display, picker mode |
 | `HISTORY_ANALYTICS_SPEC.md` | ✅ Complete | HistoryScreen layout, StatisticalEngine (Epley/Bayesian 1RM, Volume, dynamic PRs), WeeklyInsightsAnalyzer, WorkoutDetailScreen data contract + retroactive edit flow, BoazPerformanceAnalyzer (V2 stub) |
 | `NAVIGATION_SPEC.md` | ✅ Complete | Route map (16 routes), auth decision tree, WorkoutViewModel scope, minimize/maximize state machine, transitions, MainAppScaffold + MainActivity contracts |
 | `THEME_SPEC.md` | ✅ Complete | Pro Tracker v6.0 palette (all tokens), DarkColorScheme, LightColorScheme, ThemeMode system, typography (Barlow + BarlowCondensed + JetBrainsMono), semantic color contexts, WCAG contrast audit, token rules |
@@ -79,11 +92,24 @@ Read the relevant spec before touching files in that domain.
 | `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v38, schema changes |
 | `DB_ARCHITECTURE.md` | ✅ Exists | Core entity relationships, template-to-instance pattern, UUID migration, workout lifecycle |
 
+### Future (not yet implemented — see `ROADMAP.md` for phase/status)
+
+| Spec File | Phase | Domain |
+|---|---|---|
+| `future_devs/ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md` | P0 / P1 | Row spacing, golden RPE indicator, timed exercise countdown timer |
+| `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | P2 / P4 | Post-workout + history summary redesign, Trends deep-link |
+| `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md` | P2 / P3 | Profile/Settings split, health history ledger, fitness level, RPE auto-pop |
+| `future_devs/TRENDS_CHARTS_SPEC.md` | P4 / P5 | Trends chart cards Steps 2–8 (Volume, E1RM, Muscle Balance, Effective Sets, Body Composition, Steps, Chronotype) |
+| `future_devs/HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | P4 | HC extended reads — HR, Calories, VO₂ Max, Distance, SpO₂ |
+| `future_devs/CSV_IMPORT_SPEC.md` | P5 | CSV workout history import (Strong, Hevy, FitBod, generic) |
+
 ---
 
 ## Bug Tracking
 
-Bugs are tracked in `bugs_to_fix/`. Each bug is a separate `.md` file.
+Bugs are tracked in `bugs_to_fix/`. **`bugs_to_fix/BUG_TRACKER.md` is the single source of truth** — check it first to see what is Open, In Progress, or Fixed. Update it at the start and end of every bug-fix session.
+
+Each bug also has its own `.md` file.
 
 **File naming:** `BUG_<short-slug>.md` (e.g. `BUG_rest_timer_flicker.md`)
 
@@ -109,7 +135,28 @@ Bugs are tracked in `bugs_to_fix/`. Each bug is a separate `.md` file.
 <populated after the fix is applied>
 ```
 
-When assigned a bug from this folder: read the `.md` file, check linked assets, fix the issue, mark **Status** as `[x] Fixed`, fill **Fix Notes**, then run the QA protocol (build → tests → screenshot).
+**Summary file naming:** `SUMMARY_<short-slug>.md` (e.g. `SUMMARY_rest_timer_flicker.md`)
+
+**Summary file format:**
+```markdown
+# Fix Summary: <title>
+
+## Root Cause
+<what caused the bug>
+
+## Files Changed
+| File | Change |
+|---|---|
+| `path/to/file` | description of change |
+
+## Surfaces Fixed
+- <screen or behaviour fixed>
+
+## How to QA
+- <step-by-step manual test the user can run on device>
+```
+
+When assigned a bug from this folder: read the `.md` file, check linked assets, fix the issue, mark **Status** as `[x] Fixed`, fill **Fix Notes**, create a `SUMMARY_<slug>.md` file, update `BUG_TRACKER.md`, then run the QA protocol (build → tests → screenshot).
 
 ---
 
@@ -140,14 +187,12 @@ Install on emulator: use `mcp__mobile__install_app` tool.
 1. **Before starting** — read the relevant spec file(s) for the domain being touched (see Feature Specs table above).
 2. **After completing** — update every spec file that was affected by the change. Also update the "Current State" section above for any schema change, new feature, removed feature, or architectural decision.
 
-### Plans Tracking
-- A `plans.json` file lives at the project root. It holds a JSON array of every implementation plan that has been executed.
-- **After completing any implementation plan — append a new entry to `plans.json`** with the following shape:
-  ```json
-  { "plan": "<human-readable summary of what was planned and implemented>", "timestamp": "<ISO-8601 UTC timestamp>" }
-  ```
-- Keep plan summaries concise but complete enough to reconstruct what was changed (feature names, files touched, DB version bumps, etc.).
-- Do **not** remove or overwrite existing entries — always append.
+### Session Orientation
+At the start of a session, orient yourself in this order:
+1. Read `ROADMAP.md` — understand current phase, what's in-progress, and what's blocked
+2. Read `bugs_to_fix/BUG_TRACKER.md` — check for any Open bugs before starting feature work
+3. Run `git log --oneline -10` — see what was recently committed
+4. Read the relevant spec file(s) for the domain you're about to touch
 
 ### General Development
 - Always read existing code before modifying it. Never assume what a file contains.
@@ -163,6 +208,7 @@ Install on emulator: use `mcp__mobile__install_app` tool.
 - Update `DB_UPGRADE.md` when the schema changes.
 - Add new entities to `DatabaseModule.kt` and the `@Database` annotation entity list.
 - Use `@TypeConverter` for complex types (lists, enums, custom objects stored as JSON).
+- **Firestore sync:** Any new entity that participates in cloud sync must include two columns (added in v35 pattern): `syncId: String = UUID.randomUUID().toString()` (stable cross-device identity) and `updatedAt: Long = 0L` (epoch ms, set on every mutation). Without these, LWW conflict resolution and push/pull logic will silently skip the entity.
 
 ### AI / Gemini (Action Parsing)
 - The `ui/chat/` package contains only `UserContext.kt` (domain types used by ActionExecutor, WorkoutViewModel, StatePatchManager).
@@ -186,6 +232,21 @@ Install on emulator: use `mcp__mobile__install_app` tool.
     - `WORKOUT_SPEC.md` is mandatory reading before any workout or routine change. It defines the state machine, rendering priority, and technical invariants that prevent regressions.
     - After implementing any feature defined by a spec, update that spec to reflect the final implementation details, state transitions, or UI components introduced.
     - If a spec is found to be outdated relative to the current implementation, note it and update it immediately.
+
+### Mandatory Documentation Checklist (run at end of every task)
+
+No task is complete until ALL applicable items below are done:
+
+| What happened | What to update |
+|---|---|
+| Bug discovered | Add row to `bugs_to_fix/BUG_TRACKER.md` + create `bugs_to_fix/BUG_<slug>.md` |
+| Bug fixed | Mark `[x] Fixed` in `BUG_<slug>.md`, fill Fix Notes, update `BUG_TRACKER.md` status |
+| Feature started | Set status `in-progress` in `ROADMAP.md` + spec file header |
+| Feature completed | Set status `done` in `ROADMAP.md` + spec file header; update the relevant implemented spec (e.g. `WORKOUT_SPEC.md`); update "Current State" in `CLAUDE.md` if schema/architecture changed; commit with a clear message |
+| New feature conceived (not yet built) | Create `future_devs/<NAME>_SPEC.md` with standardized header + add row to `ROADMAP.md` under the correct phase |
+| DB schema changed | Increment Room version, add migration, update `DB_UPGRADE.md` |
+| New screen or ViewModel added | Register in `NAVIGATION_SPEC.md` route map and update `CLAUDE.md` Current State |
+| Spec found to be outdated | Fix the spec immediately — do not leave stale documentation |
 
 ### Testing
 - **Writing and running tests is a mandatory step after any business-logic change — not optional, not deferred.** Do not consider a feature or fix complete until tests are written AND pass.
@@ -248,15 +309,6 @@ Do not advance to the next step until the user replies **APPROVED**.
 - Do **not** invoke it for spec-driven implementations: if a `*_SPEC.md` file already defines the exact tokens, typography, layout, and animation parameters, the spec is the design authority and `ui-ux-pro-max` adds no value.
 - Stack context for this project: Jetpack Compose + Material Design 3, Pro Tracker v6.0 palette (see THEME_SPEC.md).
 - Always use `MaterialTheme.colorScheme.*` tokens — no hardcoded colors.
-
-### Superpowers — Structured Dev Workflow
-- Use for large, multi-step features: brainstorm → spec → plan → subagent execution → review → merge.
-- Invoke at the start of any non-trivial feature (new screen, DB migration, multi-file refactor) to keep work structured.
-- **Install:** `/plugin marketplace add obra/superpowers-marketplace` then `/plugin install superpowers@superpowers-marketplace`
-
-### Security Audits (Shannon — pending install)
-- Once Shannon: Autonomous AI Pentester is installed, run it on any change touching: Firebase Auth/Firestore rules, API keys, EncryptedSharedPreferences, Health Connect data, or Android Intent handling.
-- Do not run on every commit — scope to security-sensitive changes only.
 
 ### MCP Servers
 - **`mobile`** (user-scoped, stdio): `npx -y claude-in-mobile` — provides mobile development tools (Android/iOS). Use this MCP server for device interaction, app inspection, and mobile-specific tasks in this project.

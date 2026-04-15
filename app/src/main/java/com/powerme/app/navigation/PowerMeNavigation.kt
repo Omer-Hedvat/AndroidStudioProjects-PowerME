@@ -47,7 +47,9 @@ import com.powerme.app.ui.auth.WelcomeScreen
 import com.powerme.app.ui.exercises.ExercisesScreen
 import com.powerme.app.ui.history.HistoryScreen
 import com.powerme.app.ui.history.WorkoutDetailScreen
+import com.powerme.app.ui.history.WorkoutSummaryScreen
 import com.powerme.app.ui.metrics.MetricsScreen
+import com.powerme.app.ui.profile.ProfileScreen
 import com.powerme.app.ui.settings.SettingsScreen
 import com.powerme.app.ui.theme.ProBackground
 import com.powerme.app.ui.tools.ToolsScreen
@@ -77,7 +79,9 @@ private object Routes {
     const val AUTH_FORGOT_PASSWORD = "auth_forgot_password"
     const val WORKOUT = "workout"
     const val SETTINGS = "settings"
+    const val PROFILE = "profile"
     const val WORKOUT_DETAIL = "workout_detail/{workoutId}"
+    const val WORKOUT_SUMMARY = "workout_summary/{workoutId}?isPostWorkout={isPostWorkout}&syncType={syncType}"
     const val TEMPLATE_BUILDER = "template_builder/{routineId}"
     const val EXERCISE_PICKER = "exercise_picker"
 }
@@ -227,8 +231,16 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         ) {
             ActiveWorkoutScreen(
                 onWorkoutFinished = {
-                    navController.navigate(Screen.Workouts.route) {
-                        popUpTo(Routes.WORKOUT) { inclusive = true }
+                    val finishedId = workoutViewModel.lastFinishedWorkoutId
+                    val syncType = workoutViewModel.lastPendingRoutineSync?.name ?: "NONE"
+                    if (finishedId != null) {
+                        navController.navigate("workout_summary/$finishedId?isPostWorkout=true&syncType=$syncType") {
+                            popUpTo(Routes.WORKOUT) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Screen.Workouts.route) {
+                            popUpTo(Routes.WORKOUT) { inclusive = true }
+                        }
                     }
                 },
                 onMinimize = { navController.popBackStack() },
@@ -254,6 +266,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                onProfileClick = { navController.navigate(Routes.PROFILE) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 WorkoutsScreen(
@@ -291,6 +304,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                onProfileClick = { navController.navigate(Routes.PROFILE) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 ExercisesScreen()
@@ -311,6 +325,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                onProfileClick = { navController.navigate(Routes.PROFILE) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 ToolsScreen(
@@ -336,6 +351,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                onProfileClick = { navController.navigate(Routes.PROFILE) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 MetricsScreen(
@@ -357,11 +373,12 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                onProfileClick = { navController.navigate(Routes.PROFILE) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 HistoryScreen(
                     onWorkoutClick = { workoutId ->
-                        navController.navigate("workout_detail/$workoutId")
+                        navController.navigate("workout_summary/$workoutId")
                     }
                 )
             }
@@ -375,6 +392,18 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
             SettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.PROFILE,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            ProfileScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -418,6 +447,34 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         ) {
             WorkoutDetailScreen(onNavigateBack = { navController.popBackStack() })
         }
+
+        composable(
+            route = Routes.WORKOUT_SUMMARY,
+            arguments = listOf(
+                navArgument("workoutId") { type = NavType.StringType },
+                navArgument("isPostWorkout") { type = NavType.BoolType; defaultValue = false },
+                navArgument("syncType") { type = NavType.StringType; defaultValue = "NONE" }
+            ),
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            WorkoutSummaryScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { workoutId ->
+                    navController.navigate("workout_detail/$workoutId")
+                },
+                onNavigateToTrends = {
+                    navController.navigate(Screen.Trends.route)
+                },
+                onConfirmSyncValues = { workoutViewModel.confirmUpdateRoutineValues() },
+                onConfirmSyncStructure = { workoutViewModel.confirmUpdateRoutineStructure() },
+                onConfirmSyncBoth = { workoutViewModel.confirmUpdateBoth() },
+                onDismissSync = { workoutViewModel.dismissRoutineSync() },
+                onSaveAsRoutine = { name -> workoutViewModel.saveWorkoutAsRoutine(name) }
+            )
+        }
     }
 }
 
@@ -429,6 +486,7 @@ fun MainAppScaffold(
     workoutState: com.powerme.app.ui.workout.ActiveWorkoutState,
     onMaximizeWorkout: () -> Unit,
     onSettingsClick: () -> Unit,
+    onProfileClick: () -> Unit = {},
     clocksTimerProgress: Float? = null,
     content: @Composable () -> Unit
 ) {
@@ -447,6 +505,13 @@ fun MainAppScaffold(
                     )
                 },
                 actions = {
+                    IconButton(onClick = onProfileClick) {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Profile",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(onClick = onSettingsClick) {
                         Icon(
                             imageVector = Icons.Default.Settings,

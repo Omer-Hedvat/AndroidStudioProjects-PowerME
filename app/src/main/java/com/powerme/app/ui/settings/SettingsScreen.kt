@@ -3,21 +3,8 @@ package com.powerme.app.ui.settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
-import com.powerme.app.health.HealthConnectManager
-import com.powerme.app.health.HealthConnectReadResult
-import com.powerme.app.ui.components.rememberSelectAllState
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,13 +21,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.data.UnitSystem
-import com.powerme.app.ui.components.MultiSelectChips
-import com.powerme.app.ui.components.ProfileTextField
-import com.powerme.app.ui.components.SingleChoiceSegmented
-import com.powerme.app.ui.components.TRAINING_TARGET_OPTIONS
-import com.powerme.app.util.UnitConverter
+import com.powerme.app.health.HealthConnectManager
+import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.TimerGreen
+import com.powerme.app.util.UnitConverter
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -286,118 +271,6 @@ fun SettingsScreen(
                                 Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                             }
                         }
-                    }
-                }
-            }
-
-            // ── Personal Info ─────────────────────────────────────
-            item {
-                PersonalInfoCard(uiState = uiState, viewModel = viewModel)
-            }
-
-            // ── Body Metrics — always shown so users can manually override values ──
-            item {
-                SettingsCard(title = "Body Metrics") {
-                    val bodyFatFocusRequester = remember { FocusRequester() }
-                    val heightFocusRequester = remember { FocusRequester() }
-                    val unit = uiState.unitSystem
-                    val lastText = buildString {
-                        val w = uiState.lastWeight
-                        val bf = uiState.lastBodyFat
-                        val h = uiState.lastHeight
-                        if (w != null || bf != null || h != null) {
-                            append("Last: ")
-                            if (w != null) append(UnitConverter.formatWeight(w, unit))
-                            if (w != null && bf != null) append(" / ")
-                            if (bf != null) append("${"%.1f".format(bf)}%")
-                            if ((w != null || bf != null) && h != null) append(" / ")
-                            if (h != null) append(UnitConverter.formatHeight(h.toDouble(), unit))
-                        }
-                    }
-                    if (lastText.isNotBlank()) {
-                        Text(lastText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val weightLabel = "Weight (${UnitConverter.weightLabel(unit)})"
-                        val (weightTfv, weightSelectMod) = rememberSelectAllState(uiState.weightInput)
-                        OutlinedTextField(
-                            value = weightTfv.value,
-                            onValueChange = { newTfv -> weightTfv.value = newTfv; viewModel.updateWeightInput(newTfv.text) },
-                            label = { Text(weightLabel, fontSize = 12.sp) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { bodyFatFocusRequester.requestFocus() }),
-                            modifier = Modifier.weight(1f).then(weightSelectMod),
-                            colors = PowerMeDefaults.outlinedTextFieldColors(),
-                            singleLine = true
-                        )
-                        val (bodyFatTfv, bodyFatSelectMod) = rememberSelectAllState(uiState.bodyFatInput)
-                        OutlinedTextField(
-                            value = bodyFatTfv.value,
-                            onValueChange = { newTfv -> bodyFatTfv.value = newTfv; viewModel.updateBodyFatInput(newTfv.text) },
-                            label = { Text("Body Fat (%)", fontSize = 12.sp) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
-                            modifier = Modifier.weight(1f).focusRequester(bodyFatFocusRequester).then(bodyFatSelectMod),
-                            colors = PowerMeDefaults.outlinedTextFieldColors(),
-                            singleLine = true
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (unit == UnitSystem.IMPERIAL) {
-                        // Imperial: two fields — feet + inches
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            val (feetTfv, feetSelectMod) = rememberSelectAllState(uiState.heightFeetInput)
-                            OutlinedTextField(
-                                value = feetTfv.value,
-                                onValueChange = { newTfv -> feetTfv.value = newTfv; viewModel.updateHeightFeetInput(newTfv.text) },
-                                label = { Text("Height (ft)", fontSize = 12.sp) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                                keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
-                                modifier = Modifier.weight(1f).then(feetSelectMod),
-                                colors = PowerMeDefaults.outlinedTextFieldColors(),
-                                singleLine = true
-                            )
-                            val (inchesTfv, inchesSelectMod) = rememberSelectAllState(uiState.heightInchesInput)
-                            OutlinedTextField(
-                                value = inchesTfv.value,
-                                onValueChange = { newTfv -> inchesTfv.value = newTfv; viewModel.updateHeightInchesInput(newTfv.text) },
-                                label = { Text("Height (in)", fontSize = 12.sp) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
-                                modifier = Modifier.weight(1f).focusRequester(heightFocusRequester).then(inchesSelectMod),
-                                colors = PowerMeDefaults.outlinedTextFieldColors(),
-                                singleLine = true
-                            )
-                        }
-                    } else {
-                        val (heightTfv, heightSelectMod) = rememberSelectAllState(uiState.heightInput)
-                        OutlinedTextField(
-                            value = heightTfv.value,
-                            onValueChange = { newTfv -> heightTfv.value = newTfv; viewModel.updateHeightInput(newTfv.text) },
-                            label = { Text("Height (cm)", fontSize = 12.sp) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { viewModel.saveBodyMetrics() }),
-                            modifier = Modifier.fillMaxWidth().focusRequester(heightFocusRequester).then(heightSelectMod),
-                            colors = PowerMeDefaults.outlinedTextFieldColors(),
-                            singleLine = true
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (uiState.isSavingMetrics) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                    } else {
-                        Button(
-                            onClick = viewModel::saveBodyMetrics,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.surface)
-                        ) { Text("Save") }
                     }
                 }
             }
@@ -665,173 +538,6 @@ private fun formatRelativeTime(timestampMs: Long): String {
         else -> {
             val formatter = DateTimeFormatter.ofPattern("MMM d").withZone(ZoneId.systemDefault())
             formatter.format(then)
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PersonalInfoCard(uiState: SettingsUiState, viewModel: SettingsViewModel) {
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    val dobDisplay = uiState.dateOfBirth?.let { epochMs ->
-        java.time.Instant.ofEpochMilli(epochMs)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
-            .format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
-    } ?: ""
-
-    if (showDatePicker) {
-        val today = java.time.LocalDate.now()
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = uiState.dateOfBirth,
-            yearRange = 1920..(today.year - 5)
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { viewModel.updateDateOfBirth(it) }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    SettingsCard(title = "Personal Info") {
-        ProfileTextField(
-            value = uiState.nameInput,
-            onValueChange = viewModel::updateNameInput,
-            label = "Name",
-            imeAction = ImeAction.Next,
-            onImeAction = {}
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        val dobInteractionSource = remember { MutableInteractionSource() }
-        val dobPressed by dobInteractionSource.collectIsPressedAsState()
-        LaunchedEffect(dobPressed) { if (dobPressed) showDatePicker = true }
-        OutlinedTextField(
-            value = dobDisplay,
-            onValueChange = {},
-            label = { Text("Date of Birth", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)) },
-            modifier = Modifier.fillMaxWidth(),
-            readOnly = true,
-            interactionSource = dobInteractionSource,
-            trailingIcon = {
-                Icon(
-                    Icons.Default.CalendarMonth,
-                    contentDescription = "Pick date",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                )
-            },
-            colors = PowerMeDefaults.outlinedTextFieldColors()
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(modifier = Modifier.weight(1f)) {
-                ProfileTextField(
-                    value = uiState.averageSleepHoursInput,
-                    onValueChange = viewModel::updateSleepHoursInput,
-                    label = "Avg Sleep (h)",
-                    imeAction = ImeAction.Next,
-                    onImeAction = {},
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                )
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                ProfileTextField(
-                    value = uiState.parentalLoadInput,
-                    onValueChange = viewModel::updateParentalLoadInput,
-                    label = "Children",
-                    imeAction = ImeAction.Done,
-                    onImeAction = {},
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Gender", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.height(8.dp))
-        SingleChoiceSegmented(
-            options = listOf("MALE", "FEMALE", "OTHER"),
-            selected = uiState.gender,
-            onSelect = viewModel::updateGender
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Occupation", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.height(8.dp))
-        SingleChoiceSegmented(
-            options = listOf("SEDENTARY", "ACTIVE", "PHYSICAL"),
-            selected = uiState.occupationType,
-            onSelect = viewModel::updateOccupationType
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Chronotype", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.height(8.dp))
-        SingleChoiceSegmented(
-            options = listOf("MORNING", "NEUTRAL", "NIGHT"),
-            selected = uiState.chronotype,
-            onSelect = viewModel::updateChronotype
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Training Goals", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.height(8.dp))
-        MultiSelectChips(
-            options = TRAINING_TARGET_OPTIONS,
-            selected = uiState.selectedTrainingTargets,
-            onToggle = viewModel::toggleTrainingTarget
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        if (uiState.isSavingPersonalInfo) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-            }
-        } else {
-            Button(
-                onClick = viewModel::savePersonalInfo,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                val msg = uiState.personalInfoSaveMessage
-                if (msg != null) {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = TimerGreen
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(msg, fontWeight = FontWeight.Bold)
-                } else {
-                    Text("Save Changes", fontWeight = FontWeight.Bold)
-                }
-            }
-            LaunchedEffect(uiState.personalInfoSaveMessage) {
-                if (uiState.personalInfoSaveMessage != null) {
-                    kotlinx.coroutines.delay(2000)
-                    viewModel.dismissPersonalInfoSaveMessage()
-                }
-            }
         }
     }
 }

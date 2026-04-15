@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` composables. It manages app preferences, user profile data, Health Connect, cloud sync, and account lifecycle.
+The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` composables. It manages app preferences, Health Connect, cloud sync, and account lifecycle.
+
+**Note:** Personal Info (name, DOB, gender, etc.) and Body Metrics (weight, height, body fat) have been moved to `ProfileScreen` (`ui/profile/ProfileScreen.kt`) as part of the Profile/Settings split (P2). See `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md §1`.
 
 **Route:** Launched via `onNavigateToSettings` from the main scaffold (no dedicated route constant).  
 **ViewModel:** `ui/settings/SettingsViewModel.kt`  
@@ -17,13 +19,13 @@ The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` compos
 | 1 | Appearance | Theme mode |
 | 2 | Units | Metric / Imperial |
 | 3 | Health Connect | HC permissions + sync |
-| 4 | Personal Info | Name, DOB, sleep, children, gender, occupation, chronotype, training goals |
-| 5 | Body Metrics | Weight, body fat, height — daily tracking inputs |
-| 6 | Rest Timer | Audio / haptics toggles |
-| 7 | Display & Workout | Keep screen on |
-| 8 | Data Export | Export DB to JSON |
-| 9 | Cloud Sync | Restore from Firestore |
-| 10 | Privacy | Delete account |
+| 4 | Rest Timer | Audio / haptics toggles |
+| 5 | Display & Workout | Keep screen on |
+| 6 | Data Export | Export DB to JSON |
+| 7 | Cloud Sync | Restore from Firestore |
+| 8 | Privacy | Delete account |
+
+**Moved to ProfileScreen:** Personal Info (card 4) and Body Metrics (card 5) were removed from Settings and now live in `ProfileScreen`.
 
 ---
 
@@ -50,60 +52,23 @@ The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` compos
 
 **Permission result:** `onHealthConnectPermissionResult(granted)` re-queries actual state in case the dialog was skipped (permissions already granted at OS level — `getSynchronousResult` path).
 
-### 2.4 Personal Info
-
-Edits the non-body-metric fields of the `User` entity. Composable: `PersonalInfoCard`.
-
-**Fields:**
-
-| Field | Widget | Notes |
-|---|---|---|
-| Name | `ProfileTextField` | Text keyboard |
-| Date of Birth | Read-only `OutlinedTextField` + `DatePickerDialog` | Year range 1920..(currentYear-5), format "MMM d, yyyy" |
-| Avg Sleep (h) | `ProfileTextField` | Decimal keyboard |
-| Children | `ProfileTextField` | Number keyboard |
-| Gender | `SingleChoiceSegmented` | MALE/FEMALE/OTHER, toggleable (selecting active clears it) |
-| Occupation | `SingleChoiceSegmented` | SEDENTARY/ACTIVE/PHYSICAL |
-| Chronotype | `SingleChoiceSegmented` | MORNING/NEUTRAL/NIGHT |
-| Training Goals | `MultiSelectChips` | 6 options from `TRAINING_TARGET_OPTIONS` |
-
-**Save mechanism:** Single "Save Changes" button at bottom. Shows `CircularProgressIndicator` while saving. On success: button label changes to "Saved" with green checkmark icon for 2s, then auto-resets via `viewModel.dismissPersonalInfoSaveMessage()`.
-
-**Save path:** `viewModel.savePersonalInfo()` → reads current User → `.copy(updatedFields)` → `userSessionManager.saveUser(updated)`. No `MetricLog` writes (these are not time-series fields).
-
-**Load on init:** `viewModel.loadPersonalInfo()` reads `userSessionManager.getCurrentUser()` and populates all state fields. `trainingTargets` is split on `","`, trimmed, and converted to `Set<String>`.
-
-**DatePickerDialog state:** hoisted at the `PersonalInfoCard` composable level (not inside LazyColumn items) to prevent dismissal on recomposition.
-
-### 2.5 Body Metrics
-
-Always shown (not gated by HC status) so users can manually override values even when HC is connected.
-
-**Fields:** Weight (unit-aware label), Body Fat (%),  Height (single cm field in metric; feet + inches in imperial).
-
-**Labels:** "Last: X kg / Y% / Z cm" summary line shows most-recently logged values.
-
-**Save path:** `viewModel.saveBodyMetrics()` → validates via `SurgicalValidator` → writes to both `MetricLogRepository` (WEIGHT, BODY_FAT, HEIGHT) and `User` entity via `userSessionManager.saveUser()`. Always stores in metric; converts from display units at save time.
-
-**State feeds:** `observeMetricLogs()` in init pre-populates `weightInput` / `bodyFatInput` from the latest MetricLog entries. `loadUserHeight()` pre-populates height from the User entity.
-
-### 2.6 Rest Timer
+### 2.4 Rest Timer
 
 Two `Switch` rows: "Audio" and "Haptics". Changes persisted to `userSettingsDao.updateRestTimerAudio/Haptics()`.
 
-### 2.7 Display & Workout
+### 2.5 Display & Workout
 
 "Keep screen on" `Switch` → `viewModel.toggleKeepScreenOn()` → `AppSettingsDataStore.setKeepScreenOn()`.
 
-### 2.8 Data Export
+### 2.6 Data Export
 
 "Export Database to JSON" button → `viewModel.exportDatabase()` → `DatabaseExporter` writes a JSON file. Shows success path (file path) or error text. `isExporting` shows a spinner.
 
-### 2.9 Cloud Sync
+### 2.7 Cloud Sync
 
 If not signed in: informational text. If signed in: "Restore from Cloud" button → `viewModel.restoreFromCloud()` → `FirestoreSyncManager.pullFromCloud()`. Result shown via `Toast`.
 
-### 2.10 Privacy
+### 2.8 Privacy
 
 "Delete Account" button → confirmation `AlertDialog` → `viewModel.deleteAccount()`:
 1. `database.clearAllTables()`
@@ -122,24 +87,7 @@ If not signed in: informational text. If signed in: "Restore from Cloud" button 
 | `unitSystem` | `UnitSystem` | Current unit system |
 | `keepScreenOn` | `Boolean` | Workout display lock |
 
-### Body Metrics
-| Field | Type | Purpose |
-|---|---|---|
-| `weightInput` / `bodyFatInput` / `heightInput` | `String` | Display-unit text field values |
-| `heightFeetInput` / `heightInchesInput` | `String` | Imperial height fields |
-| `lastWeight` / `lastBodyFat` / `lastHeight` | `Double?` / `Double?` / `Float?` | Latest logged values for summary text |
-| `isSavingMetrics` | `Boolean` | Save in progress |
-
-### Personal Info
-| Field | Type | Purpose |
-|---|---|---|
-| `nameInput` | `String` | Editable name |
-| `dateOfBirth` | `Long?` | Epoch ms |
-| `averageSleepHoursInput` / `parentalLoadInput` | `String` | Text field values |
-| `gender` / `occupationType` / `chronotype` | `String` | Chip selection (empty = unset) |
-| `selectedTrainingTargets` | `Set<String>` | Multi-select chip state |
-| `isSavingPersonalInfo` | `Boolean` | Save in progress |
-| `personalInfoSaveMessage` | `String?` | "Saved" feedback, auto-dismissed after 2s |
+**Note:** Personal Info and Body Metrics state have been moved to `ProfileUiState` in `ProfileViewModel`. See `ui/profile/ProfileViewModel.kt`.
 
 ### Health Connect
 | Field | Type | Purpose |
@@ -165,6 +113,6 @@ If not signed in: informational text. If signed in: "Restore from Cloud" button 
 
 `SettingsCard(title, content)` — `Card` with `PowerMeDefaults.cardColors()` + subtle elevation + title in primary color.
 
-`PersonalInfoCard(uiState, viewModel)` — self-contained composable that owns `showDatePicker` state and renders the Personal Info card using `ProfileTextField`, `SingleChoiceSegmented`, `MultiSelectChips` from `ui/components/ProfileWidgets.kt`.
-
 `HealthMetricsSummary(data, unitSystem)` — 3-row grid of `MetricCell` composables showing the last HC sync data.
+
+**Moved to ProfileScreen:** `PersonalInfoCard` and Body Metrics UI now live in `ui/profile/ProfileScreen.kt`.
