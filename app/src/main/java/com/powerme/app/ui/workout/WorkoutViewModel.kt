@@ -176,6 +176,7 @@ data class ActiveWorkoutState(
     val hiddenRestSeparators: Set<String> = emptySet(),
     val isEditMode: Boolean = false,
     val editModeSaved: Boolean = false,  // one-shot navigation trigger (like pendingWorkoutSummary)
+    val editModeSnapshot: List<ExerciseWithSets> = emptyList(),
     val showEditGuard: Boolean = false,
     val deletedSetClipboard: Map<Long, DeletedSetClipboard> = emptyMap(),
     val collapsedExerciseIds: Set<Long> = emptySet()
@@ -554,6 +555,7 @@ class WorkoutViewModel @Inject constructor(
                     workoutId = null,
                     startTime = null,
                     exercises = exercises,
+                    editModeSnapshot = exercises,
                     workoutName = name,
                     elapsedSeconds = 0,
                     routineSnapshot = emptyList(),
@@ -636,6 +638,11 @@ class WorkoutViewModel @Inject constructor(
         _workoutState.update {
             ActiveWorkoutState(availableExercises = it.availableExercises)
         }
+    }
+
+    fun editModeHasChanges(): Boolean {
+        val s = _workoutState.value
+        return s.isEditMode && s.exercises != s.editModeSnapshot
     }
 
     fun addExercise(exercise: Exercise) {

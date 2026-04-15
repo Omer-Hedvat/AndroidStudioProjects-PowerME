@@ -129,10 +129,12 @@ fun ActiveWorkoutScreen(
         onMinimize()
     }
 
-    // System back in edit mode: show discard confirmation
-    BackHandler(enabled = workoutState.isEditMode) {
-        showDiscardEditDialog = true
+    val handleEditClose = {
+        if (viewModel.editModeHasChanges()) showDiscardEditDialog = true
+        else { viewModel.cancelEditMode(); onWorkoutFinished() }
     }
+
+    BackHandler(enabled = workoutState.isEditMode) { handleEditClose() }
 
     // Standalone Timer Config Sheet
     if (showStandaloneTimerConfig) {
@@ -272,7 +274,7 @@ fun ActiveWorkoutScreen(
                         }
 
                         if (workoutState.isEditMode) {
-                            IconButton(onClick = { showDiscardEditDialog = true }) {
+                            IconButton(onClick = handleEditClose) {
                                 Icon(Icons.Default.Close, contentDescription = "Cancel edit", tint = MaterialTheme.colorScheme.error)
                             }
                         } else {
