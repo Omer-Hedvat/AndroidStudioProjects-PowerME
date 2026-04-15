@@ -5,11 +5,11 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class HealthHistoryType(val displayName: String) {
+enum class HealthHistoryType(val displayName: String, val shortLabel: String = displayName) {
     INJURY("Injury"),
     SURGERY("Surgery"),
-    CONDITION("Condition"),
-    RESTRICTION("Restriction"),
+    CONDITION("Condition", "Cond."),
+    RESTRICTION("Restriction", "Restrict."),
     OTHER("Other")
 }
 

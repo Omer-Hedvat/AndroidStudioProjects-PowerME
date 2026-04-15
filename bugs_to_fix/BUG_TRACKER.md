@@ -20,7 +20,7 @@ Single source of truth for bug status across sessions.
 | [BUG_detail_single_decimal](BUG_detail_single_decimal.md) | Workout detail (from summary) shows weights with only 1 decimal place | ✅ Fixed & Committed | `UnitConverter.kt`, `UnitConverterTest.kt` |
 | [BUG_detail_double_edit_mode](BUG_detail_double_edit_mode.md) | Workout detail has two redundant edit modes; inner edit mode has unreadable values | 🔴 Open | — |
 | [BUG_chart_crash_on_filter_change](BUG_chart_crash_on_filter_change.md) | App crashes when changing time filter in VolumeTrendCard or exercise in E1RMProgressionCard | ✅ Completed | `VolumeTrendCard.kt`, `E1RMProgressionCard.kt` |
-| [BUG_health_history_type_wrap](BUG_health_history_type_wrap.md) | Health History "Add" sheet — Type segmented buttons wrap mid-word | ✅ Completed | `HealthHistoryEntry.kt`, `ProfileScreen.kt` |
+| [BUG_health_history_type_wrap](BUG_health_history_type_wrap.md) | Health History "Add" sheet — Type segmented buttons wrap mid-word | ✅ Wrapped | `HealthHistoryEntry.kt`, `ProfileScreen.kt` |
 
 ---
 

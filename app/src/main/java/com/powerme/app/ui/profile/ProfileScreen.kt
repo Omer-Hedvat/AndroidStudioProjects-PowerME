@@ -732,7 +732,7 @@ private fun HealthHistoryBottomSheet(
                         onClick = { viewModel.updateSheetType(type) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = HealthHistoryType.entries.size)
                     ) {
-                        Text(type.displayName, fontSize = 11.sp)
+                        Text(type.shortLabel, fontSize = 11.sp)
                     }
                 }
             }
