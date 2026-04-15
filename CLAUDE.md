@@ -21,6 +21,7 @@
 - Workout routine creation and management
 - Active workout tracking (sets, reps, weight, duration)
 - **Workout/Routine flow** — Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary. See **WORKOUT_SPEC.md**. Per-set-type rest: `computeRestDuration()` returns 0s DROP, 30s WARMUP→WARMUP, exercise default otherwise. `startRestTimer()` skips (returns early) if duration ≤ 0. `completeSet()` skips timer on last set unless `exercise.restAfterLastSet == true`. Configurable via "Set Rest Timers" dialog ("Rest after last set" toggle, default OFF).
+- **Active workout set row UX** — Set row spacing 8dp. Golden RPE indicator badge on completed sets (✦ gold for 8–9, amber dot for 7–7.5, grey dot for <7, red dot for ≥9.5–10); logic in `util/RpeHelper.kt`. Timed exercise countdown timer in `TimedSetRow` (IDLE→RUNNING→PAUSED→COMPLETED state machine, local Compose state, audio/haptic via `WorkoutViewModel.timerFinishedFeedback()` + `timerWarningTickFeedback()`). See WORKOUT_SPEC.md §4.4 and §4.8.
 - **Organize Mode** — superset grouping, ungrouping, drag-reorder in one persistent session. CAB: Done + "Organize • N" + contextual Group/Ungroup icon. See WORKOUT_SPEC.md.
 - Theme mode: LIGHT/DARK/SYSTEM via `ThemeMode` enum + `AppSettingsDataStore`. See THEME_SPEC.md.
 - Unit system: METRIC/IMPERIAL via `UnitSystem` enum; `UnitConverter` is single source of truth; storage always metric. See SETTINGS_SPEC.md.
@@ -48,6 +49,7 @@
 - ExerciseDetailSheet (ModalBottomSheet): Form Cues (gold banner). YouTube TextButton removed (deprecated field). See EXERCISES_SPEC.md §5–§6.
 - **Elastic search**: token-based word-order-independent; synonym expansion via `ExerciseSynonyms`. See EXERCISES_SPEC.md.
 - **Firestore cloud sync**: push on finish/save/archive; LWW pull; settings + app preferences sync; "Back Up Now" + auto-restore on foreground. See SETTINGS_SPEC.md.
+- **WorkoutSummaryScreen** — unified post-workout + history detail view. Hero header (date/duration/volume/sets/PRs), 5-star session rating, per-exercise cards (best set, e1RM, volume delta, avg RPE, golden zone badge, PR badge, View Trend button), muscle group distribution bars, notes field. Route: `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}`. See `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md`.
 
 **Color System:** Pro Tracker v6.0. See THEME_SPEC.md for all tokens, DarkColorScheme, LightColorScheme, semantic colors, and usage rules.
 
@@ -58,8 +60,8 @@ Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes vi
 
 **Health Connect permissions:** 7 READ permissions: READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. `MetricType` enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT. Height sync via `getLatestHeight()` (365-day window); dual-sink to MetricLog + User entity.
 
-**Unit Tests (src/test/, 18 files, ~339 tests — all passing):**
-ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), ProfileVM-PersonalInfo(7), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7)
+**Unit Tests (src/test/, 20 files, ~365 tests — all passing):**
+ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), ProfileVM-PersonalInfo(7), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7), WorkoutSummaryVM(21), RpeHelper(5)
 
 ---
 
@@ -89,7 +91,8 @@ Read the relevant spec before touching files in that domain.
 | `TRENDS_SPEC.md` | 🚧 In Progress | Trends tab — Readiness gauge, e1RM progression, volume trends, muscle group volume, effective sets, body composition overlay, NEAT guardrail, chronotype/sleep, body heatmap (future phase), ReadinessEngine algorithm, TrendsDao queries, Vico chart integration guide |
 | `PROFILE_SETUP_SPEC.md` | ✅ Complete | Onboarding profile setup — two-step flow, HC offer, all 11 fields, unit selector, shared composables |
 | `SETTINGS_SPEC.md` | ✅ Complete | Settings screen — all 10 cards, Personal Info edit, Body Metrics, HC sync, SettingsViewModel state |
-| `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v38, schema changes |
+| `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v41, schema changes |
+| `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | ✅ Step A done | WorkoutSummaryScreen — hero header, session rating, per-exercise cards, muscle group bars, notes |
 | `DB_ARCHITECTURE.md` | ✅ Exists | Core entity relationships, template-to-instance pattern, UUID migration, workout lifecycle |
 
 ### Future (not yet implemented — see `ROADMAP.md` for phase/status)
@@ -97,7 +100,7 @@ Read the relevant spec before touching files in that domain.
 | Spec File | Phase | Domain |
 |---|---|---|
 | `future_devs/ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md` | P0 / P1 | Row spacing, golden RPE indicator, timed exercise countdown timer |
-| `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | P2 / P4 | Post-workout + history summary redesign, Trends deep-link |
+| `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | P4 (Step B only) | Trends deep-link (`?exerciseId=`) — requires E1RMProgressionCard |
 | `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md` | P2 / P3 | Profile/Settings split, health history ledger, fitness level, RPE auto-pop |
 | `future_devs/TRENDS_CHARTS_SPEC.md` | P4 / P5 | Trends chart cards Steps 2–8 (Volume, E1RM, Muscle Balance, Effective Sets, Body Composition, Steps, Chronotype) |
 | `future_devs/HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | P4 | HC extended reads — HR, Calories, VO₂ Max, Distance, SpO₂ |

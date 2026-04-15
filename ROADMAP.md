@@ -36,7 +36,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| Set row spacing (2dp → 8dp) | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §2` | XS | `in-progress` | — |
+| Set row spacing (2dp → 8dp) | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §2` | XS | `done` | — |
 
 ---
 
@@ -46,8 +46,8 @@ Core workout loop improvements. Independent of all other phases.
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| Golden RPE indicator (8–9 highlight) | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §1` | S | `in-progress` | — |
-| Timed exercise countdown timer | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §3` | M | `in-progress` | — |
+| Golden RPE indicator (8–9 highlight) | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §1` | S | `done` | — |
+| Timed exercise countdown timer | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §3` | M | `done` | — |
 
 ---
 
@@ -57,7 +57,7 @@ Post-workout experience + user identity. Can be built in any order within the ph
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| History Summary Redesign (Step A — no deep-link) | `HISTORY_SUMMARY_REDESIGN_SPEC.md` | L | `not-started` | — |
+| History Summary Redesign (Step A — no deep-link) | `HISTORY_SUMMARY_REDESIGN_SPEC.md` | L | `done` | — |
 | Profile / Settings split (separate pages + nav icons) | `PROFILE_SETTINGS_REDESIGN_SPEC.md §1` | M | `done` | — |
 | Fitness level card (Novice/Trained/Experienced/Athlete) | `PROFILE_SETTINGS_REDESIGN_SPEC.md §3` | S | `done` | Profile/Settings split |
 | RPE auto-pop setting | `PROFILE_SETTINGS_REDESIGN_SPEC.md §4` | S | `not-started` | — |
@@ -80,12 +80,12 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| Trends Step 2 — VolumeTrendCard | `TRENDS_CHARTS_SPEC.md §Step 2` | M | `not-started` | — |
-| Trends Step 3 — E1RMProgressionCard | `TRENDS_CHARTS_SPEC.md §Step 3` | M | `not-started` | — |
+| Trends Step 2 — VolumeTrendCard | `TRENDS_CHARTS_SPEC.md §Step 2` | M | `done` | — |
+| Trends Step 3 — E1RMProgressionCard | `TRENDS_CHARTS_SPEC.md §Step 3` | M | `done` | — |
 | Trends Step 4 — MuscleGroupVolumeCard | `TRENDS_CHARTS_SPEC.md §Step 4` | M | `not-started` | — |
 | Trends Step 5 — EffectiveSetsCard | `TRENDS_CHARTS_SPEC.md §Step 5` | M | `not-started` | — |
 | HC Extended Reads (HR, Calories, VO₂ Max, Distance, SpO₂) | `HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | M | `not-started` | — |
-| History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `blocked` | Trends Step 3 (E1RM) + History Summary Step A |
+| History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `not-started` | Trends Step 3 (E1RM) ✅ + History Summary Step A ✅ |
 
 ---
 

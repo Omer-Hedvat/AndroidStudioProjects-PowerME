@@ -225,6 +225,14 @@ class WorkoutViewModel @Inject constructor(
     private var serviceCollectionJob: kotlinx.coroutines.Job? = null
     private var standaloneTimerJob: Job? = null
 
+    // Captured in finishWorkout(), cleared in cancelWorkout().
+    // Used by the nav graph to navigate to WorkoutSummaryScreen after the post-workout sheet dismisses.
+    private var _lastFinishedWorkoutId: String? = null
+    val lastFinishedWorkoutId: String? get() = _lastFinishedWorkoutId
+
+    private var _lastPendingRoutineSync: RoutineSyncType? = null
+    val lastPendingRoutineSync: RoutineSyncType? get() = _lastPendingRoutineSync
+
     private val timerConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             timerService = (binder as WorkoutTimerService.TimerBinder).getService()
@@ -1278,6 +1286,8 @@ class WorkoutViewModel @Inject constructor(
                         else                           -> null
                     }
                     if (syncType != null) {
+                        _lastFinishedWorkoutId = workoutId
+                        _lastPendingRoutineSync = syncType
                         _workoutState.update {
                             it.copy(
                                 isActive = false,
@@ -1289,6 +1299,8 @@ class WorkoutViewModel @Inject constructor(
                     }
                 }
 
+                _lastFinishedWorkoutId = workoutId
+                _lastPendingRoutineSync = null
                 _workoutState.update { it.copy(isActive = false, pendingWorkoutSummary = summary) }
             } catch (e: Exception) {
                 android.util.Log.e("WorkoutViewModel", "finishWorkout failed", e)
@@ -1443,6 +1455,8 @@ class WorkoutViewModel @Inject constructor(
 
     fun cancelWorkout() {
         elapsedTimerJob?.cancel()
+        _lastFinishedWorkoutId = null
+        _lastPendingRoutineSync = null
         viewModelScope.launch {
             _workoutState.value.workoutId?.let { wid ->
                 workoutSetDao.deleteSetsForWorkout(wid)
@@ -1468,6 +1482,20 @@ class WorkoutViewModel @Inject constructor(
     }
 
     // Called by the service on the main thread for every countdown tick.
+    fun timerFinishedFeedback() {
+        val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
+        restTimerNotifier.notifyEnd(
+            audioEnabled = settings.restTimerAudioEnabled,
+            hapticsEnabled = settings.restTimerHapticsEnabled
+        )
+    }
+
+    fun timerWarningTickFeedback() {
+        val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
+        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
+        if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
+    }
+
     private fun onTimerTick(remaining: Int) {
         // Fall back to defaults when the settings row hasn't been created yet.
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
@@ -1484,7 +1512,15 @@ class WorkoutViewModel @Inject constructor(
             audioEnabled = settings.restTimerAudioEnabled,
             hapticsEnabled = settings.restTimerHapticsEnabled
         )
-        _workoutState.update { it.copy(restTimer = RestTimerState()) }
+        // Auto-hide the rest separator that just finished so it doesn't linger as a passive row.
+        val finishedExerciseId = _workoutState.value.restTimer.exerciseId
+        val finishedSetOrder = _workoutState.value.restTimer.setOrder
+        _workoutState.update { state ->
+            val updated = state.copy(restTimer = RestTimerState())
+            if (finishedExerciseId != null && finishedSetOrder != null) {
+                updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${finishedExerciseId}_${finishedSetOrder}")
+            } else updated
+        }
     }
 
     /**
@@ -1558,7 +1594,13 @@ class WorkoutViewModel @Inject constructor(
                     }
                     if (i > 0) delay(1000)
                 }
-                _workoutState.update { it.copy(restTimer = RestTimerState()) }
+                // Auto-hide the rest separator that just finished.
+                _workoutState.update { state ->
+                    val updated = state.copy(restTimer = RestTimerState())
+                    if (setOrder != null) {
+                        updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${exerciseId}_${setOrder}")
+                    } else updated
+                }
             }
         }
     }

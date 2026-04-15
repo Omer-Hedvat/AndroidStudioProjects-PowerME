@@ -244,7 +244,7 @@ When the standalone timer reaches `00:00`:
 └────────────────────────────────────────────────┘
 ```
 
-- **SS spine:** 4dp colored vertical bar on left edge, only when `supersetGroupId != null`. Color is determined by `supersetColor(groupId)` — a stable hash of the UUID mapped to a 8-color palette (Pink, Green, Yellow, Orange, Cyan, Purple, Deep Orange, Light Blue). Different superset groups get visually distinct colors.
+- **SS spine:** 4dp colored vertical bar on left edge, only when `supersetGroupId != null`. Color is determined by `buildSupersetColorMap(groupIds)` — an insertion-order map of distinct group IDs to an 8-color palette (Pink, Green, Yellow, Orange, Cyan, Purple, Deep Orange, Light Blue). Colors are assigned by first-appearance order, guaranteeing that different superset groups always get distinct colors (within palette size of 8).
 - **[^] chevron:** Collapses/expands the set list (`isCollapsed` via `rememberSaveable`).
 - **[⋮ hub]:** Opens `ManagementHubSheet` (8 actions).
 - **Collapsed timer badge:** When `isCollapsed = true` AND this exercise's rest timer is active (`activeTimerExerciseId == exerciseId`), inject a small live `mm:ss` countdown chip/badge into the card header row — placed after the sets-count label. This ensures the user sees the running countdown even when the card is collapsed. The badge uses primary color text on a `primaryContainer` background, monospace font. It disappears when the timer finishes or the card is expanded.
@@ -265,6 +265,17 @@ Column weights (shared between header and row for pixel-perfect alignment):
 
 **RPE visual treatment:** RPE is a standalone tappable cell — not a `BadgedBox` overlapping the Reps field. The RPE column occupies its own column slot (weight 0.13). When null: displays a muted `—` placeholder. When set: displays the value (e.g. `8.5`). Tapping the cell opens `RpePickerSheet` (§14.3).
 
+**Golden RPE indicator:** When a set is completed (`isCompleted == true`) and has an RPE value, a small badge appears immediately after the RPE text inside the RPE column cell:
+
+| Category | Condition (stored × 10) | Badge |
+|---|---|---|
+| LOW | `rpe < 70` | 6dp grey circle |
+| MODERATE | `70 ≤ rpe < 80` | 6dp `ReadinessAmber` circle |
+| GOLDEN | `80 ≤ rpe ≤ 90` | gold `✦` glyph (10sp, `GoldenRPE = Color(0xFFFFD700)`) |
+| MAX_EFFORT | `rpe > 90` | 6dp `ProError` circle |
+
+Logic lives in `util/RpeHelper.kt` (`RpeCategory` enum + `rpeCategory(Int): RpeCategory`). Badge is not shown during RPE input (only on completed sets) and not shown in edit mode.
+
 **Column header row:** A fixed-height (20dp) `Row` is inserted **above the first `WorkoutSetRow`** inside each `ExerciseCard`, after the sticky-note and session-note rows. Header labels are centered within each column and use the same column weights as the data rows:
 
 ```
@@ -273,7 +284,7 @@ SET | PREV | WEIGHT | REPS | RPE | ✓
 
 Style: `labelSmall`, `onSurfaceVariant` color, no background. The header does NOT scroll — it renders inside `ExerciseCard`, not as a `LazyColumn` `stickyHeader()`. One header per exercise card.
 
-Row background: `TimerGreen.copy(alpha = 0.08f)` when completed (`set.isCompleted`), `surface` otherwise. Applied at the `SetWithRestRow` wrapper level so it covers all exercise types (strength, cardio, timed).
+Row background: `TimerGreen.copy(alpha = 0.12f).compositeOver(MaterialTheme.colorScheme.surface)` when completed (`set.isCompleted`), `surface` otherwise. Applied at the `SetWithRestRow` wrapper level so it covers all exercise types (strength, cardio, timed). Using `compositeOver` produces a fully opaque color so the swipe-to-delete red background never bleeds through.
 
 **Touch target minimums:** The SET badge `Box` and the CHECK `IconButton` must both use `Modifier.minimumInteractiveComponentSize()` (48dp minimum). The RPE column `Box` must be padded so its clickable area fills the full 44dp row height and the entire column width — never smaller.
 
@@ -281,7 +292,7 @@ Row background: `TimerGreen.copy(alpha = 0.08f)` when completed (`set.isComplete
 
 **Select-all on tap:** `WorkoutInputField` selects all existing text on every tap — including taps that occur while the field is already focused. Implemented by collecting `PressInteraction.Release` from the `MutableInteractionSource` and incrementing a counter that keys a `LaunchedEffect`. The effect waits 50ms (to let the IME place its cursor first) then replaces the selection with `TextRange(0, text.length)`. This fires on the first focus tap and on every subsequent tap into the same field.
 
-**Row spacing:** A 2dp `Spacer` is inserted between consecutive set rows (between `SetWithRestRow` items) within the `forEachIndexed` loop, excluding after the last row. This does not affect the rest separator — the `RestSeparator` within `SetWithRestRow` is not affected.
+**Row spacing:** An 8dp `Spacer` is inserted between consecutive set rows (between `SetWithRestRow` items) within the `forEachIndexed` loop, excluding after the last row. This does not affect the rest separator — the `RestSeparator` within `SetWithRestRow` is not affected.
 
 **"Touched" set indicator:** If a set has partial data entered (`weight.isNotBlank() || reps.isNotBlank()`) **and** `isCompleted == false`, apply a subtle 2dp left-edge border in `primary.copy(alpha = 0.4f)` to the row. This visually distinguishes a partially-filled set from a completely empty, untouched row. No indicator when the set is fully blank, and no indicator when it is completed (completed rows use the green `TimerGreen.copy(alpha = 0.08f)` background instead).
 
@@ -315,6 +326,7 @@ Column {
 
 - Swipe the **set row** → deletes the set AND automatically removes the rest separator immediately below it (the `deleteSet()` callback adds the key to `hiddenRestSeparators`). The two `SwipeToDismissBox` instances remain independent at the Compose level — the coupling is in the `deleteSet()` callback, not by merging the boxes.
 - Swipe the **rest separator** → deletes only the separator (`deleteRestSeparator()`), set remains.
+- **Rest timer naturally expires** → the separator auto-hides: both `onTimerFinish()` (service path) and the in-process fallback coroutine add `"${exerciseId}_${setOrder}"` to `hiddenRestSeparators` after resetting `restTimer` to `RestTimerState()`. The user does not need to manually swipe or tap to dismiss it.
 - These must remain **independent** at the Compose level. Do not re-group them into a single `SwipeToDismissBox`.
 
 **Partial swipe snap-back:** A `LaunchedEffect(swipeState.currentValue)` must call `swipeState.snapTo(Default)` if the row is still in composition after `confirmValueChange` returns `true`. This prevents the red delete background from persisting as a ghost after deletion.
@@ -372,13 +384,33 @@ Data updated via `updateCardioSet(exerciseId, setOrder, distance, timeSeconds, r
 
 Used when `ExerciseType == TIMED`.
 
-Columns: SET | WEIGHT | TIME | RPE | CHECK
-
 **Weight input** routes through `onWeightChanged(exerciseId, setOrder, raw)` — same cascade logic as STRENGTH sets.
 **Time input** routes through `onTimeChanged(exerciseId, setOrder, raw)` — cascades to subsequent sets (see §13.1).
 **RPE + completion** updates route through `updateTimedSet(exerciseId, setOrder, weight, timeSeconds, rpe, completed)`.
 
-**Time input — MM:SS formatter:** The TIME field in `TimedSetRow` must use the same live `MM:SS` formatter as `CardioSetRow`. The user types raw digits; the field formats them into `MM:SS` in real-time. The stored value remains integer seconds. Keyboard type: `KeyboardType.Number`.
+**Countdown timer state machine:** `TimedSetRow` contains a local-state countdown timer. The timer state is ephemeral (not persisted across navigation). State enum: `TimedSetState { IDLE, RUNNING, PAUSED, COMPLETED }`.
+
+```
+IDLE → RUNNING → PAUSED → RUNNING
+                   ↓           ↓
+                COMPLETED  MARK DONE (→ COMPLETED)
+                PAUSED → RESET → IDLE
+```
+
+| State | Columns / Controls |
+|---|---|
+| IDLE | SET \| WEIGHT input \| TIME input (editable) \| RPE input \| ▶ Start button \| CHECK |
+| RUNNING | SET \| MM:SS countdown (TimerGreen, `titleMedium`) \| `LinearProgressIndicator` below row \| ■ Stop button |
+| PAUSED | SET \| remaining MM:SS (muted) \| ▶ Resume \| ✓ Mark Done \| ↺ Reset |
+| COMPLETED | SET \| WEIGHT input \| TIME input \| RPE input \| (empty spacer) \| CHECK (TimerGreen filled) |
+
+**Countdown implementation:** `LaunchedEffect(timerState)` — when `RUNNING`, loops with `delay(1000L)` decrementing `remainingSeconds`. Warning beep + haptic fires at 2s and 1s remaining. On reaching 0, transitions to `COMPLETED`, calls `onTimerFinished()` (audio/haptic via ViewModel), then calls `onCompleteSet()`.
+
+**External completion:** A `LaunchedEffect(set.isCompleted)` watches for the user tapping the checkbox directly while the timer is running and transitions to `COMPLETED`, cancelling the countdown coroutine.
+
+**Audio/haptic:** Two ViewModel functions gate these behind user settings:
+- `WorkoutViewModel.timerFinishedFeedback()` — calls `restTimerNotifier.notifyEnd()` (600ms beep + double-pulse haptic)
+- `WorkoutViewModel.timerWarningTickFeedback()` — calls `restTimerNotifier.playWarningBeep()` + `hapticShortPulse()`
 
 **PR score:** For TIMED sets, the PR comparator is `Weight × TimeSeconds` (see §10.1). The WEIGHT column is displayed and editable (supports bodyweight exercises where weight = 0, in which case `TimeSeconds` alone is the comparator).
 
@@ -499,7 +531,7 @@ Triggered by tapping the **passive** (TimerGreen divider) rest separator. It is 
     a. Work/drop rests are set to **0** for all exercises in the superset except for the **last one** (which retains its default or override rest).
     b. Exercises are ordered sequentially as they appear in the superset.
 - `supersetGroupId` stored on both `ActiveExercise` (in-memory) and `workout_sets` (DB).
-- Visual: 4dp colored spine on left edge of card. Color is from `supersetColor(supersetGroupId)` — different groups get distinct palette colors (not hardcoded secondary).
+- Visual: 4dp colored spine on left edge of card. Color is from `buildSupersetColorMap(groupIds)` — insertion-order assignment guarantees distinct palette colors (not hardcoded secondary).
 - Remove: Management Hub → "Remove from Superset" → `removeFromSuperset(exerciseId)`. If only one partner remains after removal, that partner's groupId is also cleared.
 
 ### 6.2 Turn-Based Alternation
@@ -976,7 +1008,7 @@ ModalBottomSheet opened on card tap:
 - Header row: **Close (✕)** button | **Routine name** (weight=1f, max 2 lines) | **⋯ `MoreVert` IconButton**
 - `Last Performed: {recencyLabel}`
 - Exercise list rows: `{sets} × {exerciseName}` | `{muscleGroup}` — `{sets}` is working sets only (NORMAL, FAILURE, DROP). WARMUP-type slots are excluded from this count.
-- **Superset spine:** Each row is wrapped in `Row(IntrinsicSize.Min)`. When `supersetGroupId != null`, a 4dp vertical `Box` is rendered on the left edge using `supersetColor(supersetGroupId)` — same palette as `ActiveWorkoutScreen`. An 8dp start padding separates the bar from the exercise text.
+- **Superset spine:** Each row is wrapped in `Row(IntrinsicSize.Min)`. When `supersetGroupId != null`, a 4dp vertical `Box` is rendered on the left edge using `buildSupersetColorMap` (insertion-order, same palette as `ActiveWorkoutScreen`). An 8dp start padding separates the bar from the exercise text.
 - `CircularProgressIndicator` while exercise details are loading
 - **Start Workout** button (primary, full width)
 
@@ -1274,7 +1306,7 @@ Full injury ledger specification lives in `INJURY_CONTEXT_SPEC.md` and `INJURY_T
 
 Mirrors the `ActiveWorkoutScreen` ExerciseCard structure:
 - Same column grid (SET | PREV→**e1RM** | WEIGHT | REPS | RPE | ✓)
-- Superset spine (4dp palette-colored bar, per `supersetColor(groupId)`) rendered where applicable; color is derived from `supersetGroupId` hash — different groups always get distinct palette colors (never hardcoded `secondary`)
+- Superset spine (4dp palette-colored bar, via `buildSupersetColorMap`) rendered where applicable; color is assigned by insertion order — different groups always get distinct palette colors (never hardcoded `secondary`)
 - **Exercise ordering:** `getSetsWithExerciseForWorkout` orders by `ws.rowid ASC, ws.setOrder ASC`. SQLite `rowid` auto-increments on insertion; since sets are inserted exercise-by-exercise in routine order, `rowid` preserves original workout sequence without a dedicated `exerciseOrder` column.
 - Set type badge (W / D / F prefix) shown in SET column
 - Set notes rendered inline below each set row if present

@@ -1,7 +1,6 @@
 package com.powerme.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
-import kotlin.math.abs
 
 // PowerME v6.0 Design System — Pro Tracker Palette
 
@@ -29,6 +28,11 @@ val FormCuesGold = Color(0xFF5A4D1A)   // Muted gold — not representable by M3
 
 // ── Readiness gauge ──────────────────────────────────────────────────────────
 val ReadinessAmber = Color(0xFFFFB74D)  // Moderate readiness tier — warm amber
+val GoldenRPE      = Color(0xFFFFD700)  // Gold star for RPE 8–9 sweet spot
+
+// ── Exercise type badge colors ────────────────────────────────────────────────
+val ExercisePlyometricOrange = Color(0xFFFF9800)  // Plyometric / explosive exercises
+val ExerciseStretchTeal      = Color(0xFF4DD0E1)  // Stretch / mobility exercises
 
 // ── Light mode tokens ─────────────────────────────────────────────────────────
 val Slate50   = Color(0xFFF8FAFC)
@@ -53,6 +57,10 @@ val SupersetPalette = listOf(
     Color(0xFF03A9F4),  // Light Blue
 )
 
-fun supersetColor(groupId: String?): Color =
-    if (groupId == null) Color.Transparent
-    else SupersetPalette[abs(groupId.hashCode()) % SupersetPalette.size]
+fun buildSupersetColorMap(groupIds: List<String?>): Map<String, Color> {
+    val distinctIds = LinkedHashSet<String>()
+    groupIds.forEach { if (it != null) distinctIds.add(it) }
+    return distinctIds.mapIndexed { index, id ->
+        id to SupersetPalette[index % SupersetPalette.size]
+    }.toMap()
+}

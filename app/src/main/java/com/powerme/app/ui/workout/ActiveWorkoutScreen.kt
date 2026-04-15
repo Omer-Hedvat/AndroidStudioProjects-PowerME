@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -50,6 +51,8 @@ import com.powerme.app.data.database.SetType
 import com.powerme.app.ui.components.WorkoutInputField
 import com.powerme.app.ui.exercises.ExercisesScreen
 import com.powerme.app.util.UnitConverter
+import com.powerme.app.util.RpeCategory
+import com.powerme.app.util.rpeCategory
 import com.powerme.app.ui.theme.*
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
@@ -74,6 +77,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import java.util.ArrayList
 
+private enum class TimedSetState { IDLE, RUNNING, PAUSED, COMPLETED }
+
 // Shared column weight distribution — applied identically to header row and WorkoutSetRow
 private const val SET_COL_WEIGHT    = 0.08f
 private const val PREV_COL_WEIGHT   = 0.22f
@@ -93,6 +98,9 @@ fun ActiveWorkoutScreen(
     val workoutState by viewModel.workoutState.collectAsState()
     val clocksTimerState by viewModel.clocksTimerState.collectAsState()
     val unitSystem by viewModel.unitSystem.collectAsState()
+    val supersetColorMap = remember(workoutState.exercises) {
+        buildSupersetColorMap(workoutState.exercises.map { it.supersetGroupId })
+    }
     var showExerciseDialog by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
     var showDiscardEditDialog by remember { mutableStateOf(false) }
@@ -322,7 +330,8 @@ fun ActiveWorkoutScreen(
                         onCancelWorkout = { showCancelDialog = true },
                         isEditMode = workoutState.isEditMode,
                         reorderableLazyListState = reorderableLazyListState,
-                        unitSystem = unitSystem
+                        unitSystem = unitSystem,
+                        supersetColorMap = supersetColorMap
                     )
                 }
             }
@@ -375,7 +384,8 @@ private fun LazyListScope.activeWorkoutListItems(
     onCancelWorkout: () -> Unit,
     isEditMode: Boolean = false,
     reorderableLazyListState: sh.calvin.reorderable.ReorderableLazyListState? = null,
-    unitSystem: UnitSystem = UnitSystem.METRIC
+    unitSystem: UnitSystem = UnitSystem.METRIC,
+    supersetColorMap: Map<String, Color> = emptyMap()
 ) {
     // Organize Mode CAB — persistent; user exits only via Done
     if (workoutState.isSupersetSelectMode) {
@@ -439,14 +449,16 @@ private fun LazyListScope.activeWorkoutListItems(
                         exerciseWithSets = exerciseWithSets,
                         isSelected = isSelected,
                         onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
-                        dragHandleModifier = Modifier.draggableHandle()
+                        dragHandleModifier = Modifier.draggableHandle(),
+                        supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent
                     )
                 }
             } else {
                 SupersetSelectRow(
                     exerciseWithSets = exerciseWithSets,
                     isSelected = isSelected,
-                    onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) }
+                    onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
+                    supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent
                 )
             }
             return@items
@@ -456,6 +468,7 @@ private fun LazyListScope.activeWorkoutListItems(
             ReorderableItem(reorderableLazyListState, key = exerciseWithSets.exercise.id) { _ ->
                 ExerciseCard(
                     exerciseWithSets = exerciseWithSets,
+                    supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
                     isSelectMode = workoutState.isSupersetSelectMode,
                     isSelected = isSelected,
                     activeTimerExerciseId = activeTimerExerciseId,
@@ -495,12 +508,15 @@ private fun LazyListScope.activeWorkoutListItems(
                     onDeleteLocalRestTime = { setOrder -> viewModel.deleteLocalRestTime(exerciseWithSets.exercise.id, setOrder) },
                     onUpdateLocalRestTime = { setOrder, seconds -> viewModel.updateLocalRestTime(exerciseWithSets.exercise.id, setOrder, seconds) },
                     onTimerActiveClick = onTimerActiveClick,
-                    onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) }
+                    onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
+                    onTimerFinished = { viewModel.timerFinishedFeedback() },
+                    onTimerWarningTick = { viewModel.timerWarningTickFeedback() }
                 )
             }
         } else {
             ExerciseCard(
                 exerciseWithSets = exerciseWithSets,
+                supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
                 isSelectMode = workoutState.isSupersetSelectMode,
                 isSelected = isSelected,
                 activeTimerExerciseId = activeTimerExerciseId,
@@ -540,7 +556,9 @@ private fun LazyListScope.activeWorkoutListItems(
                 onDeleteLocalRestTime = { setOrder -> viewModel.deleteLocalRestTime(exerciseWithSets.exercise.id, setOrder) },
                 onUpdateLocalRestTime = { setOrder, seconds -> viewModel.updateLocalRestTime(exerciseWithSets.exercise.id, setOrder, seconds) },
                 onTimerActiveClick = onTimerActiveClick,
-                onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) }
+                onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
+                onTimerFinished = { viewModel.timerFinishedFeedback() },
+                onTimerWarningTick = { viewModel.timerWarningTickFeedback() }
             )
         }
     }
@@ -598,6 +616,7 @@ private fun LazyListScope.activeWorkoutListItems(
 @Composable
 private fun ExerciseCard(
     exerciseWithSets: ExerciseWithSets,
+    supersetColor: Color = Color.Transparent,
     isSelectMode: Boolean,
     isSelected: Boolean,
     activeTimerExerciseId: Long?,
@@ -638,7 +657,9 @@ private fun ExerciseCard(
     isCollapsed: Boolean = false,
     onCollapseAllExcept: () -> Unit = {},
     onToggleCollapsed: () -> Unit = {},
-    dragHandleModifier: Modifier? = null
+    dragHandleModifier: Modifier? = null,
+    onTimerFinished: () -> Unit = {},
+    onTimerWarningTick: () -> Unit = {}
 ) {
     var showSetupNotesEditor by remember { mutableStateOf(false) }
     var setupNotesText by remember { mutableStateOf(exerciseWithSets.exercise.setupNotes ?: "") }
@@ -676,7 +697,7 @@ private fun ExerciseCard(
                     modifier = Modifier
                         .width(4.dp)
                         .fillMaxHeight()
-                        .background(supersetColor(exerciseWithSets.supersetGroupId))
+                        .background(supersetColor)
                 )
             }
             Column(modifier = Modifier.weight(1f).padding(12.dp)) {
@@ -828,11 +849,13 @@ private fun ExerciseCard(
                                     repsFocusRequester = repsFrs.getOrNull(index),
                                     nextWeightFocusRequester = nextIncompleteIdx?.let { weightFrs.getOrNull(it) },
                                     onRepsDone = { onCompleteSet(set.setOrder) },
-                                    isEditMode = isEditMode
+                                    isEditMode = isEditMode,
+                                    onTimerFinished = onTimerFinished,
+                                    onTimerWarningTick = onTimerWarningTick
                                 )
                             }
                             if (index < exerciseWithSets.sets.lastIndex) {
-                                Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
 
@@ -1004,7 +1027,9 @@ private fun SetWithRestRow(
     repsFocusRequester: FocusRequester? = null,
     nextWeightFocusRequester: FocusRequester? = null,
     onRepsDone: () -> Unit = {},
-    isEditMode: Boolean = false
+    isEditMode: Boolean = false,
+    onTimerFinished: () -> Unit = {},
+    onTimerWarningTick: () -> Unit = {}
 ) {
     val setSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteSet(); true } else false })
     val restSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteRestSeparator(); true } else it == SwipeToDismissBoxValue.Settled })
@@ -1035,7 +1060,7 @@ private fun SetWithRestRow(
             Box(modifier = Modifier.fillMaxWidth().background(rowBg)) {
                 when (exerciseType) {
                     ExerciseType.CARDIO -> CardioSetRow(set, onUpdateCardioSet, onCompleteSet)
-                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged)
+                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged, onTimerFinished, onTimerWarningTick)
                     else -> WorkoutSetRow(
                         set = set,
                         onWeightChanged = onWeightChanged,
@@ -1262,6 +1287,7 @@ private fun UpdateRestTimersDialog(
 @Composable
 private fun SupersetSelectRow(
     exerciseWithSets: ExerciseWithSets,
+    supersetColor: Color = Color.Transparent,
     isSelected: Boolean,
     onToggle: () -> Unit,
     dragHandleModifier: Modifier? = null
@@ -1312,7 +1338,7 @@ private fun SupersetSelectRow(
                 Icon(
                     Icons.Default.Link,
                     contentDescription = "In superset",
-                    tint = supersetColor(exerciseWithSets.supersetGroupId),
+                    tint = supersetColor,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -1509,6 +1535,12 @@ fun WorkoutSetRow(
     val isTouched = (set.weight.isNotBlank() || set.reps.isNotBlank()) && !set.isCompleted
     val primaryColor = MaterialTheme.colorScheme.primary
     val focusManager = LocalFocusManager.current
+    LaunchedEffect(showSetTypeMenu) {
+        if (!showSetTypeMenu) {
+            delay(100)
+            focusManager.clearFocus()
+        }
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1528,7 +1560,7 @@ fun WorkoutSetRow(
                 }
                 DropdownMenu(
                     expanded = showSetTypeMenu,
-                    onDismissRequest = { showSetTypeMenu = false; focusManager.clearFocus() }
+                    onDismissRequest = { showSetTypeMenu = false }
                 ) {
                     listOf(
                         Triple(SetType.NORMAL, "${set.setOrder}", MaterialTheme.colorScheme.onSurface),
@@ -1561,13 +1593,13 @@ fun WorkoutSetRow(
                                     }
                                 }
                             },
-                            onClick = { onSelectSetType(type); showSetTypeMenu = false; focusManager.clearFocus() }
+                            onClick = { onSelectSetType(type); showSetTypeMenu = false }
                         )
                     }
                     HorizontalDivider()
                     DropdownMenuItem(
                         text = { Text("Delete Timer", color = MaterialTheme.colorScheme.error) },
-                        onClick = { onDeleteTimer(); showSetTypeMenu = false; focusManager.clearFocus() }
+                        onClick = { onDeleteTimer(); showSetTypeMenu = false }
                     )
                 }
             }
@@ -1616,11 +1648,22 @@ fun WorkoutSetRow(
                         val d = v / 10.0
                         if (d == d.toLong().toDouble()) d.toLong().toString() else "%.1f".format(d)
                     } ?: "—"
-                    Text(
-                        text = rpeText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (set.rpeValue != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = rpeText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (set.rpeValue != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        )
+                        if (set.isCompleted && set.rpeValue != null) {
+                            Spacer(modifier = Modifier.width(2.dp))
+                            when (rpeCategory(set.rpeValue)) {
+                                RpeCategory.GOLDEN -> Text("✦", fontSize = 10.sp, color = GoldenRPE)
+                                RpeCategory.MAX_EFFORT -> Box(modifier = Modifier.size(6.dp).background(ProError, CircleShape))
+                                RpeCategory.MODERATE -> Box(modifier = Modifier.size(6.dp).background(ReadinessAmber, CircleShape))
+                                RpeCategory.LOW -> Box(modifier = Modifier.size(6.dp).background(Color.Gray, CircleShape))
+                            }
+                        }
+                    }
                 }
                 Box(
                     modifier = Modifier
@@ -1763,50 +1806,245 @@ fun TimedSetRow(
     onWeightChanged: (String) -> Unit,
     onUpdateSet: (String, String, Boolean) -> Unit,
     onCompleteSet: () -> Unit,
-    onTimeChanged: (String) -> Unit = {}
+    onTimeChanged: (String) -> Unit = {},
+    onTimerFinished: () -> Unit = {},
+    onTimerWarningTick: () -> Unit = {}
 ) {
+    val totalSeconds = set.timeSeconds.toIntOrNull() ?: 0
+    var timerState by remember(set.id) { mutableStateOf(if (set.isCompleted) TimedSetState.COMPLETED else TimedSetState.IDLE) }
+    var remainingSeconds by remember(set.id) { mutableIntStateOf(totalSeconds) }
+
+    // Sync remaining time when the target duration changes while IDLE
+    LaunchedEffect(set.timeSeconds) {
+        if (timerState == TimedSetState.IDLE) {
+            remainingSeconds = set.timeSeconds.toIntOrNull() ?: 0
+        }
+    }
+
+    // Handle external completion (e.g. user taps checkbox while timer is running)
+    LaunchedEffect(set.isCompleted) {
+        if (set.isCompleted && timerState == TimedSetState.RUNNING) {
+            timerState = TimedSetState.COMPLETED
+        }
+    }
+
+    // Countdown loop — cancels automatically when timerState changes away from RUNNING
+    LaunchedEffect(timerState) {
+        if (timerState == TimedSetState.RUNNING) {
+            while (remainingSeconds > 0) {
+                delay(1000L)
+                remainingSeconds--
+                if (remainingSeconds == 2 || remainingSeconds == 1) {
+                    onTimerWarningTick()
+                }
+            }
+            if (timerState == TimedSetState.RUNNING) {
+                timerState = TimedSetState.COMPLETED
+                onTimerFinished()
+                onCompleteSet()
+            }
+        }
+    }
+
     val weight = set.weight
     val time = set.timeSeconds
     val rpe = set.rpe
 
-    Row(
-        modifier = Modifier.fillMaxWidth().height(35.dp).padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
-            Text(text = "${set.setOrder}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    when (timerState) {
+        TimedSetState.IDLE -> {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(44.dp).padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
+                    Text(text = "${set.setOrder}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                WorkoutInputField(
+                    value = weight,
+                    onValueChange = onWeightChanged,
+                    modifier = Modifier.weight(0.22f).padding(horizontal = 2.dp),
+                    placeholder = "0"
+                )
+                WorkoutInputField(
+                    value = time,
+                    onValueChange = { onTimeChanged(it) },
+                    modifier = Modifier.weight(0.25f).padding(horizontal = 2.dp),
+                    placeholder = "0"
+                )
+                WorkoutInputField(
+                    value = rpe,
+                    onValueChange = { onUpdateSet(time, it, set.isCompleted) },
+                    modifier = Modifier.weight(0.15f).padding(horizontal = 2.dp),
+                    placeholder = "—"
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(0.18f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 2.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.extraSmall)
+                        .clickable {
+                            val secs = time.toIntOrNull() ?: 0
+                            if (secs > 0) {
+                                remainingSeconds = secs
+                                timerState = TimedSetState.RUNNING
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "Start", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(0.10f)
+                        .fillMaxHeight()
+                        .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                        .clickable(onClick = onCompleteSet),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                }
+            }
         }
-        WorkoutInputField(
-            value = weight,
-            onValueChange = onWeightChanged,
-            modifier = Modifier.weight(0.25f).padding(horizontal = 2.dp),
-            placeholder = "0"
-        )
-        WorkoutInputField(
-            value = time,
-            onValueChange = { onTimeChanged(it) },
-            modifier = Modifier.weight(0.35f).padding(horizontal = 2.dp),
-            placeholder = "0"
-        )
-        WorkoutInputField(
-            value = rpe,
-            onValueChange = { onUpdateSet(time, it, set.isCompleted) },
-            modifier = Modifier.weight(0.20f).padding(horizontal = 2.dp),
-            placeholder = "—"
-        )
-        Box(
-            modifier = Modifier
-                .weight(0.10f)
-                .fillMaxHeight()
-                .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
-                .clickable(onClick = onCompleteSet),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.Check,
-                contentDescription = "Complete",
-                tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-            )
+
+        TimedSetState.RUNNING -> {
+            val total = (time.toIntOrNull() ?: 1).coerceAtLeast(1)
+            val progress = remainingSeconds.toFloat() / total.toFloat()
+            val mm = remainingSeconds / 60
+            val ss = remainingSeconds % 60
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
+                        Text(text = "${set.setOrder}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        text = "%d:%02d".format(mm, ss),
+                        modifier = Modifier.weight(0.45f),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TimerGreen,
+                        textAlign = TextAlign.Center
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(0.20f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 2.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                            .clickable { timerState = TimedSetState.PAUSED },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Stop, contentDescription = "Stop", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.weight(0.25f))
+                }
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    color = TimerGreen,
+                    trackColor = TimerGreen.copy(alpha = 0.15f)
+                )
+            }
+        }
+
+        TimedSetState.PAUSED -> {
+            val mm = remainingSeconds / 60
+            val ss = remainingSeconds % 60
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
+                        Text(text = "${set.setOrder}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        text = "%d:%02d".format(mm, ss),
+                        modifier = Modifier.weight(0.25f),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
+                    // Resume
+                    Box(
+                        modifier = Modifier
+                            .weight(0.18f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 2.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.extraSmall)
+                            .clickable { timerState = TimedSetState.RUNNING },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Resume", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(16.dp))
+                    }
+                    // Mark Done
+                    Box(
+                        modifier = Modifier
+                            .weight(0.18f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 2.dp)
+                            .background(TimerGreen.copy(alpha = 0.2f), MaterialTheme.shapes.extraSmall)
+                            .clickable { timerState = TimedSetState.COMPLETED; onCompleteSet() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = "Done", tint = TimerGreen, modifier = Modifier.size(16.dp))
+                    }
+                    // Reset
+                    Box(
+                        modifier = Modifier
+                            .weight(0.18f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 2.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                            .clickable {
+                                remainingSeconds = time.toIntOrNull() ?: 0
+                                timerState = TimedSetState.IDLE
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(modifier = Modifier.weight(0.11f))
+                }
+            }
+        }
+
+        TimedSetState.COMPLETED -> {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(44.dp).padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
+                    Text(text = "${set.setOrder}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                WorkoutInputField(
+                    value = weight,
+                    onValueChange = onWeightChanged,
+                    modifier = Modifier.weight(0.22f).padding(horizontal = 2.dp),
+                    placeholder = "0"
+                )
+                WorkoutInputField(
+                    value = time,
+                    onValueChange = { onTimeChanged(it) },
+                    modifier = Modifier.weight(0.25f).padding(horizontal = 2.dp),
+                    placeholder = "0"
+                )
+                WorkoutInputField(
+                    value = rpe,
+                    onValueChange = { onUpdateSet(time, it, set.isCompleted) },
+                    modifier = Modifier.weight(0.15f).padding(horizontal = 2.dp),
+                    placeholder = "—"
+                )
+                Spacer(modifier = Modifier.weight(0.18f))
+                Box(
+                    modifier = Modifier
+                        .weight(0.10f)
+                        .fillMaxHeight()
+                        .background(TimerGreen, MaterialTheme.shapes.extraSmall)
+                        .clickable(onClick = onCompleteSet),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = "Complete", tint = MaterialTheme.colorScheme.background)
+                }
+            }
         }
     }
 }
