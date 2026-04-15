@@ -3,6 +3,7 @@ package com.powerme.app
 import android.app.Application
 import com.powerme.app.data.database.DatabaseSeeder
 import com.powerme.app.data.database.MasterExerciseSeeder
+import com.powerme.app.data.csvimport.StrongCsvImporter
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,9 @@ class PowerMeApplication : Application() {
     @Inject
     lateinit var masterExerciseSeeder: MasterExerciseSeeder
 
+    @Inject
+    lateinit var strongCsvImporter: StrongCsvImporter
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -33,6 +37,9 @@ class PowerMeApplication : Application() {
 
             // Seed master exercises (150+ with YouTube)
             masterExerciseSeeder.seedIfNeeded()
+
+            // One-time import of Strong CSV export (runs once, then no-ops)
+            strongCsvImporter.importIfNeeded()
         }
     }
 }
