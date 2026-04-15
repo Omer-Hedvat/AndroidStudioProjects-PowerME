@@ -7,8 +7,9 @@ Wrap up a completed feature implementation. Argument: short feature name (e.g. `
 - If blank, run `git diff HEAD~1 --name-only` and `git status` to infer from changed files
 
 ### 2. Update `ROADMAP.md`
-- Find the feature's row and set its status to `done`
-- If the feature was split into steps, mark each completed step as `done`
+- Verify the feature's row is currently in `completed` status (if it's still `in-progress` or `not-started`, stop and flag to the user — dev work isn't done yet)
+- Change the row's status to `wrapped`
+- If the feature was split into steps, mark each completed step as `wrapped`
 
 ### 3. Update the feature's spec file
 - If built from a `future_devs/<NAME>_SPEC.md`: update its status header to `done`, append a **How to QA** section at the bottom

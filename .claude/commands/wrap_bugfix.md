@@ -12,7 +12,8 @@ Wrap up a completed bug fix. Argument: bug slug (e.g. `superset_color_collision`
 - Fill in `## Fix Notes` with a concise summary: what was root-caused, what changed, which files
 
 ### 3. Update `bugs_to_fix/BUG_TRACKER.md`
-- Change the row's status to `✅ Fixed & Committed`
+- Verify the row is currently in `Completed` status (if it's still `In Progress` or `Open`, stop and flag to the user — dev work isn't done yet)
+- Change the row's status to `✅ Wrapped`
 - Update the **Files Changed** column to match what was actually changed
 
 ### 4. Update relevant spec files

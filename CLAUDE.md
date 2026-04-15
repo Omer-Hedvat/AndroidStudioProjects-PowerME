@@ -161,7 +161,9 @@ Each bug also has its own `.md` file.
 - <step-by-step manual test the user can run on device>
 ```
 
-When assigned a bug from this folder: read the `.md` file, check linked assets, fix the issue, mark **Status** as `[x] Fixed`, fill **Fix Notes**, create a `SUMMARY_<slug>.md` file, update `BUG_TRACKER.md`, then run the QA protocol (build → tests → screenshot).
+**Bug lifecycle:** `Open` → `In Progress` → `Completed` → `Wrapped`
+
+When assigned a bug: read the `.md` file, check linked assets, fix the issue, mark **Status** as `[x] Fixed`, fill **Fix Notes**, create a `SUMMARY_<slug>.md` file, update `BUG_TRACKER.md` status to `Completed`. The user QAs on device, then runs `/wrap_bugfix <slug>` to flip it to `Wrapped` (simplify + build + test + commit + push). Multiple bugs can sit in `Completed` waiting for batch QA.
 
 ---
 
@@ -245,9 +247,11 @@ No task is complete until ALL applicable items below are done:
 | What happened | What to update |
 |---|---|
 | Bug discovered | Add row to `bugs_to_fix/BUG_TRACKER.md` + create `bugs_to_fix/BUG_<slug>.md` |
-| Bug fixed | Mark `[x] Fixed` in `BUG_<slug>.md`, fill Fix Notes, create `bugs_to_fix/SUMMARY_<slug>.md` (root cause, files changed, surfaces fixed, How to QA), update `BUG_TRACKER.md` status |
+| Bug dev done | Mark `[x] Fixed` in `BUG_<slug>.md`, fill Fix Notes, create `bugs_to_fix/SUMMARY_<slug>.md` (root cause, files changed, surfaces fixed, How to QA), update `BUG_TRACKER.md` status to `Completed` |
+| Bug QA'd by user | Run `/wrap_bugfix <slug>` → flips status to `Wrapped`, runs simplify + build + test + commit + push |
 | Feature started | Set status `in-progress` in `ROADMAP.md` + spec file header |
-| Feature completed | Set status `done` in `ROADMAP.md` + spec file header; update the relevant implemented spec (e.g. `WORKOUT_SPEC.md`); append a **How to QA** section to the feature's `future_devs/<NAME>_SPEC.md`; update "Current State" in `CLAUDE.md` if schema/architecture changed; commit with a clear message |
+| Feature dev done | Set status `completed` in `ROADMAP.md`; update the relevant implemented spec (e.g. `WORKOUT_SPEC.md`); append a **How to QA** section to the feature's `future_devs/<NAME>_SPEC.md`; update "Current State" in `CLAUDE.md` if schema/architecture changed |
+| Feature QA'd by user | Run `/wrap_feature <name>` → flips status to `wrapped`, runs simplify + build + test + commit + push |
 | New feature conceived (not yet built) | Create `future_devs/<NAME>_SPEC.md` with standardized header + add row to `ROADMAP.md` under the correct phase |
 | DB schema changed | Increment Room version, add migration, update `DB_UPGRADE.md` |
 | New screen or ViewModel added | Register in `NAVIGATION_SPEC.md` route map and update `CLAUDE.md` Current State |
