@@ -94,6 +94,9 @@ fun E1RMProgressionCard(
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
 
     // Push series to Vico whenever source data or unit system changes.
+    // Always call runTransaction — even when data is insufficient — to clear any stale model
+    // that remains from a previously selected exercise. Without this, CartesianChartHost may
+    // leave composition while the producer still holds old data, causing a Vico crash.
     LaunchedEffect(e1rmData, unitSystem) {
         if (rawPoints.size >= 2) {
             val rawValues = rawPoints.map { UnitConverter.displayWeight(it.e1rm, unitSystem) }
@@ -104,6 +107,8 @@ fun E1RMProgressionCard(
                     if (maValues.isNotEmpty()) series(maValues)
                 }
             }
+        } else {
+            modelProducer.runTransaction { }
         }
     }
 

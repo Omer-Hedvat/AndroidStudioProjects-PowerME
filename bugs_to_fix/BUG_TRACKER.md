@@ -2,7 +2,10 @@
 
 Single source of truth for bug status across sessions.
 
-**Statuses:** `Open` | `In Progress` | `Fixed (uncommitted)` | `Fixed & Committed`
+**Statuses:** `Open` | `In Progress` | `Completed` | `Wrapped`
+
+- `Completed` — dev done, tests pass, summary file exists, ready for QA on device
+- `Wrapped` — user QA'd and ran `/wrap_bugfix` (simplify + build + test + commit + push)
 
 | Bug | Title | Status | Files Changed |
 |-----|-------|--------|---------------|
@@ -14,14 +17,16 @@ Single source of truth for bug status across sessions.
 | [BUG_keyboard_pops_on_set_type_change](BUG_keyboard_pops_on_set_type_change.md) | Keyboard pops up when changing set type in active workout | ✅ Fixed & Committed | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
 | [BUG_duplicate_exercises](BUG_duplicate_exercises.md) | Duplicate exercises in master_exercises.json | ✅ Fixed & Committed | `master_exercises.json`, `MasterExerciseSeeder.kt`, `ExerciseDao.kt` |
 | [BUG_edit_mode_false_discard_prompt](BUG_edit_mode_false_discard_prompt.md) | Discard Changes dialog shown even when nothing changed in edit mode | ✅ Fixed & Committed | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt` |
-| [BUG_detail_single_decimal](BUG_detail_single_decimal.md) | Workout detail (from summary) shows weights with only 1 decimal place | 🔴 Open | — |
+| [BUG_detail_single_decimal](BUG_detail_single_decimal.md) | Workout detail (from summary) shows weights with only 1 decimal place | ✅ Fixed & Committed | `UnitConverter.kt`, `UnitConverterTest.kt` |
 | [BUG_detail_double_edit_mode](BUG_detail_double_edit_mode.md) | Workout detail has two redundant edit modes; inner edit mode has unreadable values | 🔴 Open | — |
+| [BUG_chart_crash_on_filter_change](BUG_chart_crash_on_filter_change.md) | App crashes when changing time filter in VolumeTrendCard or exercise in E1RMProgressionCard | ✅ Completed | `VolumeTrendCard.kt`, `E1RMProgressionCard.kt` |
+| [BUG_health_history_type_wrap](BUG_health_history_type_wrap.md) | Health History "Add" sheet — Type segmented buttons wrap mid-word | ✅ Completed | `HealthHistoryEntry.kt`, `ProfileScreen.kt` |
 
 ---
 
 ## How to Use This File
 
 - **Start of session:** Find an `Open` bug, change its status to `In Progress`, note your session context.
-- **End of session:** Update status to `Fixed (uncommitted)` or `Fixed & Committed`. Add files changed.
-- **After committing:** Bump status from `Fixed (uncommitted)` → `Fixed & Committed`.
+- **Dev done:** Update status to `Completed`. Create `SUMMARY_<slug>.md`, fill Fix Notes in `BUG_<slug>.md`. Multiple bugs can sit in `Completed` waiting for batch QA.
+- **After user QA:** Run `/wrap_bugfix <slug>` — it does simplify, build, test, commit, push, and flips status to `Wrapped`.
 - **New bugs:** Add a row here AND create a `BUG_<slug>.md` file using the standard format in `CLAUDE.md`.

@@ -91,6 +91,9 @@ fun VolumeTrendCard(
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
 
     // Push chart data whenever source data or units change.
+    // Always call runTransaction — even when data is insufficient — to clear any stale model
+    // that remains from a previous filter range. Without this, CartesianChartHost may leave
+    // composition while the producer still holds old data, causing a Vico crash.
     LaunchedEffect(volumeData, unitSystem) {
         if (points.size >= 2) {
             val volumes = points.map { UnitConverter.displayWeight(it.totalVolume, unitSystem) }
@@ -99,6 +102,8 @@ fun VolumeTrendCard(
                 columnSeries { series(volumes) }
                 lineSeries { series(ma) }
             }
+        } else {
+            modelProducer.runTransaction { }
         }
     }
 
