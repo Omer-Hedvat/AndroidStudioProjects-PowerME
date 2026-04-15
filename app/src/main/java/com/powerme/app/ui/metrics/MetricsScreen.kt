@@ -25,6 +25,8 @@ import com.powerme.app.analytics.WeeklyInsights
 import java.text.SimpleDateFormat
 import java.util.*
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.ui.metrics.charts.E1RMProgressionCard
+import com.powerme.app.ui.metrics.charts.VolumeTrendCard
 
 @Composable
 fun MetricsScreen(
@@ -36,6 +38,11 @@ fun MetricsScreen(
     val unitSystem by viewModel.unitSystem.collectAsState()
     val readinessScore by trendsViewModel.readinessScore.collectAsState()
     val readinessSubMetrics by trendsViewModel.readinessSubMetrics.collectAsState()
+    val weeklyVolume by trendsViewModel.weeklyVolume.collectAsState()
+    val timeRange by trendsViewModel.timeRange.collectAsState()
+    val e1rmData by trendsViewModel.e1rmData.collectAsState()
+    val exercisePickerItems by trendsViewModel.exercisePickerItems.collectAsState()
+    val selectedExerciseId by trendsViewModel.selectedExerciseId.collectAsState()
 
     // Re-check HC permissions every time the tab becomes visible.
     // Needed because saveState/restoreState keeps the ViewModel alive across tab switches,
@@ -75,6 +82,27 @@ fun MetricsScreen(
                 hrvDelta = readinessSubMetrics.hrvDelta,
                 rhrDelta = readinessSubMetrics.rhrDelta,
                 sleepMinutes = readinessSubMetrics.sleepMinutes
+            )
+        }
+
+        // ── Volume Trend ───────────────────────────────
+        item {
+            VolumeTrendCard(
+                volumeData = weeklyVolume,
+                timeRange = timeRange,
+                unitSystem = unitSystem,
+                onTimeRangeChange = trendsViewModel::setTimeRange
+            )
+        }
+
+        // ── E1RM Progression ───────────────────────────
+        item {
+            E1RMProgressionCard(
+                e1rmData = e1rmData,
+                exercisePickerItems = exercisePickerItems,
+                selectedExerciseId = selectedExerciseId,
+                unitSystem = unitSystem,
+                onExerciseSelected = trendsViewModel::selectExercise
             )
         }
 

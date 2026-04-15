@@ -12,8 +12,7 @@ import com.powerme.app.ui.theme.TimerGreen
  * Centralized chart color and configuration constants for Vico charts.
  *
  * All chart cards use these palette constants for visual consistency with
- * the Pro Tracker v6.0 design system. Factory functions for Vico layer
- * specs will be added when the first chart card is implemented (Step 1+).
+ * the Pro Tracker v6.0 design system.
  *
  * See TRENDS_SPEC.md §7 for the full Vico integration guide.
  */

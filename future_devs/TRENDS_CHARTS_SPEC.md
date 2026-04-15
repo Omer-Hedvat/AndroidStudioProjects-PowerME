@@ -1,6 +1,13 @@
 # Trends Tab — Chart Cards (Steps 2–8)
 
-**Status:** Not started  
+| | |
+|---|---|
+| **Phase** | P4 (Steps 2–5) · P5 (Steps 6–8) |
+| **Status** | Steps 2–3 `done` · Steps 4–8 `not-started` |
+| **Effort** | M per step (Steps 2–5) · L (Steps 6, 8) · S (Step 7) |
+| **Depends on** | Step 7 depends on HC Extended Reads (calories). Step B deep-link depends on Step 3. |
+| **Roadmap** | `ROADMAP.md §P4` and `§P5` |
+
 **Prerequisite:** Steps 0 + 1 complete ✅ — full data layer, TrendsViewModel, ReadinessGaugeCard all exist  
 **Authoritative spec:** `TRENDS_SPEC.md` (full detail on every card)  
 **This file:** Developer-ready implementation guide. Read this first, then reference TRENDS_SPEC.md for exhaustive acceptance criteria and algorithm detail.
@@ -149,6 +156,15 @@ data class E1RMSeries(
 - `TrendsViewModel.selectExercise()` triggers reload of e1RM data only (not all charts)
 - `exercisePickerItems` provides the dropdown feed — already filtered to exercises with ≥ 2 sessions in the selected time window
 - Use `StatisticalEngine.calculate1RM()` for Epley, `calculateBayesian1RM()` for smoothed — both already implemented
+
+### Deep-Link Contract (History Summary Integration)
+
+The History workout summary redesign (`HISTORY_SUMMARY_REDESIGN_SPEC.md`) adds a **[View Trend →]** button on each exercise card. Tapping it navigates here with a pre-selected exercise. Implementation requirements when building this card:
+
+1. `Routes.TRENDS` must accept an optional `?exerciseId=<String>` query parameter
+2. `MetricsScreen` reads the `exerciseId` nav arg on entry and calls `trendsViewModel.selectExercise(id)` if present
+3. The `FilterChip` `LazyRow` must scroll to and highlight the pre-selected exercise chip via `LazyListState.animateScrollToItem()`
+4. If the exercise has < 2 sessions in the selected time window, show the empty state with the exercise name pre-filled
 
 ---
 
@@ -446,3 +462,28 @@ When this becomes a priority, see `TRENDS_SPEC.md §10` for the full concept.
 ---
 
 *Written April 2026. Prerequisite: TRENDS_SPEC.md (authoritative) + Steps 0–1 complete.*
+
+---
+
+## How to QA — Steps 2–3 (Shipped April 2026)
+
+### VolumeTrendCard (Step 2)
+
+1. Build and install the debug APK; sign in and open the **Trends** tab.
+2. Confirm **VolumeTrendCard** appears below the Readiness gauge.
+3. **With ≥ 2 weeks of logged workouts:** purple bars render per week; a green moving-average line overlays the bars.
+4. **With < 2 weeks:** centered message "Log at least 2 weeks of workouts to see volume trends".
+5. Tap **1M → 3M → 6M → 1Y** chips — chart data updates each time; selected chip turns primary-colored.
+6. Switch unit system (Settings → Imperial) — Y-axis re-labels to `lb`; large values show `K lb` suffix.
+7. **Header stat:** "Avg X.X/wk" appears top-right when data is present.
+
+### E1RMProgressionCard (Step 3)
+
+1. Confirm the card renders directly below VolumeTrendCard.
+2. **No weighted exercises logged:** "Complete workouts with weighted sets to track strength" (no chip row).
+3. **Exercises present, selected exercise < 2 sessions:** "Log at least 2 sessions of [name] to see strength progression".
+4. **≥ 2 sessions:** purple raw e1RM line renders; if ≥ 3 sessions exist, green 3-session MA line overlays it. Legend dots appear below.
+5. Tap a different exercise chip — chart switches to that exercise's data.
+6. **Percent-change badge** (top-right): green with `+X.X%` if progression, red with `-X.X%` if regressing.
+7. Switch unit system — Y-axis re-labels to `lb`.
+8. Verify both light and dark themes render all text and lines readably.
