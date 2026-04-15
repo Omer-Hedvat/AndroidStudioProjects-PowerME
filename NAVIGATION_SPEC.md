@@ -41,7 +41,8 @@
 | `workout` | Full-screen overlay | — | NavHost-scoped `WorkoutViewModel` | Shares the same instance as all tabs |
 | `settings` | Push | — | Screen-scoped | — |
 | `profile` | Push | — | Screen-scoped | Accessed via AccountCircle icon in TopAppBar (left of Settings gear) |
-| `workout_detail/{workoutId}` | Push | `workoutId: Long` | Screen-scoped | Accessed from History tab |
+| `workout_detail/{workoutId}` | Push | `workoutId: String` | Screen-scoped | Accessed from `WorkoutSummaryScreen` Edit button only |
+| `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}` | Push | `workoutId: String`, `isPostWorkout: Bool` (default false), `syncType: String` (default "NONE") | Screen-scoped | Post-workout: navigated from `onWorkoutFinished`. History: navigated from `HistoryScreen` tap |
 | `template_builder/{routineId}` | Push | `routineId: Long` | Screen-scoped | `routineId = -1` sentinel = new routine (see below) |
 | `exercise_picker` | Push | — | Screen-scoped | Returns result via `savedStateHandle` |
 

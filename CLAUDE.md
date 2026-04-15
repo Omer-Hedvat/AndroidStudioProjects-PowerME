@@ -44,6 +44,8 @@
 - DataStore preferences (plates config, timers, language, keepScreenOn, dailyStepTarget)
 - **Trends tab** — `ReadinessEngine` (z-score, HRV 0.45/Sleep 0.35/RHR 0.20), `TrendsDao` (6 aggregate queries), `TrendsRepository`, `TrendsViewModel` (11 StateFlows), `VicoChartHelpers`. See TRENDS_SPEC.md.
 - **ReadinessGaugeCard** — Custom Canvas arc (240° sweep gradient), needle dot, NoData/Calibrating/Score states. See TRENDS_SPEC.md.
+- **VolumeTrendCard** — Weekly volume bar chart (Vico `ColumnCartesianLayer`, ProViolet) + 4-week MA line overlay (TimerGreen), time range FilterChip row. `ui/metrics/charts/VolumeTrendCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 2`.
+- **E1RMProgressionCard** — Single-exercise e1RM progression line chart (raw + 3-session MA), scrollable FilterChip exercise picker, percent-change badge. `ui/metrics/charts/E1RMProgressionCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 3`.
 - Clocks tab (Stopwatch, Timer, Tabata, EMOM): centiseconds display, countdown beeps, haptics, wake lock. See TOOLS_SPEC.md.
 - StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository. See HISTORY_ANALYTICS_SPEC.md.
 - ExerciseDetailSheet (ModalBottomSheet): Form Cues (gold banner). YouTube TextButton removed (deprecated field). See EXERCISES_SPEC.md §5–§6.
@@ -243,9 +245,9 @@ No task is complete until ALL applicable items below are done:
 | What happened | What to update |
 |---|---|
 | Bug discovered | Add row to `bugs_to_fix/BUG_TRACKER.md` + create `bugs_to_fix/BUG_<slug>.md` |
-| Bug fixed | Mark `[x] Fixed` in `BUG_<slug>.md`, fill Fix Notes, update `BUG_TRACKER.md` status |
+| Bug fixed | Mark `[x] Fixed` in `BUG_<slug>.md`, fill Fix Notes, create `bugs_to_fix/SUMMARY_<slug>.md` (root cause, files changed, surfaces fixed, How to QA), update `BUG_TRACKER.md` status |
 | Feature started | Set status `in-progress` in `ROADMAP.md` + spec file header |
-| Feature completed | Set status `done` in `ROADMAP.md` + spec file header; update the relevant implemented spec (e.g. `WORKOUT_SPEC.md`); update "Current State" in `CLAUDE.md` if schema/architecture changed; commit with a clear message |
+| Feature completed | Set status `done` in `ROADMAP.md` + spec file header; update the relevant implemented spec (e.g. `WORKOUT_SPEC.md`); append a **How to QA** section to the feature's `future_devs/<NAME>_SPEC.md`; update "Current State" in `CLAUDE.md` if schema/architecture changed; commit with a clear message |
 | New feature conceived (not yet built) | Create `future_devs/<NAME>_SPEC.md` with standardized header + add row to `ROADMAP.md` under the correct phase |
 | DB schema changed | Increment Room version, add migration, update `DB_UPGRADE.md` |
 | New screen or ViewModel added | Register in `NAVIGATION_SPEC.md` route map and update `CLAUDE.md` Current State |

@@ -102,4 +102,34 @@ interface WorkoutSetDao {
         LIMIT 10
     """)
     suspend fun getPreviousSessionSets(exerciseId: Long, currentTimestamp: Long): List<WorkoutSet>
+
+    @Query("""
+        SELECT ws.* FROM workout_sets ws
+        INNER JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND w.isCompleted = 1 AND w.isArchived = 0
+          AND w.timestamp < :beforeTimestamp
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND w.id = (
+              SELECT w2.id FROM workouts w2
+              INNER JOIN workout_sets ws2 ON ws2.workoutId = w2.id
+              WHERE ws2.exerciseId = :exerciseId
+                AND w2.isCompleted = 1 AND w2.isArchived = 0
+                AND w2.timestamp < :beforeTimestamp
+              ORDER BY w2.timestamp DESC LIMIT 1
+          )
+        ORDER BY ws.setOrder ASC
+    """)
+    suspend fun getPreviousSessionCompletedSets(exerciseId: Long, beforeTimestamp: Long): List<WorkoutSet>
+
+    @Query("""
+        SELECT MAX(ws.weight * (1 + CAST(ws.reps AS REAL) / 30.0))
+        FROM workout_sets ws
+        INNER JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND w.isCompleted = 1 AND w.isArchived = 0
+          AND w.timestamp < :beforeTimestamp
+    """)
+    suspend fun getHistoricalBestE1RM(exerciseId: Long, beforeTimestamp: Long): Double?
 }

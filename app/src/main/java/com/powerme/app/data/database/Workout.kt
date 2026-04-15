@@ -32,5 +32,7 @@ data class Workout(
     val startTimeMs: Long = 0L,
     val endTimeMs: Long = 0L,
     val updatedAt: Long = 0L,              // v31 — LWW timestamp for Firestore sync
-    val isArchived: Boolean = false        // v31 — soft delete flag
+    val isArchived: Boolean = false,        // v31 — soft delete flag
+    @ColumnInfo(defaultValue = "NULL")
+    val sessionRating: Int? = null          // v41 — 1–5 star session rating
 )

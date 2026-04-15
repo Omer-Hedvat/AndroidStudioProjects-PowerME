@@ -47,6 +47,9 @@ interface WorkoutDao {
     @Query("DELETE FROM workouts WHERE id = :workoutId")
     suspend fun deleteWorkoutById(workoutId: String)
 
+    @Query("UPDATE workouts SET sessionRating = :rating, updatedAt = :updatedAt WHERE id = :workoutId")
+    suspend fun updateSessionRating(workoutId: String, rating: Int, updatedAt: Long)
+
     @Query("""
         SELECT w.id, w.routineId, w.timestamp, w.durationSeconds, w.totalVolume,
                w.notes, w.isCompleted, w.startTimeMs, w.endTimeMs, e.name AS exerciseName,

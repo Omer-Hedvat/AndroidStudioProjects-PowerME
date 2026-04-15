@@ -132,4 +132,34 @@ IDLE (editable duration) → RUNNING → PAUSED → RUNNING
 
 ---
 
-*Written April 2026.*
+## How to QA
+
+### §2 — Row Spacing
+1. Open an active workout with at least 3 sets on one exercise.
+2. Verify the gap between set rows is visually wider than before (8dp spacing).
+
+### §1 — Golden RPE Indicator
+1. Start an active workout (STRENGTH exercise).
+2. Complete a set, then tap the RPE column and select **RPE 8.5** → confirm a gold **✦** star appears next to `8.5`.
+3. Complete another set, select **RPE 7** → confirm a small **amber dot** appears.
+4. Complete another set, select **RPE 6** → confirm a small **grey dot** appears.
+5. Complete another set, select **RPE 10** → confirm a small **red dot** appears.
+6. On an incomplete (unchecked) set, select any RPE → confirm **no badge** is shown.
+7. Confirm tapping the RPE cell still opens `RpePickerSheet` normally.
+
+### §3 — Timed Exercise Countdown Timer
+1. Add a TIMED exercise (e.g. Plank, Dead Hang) to a workout.
+2. **IDLE state:** Verify the row shows weight / time / RPE input fields + a purple **▶** button + checkbox.
+3. Enter `30` in the time field and tap **▶** → timer transitions to **RUNNING**.
+4. **RUNNING state:** Verify `0:30` countdown in TimerGreen, a progress bar sweeping left, and a **■ Stop** button. Wait a few seconds and confirm the number decrements.
+5. Tap **■ Stop** → timer transitions to **PAUSED**.
+6. **PAUSED state:** Verify remaining time shown (static), and **▶ Resume**, **✓ Done**, and **↺ Reset** buttons are all visible.
+7. Tap **▶ Resume** → countdown resumes from where it paused.
+8. Tap **■ Stop** again, then tap **↺ Reset** → timer returns to **IDLE** with the original time restored.
+9. Start the timer again and tap **✓ Done** from PAUSED → set is immediately marked complete (green check), no countdown needed.
+10. Start a fresh timer and let it count all the way to `0:00` → verify: beep + haptic fires, set auto-completes (green check row background), rest timer starts as normal.
+11. Start a timer, then manually tap the checkbox while it is **RUNNING** → verify the timer stops and the set is marked complete.
+
+---
+
+*Written April 2026. QA section added April 2026.*
