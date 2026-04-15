@@ -183,7 +183,7 @@ data class ActiveWorkoutState(
 )
 
 private fun ActiveWorkoutState.markDirtyIfEditing(): ActiveWorkoutState =
-    if (isEditMode) copy(editModeDirty = true) else this
+    if (isEditMode && !editModeDirty) copy(editModeDirty = true) else this
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
@@ -643,7 +643,7 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun editModeHasChanges(): Boolean =
-        _workoutState.value.let { it.isEditMode && it.editModeDirty }
+        _workoutState.value.isEditMode && _workoutState.value.editModeDirty
 
     fun addExercise(exercise: Exercise) {
         val currentExercises = _workoutState.value.exercises
