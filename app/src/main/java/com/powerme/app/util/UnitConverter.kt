@@ -87,28 +87,21 @@ object UnitConverter {
     // ── Numeric formatting ────────────────────────────────────────────────────
 
     /**
-     * Strips unnecessary trailing zeros:
+     * Formats a number to at most 2 decimal places, stripping trailing zeros only for integers:
      *   80.0   → "80"
-     *   80.5   → "80.5"
+     *   80.5   → "80.50"
      *   32.25  → "32.25"
      *   176.37 → "176.37"
      */
     fun formatNumber(value: Double): String = when {
         value == value.toLong().toDouble() -> value.toLong().toString()
-        value * 10 == (value * 10).toLong().toDouble() -> "%.1f".format(value)
         else -> "%.2f".format(value)
     }
 
     /**
      * Formats a raw weight value (no unit suffix) for use in workout input fields.
-     * Keeps up to 2 decimal places when needed.
+     * Keeps exactly 2 decimal places for non-integer values.
      */
-    fun formatWeightRaw(valueKg: Double, unit: UnitSystem): String {
-        val display = displayWeight(valueKg, unit)
-        return when {
-            display == display.toLong().toDouble() -> display.toLong().toString()
-            display * 10 == (display * 10).toLong().toDouble() -> "%.1f".format(display)
-            else -> "%.2f".format(display)
-        }
-    }
+    fun formatWeightRaw(valueKg: Double, unit: UnitSystem): String =
+        formatNumber(displayWeight(valueKg, unit))
 }

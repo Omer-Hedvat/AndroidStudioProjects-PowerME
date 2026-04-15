@@ -56,9 +56,9 @@ class UnitConverterTest {
     }
 
     @Test
-    fun `formatWeight strips trailing zeros in METRIC`() {
+    fun `formatWeight uses 2 decimal places for non-integer weights in METRIC`() {
         assertEquals("80 kg", UnitConverter.formatWeight(80.0, UnitSystem.METRIC))
-        assertEquals("80.5 kg", UnitConverter.formatWeight(80.5, UnitSystem.METRIC))
+        assertEquals("80.50 kg", UnitConverter.formatWeight(80.5, UnitSystem.METRIC))
     }
 
     @Test
@@ -143,9 +143,9 @@ class UnitConverterTest {
     // ── formatNumber ──────────────────────────────────────────────────────────
 
     @Test
-    fun `formatNumber strips trailing zeros`() {
+    fun `formatNumber uses 2 decimal places for non-integer values`() {
         assertEquals("80", UnitConverter.formatNumber(80.0))
-        assertEquals("80.5", UnitConverter.formatNumber(80.5))
+        assertEquals("80.50", UnitConverter.formatNumber(80.5))
         assertEquals("32.25", UnitConverter.formatNumber(32.25))
         assertEquals("176.37", UnitConverter.formatNumber(176.37))
     }
@@ -155,7 +155,7 @@ class UnitConverterTest {
     @Test
     fun `formatWeightRaw returns raw number without unit suffix`() {
         assertEquals("80", UnitConverter.formatWeightRaw(80.0, UnitSystem.METRIC))
-        assertEquals("80.5", UnitConverter.formatWeightRaw(80.5, UnitSystem.METRIC))
+        assertEquals("80.50", UnitConverter.formatWeightRaw(80.5, UnitSystem.METRIC))
         assertEquals("32.25", UnitConverter.formatWeightRaw(32.25, UnitSystem.METRIC))
     }
 }
