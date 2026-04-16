@@ -32,6 +32,7 @@
 |---|---|---|---|---|
 | `auth_welcome` | Full-screen | — | — | Start destination when unauthenticated |
 | `auth_profile_setup` | Full-screen | — | — | Start destination when auth OK but no DB user |
+| `auth_hc_offer` | Full-screen | — | Screen-scoped `HcOfferViewModel` | Shown post-login when HC available, permissions not granted, and offer not previously dismissed. Navigates to `workouts` on connect or skip. |
 | `auth_forgot_password` | Full-screen | — | Shared with `auth_welcome` | Scoped to `auth_welcome` back stack entry via `hiltViewModel(backStackEntry)` |
 | `workouts` | Bottom tab | — | NavHost-scoped `WorkoutViewModel` | Default start destination post-auth |
 | `history` | Bottom tab | — | Screen-scoped | — |
@@ -66,7 +67,12 @@ Firebase user OK
   + DB user == null            →  auth_profile_setup
 
 Firebase user OK
-  + DB user exists             →  workouts
+  + DB user exists
+  + HC available + permissions not granted + offer not dismissed  →  auth_hc_offer
+
+Firebase user OK
+  + DB user exists
+  + (HC unavailable OR permissions granted OR offer dismissed)    →  workouts
 ```
 
 - The splash `CircularProgressIndicator` is shown until `startRoute` emits a non-null value.
