@@ -29,8 +29,8 @@ Single source of truth for bug status across sessions.
 | [BUG_leftover_ui_elements](BUG_leftover_ui_elements.md) | Hebrew text on login screen + Boaz Insights card in Trends tab | ✅ Completed | `WelcomeScreen.kt`, `MetricsScreen.kt`, `MetricsViewModel.kt`, `MetricsViewModelBodyVitalsTest.kt` |
 | [BUG_hc_offer_skipped_on_login](BUG_hc_offer_skipped_on_login.md) | Existing users skip HC connect screen on login — navigates directly to Workouts | ✅ Wrapped | `AppSettingsDataStore.kt`, `AuthViewModel.kt`, `WelcomeScreen.kt`, `PowerMeNavigation.kt`, `HcOfferScreen.kt` (new), `HcOfferViewModel.kt` (new) |
 | [BUG_trends_scroll_crash](BUG_trends_scroll_crash.md) | Trends tab crashes when scrolling to VolumeTrendCard — likely MuscleGroupVolumeCard producer race | ✅ Completed | `MetricsScreen.kt` |
-| [BUG_timed_exercise_row_columns](BUG_timed_exercise_row_columns.md) | Timed exercise row: missing PREV column, spurious RPE column, orphaned '-' box with no header | 🔴 Open | — |
-| [BUG_warning_beep_gap_too_wide](BUG_warning_beep_gap_too_wide.md) | WARNING double-beep has 300ms gap — too wide, sounds like two separate events | ✅ Completed | `RestTimerNotifier.kt` |
+| [BUG_timed_exercise_row_columns](BUG_timed_exercise_row_columns.md) | Timed exercise row: missing PREV column, spurious RPE column, orphaned '-' box with no header | ✅ Completed | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
+| [BUG_warning_beep_gap_too_wide](BUG_warning_beep_gap_too_wide.md) | WARNING double-beep has 300ms gap — too wide, sounds like two separate events | ✅ Wrapped | `RestTimerNotifier.kt`, `TOOLS_SPEC.md` |
 | [BUG_toggle_colors_inconsistent](BUG_toggle_colors_inconsistent.md) | Switch/Toggle colors inconsistent across screens | ✅ Wrapped | `SettingsScreen.kt`, `ActiveWorkoutScreen.kt` |
 
 ---

@@ -187,7 +187,7 @@ class RestTimerNotifier(private val context: Context) {
                 handler.postDelayed({
                     playBeep(150)
                     hapticShortPulse()
-                }, 300)
+                }, 275)
             }
             AlertType.COUNTDOWN_TICK -> {
                 playBeep(150)

@@ -1,7 +1,7 @@
 # BUG: Warning beep gap too wide — double beep feels like two separate events
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Description
 `AlertType.WARNING` in `RestTimerNotifier.kt` fires two 150ms beeps separated by a `handler.postDelayed(..., 300)` gap. The 300ms gap is too wide — the two beeps sound like two unrelated alerts rather than a tight double-tap "heads up" signal.
@@ -17,3 +17,4 @@
 - Fix: reduce gap to ~100ms for a tight double-tap feel
 
 ## Fix Notes
+Reduced `postDelayed` gap from 300ms to 275ms in `RestTimerNotifier.kt` `AlertType.WARNING` branch. Each beep is 150ms long; the 260ms gap ensures clean separation while being noticeably tighter than the original 300ms.

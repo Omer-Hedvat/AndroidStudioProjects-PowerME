@@ -138,7 +138,7 @@ Alerts dispatched via `RestTimerNotifier` (ToneGenerator on `STREAM_ALARM` — b
 | AlertType | Audio | Haptic | Triggered By |
 |-----------|-------|--------|-------------|
 | `ROUND_START` | 600ms beep | Phase pattern (150-150-150-500ms) | TABATA/EMOM round start |
-| `WARNING` | 2 × 150ms beeps | Short pulse × 2 | TABATA/EMOM/COUNTDOWN pre-configured warning |
+| `WARNING` | 2 × 150ms beeps (275ms gap) | Short pulse × 2 | TABATA/EMOM/COUNTDOWN pre-configured warning |
 | `COUNTDOWN_TICK` | 200ms beep | Short pulse (50ms) | Last 3 seconds of any phase |
 | `FINISH` | 150+150+800ms beeps | Phase pattern | Phase completion |
 
