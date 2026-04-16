@@ -137,6 +137,7 @@ class WorkoutViewModelTest {
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(false))
         whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
+        whenever(mockAppSettingsDataStore.timerSound).thenReturn(flowOf(com.powerme.app.util.TimerSound.BEEP))
         mockContext = mock()
 
         // Non-suspend property stubs (used at ViewModel construction time)
@@ -1087,6 +1088,21 @@ class WorkoutViewModelTest {
             runCurrent()
 
             assertEquals(RoutineSyncType.STRUCTURE, viewModel.workoutState.value.pendingRoutineSync)
+        }
+
+    @Test
+    fun `finishWorkout with routine snapshot but 0 completed sets returns null routineSync`() =
+        vmTest {
+            runBlocking { setupRoutineWorkout(defaultWeight = "100") }
+            viewModel.startWorkoutFromRoutine("1")
+            runCurrent()
+
+            // Do NOT complete any sets — finish immediately
+            viewModel.finishWorkout()
+            runCurrent()
+
+            assertNull(viewModel.workoutState.value.pendingRoutineSync)
+            assertNotNull(viewModel.workoutState.value.pendingWorkoutSummary)
         }
 
     // -------------------------------------------------------------------------
