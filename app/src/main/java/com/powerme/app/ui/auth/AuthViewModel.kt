@@ -11,6 +11,7 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.sync.FirestoreSyncManager
+import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ data class AuthUiState(
     val isSignedIn: Boolean = false,
     val needsEmailVerification: Boolean = false,
     val needsProfileSetup: Boolean = false,
+    val needsHcOffer: Boolean = false,
     val resetEmailSent: Boolean = false,
     val pendingLinkEmail: String? = null
 )
@@ -37,7 +39,8 @@ class AuthViewModel @Inject constructor(
     private val userSessionManager: UserSessionManager,
     private val googleSignInHelper: GoogleSignInHelper,
     private val firestoreSyncManager: FirestoreSyncManager,
-    private val appSettingsDataStore: AppSettingsDataStore
+    private val appSettingsDataStore: AppSettingsDataStore,
+    private val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -134,11 +137,16 @@ class AuthViewModel @Inject constructor(
             appSettingsDataStore.setHasRestoredOnce(true)
         }
         val dbUser = userSessionManager.getCurrentUser()
+        val shouldOfferHc = dbUser != null &&
+            healthConnectManager.isAvailable() &&
+            !healthConnectManager.checkPermissionsGranted() &&
+            !appSettingsDataStore.hcOfferDismissed.first()
         _uiState.update {
             it.copy(
                 isLoading = false,
-                isSignedIn = dbUser != null,
+                isSignedIn = dbUser != null && !shouldOfferHc,
                 needsProfileSetup = dbUser == null,
+                needsHcOffer = shouldOfferHc,
                 pendingLinkEmail = null
             )
         }

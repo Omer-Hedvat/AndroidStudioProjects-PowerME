@@ -35,6 +35,9 @@ import com.powerme.app.ui.theme.buildSupersetColorMap
 import com.powerme.app.ui.metrics.charts.VicoChartHelpers
 import com.powerme.app.ui.workout.RoutineSyncType
 import com.powerme.app.util.UnitConverter
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -45,7 +48,7 @@ import kotlin.math.abs
 fun WorkoutSummaryScreen(
     onNavigateBack: () -> Unit,
     onNavigateToEdit: (String) -> Unit,
-    onNavigateToTrends: () -> Unit,
+    onNavigateToTrends: (Long) -> Unit,
     onConfirmSyncValues: () -> Unit = {},
     onConfirmSyncStructure: () -> Unit = {},
     onConfirmSyncBoth: () -> Unit = {},
@@ -56,6 +59,15 @@ fun WorkoutSummaryScreen(
     val uiState by viewModel.uiState.collectAsState()
     val unitSystem by viewModel.unitSystem.collectAsState()
     val workout = uiState.workout
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.reload()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val supersetColorMap = remember(uiState.exerciseCards) {
         buildSupersetColorMap(uiState.exerciseCards.map { it.supersetGroupId })
@@ -144,7 +156,7 @@ fun WorkoutSummaryScreen(
                         card = card,
                         unitSystem = unitSystem,
                         supersetBorderColor = borderColor,
-                        onViewTrend = onNavigateToTrends
+                        onViewTrend = { onNavigateToTrends(card.exerciseId) }
                     )
                 }
             }

@@ -273,6 +273,15 @@ class WorkoutViewModel @Inject constructor(
     private val _workoutState = MutableStateFlow(ActiveWorkoutState())
     val workoutState: StateFlow<ActiveWorkoutState> = _workoutState.asStateFlow()
 
+    /** One-shot signal: set to "${exerciseId}_${setOrder}" when a set is just completed and useRpeAutoPop is on. */
+    private val _rpeAutoPopTarget = MutableStateFlow<String?>(null)
+    val rpeAutoPopTarget: StateFlow<String?> = _rpeAutoPopTarget.asStateFlow()
+
+    private var useRpeAutoPopEnabled = false
+
+    val timedSetSetupSeconds: StateFlow<Int> = appSettingsDataStore.timedSetSetupSeconds
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 3)
+
     private val saveJobs = mutableMapOf<Pair<Long, Int>, Job>()
 
     init {
@@ -283,6 +292,13 @@ class WorkoutViewModel @Inject constructor(
             timerConnection,
             Context.BIND_AUTO_CREATE
         )
+        viewModelScope.launch {
+            appSettingsDataStore.useRpeAutoPop.collect { useRpeAutoPopEnabled = it }
+        }
+    }
+
+    fun consumeRpeAutoPop() {
+        _rpeAutoPopTarget.value = null
     }
 
     override fun onCleared() {
@@ -981,6 +997,9 @@ class WorkoutViewModel @Inject constructor(
             if (wasCompleted) {
                 stopRestTimer()
             } else {
+                if (useRpeAutoPopEnabled) {
+                    _rpeAutoPopTarget.value = "${exerciseId}_${setOrder}"
+                }
                 val ex = _workoutState.value.exercises.find { it.exercise.id == exerciseId }
                 val completedSet = ex?.sets?.find { it.setOrder == setOrder }
                 val nextSet = ex?.sets
@@ -1171,6 +1190,7 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun finishWorkout() {
+        stopRestTimer()
         elapsedTimerJob?.cancel()
         viewModelScope.launch {
             try {
@@ -1463,6 +1483,7 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun cancelWorkout() {
+        stopRestTimer()
         elapsedTimerJob?.cancel()
         _lastFinishedWorkoutId = null
         _lastPendingRoutineSync = null
@@ -1500,6 +1521,12 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun timerWarningTickFeedback() {
+        val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
+        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
+        if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
+    }
+
+    fun setupCountdownTickFeedback() {
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
         if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
         if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
@@ -1544,8 +1571,9 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun startRestTimer(exerciseId: Long, setOrder: Int? = null, overrideSeconds: Int? = null) {
-        // Guard: cancel any in-process coroutine to prevent double-beep race conditions.
+        // Guard: cancel any in-process timer (coroutine or service) to prevent double-beep race conditions.
         timerJob?.cancel()
+        if (serviceBound && timerService != null) timerService!!.stopTimer()
 
         val exercise = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }
@@ -1835,6 +1863,7 @@ class WorkoutViewModel @Inject constructor(
      */
     private fun startRestTimerWithDuration(exerciseId: Long, setOrder: Int?, durationSeconds: Int) {
         timerJob?.cancel()
+        if (serviceBound && timerService != null) timerService!!.stopTimer()
         if (serviceBound && timerService != null) {
             _workoutState.update {
                 it.copy(

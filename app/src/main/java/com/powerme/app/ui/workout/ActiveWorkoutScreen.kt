@@ -71,13 +71,12 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import java.util.ArrayList
 
-private enum class TimedSetState { IDLE, RUNNING, PAUSED, COMPLETED }
+private enum class TimedSetState { IDLE, SETUP, RUNNING, PAUSED, COMPLETED }
 
 // Shared column weight distribution — applied identically to header row and WorkoutSetRow
 private const val SET_COL_WEIGHT    = 0.08f
@@ -98,6 +97,8 @@ fun ActiveWorkoutScreen(
     val workoutState by viewModel.workoutState.collectAsState()
     val clocksTimerState by viewModel.clocksTimerState.collectAsState()
     val unitSystem by viewModel.unitSystem.collectAsState()
+    val rpeAutoPopTarget by viewModel.rpeAutoPopTarget.collectAsState()
+    val setupSeconds by viewModel.timedSetSetupSeconds.collectAsState()
     val supersetColorMap = remember(workoutState.exercises) {
         buildSupersetColorMap(workoutState.exercises.map { it.supersetGroupId })
     }
@@ -333,7 +334,11 @@ fun ActiveWorkoutScreen(
                         isEditMode = workoutState.isEditMode,
                         reorderableLazyListState = reorderableLazyListState,
                         unitSystem = unitSystem,
-                        supersetColorMap = supersetColorMap
+                        supersetColorMap = supersetColorMap,
+                        rpeAutoPopTarget = rpeAutoPopTarget,
+                        onConsumeRpeAutoPop = { viewModel.consumeRpeAutoPop() },
+                        setupSeconds = setupSeconds,
+                        onSetupCountdownTick = { viewModel.setupCountdownTickFeedback() }
                     )
                 }
             }
@@ -387,7 +392,11 @@ private fun LazyListScope.activeWorkoutListItems(
     isEditMode: Boolean = false,
     reorderableLazyListState: sh.calvin.reorderable.ReorderableLazyListState? = null,
     unitSystem: UnitSystem = UnitSystem.METRIC,
-    supersetColorMap: Map<String, Color> = emptyMap()
+    supersetColorMap: Map<String, Color> = emptyMap(),
+    rpeAutoPopTarget: String? = null,
+    onConsumeRpeAutoPop: () -> Unit = {},
+    setupSeconds: Int = 0,
+    onSetupCountdownTick: () -> Unit = {}
 ) {
     // Organize Mode CAB — persistent; user exits only via Done
     if (workoutState.isSupersetSelectMode) {
@@ -512,7 +521,11 @@ private fun LazyListScope.activeWorkoutListItems(
                     onTimerActiveClick = onTimerActiveClick,
                     onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
                     onTimerFinished = { viewModel.timerFinishedFeedback() },
-                    onTimerWarningTick = { viewModel.timerWarningTickFeedback() }
+                    onTimerWarningTick = { viewModel.timerWarningTickFeedback() },
+                    rpeAutoPopTarget = rpeAutoPopTarget,
+                    onConsumeRpeAutoPop = onConsumeRpeAutoPop,
+                    setupSeconds = setupSeconds,
+                    onSetupCountdownTick = onSetupCountdownTick
                 )
             }
         } else {
@@ -560,7 +573,11 @@ private fun LazyListScope.activeWorkoutListItems(
                 onTimerActiveClick = onTimerActiveClick,
                 onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
                 onTimerFinished = { viewModel.timerFinishedFeedback() },
-                onTimerWarningTick = { viewModel.timerWarningTickFeedback() }
+                onTimerWarningTick = { viewModel.timerWarningTickFeedback() },
+                rpeAutoPopTarget = rpeAutoPopTarget,
+                onConsumeRpeAutoPop = onConsumeRpeAutoPop,
+                setupSeconds = setupSeconds,
+                onSetupCountdownTick = onSetupCountdownTick
             )
         }
     }
@@ -661,7 +678,11 @@ private fun ExerciseCard(
     onToggleCollapsed: () -> Unit = {},
     dragHandleModifier: Modifier? = null,
     onTimerFinished: () -> Unit = {},
-    onTimerWarningTick: () -> Unit = {}
+    onTimerWarningTick: () -> Unit = {},
+    rpeAutoPopTarget: String? = null,
+    onConsumeRpeAutoPop: () -> Unit = {},
+    setupSeconds: Int = 0,
+    onSetupCountdownTick: () -> Unit = {}
 ) {
     var showSetupNotesEditor by remember { mutableStateOf(false) }
     var setupNotesText by remember { mutableStateOf(exerciseWithSets.exercise.setupNotes ?: "") }
@@ -824,6 +845,7 @@ private fun ExerciseCard(
                             val shouldShowSeparator = (isThisTimerActive || (isNotLastSet && effectiveRest > 0)) && !isSeparatorHidden
                             val nextIncompleteIdx = (index + 1 until exerciseWithSets.sets.size)
                                 .firstOrNull { !exerciseWithSets.sets[it].isCompleted }
+                            val shouldAutoPopRpe = rpeAutoPopTarget == "${exerciseId}_${set.setOrder}"
 
                             key(set.id) {
                                 SetWithRestRow(
@@ -853,7 +875,11 @@ private fun ExerciseCard(
                                     onRepsDone = { onCompleteSet(set.setOrder) },
                                     isEditMode = isEditMode,
                                     onTimerFinished = onTimerFinished,
-                                    onTimerWarningTick = onTimerWarningTick
+                                    onTimerWarningTick = onTimerWarningTick,
+                                    shouldAutoPopRpe = shouldAutoPopRpe,
+                                    onAutoPopRpeConsumed = onConsumeRpeAutoPop,
+                                    setupSeconds = setupSeconds,
+                                    onSetupCountdownTick = onSetupCountdownTick
                                 )
                             }
                             if (index < exerciseWithSets.sets.lastIndex) {
@@ -1031,7 +1057,11 @@ private fun SetWithRestRow(
     onRepsDone: () -> Unit = {},
     isEditMode: Boolean = false,
     onTimerFinished: () -> Unit = {},
-    onTimerWarningTick: () -> Unit = {}
+    onTimerWarningTick: () -> Unit = {},
+    shouldAutoPopRpe: Boolean = false,
+    onAutoPopRpeConsumed: () -> Unit = {},
+    setupSeconds: Int = 0,
+    onSetupCountdownTick: () -> Unit = {}
 ) {
     val setSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteSet(); true } else false })
     val restSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteRestSeparator(); true } else it == SwipeToDismissBoxValue.Settled })
@@ -1061,8 +1091,8 @@ private fun SetWithRestRow(
             else MaterialTheme.colorScheme.surface
             Box(modifier = Modifier.fillMaxWidth().background(rowBg)) {
                 when (exerciseType) {
-                    ExerciseType.CARDIO -> CardioSetRow(set, onUpdateCardioSet, onCompleteSet)
-                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged, onTimerFinished, onTimerWarningTick)
+                    ExerciseType.CARDIO -> CardioSetRow(set, onUpdateCardioSet, onCompleteSet, shouldAutoPopRpe, onAutoPopRpeConsumed)
+                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged, onTimerFinished, onTimerWarningTick, shouldAutoPopRpe, onAutoPopRpeConsumed, setupSeconds, onSetupCountdownTick)
                     else -> WorkoutSetRow(
                         set = set,
                         onWeightChanged = onWeightChanged,
@@ -1075,7 +1105,9 @@ private fun SetWithRestRow(
                         repsFocusRequester = repsFocusRequester,
                         nextWeightFocusRequester = nextWeightFocusRequester,
                         onRepsDone = onRepsDone,
-                        isEditMode = isEditMode
+                        isEditMode = isEditMode,
+                        shouldAutoPopRpe = shouldAutoPopRpe,
+                        onAutoPopRpeConsumed = onAutoPopRpeConsumed
                     )
                 }
             }
@@ -1255,13 +1287,14 @@ private fun UpdateRestTimersDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Rest after last set", style = MaterialTheme.typography.bodyMedium)
-                    val thumbColor = if (isSystemInDarkTheme()) Color.White else Color.Black
                     Switch(
                         checked = restAfterLastSetState,
                         onCheckedChange = { restAfterLastSetState = it },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = thumbColor,
-                            uncheckedThumbColor = thumbColor
+                            checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                 }
@@ -1523,7 +1556,9 @@ fun WorkoutSetRow(
     repsFocusRequester: FocusRequester? = null,
     nextWeightFocusRequester: FocusRequester? = null,
     onRepsDone: () -> Unit = {},
-    isEditMode: Boolean = false
+    isEditMode: Boolean = false,
+    shouldAutoPopRpe: Boolean = false,
+    onAutoPopRpeConsumed: () -> Unit = {}
 ) {
     val (setLabel, setColor) = when (set.setType) {
         SetType.NORMAL -> "${set.setOrder}" to MaterialTheme.colorScheme.onSurface
@@ -1534,6 +1569,12 @@ fun WorkoutSetRow(
     var showSetTypeMenu by remember { mutableStateOf(false) }
     var showSetTypeInfo by remember { mutableStateOf<SetType?>(null) }
     var showRpePicker by remember { mutableStateOf(false) }
+    LaunchedEffect(shouldAutoPopRpe) {
+        if (shouldAutoPopRpe && !isEditMode) {
+            showRpePicker = true
+            onAutoPopRpeConsumed()
+        }
+    }
     val isTouched = (set.weight.isNotBlank() || set.reps.isNotBlank()) && !set.isCompleted
     val primaryColor = MaterialTheme.colorScheme.primary
     val focusManager = LocalFocusManager.current
@@ -1736,11 +1777,31 @@ private fun TimedHeader() {
 fun CardioSetRow(
     set: ActiveSet,
     onUpdateSet: (String, String, String, Boolean) -> Unit,
-    onCompleteSet: () -> Unit
+    onCompleteSet: () -> Unit,
+    shouldAutoPopRpe: Boolean = false,
+    onAutoPopRpeConsumed: () -> Unit = {}
 ) {
     val dist = set.distance
     val time = set.timeSeconds
     val rpe = set.rpe
+    var showRpePicker by remember { mutableStateOf(false) }
+    LaunchedEffect(shouldAutoPopRpe) {
+        if (shouldAutoPopRpe) {
+            showRpePicker = true
+            onAutoPopRpeConsumed()
+        }
+    }
+    if (showRpePicker) {
+        RpePickerSheet(
+            currentRpe = set.rpeValue,
+            onUpdateRpe = { value ->
+                val rpeText = value?.let { "%.1f".format(it / 10.0) } ?: ""
+                onUpdateSet(dist, time, rpeText, set.isCompleted)
+                showRpePicker = false
+            },
+            onDismiss = { showRpePicker = false }
+        )
+    }
 
     val pace = remember(dist, time) {
         val d = dist.toDoubleOrNull() ?: 0.0
@@ -1810,11 +1871,16 @@ fun TimedSetRow(
     onCompleteSet: () -> Unit,
     onTimeChanged: (String) -> Unit = {},
     onTimerFinished: () -> Unit = {},
-    onTimerWarningTick: () -> Unit = {}
+    onTimerWarningTick: () -> Unit = {},
+    shouldAutoPopRpe: Boolean = false,
+    onAutoPopRpeConsumed: () -> Unit = {},
+    setupSeconds: Int = 0,
+    onSetupCountdownTick: () -> Unit = {}
 ) {
     val totalSeconds = set.timeSeconds.toIntOrNull() ?: 0
     var timerState by remember(set.id) { mutableStateOf(if (set.isCompleted) TimedSetState.COMPLETED else TimedSetState.IDLE) }
     var remainingSeconds by remember(set.id) { mutableIntStateOf(totalSeconds) }
+    var setupRemaining by remember(set.id) { mutableIntStateOf(setupSeconds) }
 
     // Sync remaining time when the target duration changes while IDLE
     LaunchedEffect(set.timeSeconds) {
@@ -1825,32 +1891,66 @@ fun TimedSetRow(
 
     // Handle external completion (e.g. user taps checkbox while timer is running)
     LaunchedEffect(set.isCompleted) {
-        if (set.isCompleted && timerState == TimedSetState.RUNNING) {
+        if (set.isCompleted && (timerState == TimedSetState.RUNNING || timerState == TimedSetState.SETUP)) {
             timerState = TimedSetState.COMPLETED
         }
     }
 
-    // Countdown loop — cancels automatically when timerState changes away from RUNNING
+    // Countdown loop — handles SETUP (get ready) then RUNNING; cancels on state change
     LaunchedEffect(timerState) {
-        if (timerState == TimedSetState.RUNNING) {
-            while (remainingSeconds > 0) {
-                delay(1000L)
-                remainingSeconds--
-                if (remainingSeconds in 1..3) {
-                    onTimerWarningTick()
+        when (timerState) {
+            TimedSetState.SETUP -> {
+                setupRemaining = setupSeconds
+                while (setupRemaining > 0) {
+                    onSetupCountdownTick()
+                    delay(1000L)
+                    setupRemaining--
+                }
+                if (timerState == TimedSetState.SETUP) {
+                    remainingSeconds = set.timeSeconds.toIntOrNull() ?: 0
+                    timerState = TimedSetState.RUNNING
                 }
             }
-            if (timerState == TimedSetState.RUNNING) {
-                timerState = TimedSetState.COMPLETED
-                onTimerFinished()
-                onCompleteSet()
+            TimedSetState.RUNNING -> {
+                while (remainingSeconds > 0) {
+                    delay(1000L)
+                    remainingSeconds--
+                    if (remainingSeconds in 1..3) {
+                        onTimerWarningTick()
+                    }
+                }
+                if (timerState == TimedSetState.RUNNING) {
+                    timerState = TimedSetState.COMPLETED
+                    onTimerFinished()
+                    onCompleteSet()
+                }
             }
+            else -> {}
         }
     }
 
     val weight = set.weight
     val time = set.timeSeconds
     val rpe = set.rpe
+
+    var showRpePicker by remember { mutableStateOf(false) }
+    LaunchedEffect(shouldAutoPopRpe) {
+        if (shouldAutoPopRpe) {
+            showRpePicker = true
+            onAutoPopRpeConsumed()
+        }
+    }
+    if (showRpePicker) {
+        RpePickerSheet(
+            currentRpe = set.rpeValue,
+            onUpdateRpe = { value ->
+                val rpeText = value?.let { "%.1f".format(it / 10.0) } ?: ""
+                onUpdateSet(time, rpeText, set.isCompleted)
+                showRpePicker = false
+            },
+            onDismiss = { showRpePicker = false }
+        )
+    }
 
     when (timerState) {
         TimedSetState.IDLE -> {
@@ -1888,8 +1988,12 @@ fun TimedSetRow(
                         .clickable {
                             val secs = time.toIntOrNull() ?: 0
                             if (secs > 0) {
-                                remainingSeconds = secs
-                                timerState = TimedSetState.RUNNING
+                                if (setupSeconds > 0) {
+                                    timerState = TimedSetState.SETUP
+                                } else {
+                                    remainingSeconds = secs
+                                    timerState = TimedSetState.RUNNING
+                                }
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -1906,6 +2010,57 @@ fun TimedSetRow(
                 ) {
                     Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
                 }
+            }
+        }
+
+        TimedSetState.SETUP -> {
+            val setupProgress = setupRemaining.toFloat() / setupSeconds.toFloat().coerceAtLeast(1f)
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
+                        Text(text = "${set.setOrder}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        text = "Get Ready",
+                        modifier = Modifier.weight(0.35f),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = SetupAmber,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "$setupRemaining",
+                        modifier = Modifier.weight(0.20f),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = SetupAmber,
+                        textAlign = TextAlign.Center
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(0.20f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 4.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                            .clickable {
+                                timerState = TimedSetState.IDLE
+                                remainingSeconds = set.timeSeconds.toIntOrNull() ?: 0
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.weight(0.15f))
+                }
+                LinearProgressIndicator(
+                    progress = { setupProgress },
+                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    color = SetupAmber,
+                    trackColor = SetupAmber.copy(alpha = 0.15f)
+                )
             }
         }
 

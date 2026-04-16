@@ -111,8 +111,10 @@ class FirestoreSyncManager @Inject constructor(
                 "themeMode"      to appSettingsDataStore.themeMode.first().name,
                 "unitSystem"     to appSettingsDataStore.unitSystem.first().name,
                 "dailyStepTarget" to appSettingsDataStore.dailyStepTarget.first(),
-                "keepScreenOn"   to appSettingsDataStore.keepScreenOn.first(),
-                "language"       to appSettingsDataStore.language.first()
+                "keepScreenOn"        to appSettingsDataStore.keepScreenOn.first(),
+                "useRpeAutoPop"       to appSettingsDataStore.useRpeAutoPop.first(),
+                "timedSetSetupSeconds" to appSettingsDataStore.timedSetSetupSeconds.first(),
+                "language"            to appSettingsDataStore.language.first()
             )
             userRef(uid).collection("appPreferences").document("data").set(map)
         }
@@ -149,8 +151,10 @@ class FirestoreSyncManager @Inject constructor(
                 "themeMode"       to appSettingsDataStore.themeMode.first().name,
                 "unitSystem"      to appSettingsDataStore.unitSystem.first().name,
                 "dailyStepTarget" to appSettingsDataStore.dailyStepTarget.first(),
-                "keepScreenOn"    to appSettingsDataStore.keepScreenOn.first(),
-                "language"        to appSettingsDataStore.language.first()
+                "keepScreenOn"         to appSettingsDataStore.keepScreenOn.first(),
+                "useRpeAutoPop"        to appSettingsDataStore.useRpeAutoPop.first(),
+                "timedSetSetupSeconds" to appSettingsDataStore.timedSetSetupSeconds.first(),
+                "language"             to appSettingsDataStore.language.first()
             )
             userRef(uid).collection("appPreferences").document("data").set(prefsMap).await()
             SyncResult(success = true, workoutsImported = workouts.size, routinesImported = routines.size, profileImported = true, settingsImported = true)
@@ -217,6 +221,8 @@ class FirestoreSyncManager @Inject constructor(
             }
             doc.getLong("dailyStepTarget")?.let { appSettingsDataStore.setDailyStepTarget(it.toInt()) }
             doc.getBoolean("keepScreenOn")?.let { appSettingsDataStore.setKeepScreenOn(it) }
+            doc.getBoolean("useRpeAutoPop")?.let { appSettingsDataStore.setUseRpeAutoPop(it) }
+            doc.getLong("timedSetSetupSeconds")?.let { appSettingsDataStore.setTimedSetSetupSeconds(it.toInt()) }
             doc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
             true
         } catch (e: Exception) {
@@ -293,6 +299,8 @@ class FirestoreSyncManager @Inject constructor(
                 }
                 appPrefsDoc.getLong("dailyStepTarget")?.let { appSettingsDataStore.setDailyStepTarget(it.toInt()) }
                 appPrefsDoc.getBoolean("keepScreenOn")?.let { appSettingsDataStore.setKeepScreenOn(it) }
+                appPrefsDoc.getBoolean("useRpeAutoPop")?.let { appSettingsDataStore.setUseRpeAutoPop(it) }
+                appPrefsDoc.getLong("timedSetSetupSeconds")?.let { appSettingsDataStore.setTimedSetSetupSeconds(it.toInt()) }
                 appPrefsDoc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
             }
 

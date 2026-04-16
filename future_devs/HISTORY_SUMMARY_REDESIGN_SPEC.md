@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Phase** | P2 (Step A — summary UI) · P4 (Step B — deep-link wiring) |
-| **Status** | `done` (Step A) · `blocked` (Step B — awaits Trends E1RMProgressionCard) |
+| **Status** | `done` (Step A) · `done` (Step B) |
 | **Effort** | L (Step A) · S (Step B) |
 | **Depends on** | Step B depends on Trends Step 3 (E1RMProgressionCard) |
 | **Roadmap** | `ROADMAP.md §P2` and `§P4` |
@@ -134,6 +134,15 @@ Once `E1RMProgressionCard` exists, wire the full deep-link:
 **Why this order:** The history summary is a high-value standalone improvement that should ship independently. Coupling it to Trends Step 3 delays both. Step A is shippable in days; Step B is a small wiring task that follows naturally once the chart card exists.
 
 This deep-link contract is also documented in `TRENDS_CHARTS_SPEC.md §3`.
+
+#### Step B — How to QA
+
+1. Complete a workout (or open any past workout from History).
+2. On the `WorkoutSummaryScreen`, tap **View Trend →** on any exercise card.
+3. **Verify:** The Trends screen opens and the `LazyColumn` auto-scrolls so the **STRENGTH PROGRESSION** card is in view.
+4. **Verify:** The exercise chip row inside the card auto-scrolls to and highlights the tapped exercise's chip.
+5. **Verify:** The E1RM chart loads data for that exercise (or shows the "Log at least 2 sessions" empty state if the exercise has fewer than 2 logged sessions).
+6. Navigate away to another tab, then return to Trends via the bottom nav — **verify** no unexpected auto-scroll occurs (the one-shot flag is consumed).
 
 ---
 

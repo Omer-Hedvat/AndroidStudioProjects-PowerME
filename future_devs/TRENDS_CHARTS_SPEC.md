@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Phase** | P4 (Steps 2–5) · P5 (Steps 6–8) |
-| **Status** | Steps 2–3 `done` · Steps 4–8 `not-started` |
+| **Status** | Steps 2–4 `done` · Steps 5–8 `not-started` |
 | **Effort** | M per step (Steps 2–5) · L (Steps 6, 8) · S (Step 7) |
 | **Depends on** | Step 7 depends on HC Extended Reads (calories). Step B deep-link depends on Step 3. |
 | **Roadmap** | `ROADMAP.md §P4` and `§P5` |
@@ -208,6 +208,23 @@ This map already exists in `VicoChartHelpers.muscleGroupColors`.
 - Secondary muscles get 50% credit — already applied in `TrendsDao.getWeeklyMuscleGroupVolume()` SQL
 - WARMUP sets already excluded in DAO query
 - Sort segments by volume descending so largest groups anchor the bottom
+
+### Implementation Notes (as built)
+
+- `VicoChartHelpers.muscleGroupOrder` (a fixed 8-element list) is the single source of truth for series order — both `TrendsViewModel.pushMuscleGroupToProducer()` and the composable's `ColumnProvider.series(...)` use this list to stay in sync
+- `TrendsViewModel` always pushes exactly 8 series (one per group), using 0.0 for absent groups — prevents Vico layer/producer mismatch when time range changes
+- `@OptIn(ExperimentalLayoutApi::class)` required for `FlowRow` legend row
+- Distribution row ("THIS WEEK") only shows groups with nonzero volume in the most recent week
+
+### How to QA
+
+1. Navigate to the Trends tab — the MUSCLE BALANCE card should appear below the STRENGTH PROGRESSION card
+2. **Stacked bars:** Verify bars appear for each week, stacked by muscle group with the correct colors
+3. **Legend:** Color dots with group names render below the chart (only groups with volume in the range)
+4. **Distribution row:** "THIS WEEK" section shows bars + percentages for the current week, summing to 100%
+5. **Empty state:** On a new account with no workouts, the overlay shows "Log at least 1 week of workouts to see muscle breakdown"
+6. **Time range chips:** Switching 1M/3M/6M/1Y reloads the chart data
+7. **Navigation:** Switching away and back to the Trends tab preserves chart state without crash
 
 ---
 

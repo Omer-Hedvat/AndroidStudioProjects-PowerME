@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
@@ -24,6 +25,7 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.ui.theme.SetupAmber
 import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.util.UnitConverter
 import java.time.Instant
@@ -287,7 +289,12 @@ fun SettingsScreen(
                         Switch(
                             checked = uiState.restTimerAudioEnabled,
                             onCheckedChange = { viewModel.toggleRestTimerAudio() },
-                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.surface, checkedTrackColor = MaterialTheme.colorScheme.primary)
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         )
                     }
                     Row(
@@ -299,8 +306,57 @@ fun SettingsScreen(
                         Switch(
                             checked = uiState.restTimerHapticsEnabled,
                             onCheckedChange = { viewModel.toggleRestTimerHaptics() },
-                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.surface, checkedTrackColor = MaterialTheme.colorScheme.primary)
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Get Ready countdown", color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                if (uiState.timedSetSetupSeconds == 0) "Off — timed sets start immediately"
+                                else "Timed sets wait ${uiState.timedSetSetupSeconds}s before starting",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = { viewModel.setTimedSetSetupSeconds(uiState.timedSetSetupSeconds - 1) },
+                                enabled = uiState.timedSetSetupSeconds > 0,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(
+                                text = if (uiState.timedSetSetupSeconds == 0) "Off" else "${uiState.timedSetSetupSeconds}s",
+                                color = if (uiState.timedSetSetupSeconds > 0) SetupAmber else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.widthIn(min = 32.dp),
+                                textAlign = TextAlign.Center
+                            )
+                            FilledTonalIconButton(
+                                onClick = { viewModel.setTimedSetSetupSeconds(uiState.timedSetSetupSeconds + 1) },
+                                enabled = uiState.timedSetSetupSeconds < 10,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }
@@ -320,7 +376,33 @@ fun SettingsScreen(
                         Switch(
                             checked = uiState.keepScreenOn,
                             onCheckedChange = { viewModel.toggleKeepScreenOn() },
-                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.surface, checkedTrackColor = MaterialTheme.colorScheme.primary)
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Use RPE", color = MaterialTheme.colorScheme.onSurface)
+                            Text("Automatically open the RPE picker after completing each set", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        }
+                        Switch(
+                            checked = uiState.useRpeAutoPop,
+                            onCheckedChange = { viewModel.toggleUseRpeAutoPop() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         )
                     }
                 }

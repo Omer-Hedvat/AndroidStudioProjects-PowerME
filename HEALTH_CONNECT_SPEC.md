@@ -423,3 +423,34 @@ Do **not** surface HC write errors in the post-workout UI. Users do not expect a
 4. Finish the same workout again from history (test dedup): the HC session should still show only once (clientRecordId prevents duplicates)
 5. Revoke the write permission and finish another workout — confirm the app does **not** crash and the post-workout summary still shows normally
 6. Test with HC not installed or unavailable — confirm graceful no-op
+
+---
+
+## §9 HC Workout Backfill
+
+**Implemented.** See `future_devs/HC_BACKFILL_SPEC.md` for full spec.
+
+### 9.1 Overview
+
+When the user grants the `WRITE_EXERCISE` Health Connect permission, PowerME performs a **one-time background push** of all completed workouts from the last 90 days. This gives HC a full training history from day one rather than only capturing sessions going forward.
+
+### 9.2 Trigger
+
+Fired from `SettingsViewModel.triggerBackfillIfNeeded()` in three call sites:
+- `onHealthConnectPermissionResult()` — direct-grant path
+- `onHealthConnectPermissionResult()` — re-query-grant path
+- `recheckHealthConnectPermissions()` — covers externally-granted permissions (via Android Settings)
+
+### 9.3 Dedup Guard
+
+`AppSettingsDataStore.hcWorkoutBackfillDone` (boolean, key `"hc_workout_backfill_done"`) is flipped to `true` **before** the backfill coroutine launches. This prevents a second pass on revoke + re-grant. HC-side `clientRecordId = workout.id` provides a second layer of dedup.
+
+### 9.4 Data Scope
+
+- `isCompleted = true`, `isArchived = false`, `timestamp >= now − 90 days`
+- Queried via `WorkoutDao.getCompletedWorkoutsSince(sinceMs)`, sorted ascending
+- Exercise types resolved via `WorkoutSetDao.getSetsWithExerciseForWorkout()` (same type-mapping logic as Phase B live path)
+
+### 9.5 Error Handling
+
+Fire-and-forget. HC not available → skip. Write permission not granted → skip each record. Single write fails → exception caught per-record, loop continues. Logcat tag: `PowerME_HC`.

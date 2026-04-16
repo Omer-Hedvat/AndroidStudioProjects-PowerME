@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Phase** | P2 (split + fitness level + RPE toggle) · P3 (health history) |
-| **Status** | `done` (§1 split + §2 health history + §3 fitness level); §4 RPE auto-pop `not-started` |
+| **Status** | `done` (§1 split + §2 health history + §3 fitness level + §4 RPE auto-pop) |
 | **Effort** | M (split) · S (fitness level) · S (RPE toggle) · L (health history) |
 | **Depends on** | §2 Health History depends on §1 Profile/Settings split |
 | **Roadmap** | `ROADMAP.md §P2` and `§P3` |
@@ -161,22 +161,32 @@ Requires Room migration increment.
 
 ---
 
-## 4. RPE Auto-Pop Setting
+## 4. RPE Auto-Pop Setting ✅ IMPLEMENTED
 
 ### What to Build
-A new toggle in **Settings → Workout** section:
+A new toggle in **Settings → Display & Workout** card:
 
 > **Use RPE**  
-> When enabled, the RPE keyboard pops up automatically after completing each set
+> Automatically open the RPE picker after completing each set
 
 ### Behaviour
 - **Toggle OFF (default):** current behaviour — RPE field is optional, no auto-focus
-- **Toggle ON:** immediately after `onCompleteSet()` fires, focus the RPE `TextField` for that set and open the keyboard. After RPE is entered (or user dismisses), dismiss the keyboard.
+- **Toggle ON:** immediately after `completeSet()` fires, the `RpePickerSheet` auto-opens for that set.
 
-### Implementation Notes
-- Store in `AppSettingsDataStore` as `useRpeAutoPop: Flow<Boolean>` (default `false`)
-- In `WorkoutSetRow` (and `CardioSetRow`, `TimedSetRow`): observe the setting; after set completion, conditionally call `rpeFocusRequester.requestFocus()`
-- Pair with a `SideEffect` or `LaunchedEffect(set.isCompleted)` guard so focus only requests once per completion event
+### Implementation (as built)
+- `AppSettingsDataStore.useRpeAutoPop: Flow<Boolean>` (key: `"use_rpe_auto_pop"`, default `false`)
+- `SettingsViewModel.toggleUseRpeAutoPop()` — flips state, writes datastore, calls `firestoreSyncManager.pushAppPreferences()`
+- `WorkoutViewModel` — `private var useRpeAutoPopEnabled` collected from datastore in `init`; `_rpeAutoPopTarget: MutableStateFlow<String?>` emits `"${exerciseId}_${setOrder}"` from `completeSet()` else branch when enabled. `consumeRpeAutoPop()` resets to null.
+- `ActiveWorkoutScreen` — collects `rpeAutoPopTarget`; threads `shouldAutoPopRpe` + `onConsumeRpeAutoPop` through `activeWorkoutListItems` → `ExerciseCard` → `SetWithRestRow` → `WorkoutSetRow`/`CardioSetRow`/`TimedSetRow`.
+- Each set row: `LaunchedEffect(shouldAutoPopRpe)` opens `showRpePicker = true` and calls `onAutoPopRpeConsumed()` when signal is true and not in edit mode.
+- Cloud-synced via `FirestoreSyncManager` (key `"useRpeAutoPop"`) in all 4 push/pull locations.
+
+### How to QA
+1. Go to Settings → Display & Workout → toggle **Use RPE** ON
+2. Start a workout, complete any standard set — verify `RpePickerSheet` opens automatically
+3. Pick an RPE value or dismiss; verify picker closes normally
+4. Toggle Use RPE OFF — complete another set; verify no auto-pop
+5. Toggle back ON, complete a set in edit mode — verify picker does NOT auto-open
 
 ---
 

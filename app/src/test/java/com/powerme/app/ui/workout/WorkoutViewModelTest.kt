@@ -135,6 +135,8 @@ class WorkoutViewModelTest {
         mockHealthConnectManager = mock()
         mockAppSettingsDataStore = mock()
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
+        whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(false))
+        whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
         mockContext = mock()
 
         // Non-suspend property stubs (used at ViewModel construction time)
@@ -959,6 +961,68 @@ class WorkoutViewModelTest {
 
         viewModel.cancelWorkout()
         runCurrent()
+    }
+
+    @Test
+    fun `finishWorkout cancels active rest timer`() = vmTest {
+        val exercise = Exercise(
+            id = 23L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell",
+            restDurationSeconds = 90
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        viewModel.addExercise(exercise)
+        viewModel.addSet(23L) // 2nd set so set 1 is not the last set
+        runCurrent()
+
+        viewModel.completeSet(23L, 1)
+        runCurrent()
+
+        assertTrue("Rest timer should be active after completing set", viewModel.workoutState.value.restTimer.isActive)
+
+        viewModel.finishWorkout()
+        runCurrent()
+
+        assertFalse("Rest timer should be cancelled after finishWorkout", viewModel.workoutState.value.restTimer.isActive)
+    }
+
+    @Test
+    fun `cancelWorkout cancels active rest timer`() = vmTest {
+        val exercise = Exercise(
+            id = 23L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell",
+            restDurationSeconds = 90
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        viewModel.addExercise(exercise)
+        viewModel.addSet(23L) // 2nd set so set 1 is not the last set
+        runCurrent()
+
+        viewModel.completeSet(23L, 1)
+        runCurrent()
+
+        assertTrue("Rest timer should be active after completing set", viewModel.workoutState.value.restTimer.isActive)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertFalse("Rest timer should be cancelled after cancelWorkout", viewModel.workoutState.value.restTimer.isActive)
     }
 
     @Test
@@ -2105,5 +2169,184 @@ class WorkoutViewModelTest {
         runCurrent()
 
         assertFalse("Timer with 0s exercise rest should not start even on non-last set", isActive)
+    }
+
+    // -------------------------------------------------------------------------
+    // RPE auto-pop signal tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `completeSet with rpeAutoPop enabled emits rpeAutoPopTarget`() = vmTest {
+        val exercise = Exercise(id = 80L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+        }
+
+        // Rebuild viewModel so the new stub takes effect in init
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            context = mockContext
+        )
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        assertNull("Signal should be null before completing a set", viewModel.rpeAutoPopTarget.value)
+
+        viewModel.completeSet(80L, 1)
+        runCurrent()
+
+        val target = viewModel.rpeAutoPopTarget.value
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertEquals("80_1", target)
+    }
+
+    @Test
+    fun `completeSet with rpeAutoPop disabled does not emit rpeAutoPopTarget`() = vmTest {
+        val exercise = Exercise(id = 81L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        viewModel.completeSet(81L, 1)
+        runCurrent()
+
+        val target = viewModel.rpeAutoPopTarget.value
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertNull("Signal should remain null when useRpeAutoPop is false", target)
+    }
+
+    @Test
+    fun `uncompleting a set does not emit rpeAutoPopTarget even when rpeAutoPop enabled`() = vmTest {
+        val exercise = Exercise(id = 82L, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+        }
+
+        // Rebuild viewModel so the new stub takes effect in init
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            context = mockContext
+        )
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        // Complete then immediately consume, then uncomplete
+        viewModel.completeSet(82L, 1)
+        runCurrent()
+        viewModel.consumeRpeAutoPop()
+
+        viewModel.completeSet(82L, 1) // un-complete
+        runCurrent()
+
+        val target = viewModel.rpeAutoPopTarget.value
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertNull("Un-completing a set should not emit RPE auto-pop signal", target)
+    }
+
+    @Test
+    fun `consumeRpeAutoPop resets rpeAutoPopTarget to null`() = vmTest {
+        val exercise = Exercise(id = 83L, name = "OHP", muscleGroup = "Shoulders", equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+        }
+
+        // Rebuild viewModel so the new stub takes effect in init
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            context = mockContext
+        )
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        viewModel.completeSet(83L, 1)
+        runCurrent()
+        assertNotNull("Signal should be set after completing set", viewModel.rpeAutoPopTarget.value)
+
+        viewModel.consumeRpeAutoPop()
+
+        val target = viewModel.rpeAutoPopTarget.value
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertNull("consumeRpeAutoPop() should reset signal to null", target)
     }
 }

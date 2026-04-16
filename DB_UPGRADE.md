@@ -1,5 +1,22 @@
 # PowerME Database Upgrade Log
 
+## v42 — History Query Performance Indexes
+
+**Migration:** `MIGRATION_41_42`
+
+### Changes
+
+- **Table:** `workout_sets`
+  - New index: `(workoutId, exerciseId)` — covers `SELECT DISTINCT workoutId, exerciseId` subquery in History listing query
+  - New index: `(workoutId, isCompleted, setType)` — covering index for set count `GROUP BY` aggregation
+- **Table:** `workouts`
+  - New index: `(isCompleted, isArchived, timestamp)` — covers `WHERE isCompleted=1 AND isArchived=0 ORDER BY timestamp DESC` in History listing and PR detection queries
+
+### Query Changes
+- `WorkoutDao.getAllCompletedWorkoutsWithExerciseNames()` — replaced per-row correlated subquery for `setCount` with a pre-aggregated CTE `set_counts` (computed once via `GROUP BY workoutId` instead of once per result row)
+
+---
+
 ## v41 — Session Rating on Workouts
 
 **Migration:** `MIGRATION_40_41`

@@ -39,6 +39,9 @@ object VicoChartHelpers {
 
     // ── Muscle group chart palette (fixed, not from theme) ──────────────────
 
+    /** Fixed series order — must match the push order in TrendsViewModel.pushMuscleGroupToProducer(). */
+    val muscleGroupOrder = listOf("Legs", "Back", "Chest", "Shoulders", "Arms", "Core", "Full Body", "Cardio")
+
     val muscleGroupColors = mapOf(
         "Legs" to Color(0xFF7B68EE),       // Medium slate blue
         "Back" to Color(0xFF4CC990),        // TimerGreen

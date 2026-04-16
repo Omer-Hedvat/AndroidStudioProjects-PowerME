@@ -575,6 +575,15 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_41_42 = object : Migration(41, 42) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Composite indexes for History tab query performance
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workout_sets_workoutId_exerciseId ON workout_sets(workoutId, exerciseId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workout_sets_workoutId_isCompleted_setType ON workout_sets(workoutId, isCompleted, setType)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workouts_isCompleted_isArchived_timestamp ON workouts(isCompleted, isArchived, timestamp)")
+        }
+    }
+
     private val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix index name mismatch on exercise_muscle_groups:
@@ -930,7 +939,8 @@ object DatabaseModule {
                 MIGRATION_37_38,
                 MIGRATION_38_39,
                 MIGRATION_39_40,
-                MIGRATION_40_41
+                MIGRATION_40_41,
+                MIGRATION_41_42
             )
             .fallbackToDestructiveMigration()
             .addCallback(object : androidx.room.RoomDatabase.Callback() {

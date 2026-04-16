@@ -19,8 +19,8 @@ The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` compos
 | 1 | Appearance | Theme mode |
 | 2 | Units | Metric / Imperial |
 | 3 | Health Connect | HC permissions + sync |
-| 4 | Rest Timer | Audio / haptics toggles |
-| 5 | Display & Workout | Keep screen on |
+| 4 | Rest Timer | Audio / haptics toggles + Get Ready countdown (0–10s) |
+| 5 | Display & Workout | Keep screen on, Use RPE (auto-pop picker) |
 | 6 | Data Export | Export DB to JSON |
 | 7 | Cloud Sync | Restore from Firestore |
 | 8 | Privacy | Delete account |
@@ -56,9 +56,13 @@ The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` compos
 
 Two `Switch` rows: "Audio" and "Haptics". Changes persisted to `userSettingsDao.updateRestTimerAudio/Haptics()`.
 
+**Get Ready countdown** stepper row: label "Get Ready countdown" + `[-] [N] [+]` buttons (range 0–10s). Shows "Off" + grey text when 0; shows amber `Ns` value and subtitle "Timed sets wait Ns before starting" otherwise. Calls `viewModel.setTimedSetSetupSeconds()` → `AppSettingsDataStore.setTimedSetSetupSeconds()` → syncs via `FirestoreSyncManager.pushAppPreferences()`. Default 3s. Controls the `SETUP` state in `TimedSetRow` (see WORKOUT_SPEC.md §4.8).
+
 ### 2.5 Display & Workout
 
 "Keep screen on" `Switch` → `viewModel.toggleKeepScreenOn()` → `AppSettingsDataStore.setKeepScreenOn()`.
+
+"Use RPE" `Switch` → `viewModel.toggleUseRpeAutoPop()` → `AppSettingsDataStore.setUseRpeAutoPop()`. When enabled, `WorkoutViewModel` emits a one-shot `rpeAutoPopTarget` signal after each set completion, which `ActiveWorkoutScreen` consumes to auto-open `RpePickerSheet` for that set.
 
 ### 2.6 Data Export
 
@@ -86,6 +90,7 @@ If not signed in: informational text. If signed in: "Restore from Cloud" button 
 | `themeMode` | `ThemeMode` | Current theme selection |
 | `unitSystem` | `UnitSystem` | Current unit system |
 | `keepScreenOn` | `Boolean` | Workout display lock |
+| `useRpeAutoPop` | `Boolean` | Auto-open RPE picker after set completion |
 
 **Note:** Personal Info and Body Metrics state have been moved to `ProfileUiState` in `ProfileViewModel`. See `ui/profile/ProfileViewModel.kt`.
 

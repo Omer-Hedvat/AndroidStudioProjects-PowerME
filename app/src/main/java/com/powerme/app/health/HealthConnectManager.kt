@@ -21,6 +21,8 @@ import com.powerme.app.data.database.HealthConnectSync
 import com.powerme.app.data.database.HealthConnectSyncDao
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.database.Workout
+import com.powerme.app.data.database.WorkoutDao
+import com.powerme.app.data.database.WorkoutSetDao
 import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.ui.workout.ExerciseWithSets
 import com.powerme.app.util.UserSessionManager
@@ -277,12 +279,68 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
-    private fun deriveHcExerciseType(exercises: List<ExerciseWithSets>): Int {
-        val types = exercises.map { it.exercise.exerciseType }
-        return when {
-            types.all { it == ExerciseType.STRETCH } -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
-            types.any { it == ExerciseType.CARDIO }  -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
-            else                                      -> ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING
+    private fun deriveHcExerciseType(exercises: List<ExerciseWithSets>): Int =
+        deriveHcExerciseTypeFromEnums(exercises.map { it.exercise.exerciseType })
+
+    private fun deriveHcExerciseTypeFromEnums(exerciseTypes: List<ExerciseType>): Int = when {
+        exerciseTypes.all { it == ExerciseType.STRETCH } -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
+        exerciseTypes.any { it == ExerciseType.CARDIO }  -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+        else                                              -> ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING
+    }
+
+    /**
+     * Writes a completed workout as an [ExerciseSessionRecord] to Health Connect.
+     * Backfill path — accepts exercise types directly (resolved from WorkoutSetWithExercise).
+     * Fire-and-forget: failures are logged but never surfaced to the user.
+     * Uses [Workout.id] as [clientRecordId] to prevent duplicate writes on retry.
+     */
+    private suspend fun writeWorkoutSessionByType(workout: Workout, exerciseTypes: List<ExerciseType>) {
+        if (!isAvailable()) return
+        if (workout.startTimeMs == 0L || workout.endTimeMs == 0L) return
+        try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val granted = client.permissionController.getGrantedPermissions()
+            if (HealthPermission.getWritePermission(ExerciseSessionRecord::class) !in granted) return
+
+            val startInstant = Instant.ofEpochMilli(workout.startTimeMs)
+            val endInstant   = Instant.ofEpochMilli(workout.endTimeMs)
+            val zoneRules    = ZoneId.systemDefault().rules
+
+            val record = ExerciseSessionRecord(
+                startTime       = startInstant,
+                endTime         = endInstant,
+                startZoneOffset = zoneRules.getOffset(startInstant),
+                endZoneOffset   = zoneRules.getOffset(endInstant),
+                exerciseType    = deriveHcExerciseTypeFromEnums(exerciseTypes),
+                title           = workout.routineName,
+                notes           = workout.notes,
+                metadata        = Metadata.manualEntry(workout.id)
+            )
+            client.insertRecords(listOf(record))
+        } catch (e: Exception) {
+            android.util.Log.w("PowerME_HC", "writeWorkoutSession (backfill) failed for ${workout.id}", e)
+        }
+    }
+
+    /**
+     * One-time background push of all completed workouts from the last [daysBack] days to Health Connect.
+     * Each workout is written individually so a single failure does not abort the loop.
+     * [clientRecordId] = [Workout.id] guarantees HC upserts on repeated push (no duplicates).
+     */
+    suspend fun backfillWorkoutSessions(
+        workoutDao: WorkoutDao,
+        workoutSetDao: WorkoutSetDao,
+        daysBack: Int = 90
+    ) {
+        if (!isAvailable()) return
+        val sinceMs = System.currentTimeMillis() - daysBack.toLong() * 24 * 60 * 60 * 1000
+        val workouts = workoutDao.getCompletedWorkoutsSince(sinceMs)
+        for (workout in workouts) {
+            val exerciseTypes = workoutSetDao
+                .getSetsWithExerciseForWorkout(workout.id)
+                .map { it.exerciseType }
+                .distinct()
+            writeWorkoutSessionByType(workout, exerciseTypes)
         }
     }
 }

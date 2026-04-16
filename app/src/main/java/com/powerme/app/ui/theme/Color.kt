@@ -22,6 +22,7 @@ val ProOutlineSoft = Color(0xFF2E2E2E)   // Softer variant for outlineVariant sl
 val TimerGreen  = Color(0xFF4CC990)   // Desaturated emerald — finish workout, completed checkmarks
 val TimerRed    = Color(0xFFE04458)   // Desaturated red — rest state indicator
 val NeonPurple  = Color(0xFFBB86FC)   // Bright neon purple — active rest timer accent
+val SetupAmber  = Color(0xFFFFB74D)   // Warm amber — Get Ready countdown (same hue as ReadinessAmber)
 
 // ── Semantic color for Form Cues banner ───────────────────────────────────────
 val FormCuesGold = Color(0xFF5A4D1A)   // Muted gold — not representable by M3 token

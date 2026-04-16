@@ -27,6 +27,10 @@ This spec covers the five additional Health Connect record types not yet read in
 | `Vo2MaxRecord` | Aerobic fitness level — written by wearables | Medium |
 | `DistanceRecord` | Daily distance walked / run | Low |
 | `OxygenSaturationRecord` | Peripheral O₂ saturation (SpO₂) — recovery signal | Low |
+| `RespiratoryRateRecord` | Breathing rate during sleep — early illness / overtraining signal | Medium |
+| `SleepSessionRecord` stages | Deep / REM / light / awake breakdown — already read, stages not yet extracted | High |
+
+> **Note on sleep stages:** `SleepSessionRecord` is already read in Phase A (live), but only total duration is extracted. Extracting stages requires no new permission — it is an enhancement to the existing read, implemented in this phase.
 
 ---
 
@@ -54,6 +58,14 @@ All five are **optional** — identical to how `READ_BASAL_METABOLIC_RATE` / `RE
 - **Not** added to `CORE_PERMISSIONS` — their absence does not prevent `AVAILABLE_GRANTED` state.
 - Corresponding tiles show `"--"` when denied or no data available. No state machine change.
 
+Add to `AndroidManifest.xml` `<uses-permission>` block:
+
+```xml
+<uses-permission android:name="android.permission.health.READ_RESPIRATORY_RATE" />
+```
+
+Add the corresponding string entry to `health_permissions.xml`.
+
 ### Updated permission sets in `HealthConnectManager`
 
 ```kotlin
@@ -68,7 +80,7 @@ val ALL_PERMISSIONS: Set<String> = CORE_PERMISSIONS + setOf(
     READ_BASAL_METABOLIC_RATE, READ_BONE_MASS, READ_LEAN_BODY_MASS,
     // new optional
     READ_HEART_RATE, READ_ACTIVE_CALORIES_BURNED, READ_VO2_MAX,
-    READ_DISTANCE, READ_OXYGEN_SATURATION
+    READ_DISTANCE, READ_OXYGEN_SATURATION, READ_RESPIRATORY_RATE
 )
 ```
 
@@ -175,6 +187,59 @@ When Phase B lands, `HeartRateRecord` queries can be scoped to a specific `Exerc
 
 ---
 
+### 3.6 RespiratoryRateRecord
+
+| Field | Details |
+|---|---|
+| **What it contains** | Average breathing rate (breaths per minute) over a time interval — typically overnight sleep. Written by Garmin, Samsung Galaxy Watch, Oura Ring via Health Connect. |
+| **Read method** | `getSleepRespiratoryRate(): Double?` — average of all `RespiratoryRateRecord` samples falling within the latest sleep session's time window. |
+| **Query window** | Same time range as the latest `SleepSessionRecord` (overnight). Falls back to last 24h if no sleep session found. |
+| **Return type** | `Double?` (breaths/min). Null if not granted or no data. |
+| **Normal range** | 12–20 bpm at rest. Elevated rate (>20) during sleep is an early signal of illness, overtraining, or autonomic disruption. |
+| **Stored in** | `HealthConnectSync.sleepRespiratoryRate: Double?` |
+| **Anomaly flag** | Add `elevatedRespiratoryRateFlag: Boolean` — set `true` when `sleepRespiratoryRate != null && sleepRespiratoryRate > 20`. Used by ReadinessEngine. |
+| **UI position** | Not shown in Body & Vitals card directly (too clinical). Feeds ReadinessEngine and future AI trainer. |
+
+---
+
+### 3.7 Sleep Stage Extraction (Enhancement to Existing Read)
+
+`SleepSessionRecord` is already read in Phase A. Currently only `duration` (endTime - startTime) is extracted. This phase extracts `stages` from the same record — no new permission required.
+
+| Stage type | HC constant | Meaning |
+|---|---|---|
+| AWAKE | `STAGE_TYPE_AWAKE` | Periods of wakefulness during sleep |
+| LIGHT | `STAGE_TYPE_SLEEPING_LIGHT` | Light NREM sleep |
+| DEEP | `STAGE_TYPE_SLEEPING_DEEP` | Deep NREM / slow-wave sleep — primary physical recovery |
+| REM | `STAGE_TYPE_SLEEPING_REM` | REM sleep — cognitive recovery, memory consolidation |
+| OUT_OF_BED | `STAGE_TYPE_OUT_OF_BED` | Out of bed during the session |
+
+**Read logic:** Iterate `SleepSessionRecord.stages`, sum minutes by type. If `stages` is empty (wearable doesn't provide staging), all stage fields remain null — duration-only behaviour is preserved.
+
+**New computed values stored in `HealthConnectSync`:**
+
+| Column | Type | Formula / Notes |
+|---|---|---|
+| `deepSleepMinutes` | `Int?` | Sum of SLEEPING_DEEP stage durations |
+| `remSleepMinutes` | `Int?` | Sum of SLEEPING_REM stage durations |
+| `lightSleepMinutes` | `Int?` | Sum of SLEEPING_LIGHT stage durations |
+| `awakeMinutes` | `Int?` | Sum of AWAKE stage durations |
+| `sleepEfficiency` | `Float?` | `(totalMinutes - awakeMinutes) / totalMinutes` — null if awakeMinutes null |
+| `sleepScore` | `Int?` | Computed 0–100: `0.35 * durationScore + 0.30 * deepPctScore + 0.20 * remPctScore + 0.15 * efficiencyScore`. Each sub-score is 0–100 based on target ranges. Null if any component is null. |
+
+**Sleep score target ranges (for sub-score normalisation):**
+
+| Component | Target / Optimal | Scoring |
+|---|---|---|
+| Duration | 7–9h = 100, <6h or >10h = 0, linear interpolation | |
+| Deep % | 15–25% of total = 100, <10% = 0, linear | |
+| REM % | 20–25% of total = 100, <15% = 0, linear | |
+| Efficiency | ≥95% = 100, <80% = 0, linear | |
+
+**Wearable coverage:** Garmin, Samsung Galaxy Watch, Oura, Google Pixel Watch, Fitbit all provide sleep stages via Health Connect. Devices without staging (most budget trackers, phones) produce empty `stages` — the existing duration path covers them.
+
+---
+
 ## 4. Database Changes
 
 ### 4.1 `HealthConnectSync` entity
@@ -195,6 +260,16 @@ val vo2MaxMlKgMin: Double? = null,
 val distanceMetres: Double? = null,
 val spo2Percent: Double? = null,
 val lowSpO2Flag: Boolean = false,
+// Sleep stages (§3.7)
+val deepSleepMinutes: Int? = null,
+val remSleepMinutes: Int? = null,
+val lightSleepMinutes: Int? = null,
+val awakeMinutes: Int? = null,
+val sleepEfficiency: Float? = null,
+val sleepScore: Int? = null,
+// Respiratory rate (§3.6)
+val sleepRespiratoryRate: Double? = null,
+val elevatedRespiratoryRateFlag: Boolean = false,
 ```
 
 ### 4.2 `MetricType` enum
@@ -227,6 +302,14 @@ ALTER TABLE health_connect_sync ADD COLUMN vo2MaxMlKgMin REAL DEFAULT NULL;
 ALTER TABLE health_connect_sync ADD COLUMN distanceMetres REAL DEFAULT NULL;
 ALTER TABLE health_connect_sync ADD COLUMN spo2Percent REAL DEFAULT NULL;
 ALTER TABLE health_connect_sync ADD COLUMN lowSpO2Flag INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE health_connect_sync ADD COLUMN deepSleepMinutes INTEGER DEFAULT NULL;
+ALTER TABLE health_connect_sync ADD COLUMN remSleepMinutes INTEGER DEFAULT NULL;
+ALTER TABLE health_connect_sync ADD COLUMN lightSleepMinutes INTEGER DEFAULT NULL;
+ALTER TABLE health_connect_sync ADD COLUMN awakeMinutes INTEGER DEFAULT NULL;
+ALTER TABLE health_connect_sync ADD COLUMN sleepEfficiency REAL DEFAULT NULL;
+ALTER TABLE health_connect_sync ADD COLUMN sleepScore INTEGER DEFAULT NULL;
+ALTER TABLE health_connect_sync ADD COLUMN sleepRespiratoryRate REAL DEFAULT NULL;
+ALTER TABLE health_connect_sync ADD COLUMN elevatedRespiratoryRateFlag INTEGER NOT NULL DEFAULT 0;
 ```
 
 ---
@@ -276,19 +359,34 @@ data class HrZoneDistribution(
 
 ## 6. Readiness Engine Integration
 
-`ReadinessEngine` currently weights: HRV (0.45), Sleep (0.35), RHR (0.20 negated).
+`ReadinessEngine` currently weights: HRV (0.45), Sleep duration (0.35), RHR (0.20 negated).
 
-When VO₂ Max and SpO₂ are available, two optional boosts are applied **after** the base score is computed — they do not alter existing weights (preserves backward compatibility with tests):
+**Phase A upgrade — incorporate sleep stages and respiratory rate into the base formula:**
+
+When sleep stage data is available, replace the raw sleep duration component with the richer `sleepScore` (§3.7). When `sleepScore` is null (no staging available), fall back to the existing duration z-score. This preserves behaviour for users without staging-capable wearables.
+
+| Signal | Weight | Notes |
+|---|---|---|
+| HRV RMSSD (z-score) | 0.40 | Reduced from 0.45 to make room for new signals |
+| Sleep (sleepScore or duration z-score) | 0.30 | Reduced from 0.35; sleepScore preferred over raw duration |
+| RHR (z-score, negated) | 0.15 | Reduced from 0.20 |
+| Deep sleep minutes (z-score) | 0.10 | New — only when `deepSleepMinutes != null` |
+| Respiratory rate (inverted z-score) | 0.05 | New — only when `sleepRespiratoryRate != null` |
+
+When any new optional signal is null, its weight is redistributed proportionally among the remaining signals (same sum = 1.0). This means the engine degrades gracefully — users without wearables get the original 3-signal readiness, and no existing test breaks.
+
+**Phase B additions — applied after base score as caps/bonuses:**
 
 | Signal | Effect |
 |---|---|
-| `spo2Percent < 92` | Cap readiness score at 40 (severe recovery signal) |
+| `spo2Percent < 92` | Cap readiness at 40 (severe recovery signal) |
+| `elevatedRespiratoryRateFlag == true` | −10 point penalty (illness / overtraining indicator) |
 | `vo2MaxMlKgMin` trending up (+2 over 30d) | +3 point bonus (aerobic improvement) |
 | `vo2MaxMlKgMin` trending down (−3 over 30d) | −2 point penalty (detraining signal) |
 
-These adjustments are additive and clamped to [0, 100] by the existing engine.
+All adjustments clamped to [0, 100].
 
-No changes to `ReadinessEngineTest` existing tests — new behaviour is additive and only triggers when the new optional fields are non-null.
+**Test strategy:** Existing `ReadinessEngineTest` tests pass nulls for the new fields — behaviour is identical to current. New tests cover: sleep score substitution, deep sleep contribution, respiratory rate penalty, SpO₂ cap.
 
 ---
 
@@ -298,14 +396,14 @@ No changes to `ReadinessEngineTest` existing tests — new behaviour is additive
 
 | File | Change |
 |---|---|
-| `health/HealthConnectManager.kt` | Add 5 new read methods; extend `readAllData()` to call them concurrently; update `HealthConnectReadResult` data class |
-| `data/database/HealthConnectSync.kt` | Add 12 new nullable columns |
+| `health/HealthConnectManager.kt` | Add 7 new read methods (sleep stages, respiratory rate + 5 original); extend `readAllData()` concurrently; update `HealthConnectReadResult` |
+| `data/database/HealthConnectSync.kt` | Add 22 new nullable columns (12 original + 8 sleep stages + 2 respiratory rate) |
 | `data/database/PowerMEDatabase.kt` | Bump version, add migration |
-| `data/repository/HealthConnectSyncDao.kt` | No query changes needed — all new fields auto-selected via `SELECT *` |
+| `data/repository/HealthConnectSyncDao.kt` | No query changes — all new fields auto-selected via `SELECT *` |
 | `ui/metrics/BodyVitalsCard.kt` | Render Rows 5–6 conditionally |
 | `ui/metrics/MetricsViewModel.kt` | Map new `HealthConnectReadResult` fields → `BodyVitalsState` |
-| `analytics/ReadinessEngine.kt` | Add optional SpO₂ cap + VO₂ Max delta adjustments |
-| `analytics/ReadinessEngineTest.kt` | Add tests for SpO₂ cap and VO₂ Max trend adjustments |
+| `analytics/ReadinessEngine.kt` | Updated weight formula (sleep stages + respiratory rate); SpO₂ cap + VO₂ Max delta adjustments |
+| `analytics/ReadinessEngineTest.kt` | New tests for sleep score substitution, deep sleep contribution, respiratory rate penalty, SpO₂ cap |
 | `data/AppSettingsDataStore.kt` | No changes |
 
 ### New Files
@@ -313,15 +411,18 @@ No changes to `ReadinessEngineTest` existing tests — new behaviour is additive
 | File | Purpose |
 |---|---|
 | `health/HrZoneCalculator.kt` | Stateless object — `maxHr(age)`, `zoneForBpm(bpm, maxHr)`, `aggregateZones(samples, maxHr): HrZoneDistribution` |
+| `health/SleepStageCalculator.kt` | Stateless object — `extractStages(record: SleepSessionRecord): SleepStageBreakdown`, `computeSleepScore(breakdown): Int?` |
 
 ---
 
 ## 8. Implementation Order (by priority)
 
-1. **HeartRateRecord + ActiveCaloriesBurnedRecord** — Medium priority. Implement together; both use today-window queries. Adds most visible value (calories is a frequently-requested metric).
-2. **Vo2MaxRecord** — Medium priority. Simple latest-record read. High signal value for aerobic fitness tracking in Trends.
-3. **DistanceRecord** — Low priority. Trivial read; pairs with existing Steps cell. Implement after VO₂ Max.
-4. **OxygenSaturationRecord** — Low priority. Wearable coverage is limited. Implement last; ensure graceful `"--"` degradation dominates the UX.
+1. **Sleep stage extraction** — High priority. No new permission needed. Biggest free quality improvement to the ReadinessEngine and most impactful for the AI trainer. Implement first.
+2. **RespiratoryRateRecord** — Medium-high priority. One new permission, simple overnight average read. Pairs with sleep stages to complete the recovery picture. Implement second.
+3. **HeartRateRecord + ActiveCaloriesBurnedRecord** — Medium priority. Implement together; both use today-window queries. Most visible user-facing value (calories, HR zones).
+4. **Vo2MaxRecord** — Medium priority. Simple latest-record read. High signal for aerobic fitness trending.
+5. **DistanceRecord** — Low priority. Trivial read; pairs with Steps cell.
+6. **OxygenSaturationRecord** — Low priority. Wearable coverage limited. Implement last.
 
 ---
 

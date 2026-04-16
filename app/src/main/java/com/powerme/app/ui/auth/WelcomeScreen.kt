@@ -25,6 +25,7 @@ import com.powerme.app.ui.theme.PowerMeDefaults
 fun WelcomeScreen(
     onSignedIn: () -> Unit,
     onNeedsProfile: () -> Unit,
+    onNeedsHcOffer: () -> Unit,
     onForgotPassword: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
@@ -40,6 +41,9 @@ fun WelcomeScreen(
     }
     LaunchedEffect(uiState.needsProfileSetup) {
         if (uiState.needsProfileSetup) onNeedsProfile()
+    }
+    LaunchedEffect(uiState.needsHcOffer) {
+        if (uiState.needsHcOffer) onNeedsHcOffer()
     }
     LaunchedEffect(uiState.pendingLinkEmail) {
         if (uiState.pendingLinkEmail == null) linkPassword = ""
@@ -60,12 +64,6 @@ fun WelcomeScreen(
                     .padding(bottom = 8.dp),
                 contentScale = ContentScale.Fit
             )
-            Text(
-                text = "הוועדה — 8 יועצים מומחים",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-            )
-
             Spacer(modifier = Modifier.height(32.dp))
 
             if (uiState.pendingLinkEmail != null) {

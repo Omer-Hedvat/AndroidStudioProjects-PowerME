@@ -8,7 +8,7 @@
 - Language: Kotlin 2.0.21
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
-- Database: Room (v41, 17 entities, 18 DAOs)
+- Database: Room (v42, 17 entities, 18 DAOs)
 - Auth/Backend: Firebase Auth (email/password + Google Sign-In via Credential Manager) + Firestore
 - Health: Health Connect API
 - Charts: Vico (Material 3)
@@ -41,7 +41,8 @@
 - **Health History ledger** in ProfileScreen — injuries/surgeries/conditions with severity tiers; add/edit via `ModalBottomSheet`; auto-rebuilds `MedicalLedger` red/yellow lists on save. `HealthHistoryEntry` entity in `health_history_entries` table (v40).
 - Performance metrics, trends, and charts
 - State history auditing trail
-- DataStore preferences (plates config, timers, language, keepScreenOn, dailyStepTarget)
+- DataStore preferences (plates config, timers, language, keepScreenOn, dailyStepTarget, useRpeAutoPop, timedSetSetupSeconds)
+- **RPE auto-pop setting** — "Use RPE" toggle in Settings → Display & Workout card; persisted to `AppSettingsDataStore.useRpeAutoPop` (key `"use_rpe_auto_pop"`, default `false`); when ON, RPE picker auto-opens after each completed set in `WorkoutViewModel`. "Get Ready countdown" stepper (0–10s) also added (`timedSetSetupSeconds`, default 3s). See `PROFILE_SETTINGS_REDESIGN_SPEC.md §4`.
 - **Trends tab** — `ReadinessEngine` (z-score, HRV 0.45/Sleep 0.35/RHR 0.20), `TrendsDao` (6 aggregate queries), `TrendsRepository`, `TrendsViewModel` (11 StateFlows), `VicoChartHelpers`. See TRENDS_SPEC.md.
 - **ReadinessGaugeCard** — Custom Canvas arc (240° sweep gradient), needle dot, NoData/Calibrating/Score states. See TRENDS_SPEC.md.
 - **VolumeTrendCard** — Weekly volume bar chart (Vico `ColumnCartesianLayer`, ProViolet) + 4-week MA line overlay (TimerGreen), time range FilterChip row. `ui/metrics/charts/VolumeTrendCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 2`.
@@ -53,10 +54,11 @@
 - **Firestore cloud sync**: push on finish/save/archive; LWW pull; settings + app preferences sync; "Back Up Now" + auto-restore on foreground. See SETTINGS_SPEC.md.
 - **WorkoutSummaryScreen** — unified post-workout + history detail view. Hero header (date/duration/volume/sets/PRs), 5-star session rating, per-exercise cards (best set, e1RM, volume delta, avg RPE, golden zone badge, PR badge, View Trend button), muscle group distribution bars, notes field. Route: `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}`. See `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md`.
 - **Health Connect Phase B (write)** — completed workouts pushed to HC as `ExerciseSessionRecord` on `finishWorkout()`. `WRITE_EXERCISE` + `READ_EXERCISE` permissions requested in Connect flow (best-effort; denied write never blocks "Connected" state). `CORE_PERMISSIONS` (7 reads) gates Connected UI; `ALL_PERMISSIONS` = CORE + exercise read/write (launcher only). `deriveHcExerciseType()` maps exercise composition → WEIGHTLIFTING / OTHER_WORKOUT / YOGA. `clientRecordId = workout.id` prevents duplicate writes. See `HEALTH_CONNECT_SPEC.md §8`.
+- **HC Workout Backfill** — one-time silent background push of completed workouts from the last 90 days when `WRITE_EXERCISE` is granted. Triggered from `SettingsViewModel.triggerBackfillIfNeeded()` (called from all 3 grant paths). Guard flag `hcWorkoutBackfillDone` in `AppSettingsDataStore` (key `"hc_workout_backfill_done"`) flipped before backfill runs to prevent re-trigger on revoke+re-grant. `WorkoutDao.getCompletedWorkoutsSince()` + `WorkoutSetDao.getSetsWithExerciseForWorkout()` resolve exercise types. `clientRecordId = workout.id` deduplicates. See `HEALTH_CONNECT_SPEC.md §9`.
 
 **Color System:** Pro Tracker v6.0. See THEME_SPEC.md for all tokens, DarkColorScheme, LightColorScheme, semantic colors, and usage rules.
 
-**Database:** Room v41 — 17 entities, 18 DAOs (`TrendsDao` is query-only, no corresponding entity). Migrations v6→v41 covered. See `DB_UPGRADE.md` for full history.
+**Database:** Room v42 — 17 entities, 18 DAOs (`TrendsDao` is query-only, no corresponding entity). Migrations v6→v42 covered. See `DB_UPGRADE.md` for full history.
 Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38), `experienceLevel`/`trainingAgeYears` on users (v39), `health_history_entries` table (v40), `sessionRating` on workouts (v41).
 
 **SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides `parseDecimal()`, `parseReps()`, `isLeakedMetric()`, `MIGRATION_SQL`, `MIGRATION_SQL_V19`. No inline try-catch in ViewModels or Composables.
@@ -94,7 +96,7 @@ Read the relevant spec before touching files in that domain.
 | `TRENDS_SPEC.md` | 🚧 In Progress | Trends tab — Readiness gauge, e1RM progression, volume trends, muscle group volume, effective sets, body composition overlay, NEAT guardrail, chronotype/sleep, body heatmap (future phase), ReadinessEngine algorithm, TrendsDao queries, Vico chart integration guide |
 | `PROFILE_SETUP_SPEC.md` | ✅ Complete | Onboarding profile setup — two-step flow, HC offer, all 11 fields, unit selector, shared composables |
 | `SETTINGS_SPEC.md` | ✅ Complete | Settings screen — all 10 cards, Personal Info edit, Body Metrics, HC sync, SettingsViewModel state |
-| `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v41, schema changes |
+| `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v42, schema changes |
 | `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | ✅ Step A done | WorkoutSummaryScreen — hero header, session rating, per-exercise cards, muscle group bars, notes |
 | `DB_ARCHITECTURE.md` | ✅ Exists | Core entity relationships, template-to-instance pattern, UUID migration, workout lifecycle |
 
@@ -165,7 +167,7 @@ Each bug also has its own `.md` file.
 
 **Bug lifecycle:** `Open` → `In Progress` → `Completed` → `Wrapped`
 
-When assigned a bug: read the `.md` file, check linked assets, fix the issue, mark **Status** as `[x] Fixed`, fill **Fix Notes**, create a `SUMMARY_<slug>.md` file, update `BUG_TRACKER.md` status to `Completed`. The user QAs on device, then runs `/wrap_bugfix <slug>` to flip it to `Wrapped` (simplify + build + test + commit + push). Multiple bugs can sit in `Completed` waiting for batch QA.
+When assigned a bug: immediately update `BUG_TRACKER.md` status to `In Progress` and set `## Status` in the `BUG_<slug>.md` to `[ ] In Progress`. Then read the `.md` file, check linked assets, fix the issue, run `/simplify` to clean up changed code, mark **Status** as `[x] Fixed`, fill **Fix Notes**, create a `SUMMARY_<slug>.md` file, update `BUG_TRACKER.md` status to `Completed`. The user QAs on device, then runs `/wrap_task <slug>` to flip it to `Wrapped` (build + test + commit + push). Multiple bugs can sit in `Completed` waiting for batch QA.
 
 ---
 
@@ -249,11 +251,12 @@ No task is complete until ALL applicable items below are done:
 | What happened | What to update |
 |---|---|
 | Bug discovered | Add row to `bugs_to_fix/BUG_TRACKER.md` + create `bugs_to_fix/BUG_<slug>.md` |
-| Bug dev done | Mark `[x] Fixed` in `BUG_<slug>.md`, fill Fix Notes, create `bugs_to_fix/SUMMARY_<slug>.md` (root cause, files changed, surfaces fixed, How to QA), update `BUG_TRACKER.md` status to `Completed` |
-| Bug QA'd by user | Run `/wrap_bugfix <slug>` → flips status to `Wrapped`, runs simplify + build + test + commit + push |
+| Bug work started | Set `BUG_TRACKER.md` status to `In Progress` + set `## Status` in `BUG_<slug>.md` to `[ ] In Progress` |
+| Bug dev done | Run `/simplify`, then mark `[x] Fixed` in `BUG_<slug>.md`, fill Fix Notes, create `bugs_to_fix/SUMMARY_<slug>.md` (root cause, files changed, surfaces fixed, How to QA), update `BUG_TRACKER.md` status to `Completed` |
+| Bug QA'd by user | Run `/wrap_task <slug>` → flips status to `Wrapped`, runs build + test + commit + push |
 | Feature started | Set status `in-progress` in `ROADMAP.md` + spec file header |
-| Feature dev done | Set status `completed` in `ROADMAP.md`; update the relevant implemented spec (e.g. `WORKOUT_SPEC.md`); append a **How to QA** section to the feature's `future_devs/<NAME>_SPEC.md`; update "Current State" in `CLAUDE.md` if schema/architecture changed |
-| Feature QA'd by user | Run `/wrap_feature <name>` → flips status to `wrapped`, runs simplify + build + test + commit + push |
+| Feature dev done | Run `/simplify`, then set status `completed` in `ROADMAP.md`; update the relevant implemented spec (e.g. `WORKOUT_SPEC.md`); append a **How to QA** section to the feature's `future_devs/<NAME>_SPEC.md`; update "Current State" in `CLAUDE.md` if schema/architecture changed |
+| Feature QA'd by user | Run `/wrap_task <name>` → flips status to `wrapped`, runs build + test + commit + push |
 | New feature conceived (not yet built) | Create `future_devs/<NAME>_SPEC.md` with standardized header + add row to `ROADMAP.md` under the correct phase |
 | DB schema changed | Increment Room version, add migration, update `DB_UPGRADE.md` |
 | New screen or ViewModel added | Register in `NAVIGATION_SPEC.md` route map and update `CLAUDE.md` Current State |
@@ -312,7 +315,7 @@ Do not advance to the next step until the user replies **APPROVED**.
 - Validate all user input at the UI boundary before passing to the data layer.
 
 ### Code Quality
-- **After completing any feature, fix, or refactor — run `/simplify`** to review changed code for reuse, quality, and efficiency before closing the task.
+- **Before marking any feature or fix as `Completed` — run `/simplify`** to review changed code for reuse, quality, and efficiency while context is fresh.
 - Optionally focus the review: `/simplify focus on Compose recomposition` or `/simplify focus on ViewModel state management`.
 
 ### UI / UX Reviews

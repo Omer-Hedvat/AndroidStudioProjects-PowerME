@@ -8,6 +8,7 @@ import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.database.User
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.sync.SyncResult
+import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.util.UserSessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,6 +47,7 @@ class AuthViewModelGoogleSignInTest {
     private lateinit var mockGoogleSignInHelper: GoogleSignInHelper
     private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
     private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
+    private lateinit var mockHealthConnectManager: HealthConnectManager
     private lateinit var mockContext: Context
     private lateinit var viewModel: AuthViewModel
 
@@ -58,15 +60,19 @@ class AuthViewModelGoogleSignInTest {
         mockGoogleSignInHelper = mock()
         mockFirestoreSyncManager = mock()
         mockAppSettingsDataStore = mock()
+        mockHealthConnectManager = mock()
         mockContext = mock()
-        // Default: already restored — auto-restore is a no-op for all existing tests
+        // Default: already restored — auto-restore is a no-op for all existing tests.
+        // HC is unavailable by default so the HC offer gate is skipped for existing tests.
         runBlocking {
             whenever(mockAppSettingsDataStore.hasRestoredOnce).thenReturn(flowOf(true))
+            whenever(mockAppSettingsDataStore.hcOfferDismissed).thenReturn(flowOf(false))
             whenever(mockAppSettingsDataStore.setHasRestoredOnce(any())).thenAnswer { }
             whenever(mockFirestoreSyncManager.pullFromCloud()).thenReturn(SyncResult(success = true))
             whenever(mockFirestoreSyncManager.pullProfileOnly()).thenReturn(false)
+            whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
         }
-        viewModel = AuthViewModel(mockUserSessionManager, mockGoogleSignInHelper, mockFirestoreSyncManager, mockAppSettingsDataStore)
+        viewModel = AuthViewModel(mockUserSessionManager, mockGoogleSignInHelper, mockFirestoreSyncManager, mockAppSettingsDataStore, mockHealthConnectManager)
     }
 
     @After
@@ -246,5 +252,67 @@ class AuthViewModelGoogleSignInTest {
         assertFalse(state.needsProfileSetup)
         assertNull(state.error)
         verify(mockFirestoreSyncManager).pullProfileOnly()
+    }
+
+    // ── Test 11: HC offer shown when HC available and permissions not granted ──
+
+    @Test
+    fun `signInWithGoogle - returning user, HC available, not connected, not dismissed - needsHcOffer true`() = runTest(testDispatcher) {
+        whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
+        whenever(mockUserSessionManager.getCurrentUser()).thenReturn(fakeUser)
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(false)
+            whenever(mockAppSettingsDataStore.hcOfferDismissed).thenReturn(flowOf(false))
+        }
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertTrue(state.needsHcOffer)
+        assertFalse(state.isSignedIn)
+        assertFalse(state.needsProfileSetup)
+        assertNull(state.error)
+    }
+
+    // ── Test 12: HC offer skipped when already dismissed ─────────────────────
+
+    @Test
+    fun `signInWithGoogle - returning user, HC available, dismissed - isSignedIn true, no HC offer`() = runTest(testDispatcher) {
+        whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
+        whenever(mockUserSessionManager.getCurrentUser()).thenReturn(fakeUser)
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(false)
+            whenever(mockAppSettingsDataStore.hcOfferDismissed).thenReturn(flowOf(true))
+        }
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.needsHcOffer)
+        assertTrue(state.isSignedIn)
+    }
+
+    // ── Test 13: HC offer skipped when already connected ─────────────────────
+
+    @Test
+    fun `signInWithGoogle - returning user, HC permissions already granted - isSignedIn true, no HC offer`() = runTest(testDispatcher) {
+        whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
+        whenever(mockUserSessionManager.getCurrentUser()).thenReturn(fakeUser)
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+        }
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.needsHcOffer)
+        assertTrue(state.isSignedIn)
     }
 }

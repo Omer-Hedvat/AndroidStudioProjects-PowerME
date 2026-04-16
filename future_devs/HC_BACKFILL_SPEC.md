@@ -1,7 +1,7 @@
 # HC Workout Backfill Spec
 
 **Phase:** P4
-**Status:** not-started
+**Status:** completed
 **Effort:** S
 **Depends on:** HC Phase B (WRITE_EXERCISE permission + `writeWorkoutSession()`) ✅
 

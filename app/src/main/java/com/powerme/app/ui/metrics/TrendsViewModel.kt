@@ -1,11 +1,17 @@
 package com.powerme.app.ui.metrics
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
+import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.powerme.app.analytics.ReadinessEngine
 import com.powerme.app.data.database.ExerciseWithHistory
 import com.powerme.app.data.repository.TrendsRepository
+import com.powerme.app.ui.metrics.charts.VicoChartHelpers
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +21,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TrendsViewModel @Inject constructor(
-    private val trendsRepository: TrendsRepository
+    private val trendsRepository: TrendsRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _timeRange = MutableStateFlow(TrendsTimeRange.THREE_MONTHS)
@@ -54,7 +61,33 @@ class TrendsViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // ── Vico model producers — ViewModel-scoped so they survive tab navigation
+    // and LazyColumn recycling. CartesianChartHost in each card attaches to these
+    // directly; data is pushed here rather than in LaunchedEffect to avoid the
+    // race between recomposition removing the host and a pending runTransaction.
+    val volumeModelProducer = CartesianChartModelProducer()
+    val e1rmModelProducer = CartesianChartModelProducer()
+    val muscleGroupModelProducer = CartesianChartModelProducer()
+
+    // Tracks the current load coroutine so we can cancel it before starting a new one,
+    // preventing concurrent runTransaction calls on the same producer.
+    private var loadJob: Job? = null
+
+    // True when the screen was opened via a deep-link with exerciseId — triggers auto-scroll.
+    // Consumed (set to false) by MetricsScreen after the scroll completes.
+    private val _deepLinkPending = MutableStateFlow(false)
+    val deepLinkPending: StateFlow<Boolean> = _deepLinkPending.asStateFlow()
+
+    fun consumeDeepLink() { _deepLinkPending.value = false }
+
     init {
+        // Pre-select exercise from deep-link nav arg before loadAll() runs,
+        // so loadExercisePicker()'s auto-select is skipped for this exercise.
+        val deepLinkExerciseId = savedStateHandle.get<Long>("exerciseId")
+        if (deepLinkExerciseId != null && deepLinkExerciseId > 0L) {
+            _selectedExerciseId.value = deepLinkExerciseId
+            _deepLinkPending.value = true
+        }
         loadAll()
     }
 
@@ -75,28 +108,35 @@ class TrendsViewModel @Inject constructor(
         _selectedExerciseId.value = exerciseId
         viewModelScope.launch {
             try {
-                _e1rmData.value = trendsRepository.getE1RMProgression(
+                val data = trendsRepository.getE1RMProgression(
                     exerciseId, exerciseName, _timeRange.value
                 )
-            } catch (e: Exception) {
+                _e1rmData.value = data
+                pushE1rmToProducer(data)
+            } catch (_: Exception) {
                 // Silently handle — chart shows empty state
             }
         }
     }
 
     private fun loadAll() {
-        viewModelScope.launch {
+        // Cancel any in-flight load before starting a new one. Without this,
+        // clicking a time-range chip while init's loadAll() is still running
+        // produces two concurrent runTransaction calls on the same producer.
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _isLoading.value = true
             try {
                 coroutineScope {
                     launch { loadReadiness() }
-                    launch { loadExercisePicker() }
+                    // loadE1RM runs after loadExercisePicker so the exercise name
+                    // lookup (used by getE1RMProgression) always finds its item.
+                    launch { loadExercisePicker(); loadE1RM() }
                     launch { loadWeeklyVolume() }
                     launch { loadMuscleGroupVolume() }
                     launch { loadEffectiveSets() }
                     launch { loadBodyComposition() }
                     launch { loadChronotypeData() }
-                    launch { loadE1RM() }
                 }
             } catch (_: Exception) {
                 // Individual loads handle their own errors
@@ -133,27 +173,98 @@ class TrendsViewModel @Inject constructor(
             val exerciseId = _selectedExerciseId.value ?: return
             val exerciseName = _exercisePickerItems.value
                 .firstOrNull { it.id == exerciseId }?.name ?: return
-            _e1rmData.value = trendsRepository.getE1RMProgression(
+            val data = trendsRepository.getE1RMProgression(
                 exerciseId, exerciseName, _timeRange.value
             )
+            _e1rmData.value = data
+            pushE1rmToProducer(data)
         } catch (_: Exception) {
             _e1rmData.value = null
         }
     }
 
+    private fun pushE1rmToProducer(data: E1RMProgressionData?) {
+        viewModelScope.launch {
+            val rawPts = data?.points.orEmpty()
+            val maPts = data?.movingAverage.orEmpty()
+            if (rawPts.size >= 2) {
+                e1rmModelProducer.runTransaction {
+                    lineSeries {
+                        series(rawPts.map { it.e1rm })
+                        if (maPts.isNotEmpty()) series(maPts.map { it.e1rm })
+                    }
+                }
+            } else {
+                // Dummy data matching the single rawLine layer — overlay hides it visually.
+                e1rmModelProducer.runTransaction {
+                    lineSeries { series(listOf(0.0, 0.0)) }
+                }
+            }
+        }
+    }
+
     private suspend fun loadWeeklyVolume() {
         try {
-            _weeklyVolume.value = trendsRepository.getWeeklyVolume(_timeRange.value)
+            val data = trendsRepository.getWeeklyVolume(_timeRange.value)
+            _weeklyVolume.value = data
+            pushVolumeToProducer(data)
         } catch (_: Exception) {
             _weeklyVolume.value = null
         }
     }
 
+    private fun pushVolumeToProducer(data: WeeklyVolumeData?) {
+        viewModelScope.launch {
+            val pts = data?.points.orEmpty()
+            if (pts.size >= 2) {
+                volumeModelProducer.runTransaction {
+                    columnSeries { series(pts.map { it.totalVolume }) }
+                    lineSeries { series(computeVolumeMa4Week(pts)) }
+                }
+            } else {
+                // Dummy data matching column + line layers — overlay hides it visually.
+                volumeModelProducer.runTransaction {
+                    columnSeries { series(listOf(0.0, 0.0)) }
+                    lineSeries { series(listOf(0.0, 0.0)) }
+                }
+            }
+        }
+    }
+
     private suspend fun loadMuscleGroupVolume() {
         try {
-            _muscleGroupVolume.value = trendsRepository.getWeeklyMuscleGroupVolume(_timeRange.value)
+            val data = trendsRepository.getWeeklyMuscleGroupVolume(_timeRange.value)
+            _muscleGroupVolume.value = data
+            pushMuscleGroupToProducer(data)
         } catch (_: Exception) {
             _muscleGroupVolume.value = emptyList()
+        }
+    }
+
+    private fun pushMuscleGroupToProducer(points: List<MuscleGroupVolumePoint>) {
+        viewModelScope.launch {
+            val weeks = points.map { it.weekStartMs }.distinct().sorted()
+            if (weeks.isEmpty()) {
+                // Dummy — empty state overlay hides this visually. Series count must stay fixed at 8.
+                muscleGroupModelProducer.runTransaction {
+                    columnSeries {
+                        repeat(VicoChartHelpers.muscleGroupOrder.size) { series(listOf(0.0, 0.0)) }
+                    }
+                }
+                return@launch
+            }
+            val weekIndex = weeks.withIndex().associate { (i, ms) -> ms to i }
+            muscleGroupModelProducer.runTransaction {
+                columnSeries {
+                    VicoChartHelpers.muscleGroupOrder.forEach { group ->
+                        val volumeByWeek = DoubleArray(weeks.size)
+                        points.filter { it.majorGroup == group }.forEach { p ->
+                            weekIndex[p.weekStartMs]?.let { idx -> volumeByWeek[idx] = p.volume }
+                        }
+                        series(volumeByWeek.toList())
+                    }
+                }
+            }
         }
     }
 
@@ -179,5 +290,17 @@ class TrendsViewModel @Inject constructor(
         } catch (_: Exception) {
             _chronotypeData.value = emptyList()
         }
+    }
+}
+
+/**
+ * 4-week rolling average of weekly volume (raw kg, before any unit conversion).
+ * Early weeks use a partial window (e.g. the first week averages just itself).
+ */
+internal fun computeVolumeMa4Week(points: List<WeeklyVolumeChartPoint>): List<Double> {
+    return points.mapIndexed { i, _ ->
+        val windowStart = maxOf(0, i - 3)
+        val window = points.subList(windowStart, i + 1)
+        window.sumOf { it.totalVolume } / window.size
     }
 }

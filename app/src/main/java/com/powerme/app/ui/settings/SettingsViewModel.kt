@@ -13,6 +13,8 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettings
 import com.powerme.app.data.database.UserSettingsDao
+import com.powerme.app.data.database.WorkoutDao
+import com.powerme.app.data.database.WorkoutSetDao
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.util.DatabaseExporter
@@ -21,6 +23,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -44,6 +47,10 @@ data class SettingsUiState(
     val isDeletingAccount: Boolean = false,
     // Keep screen on
     val keepScreenOn: Boolean = false,
+    // RPE auto-pop
+    val useRpeAutoPop: Boolean = false,
+    // Get Ready countdown before timed sets
+    val timedSetSetupSeconds: Int = 3,
     // Appearance
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Units
@@ -72,7 +79,9 @@ class SettingsViewModel @Inject constructor(
     private val firestoreSyncManager: FirestoreSyncManager,
     private val auth: FirebaseAuth,
     @ApplicationContext private val context: Context,
-    private val healthConnectManager: HealthConnectManager
+    private val healthConnectManager: HealthConnectManager,
+    private val workoutDao: WorkoutDao,
+    private val workoutSetDao: WorkoutSetDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -92,6 +101,11 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            appSettingsDataStore.useRpeAutoPop.collect { value ->
+                _uiState.update { it.copy(useRpeAutoPop = value) }
+            }
+        }
+        viewModelScope.launch {
             appSettingsDataStore.themeMode.collect { mode ->
                 _uiState.update { it.copy(themeMode = mode) }
             }
@@ -99,6 +113,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appSettingsDataStore.unitSystem.collect { unit ->
                 _uiState.update { it.copy(unitSystem = unit) }
+            }
+        }
+        viewModelScope.launch {
+            appSettingsDataStore.timedSetSetupSeconds.collect { value ->
+                _uiState.update { it.copy(timedSetSetupSeconds = value) }
             }
         }
     }
@@ -203,6 +222,23 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun toggleUseRpeAutoPop() {
+        viewModelScope.launch {
+            val newValue = !_uiState.value.useRpeAutoPop
+            appSettingsDataStore.setUseRpeAutoPop(newValue)
+            _uiState.update { it.copy(useRpeAutoPop = newValue) }
+            firestoreSyncManager.pushAppPreferences()
+        }
+    }
+
+    fun setTimedSetSetupSeconds(seconds: Int) {
+        viewModelScope.launch {
+            appSettingsDataStore.setTimedSetSetupSeconds(seconds)
+            _uiState.update { it.copy(timedSetSetupSeconds = seconds) }
+            firestoreSyncManager.pushAppPreferences()
+        }
+    }
+
     fun showDeleteAccountDialog() { _uiState.update { it.copy(showDeleteAccountDialog = true) } }
     fun dismissDeleteAccountDialog() { _uiState.update { it.copy(showDeleteAccountDialog = false) } }
 
@@ -256,6 +292,7 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
                 syncHealthConnect()
+                triggerBackfillIfNeeded()
             }
         }
     }
@@ -306,6 +343,16 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    private fun triggerBackfillIfNeeded() {
+        viewModelScope.launch {
+            val alreadyDone = appSettingsDataStore.hcWorkoutBackfillDone.first()
+            if (!alreadyDone) {
+                appSettingsDataStore.setHcWorkoutBackfillDone(true)  // flip BEFORE backfill runs
+                healthConnectManager.backfillWorkoutSessions(workoutDao, workoutSetDao)
+            }
+        }
+    }
+
     fun onHealthConnectPermissionResult(granted: Set<String>) {
         android.util.Log.d("PowerME_HC", "onPermissionResult: granted=${granted.size} perms, expected=${HealthConnectManager.CORE_PERMISSIONS.size}, set=$granted")
         if (granted.containsAll(HealthConnectManager.CORE_PERMISSIONS)) {
@@ -314,6 +361,7 @@ class SettingsViewModel @Inject constructor(
                 it.copy(healthConnectPermissionsGranted = true, healthConnectPermissionsDenied = false)
             }
             syncHealthConnect()
+            triggerBackfillIfNeeded()
         } else {
             // Callback returned fewer than all permissions. This can mean:
             // (a) user denied in the dialog, or
@@ -328,7 +376,10 @@ class SettingsViewModel @Inject constructor(
                         healthConnectPermissionsDenied = !actuallyGranted
                     )
                 }
-                if (actuallyGranted) syncHealthConnect()
+                if (actuallyGranted) {
+                    syncHealthConnect()
+                    triggerBackfillIfNeeded()
+                }
             }
         }
     }

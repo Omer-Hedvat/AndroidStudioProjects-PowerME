@@ -6,6 +6,8 @@ import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettingsDao
+import com.powerme.app.data.database.WorkoutDao
+import com.powerme.app.data.database.WorkoutSetDao
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
@@ -47,6 +49,8 @@ class SettingsViewModelHealthConnectTest {
     private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
     private lateinit var mockAuth: FirebaseAuth
     private lateinit var mockHealthConnectManager: HealthConnectManager
+    private lateinit var mockWorkoutDao: WorkoutDao
+    private lateinit var mockWorkoutSetDao: WorkoutSetDao
 
     private lateinit var viewModel: SettingsViewModel
 
@@ -71,12 +75,17 @@ class SettingsViewModelHealthConnectTest {
         mockFirestoreSyncManager = mock()
         mockAuth = mock()
         mockHealthConnectManager = mock()
+        mockWorkoutDao = mock()
+        mockWorkoutSetDao = mock()
 
         // Minimal stubs for non-HC init paths
         whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
         whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(false))
+        whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(false))
         whenever(mockAppSettingsDataStore.themeMode).thenReturn(flowOf(ThemeMode.DARK))
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
+        whenever(mockAppSettingsDataStore.hcWorkoutBackfillDone).thenReturn(flowOf(true)) // prevent backfill in tests
+        whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
         whenever(mockAuth.currentUser).thenReturn(null)
     }
 
@@ -92,7 +101,9 @@ class SettingsViewModelHealthConnectTest {
         firestoreSyncManager = mockFirestoreSyncManager,
         auth = mockAuth,
         context = mock(),
-        healthConnectManager = mockHealthConnectManager
+        healthConnectManager = mockHealthConnectManager,
+        workoutDao = mockWorkoutDao,
+        workoutSetDao = mockWorkoutSetDao
     )
 
     // ── Test 1: HC not available ─────────────────────────────────────────────

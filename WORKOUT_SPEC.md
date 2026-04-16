@@ -388,29 +388,35 @@ Used when `ExerciseType == TIMED`.
 **Time input** routes through `onTimeChanged(exerciseId, setOrder, raw)` — cascades to subsequent sets (see §13.1).
 **RPE + completion** updates route through `updateTimedSet(exerciseId, setOrder, weight, timeSeconds, rpe, completed)`.
 
-**Countdown timer state machine:** `TimedSetRow` contains a local-state countdown timer. The timer state is ephemeral (not persisted across navigation). State enum: `TimedSetState { IDLE, RUNNING, PAUSED, COMPLETED }`.
+**Countdown timer state machine:** `TimedSetRow` contains a local-state countdown timer. The timer state is ephemeral (not persisted across navigation). State enum: `TimedSetState { IDLE, SETUP, RUNNING, PAUSED, COMPLETED }`.
 
 ```
-IDLE → RUNNING → PAUSED → RUNNING
-                   ↓           ↓
-                COMPLETED  MARK DONE (→ COMPLETED)
-                PAUSED → RESET → IDLE
+IDLE → (setupSeconds > 0) → SETUP → RUNNING → PAUSED → RUNNING
+IDLE → (setupSeconds == 0) → RUNNING → PAUSED → RUNNING
+                                          ↓           ↓
+                                       COMPLETED  MARK DONE (→ COMPLETED)
+                                       PAUSED → RESET → IDLE
+SETUP → (cancel) → IDLE
 ```
 
 | State | Columns / Controls |
 |---|---|
 | IDLE | SET \| WEIGHT input \| TIME input (editable) \| RPE input \| ▶ Start button \| CHECK |
+| SETUP | SET \| "Get Ready" label (SetupAmber) \| remaining seconds (large, SetupAmber) \| ✕ Cancel button \| amber `LinearProgressIndicator` below |
 | RUNNING | SET \| MM:SS countdown (TimerGreen, `titleMedium`) \| `LinearProgressIndicator` below row \| ■ Stop button |
 | PAUSED | SET \| remaining MM:SS (muted) \| ▶ Resume \| ✓ Mark Done \| ↺ Reset |
 | COMPLETED | SET \| WEIGHT input \| TIME input \| RPE input \| (empty spacer) \| CHECK (TimerGreen filled) |
 
-**Countdown implementation:** `LaunchedEffect(timerState)` — when `RUNNING`, loops with `delay(1000L)` decrementing `remainingSeconds`. Warning beep + haptic fires at 3s, 2s, and 1s remaining. On reaching 0, transitions to `COMPLETED`, calls `onTimerFinished()` (audio/haptic via ViewModel), then calls `onCompleteSet()`.
+**Get Ready countdown (SETUP state):** Controlled by the `timedSetSetupSeconds` global preference (0–10s, default 3s, configurable in Settings → Rest Timer). When Play is tapped and `setupSeconds > 0`, the row enters SETUP state showing an amber countdown. Each second fires `onSetupCountdownTick()` (same beep/haptic as warning tick). At 0, automatically transitions to RUNNING. Tapping the ✕ cancel button returns to IDLE with original time restored.
 
-**External completion:** A `LaunchedEffect(set.isCompleted)` watches for the user tapping the checkbox directly while the timer is running and transitions to `COMPLETED`, cancelling the countdown coroutine.
+**Countdown implementation:** Single `LaunchedEffect(timerState)` using a `when` block. SETUP branch: loops decrementing `setupRemaining` with `delay(1000L)`, calls `onSetupCountdownTick()` each iteration, then sets `timerState = RUNNING` (the effect restarts for RUNNING). RUNNING branch: loops decrementing `remainingSeconds`, calls `onTimerWarningTick()` at 3/2/1s remaining, transitions to COMPLETED at 0.
 
-**Audio/haptic:** Two ViewModel functions gate these behind user settings:
+**External completion:** A `LaunchedEffect(set.isCompleted)` watches for the user tapping the checkbox directly while the timer is in SETUP or RUNNING state and transitions to `COMPLETED`, cancelling the countdown coroutine.
+
+**Audio/haptic:** Three ViewModel functions gate these behind user settings:
 - `WorkoutViewModel.timerFinishedFeedback()` — calls `restTimerNotifier.notifyEnd()` (600ms beep + double-pulse haptic)
 - `WorkoutViewModel.timerWarningTickFeedback()` — calls `restTimerNotifier.playWarningBeep()` + `hapticShortPulse()`
+- `WorkoutViewModel.setupCountdownTickFeedback()` — same as warning tick; fires once per setup countdown second
 
 **PR score:** For TIMED sets, the PR comparator is `Weight × TimeSeconds` (see §10.1). The WEIGHT column is displayed and editable (supports bodyweight exercises where weight = 0, in which case `TimeSeconds` alone is the comparator).
 

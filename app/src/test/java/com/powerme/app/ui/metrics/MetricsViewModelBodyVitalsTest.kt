@@ -1,6 +1,5 @@
 package com.powerme.app.ui.metrics
 
-import com.powerme.app.analytics.WeeklyInsights
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.HealthConnectSync
@@ -9,7 +8,6 @@ import com.powerme.app.data.database.MetricLog
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.database.User
 import com.powerme.app.data.database.ageYears
-import com.powerme.app.data.repository.AnalyticsRepository
 import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
@@ -37,7 +35,6 @@ class MetricsViewModelBodyVitalsTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private lateinit var mockAnalyticsRepository: AnalyticsRepository
     private lateinit var mockMetricLogRepository: MetricLogRepository
     private lateinit var mockHealthConnectManager: HealthConnectManager
     private lateinit var mockUserSessionManager: UserSessionManager
@@ -76,7 +73,6 @@ class MetricsViewModelBodyVitalsTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
 
-        mockAnalyticsRepository = mock()
         mockMetricLogRepository = mock()
         mockHealthConnectManager = mock()
         mockUserSessionManager = mock()
@@ -88,20 +84,6 @@ class MetricsViewModelBodyVitalsTest {
         whenever(mockMetricLogRepository.getByType(MetricType.BODY_FAT)).thenReturn(flowOf(emptyList()))
         whenever(mockMetricLogRepository.getByType(MetricType.HEIGHT)).thenReturn(flowOf(emptyList()))
 
-        runBlocking {
-            whenever(mockAnalyticsRepository.generateWeeklyInsights()).thenReturn(
-                WeeklyInsights(
-                    weekStartDate = 0L,
-                    weekEndDate = 0L,
-                    status = "OK",
-                    summary = "",
-                    volumeLoadAnomalies = emptyList(),
-                    progressionAnomalies = emptyList(),
-                    recommendations = emptyList(),
-                    healthPerformanceCorrelation = null
-                )
-            )
-        }
     }
 
     @After
@@ -110,7 +92,6 @@ class MetricsViewModelBodyVitalsTest {
     }
 
     private fun buildViewModel(): MetricsViewModel = MetricsViewModel(
-        analyticsRepository = mockAnalyticsRepository,
         metricLogRepository = mockMetricLogRepository,
         healthConnectManager = mockHealthConnectManager,
         userSessionManager = mockUserSessionManager,

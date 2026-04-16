@@ -42,6 +42,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.powerme.app.R
 import com.powerme.app.ui.auth.AuthViewModel
 import com.powerme.app.ui.auth.ForgotPasswordScreen
+import com.powerme.app.ui.auth.HcOfferScreen
 import com.powerme.app.ui.auth.ProfileSetupScreen
 import com.powerme.app.ui.auth.WelcomeScreen
 import com.powerme.app.ui.exercises.ExercisesScreen
@@ -77,6 +78,7 @@ private object Routes {
     const val AUTH_WELCOME = "auth_welcome"
     const val AUTH_PROFILE_SETUP = "auth_profile_setup"
     const val AUTH_FORGOT_PASSWORD = "auth_forgot_password"
+    const val AUTH_HC_OFFER = "auth_hc_offer"
     const val WORKOUT = "workout"
     const val SETTINGS = "settings"
     const val PROFILE = "profile"
@@ -185,6 +187,11 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                         popUpTo(Routes.AUTH_WELCOME) { inclusive = true }
                     }
                 },
+                onNeedsHcOffer = {
+                    navController.navigate(Routes.AUTH_HC_OFFER) {
+                        popUpTo(Routes.AUTH_WELCOME) { inclusive = true }
+                    }
+                },
                 onForgotPassword = { navController.navigate(Routes.AUTH_FORGOT_PASSWORD) }
             )
         }
@@ -216,6 +223,22 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onProfileSaved = {
                     navController.navigate(Screen.Workouts.route) {
                         popUpTo(Routes.AUTH_PROFILE_SETUP) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Routes.AUTH_HC_OFFER,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            HcOfferScreen(
+                onDone = {
+                    navController.navigate(Screen.Workouts.route) {
+                        popUpTo(Routes.AUTH_HC_OFFER) { inclusive = true }
                     }
                 }
             )
@@ -339,7 +362,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         }
 
         composable(
-            route = Screen.Trends.route,
+            route = "${Screen.Trends.route}?exerciseId={exerciseId}",
+            arguments = listOf(navArgument("exerciseId") { type = NavType.LongType; defaultValue = -1L }),
             enterTransition = { fadeIn(tween(200)) },
             exitTransition = { fadeOut(tween(200)) },
             popEnterTransition = { fadeIn(tween(200)) },
@@ -465,8 +489,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onNavigateToEdit = { workoutId ->
                     navController.navigate("workout_detail/$workoutId")
                 },
-                onNavigateToTrends = {
-                    navController.navigate(Screen.Trends.route)
+                onNavigateToTrends = { exerciseId ->
+                    navController.navigate("${Screen.Trends.route}?exerciseId=$exerciseId")
                 },
                 onConfirmSyncValues = { workoutViewModel.confirmUpdateRoutineValues() },
                 onConfirmSyncStructure = { workoutViewModel.confirmUpdateRoutineStructure() },

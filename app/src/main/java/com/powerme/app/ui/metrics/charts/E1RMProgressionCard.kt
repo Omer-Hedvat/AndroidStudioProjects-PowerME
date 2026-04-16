@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
@@ -19,7 +21,6 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -39,7 +40,6 @@ import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
-import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.ExerciseWithHistory
@@ -57,8 +57,8 @@ import kotlin.math.roundToInt
  * Displays estimated 1-rep max progression for the selected exercise,
  * with a 3-session moving average overlay and a scrollable exercise picker.
  *
- * Consumes [TrendsViewModel.e1rmData], [TrendsViewModel.exercisePickerItems],
- * and [TrendsViewModel.selectedExerciseId] StateFlows.
+ * [modelProducer] is owned by TrendsViewModel so it survives tab navigation and LazyColumn
+ * recycling. Data is pushed directly from the ViewModel — no LaunchedEffect needed here.
  */
 @Composable
 fun E1RMProgressionCard(
@@ -67,10 +67,9 @@ fun E1RMProgressionCard(
     selectedExerciseId: Long?,
     unitSystem: UnitSystem,
     onExerciseSelected: (Long, String) -> Unit,
+    modelProducer: CartesianChartModelProducer,
     modifier: Modifier = Modifier
 ) {
-    val modelProducer = remember { CartesianChartModelProducer() }
-
     val rawPoints = e1rmData?.points.orEmpty()
     val maPoints = e1rmData?.movingAverage.orEmpty()
 
@@ -86,31 +85,19 @@ fun E1RMProgressionCard(
         }
     }
 
+    // The producer holds raw metric (kg) values — convert to display units at render time.
     val yFormatter = remember(unitSystem) {
         val label = UnitConverter.weightLabel(unitSystem)
-        CartesianValueFormatter { _, value, _ -> "${"%.0f".format(value)} $label" }
+        CartesianValueFormatter { _, value, _ ->
+            val display = UnitConverter.displayWeight(value, unitSystem)
+            "${"%.0f".format(display)} $label"
+        }
     }
 
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
 
-    // Push series to Vico whenever source data or unit system changes.
-    // Always call runTransaction — even when data is insufficient — to clear any stale model
-    // that remains from a previously selected exercise. Without this, CartesianChartHost may
-    // leave composition while the producer still holds old data, causing a Vico crash.
-    LaunchedEffect(e1rmData, unitSystem) {
-        if (rawPoints.size >= 2) {
-            val rawValues = rawPoints.map { UnitConverter.displayWeight(it.e1rm, unitSystem) }
-            val maValues = maPoints.map { UnitConverter.displayWeight(it.e1rm, unitSystem) }
-            modelProducer.runTransaction {
-                lineSeries {
-                    series(rawValues)
-                    if (maValues.isNotEmpty()) series(maValues)
-                }
-            }
-        } else {
-            modelProducer.runTransaction { }
-        }
-    }
+    val hasData = rawPoints.size >= 2
+    val hasMa = maPoints.isNotEmpty() && hasData
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -158,7 +145,15 @@ fun E1RMProgressionCard(
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
             } else {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val chipListState = rememberLazyListState()
+                // Auto-scroll to the pre-selected chip on deep-link arrival or initial load.
+                LaunchedEffect(selectedExerciseId, exercisePickerItems) {
+                    if (selectedExerciseId != null && exercisePickerItems.isNotEmpty()) {
+                        val index = exercisePickerItems.indexOfFirst { it.id == selectedExerciseId }
+                        if (index > 0) chipListState.animateScrollToItem(index)
+                    }
+                }
+                LazyRow(state = chipListState, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(exercisePickerItems, key = { it.id }) { exercise ->
                         FilterChip(
                             selected = exercise.id == selectedExerciseId,
@@ -175,78 +170,86 @@ fun E1RMProgressionCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Chart or empty state ──────────────────────────────────────────
-            when {
-                exercisePickerItems.isEmpty() -> {
-                    // No picker items — empty state text already shown above
-                }
-                rawPoints.size < 2 -> {
+            // ── Chart area — CartesianChartHost is always in the composition tree ──
+            // The producer lives in TrendsViewModel and is never recreated. When there
+            // is no data or no exercises, the chart renders dummy data behind a surface
+            // overlay so the host is always alive and the producer is never orphaned.
+            val rawLine = LineCartesianLayer.rememberLine(
+                fill = LineCartesianLayer.LineFill.single(
+                    fill(VicoChartHelpers.LinePrimary)
+                ),
+                thickness = 2.dp
+            )
+            val maLine = LineCartesianLayer.rememberLine(
+                fill = LineCartesianLayer.LineFill.single(
+                    fill(VicoChartHelpers.LineSecondary.copy(alpha = 0.8f))
+                ),
+                thickness = 1.5.dp
+            )
+
+            val lineList = remember(hasMa, rawLine, maLine) {
+                if (hasMa) listOf(rawLine, maLine) else listOf(rawLine)
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CartesianChartHost(
+                    chart = rememberCartesianChart(
+                        rememberLineCartesianLayer(
+                            lineProvider = LineCartesianLayer.LineProvider.series(lineList)
+                        ),
+                        startAxis = VerticalAxis.rememberStart(
+                            label = axisLabel,
+                            valueFormatter = yFormatter
+                        ),
+                        bottomAxis = HorizontalAxis.rememberBottom(
+                            label = axisLabel,
+                            valueFormatter = xFormatter
+                        )
+                    ),
+                    modelProducer = modelProducer,
+                    modifier = Modifier.matchParentSize()
+                )
+
+                // Overlay when insufficient data or no exercises
+                if (!hasData) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center
                     ) {
                         val exerciseName = e1rmData?.exerciseName
                             ?: exercisePickerItems.firstOrNull { it.id == selectedExerciseId }?.name
-                        Text(
-                            text = if (exerciseName != null)
+                        val message = when {
+                            exercisePickerItems.isEmpty() ->
+                                "Complete workouts with weighted sets\nto track strength progression"
+                            exerciseName != null ->
                                 "Log at least 2 sessions of $exerciseName\nto see strength progression"
-                            else
-                                "Select an exercise above to see progression",
+                            else ->
+                                "Select an exercise above to see progression"
+                        }
+                        Text(
+                            text = message,
                             fontSize = 13.sp,
                             color = ProSubGrey,
                             textAlign = TextAlign.Center
                         )
                     }
                 }
-                else -> {
-                    val hasMa = maPoints.isNotEmpty()
+            }
 
-                    val rawLine = LineCartesianLayer.rememberLine(
-                        fill = LineCartesianLayer.LineFill.single(
-                            fill(VicoChartHelpers.LinePrimary)
-                        ),
-                        thickness = 2.dp
-                    )
-                    val maLine = LineCartesianLayer.rememberLine(
-                        fill = LineCartesianLayer.LineFill.single(
-                            fill(VicoChartHelpers.LineSecondary.copy(alpha = 0.8f))
-                        ),
-                        thickness = 1.5.dp
-                    )
-
-                    val lineList = remember(hasMa, rawLine, maLine) {
-                        if (hasMa) listOf(rawLine, maLine) else listOf(rawLine)
-                    }
-
-                    CartesianChartHost(
-                        chart = rememberCartesianChart(
-                            rememberLineCartesianLayer(
-                                lineProvider = LineCartesianLayer.LineProvider.series(lineList)
-                            ),
-                            startAxis = VerticalAxis.rememberStart(
-                                label = axisLabel,
-                                valueFormatter = yFormatter
-                            ),
-                            bottomAxis = HorizontalAxis.rememberBottom(
-                                label = axisLabel,
-                                valueFormatter = xFormatter
-                            )
-                        ),
-                        modelProducer = modelProducer,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                    )
-
-                    // ── Legend ────────────────────────────────────────────────
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        ChartLegendDot(color = VicoChartHelpers.LinePrimary, label = "Raw e1RM")
-                        if (hasMa) {
-                            ChartLegendDot(color = VicoChartHelpers.LineSecondary, label = "3-session avg")
-                        }
+            // ── Legend (only when chart has data) ─────────────────────────────
+            if (hasData) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ChartLegendDot(color = VicoChartHelpers.LinePrimary, label = "Raw e1RM")
+                    if (hasMa) {
+                        ChartLegendDot(color = VicoChartHelpers.LineSecondary, label = "3-session avg")
                     }
                 }
             }

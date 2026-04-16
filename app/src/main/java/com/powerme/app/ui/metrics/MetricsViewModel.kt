@@ -2,14 +2,12 @@ package com.powerme.app.ui.metrics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.powerme.app.analytics.WeeklyInsights
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.HealthConnectSyncDao
 import com.powerme.app.data.database.MetricLog
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.database.ageYears
-import com.powerme.app.data.repository.AnalyticsRepository
 import com.powerme.app.data.repository.MetricLogRepository
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.util.UserSessionManager
@@ -25,9 +23,6 @@ import kotlin.math.abs
 import javax.inject.Inject
 
 data class MetricsUiState(
-    val weeklyInsights: WeeklyInsights? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null,
     val weightEntries: List<MetricLog> = emptyList(),
     val bodyFatEntries: List<MetricLog> = emptyList(),
     val weightInput: String = "",
@@ -39,7 +34,6 @@ data class MetricsUiState(
 
 @HiltViewModel
 class MetricsViewModel @Inject constructor(
-    private val analyticsRepository: AnalyticsRepository,
     private val metricLogRepository: MetricLogRepository,
     private val healthConnectManager: HealthConnectManager,
     private val userSessionManager: UserSessionManager,
@@ -54,21 +48,8 @@ class MetricsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
 
     init {
-        loadInsights()
         observeMetricLogs()
         loadBodyVitals()
-    }
-
-    fun loadInsights() {
-        viewModelScope.launch {
-            try {
-                _uiState.update { it.copy(isLoading = true, error = null) }
-                val insights = analyticsRepository.generateWeeklyInsights()
-                _uiState.update { it.copy(weeklyInsights = insights, isLoading = false) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = "Failed to load insights: ${e.message}") }
-            }
-        }
     }
 
     private fun observeMetricLogs() {

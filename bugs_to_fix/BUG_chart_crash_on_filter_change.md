@@ -16,4 +16,8 @@ Both crashes share the same root cause: `CartesianChartModelProducer` retains st
 3. E1RMProgressionCard crash: tap an exercise chip for an exercise with only 1 logged session
 
 ## Fix Notes
-Added an `else { modelProducer.runTransaction { } }` branch in the `LaunchedEffect` of both cards. This clears the stale model from the producer whenever data drops below the 2-point threshold, preventing the producer/consumer mismatch that triggered the crash.
+**Rev 4 (architectural fix):** Previous attempts failed because the crash has multiple root causes beyond just the conditional removal:
+1. `CartesianChartModelProducer` lived in `remember {}` inside composables destroyed by LazyColumn recycling AND tab navigation (`saveState/restoreState`)
+2. `loadAll()` had no job cancellation — clicking "1M" while init was still loading caused racing `runTransaction` calls on the same producer
+
+The fix moves both producers to `TrendsViewModel` where they survive all lifecycle events. Data is pushed from the ViewModel's load functions (raw metric values). Chart composables receive the producer as a parameter and never create their own. The `CartesianChartHost` is always in the composition tree with a surface overlay for the empty state, and dummy data matching the layer structure is pushed when real data < 2 points.

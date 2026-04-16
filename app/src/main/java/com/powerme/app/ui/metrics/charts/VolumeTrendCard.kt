@@ -1,5 +1,6 @@
 package com.powerme.app.ui.metrics.charts
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,6 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -34,13 +34,10 @@ import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
-import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
-import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.ui.metrics.TrendsTimeRange
-import com.powerme.app.ui.metrics.WeeklyVolumeChartPoint
 import com.powerme.app.ui.metrics.WeeklyVolumeData
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.ProSubGrey
@@ -53,8 +50,8 @@ import kotlin.math.roundToInt
 /**
  * Displays weekly training volume as a bar chart with a 4-week moving average line overlay.
  *
- * Consumes [TrendsViewModel.weeklyVolume] and [TrendsViewModel.timeRange] StateFlows —
- * no new DAO queries or repository methods are needed.
+ * [modelProducer] is owned by TrendsViewModel so it survives tab navigation and LazyColumn
+ * recycling. Data is pushed directly from the ViewModel — no LaunchedEffect needed here.
  */
 @Composable
 fun VolumeTrendCard(
@@ -62,9 +59,9 @@ fun VolumeTrendCard(
     timeRange: TrendsTimeRange,
     unitSystem: UnitSystem,
     onTimeRangeChange: (TrendsTimeRange) -> Unit,
+    modelProducer: CartesianChartModelProducer,
     modifier: Modifier = Modifier
 ) {
-    val modelProducer = remember { CartesianChartModelProducer() }
     val points = volumeData?.points.orEmpty()
 
     // Stable reference to the current timestamp list — read by the formatter at render time.
@@ -79,33 +76,17 @@ fun VolumeTrendCard(
         }
     }
 
+    // The producer holds raw metric (kg) values — convert to display units at render time.
     val yFormatter = remember(unitSystem) {
         val label = UnitConverter.weightLabel(unitSystem)
         CartesianValueFormatter { _, value, _ ->
-            if (value >= 1_000.0) "${"%.0f".format(value / 1_000)}K $label"
-            else "${"%.0f".format(value)} $label"
+            val display = UnitConverter.displayWeight(value, unitSystem)
+            if (display >= 1_000.0) "${"%.0f".format(display / 1_000)}K $label"
+            else "${"%.0f".format(display)} $label"
         }
     }
 
-    // Axis text style — consistent with ProSubGrey, 11sp
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
-
-    // Push chart data whenever source data or units change.
-    // Always call runTransaction — even when data is insufficient — to clear any stale model
-    // that remains from a previous filter range. Without this, CartesianChartHost may leave
-    // composition while the producer still holds old data, causing a Vico crash.
-    LaunchedEffect(volumeData, unitSystem) {
-        if (points.size >= 2) {
-            val volumes = points.map { UnitConverter.displayWeight(it.totalVolume, unitSystem) }
-            val ma = computeVolumeMa4Week(points).map { UnitConverter.displayWeight(it, unitSystem) }
-            modelProducer.runTransaction {
-                columnSeries { series(volumes) }
-                lineSeries { series(ma) }
-            }
-        } else {
-            modelProducer.runTransaction { }
-        }
-    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -159,22 +140,16 @@ fun VolumeTrendCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Chart or empty state ──────────────────────────────────────────
-            if (points.size < 2) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Log at least 2 weeks of workouts\nto see volume trends",
-                        fontSize = 13.sp,
-                        color = ProSubGrey,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else {
+            // ── Chart area — CartesianChartHost is always in the composition tree ──
+            // The producer lives in TrendsViewModel and is never recreated, so the host
+            // can safely attach/detach (tab switches, LazyColumn scroll) without crashing.
+            // When data is insufficient the chart renders dummy data behind a surface overlay.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 val barLayer = rememberColumnCartesianLayer(
                     columnProvider = ColumnCartesianLayer.ColumnProvider.series(
                         rememberLineComponent(
@@ -208,23 +183,25 @@ fun VolumeTrendCard(
                         )
                     ),
                     modelProducer = modelProducer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
+                    modifier = Modifier.matchParentSize()
                 )
+
+                if (points.size < 2) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.surface),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Log at least 2 weeks of workouts\nto see volume trends",
+                            fontSize = 13.sp,
+                            color = ProSubGrey,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
         }
-    }
-}
-
-/**
- * 4-week rolling average of weekly volume (in raw kg, before unit conversion).
- * Early weeks use a partial window (e.g. the first week averages just itself).
- */
-private fun computeVolumeMa4Week(points: List<WeeklyVolumeChartPoint>): List<Double> {
-    return points.mapIndexed { i, _ ->
-        val windowStart = maxOf(0, i - 3)
-        val window = points.subList(windowStart, i + 1)
-        window.sumOf { it.totalVolume } / window.size
     }
 }
