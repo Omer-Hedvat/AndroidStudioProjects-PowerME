@@ -53,9 +53,9 @@ data class WorkoutDetailUiState(
     val exerciseGroups: List<ExerciseGroup> = emptyList(),
     val expandedExerciseIds: Set<Long> = emptySet(),
     val isLoading: Boolean = true,
-    val isEditMode: Boolean = false,
     val pendingEdits: Map<String, PendingEdit> = emptyMap(),
-    val isSaving: Boolean = false
+    val isSaving: Boolean = false,
+    val savedSuccessfully: Boolean = false
 )
 
 @HiltViewModel
@@ -85,11 +85,16 @@ class WorkoutDetailViewModel @Inject constructor(
             val workout = workoutDao.getWorkoutById(workoutId)
             val sets = workoutSetDao.getSetsWithExerciseForWorkout(workoutId)
             val groups = buildGroups(sets)
+            val initialEdits = groups.flatMap { it.sets }.associate { set ->
+                val weightStr = UnitConverter.formatWeightRaw(set.weight, unitSystem.value)
+                set.id to PendingEdit(weight = weightStr, reps = set.reps.toString())
+            }
             _uiState.value = WorkoutDetailUiState(
                 workout = workout,
                 exerciseGroups = groups,
                 expandedExerciseIds = groups.map { it.exerciseId }.toSet(),
-                isLoading = false
+                isLoading = false,
+                pendingEdits = initialEdits
             )
         }
     }
@@ -104,29 +109,26 @@ class WorkoutDetailViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(expandedExerciseIds = newExpanded)
     }
 
-    fun startEditMode() {
-        val initialEdits = _uiState.value.exerciseGroups
-            .flatMap { it.sets }
-            .associate { set ->
-                val weightStr = UnitConverter.formatWeightRaw(set.weight, unitSystem.value)
-                set.id to PendingEdit(weight = weightStr, reps = set.reps.toString())
-            }
-        _uiState.value = _uiState.value.copy(isEditMode = true, pendingEdits = initialEdits)
+    fun hasUnsavedChanges(): Boolean {
+        val state = _uiState.value
+        if (state.pendingEdits.isEmpty()) return false
+        val originalSets = state.exerciseGroups.flatMap { it.sets }.associateBy { it.id }
+        return state.pendingEdits.any { (setId, edit) ->
+            val original = originalSets[setId] ?: return@any false
+            val origWeight = UnitConverter.formatWeightRaw(original.weight, unitSystem.value)
+            edit.weight != origWeight || edit.reps != original.reps.toString()
+        }
     }
 
-    fun cancelEditMode() {
-        _uiState.value = _uiState.value.copy(isEditMode = false, pendingEdits = emptyMap())
-    }
+    fun updatePendingWeight(setId: String, weight: String) =
+        updatePendingField(setId) { it.copy(weight = weight) }
 
-    fun updatePendingWeight(setId: String, weight: String) {
+    fun updatePendingReps(setId: String, reps: String) =
+        updatePendingField(setId) { it.copy(reps = reps) }
+
+    private fun updatePendingField(setId: String, transform: (PendingEdit) -> PendingEdit) {
         val edits = _uiState.value.pendingEdits.toMutableMap()
-        edits[setId] = (edits[setId] ?: PendingEdit("", "")).copy(weight = weight)
-        _uiState.value = _uiState.value.copy(pendingEdits = edits)
-    }
-
-    fun updatePendingReps(setId: String, reps: String) {
-        val edits = _uiState.value.pendingEdits.toMutableMap()
-        edits[setId] = (edits[setId] ?: PendingEdit("", "")).copy(reps = reps)
+        edits[setId] = transform(edits[setId] ?: PendingEdit("", ""))
         _uiState.value = _uiState.value.copy(pendingEdits = edits)
     }
 
@@ -151,8 +153,7 @@ class WorkoutDetailViewModel @Inject constructor(
                 workoutDao.updateWorkout(workout.copy(updatedAt = System.currentTimeMillis()))
                 firestoreSyncManager.pushWorkout(workoutId)
             }
-            load()
-            _uiState.value = _uiState.value.copy(isEditMode = false, pendingEdits = emptyMap(), isSaving = false)
+            _uiState.value = _uiState.value.copy(isSaving = false, savedSuccessfully = true)
         }
     }
 

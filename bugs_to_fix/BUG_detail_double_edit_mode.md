@@ -1,7 +1,7 @@
 # BUG: Workout detail has two redundant edit modes; inner edit mode has unreadable values
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Description
 The workout detail view (reached via pen/edit icon on WorkoutSummaryScreen) exposes two separate edit modes:
@@ -23,4 +23,11 @@ Having two edit modes on the same screen is confusing and redundant. Additionall
 - Related prior fix: `bugs_to_fix/BUG_history_edit_unreadable_values.md`
 
 ## Fix Notes
-<!-- populated after fix -->
+- Removed the `LaunchedEffect` auto-edit hack; `load()` in the ViewModel now initializes `isEditMode = true` and populates `pendingEdits` directly.
+- Removed `startEditMode()` and `cancelEditMode()` from the ViewModel (dead code).
+- Added `hasUnsavedChanges()` to the ViewModel — compares current `pendingEdits` against original set data.
+- Back arrow and system back now navigate away (with a "Discard Changes?" dialog if edits were made) instead of toggling to a useless read-only state.
+- Removed the entire overflow menu with the redundant "Edit Session" option.
+- Promoted Delete to a visible toolbar icon (always accessible, no overflow needed).
+- `saveEdits()` now stays in edit mode after saving (load() re-initializes fresh edits).
+- Fixed text color in `BasicEditField`: added `color = MaterialTheme.colorScheme.onPrimaryContainer` directly in `textStyle` (the `focusedTextColor`/`unfocusedTextColor` in the `colors` parameter was being overridden by `LocalTextStyle` color propagation through the Card's decoration box).

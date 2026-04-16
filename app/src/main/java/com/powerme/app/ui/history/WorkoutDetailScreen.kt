@@ -14,11 +14,10 @@ import com.powerme.app.ui.theme.PowerMeDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,7 +63,14 @@ fun WorkoutDetailScreen(
         buildSupersetColorMap(uiState.exerciseGroups.map { it.sets.firstOrNull()?.supersetGroupId })
     }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showOverflowMenu by remember { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    val handleBack = { if (viewModel.hasUnsavedChanges()) showDiscardDialog = true else onNavigateBack() }
+
+    LaunchedEffect(uiState.savedSuccessfully) {
+        if (uiState.savedSuccessfully) onNavigateBack()
+    }
+
+    BackHandler(enabled = !uiState.isLoading) { handleBack() }
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -86,6 +92,26 @@ fun WorkoutDetailScreen(
         )
     }
 
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("Discard Changes?") },
+            text = { Text("You have unsaved edits. Discard them?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardDialog = false
+                        onNavigateBack()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Discard") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) { Text("Keep Editing") }
+            }
+        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize().navigationBarsPadding(),
         topBar = {
@@ -97,46 +123,18 @@ fun WorkoutDetailScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        if (uiState.isEditMode) viewModel.cancelEditMode() else onNavigateBack()
-                    }) {
+                    IconButton(onClick = { handleBack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    if (uiState.isEditMode) {
-                        TextButton(
-                            onClick = { viewModel.saveEdits() },
-                            enabled = !uiState.isSaving
-                        ) { Text("Save", fontWeight = FontWeight.Bold) }
-                    } else {
-                        Box {
-                            IconButton(onClick = { showOverflowMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "More")
-                            }
-                            DropdownMenu(
-                                expanded = showOverflowMenu,
-                                onDismissRequest = { showOverflowMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Edit Session") },
-                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        viewModel.startEditMode()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Delete Session", color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        showDeleteDialog = true
-                                    }
-                                )
-                            }
-                        }
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                     }
+                    TextButton(
+                        onClick = { viewModel.saveEdits() },
+                        enabled = !uiState.isSaving
+                    ) { Text("Save", fontWeight = FontWeight.Bold) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -234,7 +232,6 @@ fun WorkoutDetailScreen(
                     supersetColor = supersetColorMap[supersetId] ?: Color.Transparent,
                     isExpanded = isExpanded,
                     unitSystem = unitSystem,
-                    isEditMode = uiState.isEditMode,
                     pendingEdits = uiState.pendingEdits,
                     onToggleExpansion = { viewModel.toggleExerciseExpansion(group.exerciseId) },
                     onWeightChanged = { setId, w -> viewModel.updatePendingWeight(setId, w) },
@@ -251,7 +248,6 @@ private fun ExerciseDetailCard(
     supersetColor: Color = Color.Transparent,
     isExpanded: Boolean,
     unitSystem: UnitSystem = UnitSystem.METRIC,
-    isEditMode: Boolean = false,
     pendingEdits: Map<String, PendingEdit> = emptyMap(),
     onToggleExpansion: () -> Unit,
     onWeightChanged: (String, String) -> Unit = { _, _ -> },
@@ -386,7 +382,6 @@ private fun ExerciseDetailCard(
                                 else -> StrengthSetDetailRow(
                                     set = set,
                                     unitSystem = unitSystem,
-                                    isEditMode = isEditMode,
                                     pendingEdit = pendingEdits[set.id],
                                     onWeightChanged = { w -> onWeightChanged(set.id, w) },
                                     onRepsChanged = { r -> onRepsChanged(set.id, r) }
@@ -405,7 +400,6 @@ private fun ExerciseDetailCard(
 private fun StrengthSetDetailRow(
     set: SetDisplayRow,
     unitSystem: UnitSystem = UnitSystem.METRIC,
-    isEditMode: Boolean = false,
     pendingEdit: PendingEdit? = null,
     onWeightChanged: (String) -> Unit = {},
     onRepsChanged: (String) -> Unit = {}
@@ -421,7 +415,6 @@ private fun StrengthSetDetailRow(
                 .height(36.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // SET column
             val (setLabel, setColor) = when (set.setType) {
                 SetType.NORMAL -> "${set.setOrder}" to MaterialTheme.colorScheme.onSurface
                 SetType.WARMUP -> "W" to MaterialTheme.colorScheme.tertiary
@@ -442,57 +435,28 @@ private fun StrengthSetDetailRow(
 
             Spacer(modifier = Modifier.weight(PREV_SPACE_WEIGHT))
 
-            // WEIGHT column
             Box(
                 modifier = Modifier
                     .weight(WEIGHT_COL_WEIGHT)
                     .padding(horizontal = 2.dp)
                     .fillMaxHeight()
-                    .background(
-                        color = if (isEditMode) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = MaterialTheme.shapes.small
-                    ),
+                    .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
-                if (isEditMode) {
-                    BasicEditField(value = weightDisplay, onValueChange = onWeightChanged, keyboardType = KeyboardType.Decimal)
-                } else {
-                    Text(
-                        text = weightDisplay,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                BasicEditField(value = weightDisplay, onValueChange = onWeightChanged, keyboardType = KeyboardType.Decimal)
             }
 
-            // REPS column
             Box(
                 modifier = Modifier
                     .weight(REPS_COL_WEIGHT)
                     .padding(horizontal = 2.dp)
                     .fillMaxHeight()
-                    .background(
-                        color = if (isEditMode) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = MaterialTheme.shapes.small
-                    ),
+                    .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
-                if (isEditMode) {
-                    BasicEditField(value = repsDisplay, onValueChange = onRepsChanged, keyboardType = KeyboardType.Number)
-                } else {
-                    Text(
-                        text = repsDisplay,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                BasicEditField(value = repsDisplay, onValueChange = onRepsChanged, keyboardType = KeyboardType.Number)
             }
 
-            // RPE column
             Box(
                 modifier = Modifier.weight(RPE_COL_WEIGHT),
                 contentAlignment = Alignment.Center
@@ -508,15 +472,11 @@ private fun StrengthSetDetailRow(
                 )
             }
 
-            // CHECK column
             Box(
                 modifier = Modifier
                     .weight(CHECK_COL_WEIGHT)
                     .fillMaxHeight()
-                    .background(
-                        color = TimerGreen,
-                        shape = MaterialTheme.shapes.small
-                    ),
+                    .background(TimerGreen, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -607,7 +567,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = Unit
                 textAlign = TextAlign.Center
             )
 
-            // DISTANCE pill
+
             Box(
                 modifier = Modifier
                     .weight(0.25f)
@@ -623,7 +583,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = Unit
                 )
             }
 
-            // TIME pill
+
             Box(
                 modifier = Modifier
                     .weight(0.25f)
@@ -639,7 +599,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = Unit
                 )
             }
 
-            // PACE pill
+
             Box(
                 modifier = Modifier
                     .weight(0.20f)
@@ -655,7 +615,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = Unit
                 )
             }
 
-            // RPE pill
+
             Box(
                 modifier = Modifier
                     .weight(0.10f)
@@ -674,7 +634,7 @@ private fun CardioSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = Unit
                 )
             }
 
-            // CHECK status
+
             Box(
                 modifier = Modifier
                     .width(40.dp)
@@ -727,7 +687,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = UnitS
                 textAlign = TextAlign.Center
             )
 
-            // WEIGHT pill
+
             Box(
                 modifier = Modifier
                     .weight(0.25f)
@@ -743,7 +703,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = UnitS
                 )
             }
 
-            // TIME pill
+
             Box(
                 modifier = Modifier
                     .weight(0.35f)
@@ -759,7 +719,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = UnitS
                 )
             }
 
-            // RPE pill
+
             Box(
                 modifier = Modifier
                     .weight(0.20f)
@@ -778,7 +738,7 @@ private fun TimedSetDetailRow(set: SetDisplayRow, unitSystem: UnitSystem = UnitS
                 )
             }
 
-            // CHECK status
+
             Box(
                 modifier = Modifier
                     .width(40.dp)
