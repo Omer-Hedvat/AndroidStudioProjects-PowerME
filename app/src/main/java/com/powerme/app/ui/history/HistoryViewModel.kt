@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.analytics.StatisticalEngine
+import com.powerme.app.data.database.PRDetectionRow
 import com.powerme.app.data.repository.WorkoutRepository
 import com.powerme.app.util.UnitConverter
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,35 +54,40 @@ class HistoryViewModel @Inject constructor(
     val unitSystem: StateFlow<UnitSystem> = appSettingsDataStore.unitSystem
         .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
 
-    val groups: StateFlow<List<HistoryGroup>> =
-        workoutRepository.getAllCompletedWorkoutsWithExerciseNames()
-            .map { rows -> groupByMonth(collapseRows(rows)) }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = emptyList()
-            )
-
-    val insightCards: StateFlow<List<InsightCard>> =
-        combine(
-            workoutRepository.getAllCompletedWorkoutsWithExerciseNames(),
-            appSettingsDataStore.unitSystem
-        ) { rows, unit -> computeInsightCards(collapseRows(rows), unit) }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = emptyList()
-            )
-
-    // Kept for backward-compat with existing tests
-    val workouts: StateFlow<List<WorkoutWithExerciseSummary>> =
+    /**
+     * Shared base flow: single Room subscription for the workout listing query.
+     * Eagerly started so data is ready when the user navigates to History and stays warm.
+     */
+    private val baseWorkouts: StateFlow<List<WorkoutWithExerciseSummary>> =
         workoutRepository.getAllCompletedWorkoutsWithExerciseNames()
             .map { rows -> collapseRows(rows) }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = emptyList()
-            )
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /**
+     * Set of workout IDs that contain at least one PR, computed with an O(N) Kotlin scan
+     * over a lightweight set projection (workoutId, exerciseId, weight, reps, timestamp).
+     * This replaces the former O(N²) correlated SQL subquery.
+     */
+    private val prWorkoutIds: StateFlow<Set<String>> =
+        workoutRepository.getAllCompletedSetsForPRDetection()
+            .map { sets -> computePRWorkoutIds(sets) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /** Workouts with hasPR merged in from the separate PR detection flow. */
+    val workouts: StateFlow<List<WorkoutWithExerciseSummary>> =
+        combine(baseWorkouts, prWorkoutIds) { ws, prIds ->
+            ws.map { it.copy(hasPR = it.id in prIds) }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val groups: StateFlow<List<HistoryGroup>> =
+        workouts
+            .map { ws -> groupByMonth(ws) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val insightCards: StateFlow<List<InsightCard>> =
+        combine(workouts, appSettingsDataStore.unitSystem) { ws, unit ->
+            computeInsightCards(ws, unit)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private fun collapseRows(rows: List<com.powerme.app.data.database.WorkoutExerciseNameRow>): List<WorkoutWithExerciseSummary> {
         return rows
@@ -100,7 +107,7 @@ class HistoryViewModel @Inject constructor(
                     setCount = first.setCount,
                     startTimeMs = first.startTimeMs,
                     endTimeMs = first.endTimeMs,
-                    hasPR = first.hasPR != 0
+                    hasPR = false  // merged in later from prWorkoutIds
                 )
             }
             .sortedByDescending { it.timestamp }
@@ -174,4 +181,23 @@ class HistoryViewModel @Inject constructor(
             .map { (label, items) -> HistoryGroup(label = label, workouts = items) }
             .sortedByDescending { it.workouts.first().timestamp }
     }
+}
+
+/**
+ * Single-pass O(N) PR detection. Scans sets in chronological order (oldest first),
+ * tracking the best e1RM seen per exercise. A workout is marked as containing a PR
+ * when any of its sets establishes a new best for that exercise.
+ */
+fun computePRWorkoutIds(sets: List<PRDetectionRow>): Set<String> {
+    val bestE1RM = mutableMapOf<String, Double>()
+    val prWorkoutIds = mutableSetOf<String>()
+    for (set in sets) {
+        val e1rm = StatisticalEngine.calculate1RM(set.weight, set.reps)
+        val best = bestE1RM[set.exerciseId]
+        if (best == null || e1rm > best) {
+            bestE1RM[set.exerciseId] = e1rm
+            prWorkoutIds.add(set.workoutId)
+        }
+    }
+    return prWorkoutIds
 }

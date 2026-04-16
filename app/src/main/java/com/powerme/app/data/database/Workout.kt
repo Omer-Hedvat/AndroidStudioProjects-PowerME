@@ -16,7 +16,10 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index(value = ["routineId"])]
+    indices = [
+        Index(value = ["routineId"]),
+        Index(value = ["isCompleted", "isArchived", "timestamp"])  // covers WHERE isCompleted=1 AND isArchived=0 ORDER BY timestamp DESC
+    ]
 )
 data class Workout(
     @PrimaryKey

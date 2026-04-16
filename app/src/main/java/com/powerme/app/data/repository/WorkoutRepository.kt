@@ -44,6 +44,10 @@ class WorkoutRepository @Inject constructor(
         return workoutDao.getAllCompletedWorkoutsWithExerciseNames()
     }
 
+    fun getAllCompletedSetsForPRDetection(): Flow<List<PRDetectionRow>> {
+        return workoutDao.getAllCompletedSetsForPRDetection()
+    }
+
     suspend fun getWorkoutById(workoutId: String): Workout? {
         return workoutDao.getWorkoutById(workoutId)
     }

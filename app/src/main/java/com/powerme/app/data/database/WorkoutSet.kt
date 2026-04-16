@@ -23,7 +23,9 @@ import androidx.room.PrimaryKey
     ],
     indices = [
         Index(value = ["workoutId"]),
-        Index(value = ["exerciseId"])
+        Index(value = ["exerciseId"]),
+        Index(value = ["workoutId", "exerciseId"]),                // covers SELECT DISTINCT workoutId, exerciseId
+        Index(value = ["workoutId", "isCompleted", "setType"])     // covering index for setCount aggregation
     ]
 )
 data class WorkoutSet(

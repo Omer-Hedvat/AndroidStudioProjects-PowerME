@@ -24,7 +24,7 @@ import androidx.room.TypeConverters
         ExerciseMuscleGroup::class,
         HealthHistoryEntry::class
     ],
-    version = 41,
+    version = 42,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

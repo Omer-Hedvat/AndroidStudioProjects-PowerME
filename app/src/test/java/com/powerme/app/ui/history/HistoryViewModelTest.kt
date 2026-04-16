@@ -2,6 +2,7 @@ package com.powerme.app.ui.history
 
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.database.PRDetectionRow
 import com.powerme.app.data.database.WorkoutExerciseNameRow
 import com.powerme.app.data.repository.WorkoutRepository
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -24,12 +26,9 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
 /**
- * Unit tests for HistoryViewModel.collapseRows() logic, tested via the exposed
- * [HistoryViewModel.workouts] StateFlow.
- *
- * Verifies that WorkoutExerciseNameRow groups are correctly collapsed into
- * WorkoutWithExerciseSummary — including routineName, setCount, exerciseNames,
- * and timestamp-descending ordering.
+ * Unit tests for HistoryViewModel, testing:
+ * - collapseRows() logic via the [HistoryViewModel.workouts] StateFlow
+ * - [computePRWorkoutIds] PR detection algorithm directly
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryViewModelTest {
@@ -46,8 +45,7 @@ class HistoryViewModelTest {
         setCount: Int = 0,
         timestamp: Long = id * 1000L,
         durationSeconds: Int = 3600,
-        totalVolume: Double = 1000.0,
-        hasPR: Int = 0
+        totalVolume: Double = 1000.0
     ) = WorkoutExerciseNameRow(
         id = id.toString(),
         routineId = null,
@@ -61,7 +59,21 @@ class HistoryViewModelTest {
         exerciseName = exerciseName,
         routineName = routineName,
         setCount = setCount,
-        hasPR = hasPR
+        hasPR = 0   // always 0 from query; PR detection is done via computePRWorkoutIds
+    )
+
+    private fun makePRRow(
+        workoutId: String,
+        exerciseId: String,
+        weight: Double,
+        reps: Int,
+        timestamp: Long
+    ) = PRDetectionRow(
+        workoutId = workoutId,
+        exerciseId = exerciseId,
+        weight = weight,
+        reps = reps,
+        timestamp = timestamp
     )
 
     @Before
@@ -70,6 +82,8 @@ class HistoryViewModelTest {
         workoutRepository = mock()
         mockAppSettingsDataStore = mock()
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
+        // Default: no sets for PR detection
+        whenever(workoutRepository.getAllCompletedSetsForPRDetection()).thenReturn(flowOf(emptyList()))
     }
 
     @After
@@ -206,80 +220,93 @@ class HistoryViewModelTest {
             assertEquals(3, summaries[1].setCount)
         }
 
-    // ── hasPR mapping ──────────────────────────────────────────────────────────
+    // ── hasPR via computePRWorkoutIds() ───────────────────────────────────────
 
     @Test
-    fun `hasPR true when row hasPR is 1`() = runTest(testDispatcher) {
-        val rows = listOf(makeRow(id = 1L, exerciseName = "Squat", hasPR = 1))
-        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
-        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
-        advanceUntilIdle()
-        job.cancel()
-        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
-        assertTrue(summaries[0].hasPR)
-    }
-
-    @Test
-    fun `hasPR false when row hasPR is 0`() = runTest(testDispatcher) {
-        val rows = listOf(makeRow(id = 1L, exerciseName = "Squat", hasPR = 0))
-        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
-        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
-        advanceUntilIdle()
-        job.cancel()
-        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
-        assertEquals(false, summaries[0].hasPR)
-    }
-
-    @Test
-    fun `hasPR taken from first row in group - true when first row has hasPR 1`() = runTest(testDispatcher) {
-        // Multi-exercise workout: first row has hasPR=1, second has hasPR=0
-        val rows = listOf(
-            makeRow(id = 1L, exerciseName = "Squat",       hasPR = 1),
-            makeRow(id = 1L, exerciseName = "Bench Press", hasPR = 0)
+    fun `computePRWorkoutIds - first ever set for an exercise is a PR`() {
+        val sets = listOf(
+            makePRRow("w1", "squat", weight = 100.0, reps = 5, timestamp = 1000L)
         )
-        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
-        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
-        advanceUntilIdle()
-        job.cancel()
-        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
-        assertEquals(1, summaries.size)
-        assertTrue(summaries[0].hasPR)
+        val prIds = computePRWorkoutIds(sets)
+        assertTrue(prIds.contains("w1"))
     }
 
     @Test
-    fun `hasPR false when all rows in group have hasPR 0`() = runTest(testDispatcher) {
-        val rows = listOf(
-            makeRow(id = 1L, exerciseName = "Squat",       hasPR = 0),
-            makeRow(id = 1L, exerciseName = "Bench Press", hasPR = 0)
+    fun `computePRWorkoutIds - second set with higher e1RM is a PR`() {
+        val sets = listOf(
+            makePRRow("w1", "squat", weight = 100.0, reps = 5, timestamp = 1000L),
+            makePRRow("w2", "squat", weight = 120.0, reps = 5, timestamp = 2000L)
         )
-        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
-        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
-        advanceUntilIdle()
-        job.cancel()
-        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
-        assertEquals(false, summaries[0].hasPR)
+        val prIds = computePRWorkoutIds(sets)
+        assertTrue(prIds.contains("w1"))
+        assertTrue(prIds.contains("w2"))
     }
 
     @Test
-    fun `hasPR defaults to false when not provided`() = runTest(testDispatcher) {
-        val rows = listOf(makeRow(id = 1L, exerciseName = "Deadlift"))
-        whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
-        val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
-        val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
-        advanceUntilIdle()
-        job.cancel()
-        val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
-        assertEquals(false, summaries[0].hasPR)
+    fun `computePRWorkoutIds - second set with lower e1RM is not a PR`() {
+        val sets = listOf(
+            makePRRow("w1", "squat", weight = 120.0, reps = 5, timestamp = 1000L),
+            makePRRow("w2", "squat", weight = 100.0, reps = 5, timestamp = 2000L)
+        )
+        val prIds = computePRWorkoutIds(sets)
+        assertTrue(prIds.contains("w1"))
+        assertFalse(prIds.contains("w2"))
     }
+
+    @Test
+    fun `computePRWorkoutIds - independent exercises tracked separately`() {
+        val sets = listOf(
+            makePRRow("w1", "squat",  weight = 100.0, reps = 5, timestamp = 1000L),
+            makePRRow("w1", "bench",  weight = 80.0,  reps = 5, timestamp = 1000L),
+            makePRRow("w2", "squat",  weight = 90.0,  reps = 5, timestamp = 2000L),  // not a squat PR
+            makePRRow("w2", "bench",  weight = 90.0,  reps = 5, timestamp = 2000L)   // bench PR
+        )
+        val prIds = computePRWorkoutIds(sets)
+        assertTrue(prIds.contains("w1"))
+        // w2 has a bench PR but not a squat PR — still in the set because bench was a PR
+        assertTrue(prIds.contains("w2"))
+    }
+
+    @Test
+    fun `computePRWorkoutIds - empty input returns empty set`() {
+        assertTrue(computePRWorkoutIds(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun `hasPR true when workout id is in prWorkoutIds`() =
+        runTest(testDispatcher) {
+            val rows = listOf(makeRow(id = 1L, exerciseName = "Squat"))
+            whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
+            val prSets = listOf(makePRRow("1", "squat", 100.0, 5, 1000L))
+            whenever(workoutRepository.getAllCompletedSetsForPRDetection()).thenReturn(flowOf(prSets))
+
+            val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
+            val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
+            val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
+            advanceUntilIdle()
+            job.cancel()
+
+            val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+            assertTrue(summaries[0].hasPR)
+        }
+
+    @Test
+    fun `hasPR false when workout id not in prWorkoutIds`() =
+        runTest(testDispatcher) {
+            val rows = listOf(makeRow(id = 1L, exerciseName = "Squat"))
+            whenever(workoutRepository.getAllCompletedWorkoutsWithExerciseNames()).thenReturn(flowOf(rows))
+            // No PR sets -> prWorkoutIds is empty
+            whenever(workoutRepository.getAllCompletedSetsForPRDetection()).thenReturn(flowOf(emptyList()))
+
+            val viewModel = HistoryViewModel(workoutRepository, mockAppSettingsDataStore)
+            val results = mutableListOf<List<WorkoutWithExerciseSummary>>()
+            val job = launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.workouts.collect { results.add(it) } }
+            advanceUntilIdle()
+            job.cancel()
+
+            val summaries = results.firstOrNull { it.isNotEmpty() } ?: emptyList()
+            assertFalse(summaries[0].hasPR)
+        }
 
     /**
      * Case 5: exerciseName is null — exerciseNames list must be empty (null filtered out).
@@ -316,8 +343,6 @@ class HistoryViewModelTest {
     @Test
     fun `denormalized routineName survives when routineId is null after routine deletion`() =
         runTest(testDispatcher) {
-            // routineId = null (default in makeRow) simulates SET_NULL after routine deletion;
-            // routineName is the denormalized snapshot that should survive.
             val rows = listOf(
                 makeRow(id = 1L, exerciseName = "Squat", routineName = "Push Day", setCount = 3)
             )
