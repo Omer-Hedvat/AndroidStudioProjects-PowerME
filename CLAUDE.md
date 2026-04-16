@@ -99,6 +99,7 @@ Read the relevant spec before touching files in that domain.
 | `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v42, schema changes |
 | `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | ✅ Step A done | WorkoutSummaryScreen — hero header, session rating, per-exercise cards, muscle group bars, notes |
 | `DB_ARCHITECTURE.md` | ✅ Exists | Core entity relationships, template-to-instance pattern, UUID migration, workout lifecycle |
+| `future_devs/HC_BACKFILL_SPEC.md` | ✅ Complete | HC Workout Backfill — one-time silent background push of last 90 days when `WRITE_EXERCISE` granted; `hcWorkoutBackfillDone` guard prevents double-run |
 
 ### Future (not yet implemented — see `ROADMAP.md` for phase/status)
 
@@ -109,7 +110,6 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md` | P2 / P3 | Profile/Settings split, health history ledger, fitness level, RPE auto-pop |
 | `future_devs/TRENDS_CHARTS_SPEC.md` | P4 / P5 | Trends chart cards Steps 2–8 (Volume, E1RM, Muscle Balance, Effective Sets, Body Composition, Steps, Chronotype) |
 | `future_devs/HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | P4 | HC extended reads — HR, Calories, VO₂ Max, Distance, SpO₂ |
-| `future_devs/HC_BACKFILL_SPEC.md` | P4 | HC Backfill — one-time push of last 90 days on permission grant |
 | `future_devs/CSV_IMPORT_SPEC.md` | P5 | CSV workout history import (Strong, Hevy, FitBod, generic) |
 
 ---
