@@ -41,12 +41,15 @@
 - **Health History ledger** in ProfileScreen — injuries/surgeries/conditions with severity tiers; add/edit via `ModalBottomSheet`; auto-rebuilds `MedicalLedger` red/yellow lists on save. `HealthHistoryEntry` entity in `health_history_entries` table (v40).
 - Performance metrics, trends, and charts
 - State history auditing trail
-- DataStore preferences (plates config, timers, language, keepScreenOn, dailyStepTarget, useRpeAutoPop, timedSetSetupSeconds)
+- DataStore preferences (plates config, timers, language, keepScreenOn, dailyStepTarget, useRpeAutoPop, timedSetSetupSeconds, timerSound)
+- **Timer Sound Options** — user-selectable alert tone for all timers (rest, countdown, Tabata, EMOM, timed set). 5 options: Beep/Bell/Chime/Click/Silent. Persisted to `AppSettingsDataStore.timerSound` (key `"timer_sound"`, default `BEEP`). `TimerSound` enum in `util/TimerSound.kt`. `RestTimerNotifier` dispatches tone type per selection; `NONE` silences audio (haptics unchanged). Dropdown in Settings → Display & Workout. Firestore-synced. See `future_devs/TIMER_SOUND_OPTIONS_SPEC.md`.
 - **RPE auto-pop setting** — "Use RPE" toggle in Settings → Display & Workout card; persisted to `AppSettingsDataStore.useRpeAutoPop` (key `"use_rpe_auto_pop"`, default `false`); when ON, RPE picker auto-opens after each completed set in `WorkoutViewModel`. "Get Ready countdown" stepper (0–10s) also added (`timedSetSetupSeconds`, default 3s). See `PROFILE_SETTINGS_REDESIGN_SPEC.md §4`.
 - **Trends tab** — `ReadinessEngine` (z-score, HRV 0.45/Sleep 0.35/RHR 0.20), `TrendsDao` (6 aggregate queries), `TrendsRepository`, `TrendsViewModel` (11 StateFlows), `VicoChartHelpers`. See TRENDS_SPEC.md.
 - **ReadinessGaugeCard** — Custom Canvas arc (240° sweep gradient), needle dot, NoData/Calibrating/Score states. See TRENDS_SPEC.md.
 - **VolumeTrendCard** — Weekly volume bar chart (Vico `ColumnCartesianLayer`, ProViolet) + 4-week MA line overlay (TimerGreen), time range FilterChip row. `ui/metrics/charts/VolumeTrendCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 2`.
 - **E1RMProgressionCard** — Single-exercise e1RM progression line chart (raw + 3-session MA), scrollable FilterChip exercise picker, percent-change badge. `ui/metrics/charts/E1RMProgressionCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 3`.
+- **MuscleGroupVolumeCard** — Weekly stacked bar chart of training volume per muscle group, 8 fixed series in `VicoChartHelpers.muscleGroupOrder`, THIS WEEK distribution row. `ui/metrics/charts/MuscleGroupVolumeCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 4`.
+- **EffectiveSetsCard** — Weekly stacked bar chart of effective sets (RPE ≥ 7.0) per muscle group; RPE coverage banner (amber < 50%); sparse warning (< 30%); THIS WEEK distribution row with set counts. `ui/metrics/charts/EffectiveSetsCard.kt`. `TrendsDao.getTotalSetsCount()`/`getRpeCoveredSetsCount()` compute coverage %; `TrendsViewModel.effectiveSetsModelProducer` + `effectiveSetsCoverage` StateFlow. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 5`.
 - Clocks tab (Stopwatch, Timer, Tabata, EMOM): centiseconds display, countdown beeps, haptics, wake lock. See TOOLS_SPEC.md.
 - StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository. See HISTORY_ANALYTICS_SPEC.md.
 - ExerciseDetailSheet (ModalBottomSheet): Form Cues (gold banner). YouTube TextButton removed (deprecated field). See EXERCISES_SPEC.md §5–§6.
@@ -65,8 +68,8 @@ Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes vi
 
 **Health Connect permissions:** 7 READ permissions: READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. `MetricType` enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT. Height sync via `getLatestHeight()` (365-day window); dual-sink to MetricLog + User entity.
 
-**Unit Tests (src/test/, 20 files, ~365 tests — all passing):**
-ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), ProfileVM-PersonalInfo(7), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7), WorkoutSummaryVM(21), RpeHelper(5)
+**Unit Tests (src/test/, 21 files, ~370 tests — all passing):**
+ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), SettingsVM-TimerSound(5), ProfileVM-PersonalInfo(7), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7), WorkoutSummaryVM(21), RpeHelper(5)
 
 ---
 
@@ -100,6 +103,7 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | ✅ Step A done | WorkoutSummaryScreen — hero header, session rating, per-exercise cards, muscle group bars, notes |
 | `DB_ARCHITECTURE.md` | ✅ Exists | Core entity relationships, template-to-instance pattern, UUID migration, workout lifecycle |
 | `future_devs/HC_BACKFILL_SPEC.md` | ✅ Complete | HC Workout Backfill — one-time silent background push of last 90 days when `WRITE_EXERCISE` granted; `hcWorkoutBackfillDone` guard prevents double-run |
+| `future_devs/TIMER_SOUND_OPTIONS_SPEC.md` | ✅ Complete | Timer Sound Options — 5 selectable alert tones (Beep/Bell/Chime/Click/Silent) for all timers; `TimerSound` enum, `AppSettingsDataStore.timerSound`, Firestore-synced |
 
 ### Future (not yet implemented — see `ROADMAP.md` for phase/status)
 

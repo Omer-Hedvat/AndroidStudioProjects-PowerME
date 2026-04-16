@@ -4,23 +4,45 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.util.AlertType
 import com.powerme.app.util.ClocksTimerBridge
 import com.powerme.app.util.RestTimerNotifier
+import com.powerme.app.util.TimerSound
 import com.powerme.app.util.WakeLockManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class TimerMode { EMOM, TABATA, STOPWATCH, COUNTDOWN }
 enum class TimerPhase { IDLE, SETUP, WORK, REST }
+
+/**
+ * Returns the warn-at threshold in seconds, or null if warn should not fire.
+ *
+ * - text.isBlank() → auto mode: floor(duration / 2); suppressed (null) when that value <= 3
+ * - text.isNotBlank() → manual mode: text.toInt() if valid (> 0 && < duration), else null
+ * - duration <= 0 → null always
+ */
+internal fun resolveWarnAt(text: String, duration: Int): Int? {
+    if (duration <= 0) return null
+    return if (text.isBlank()) {
+        val auto = duration / 2
+        if (auto <= 3) null else auto
+    } else {
+        val v = text.toIntOrNull() ?: return null
+        if (v > 0 && v < duration) v else null
+    }
+}
 
 data class ToolsUiState(
     val mode: TimerMode = TimerMode.EMOM,
@@ -46,10 +68,11 @@ data class ToolsUiState(
     val tabataSkipLastRest: Boolean = false,
     // EMOM skip last rest
     val emomSkipLastRest: Boolean = false,
-    // Warn-before-finish fields (all countdown modes)
-    val tabataWarnAtSecondsText: String = "2",
-    val emomWarnAtSecondsText: String = "2",
-    val countdownWarnAtSecondsText: String = "2",
+    // Warn-before-finish fields (blank = auto half-time mode)
+    val tabataWorkWarnText: String = "",
+    val tabataRestWarnText: String = "",
+    val emomWarnText: String = "",
+    val countdownWarnText: String = "",
     // Setup time — preparation countdown before main timer starts (shared across all modes)
     val setupSeconds: Int = 0,
     val setupSecondsText: String = "0",
@@ -61,11 +84,15 @@ data class ToolsUiState(
 class ToolsViewModel @Inject constructor(
     private val wakeLockManager: WakeLockManager,
     private val clocksTimerBridge: ClocksTimerBridge,
+    private val appSettingsDataStore: AppSettingsDataStore,
     @ApplicationContext context: Context,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val restTimerNotifier = RestTimerNotifier(context)
+
+    private val timerSoundState: StateFlow<TimerSound> = appSettingsDataStore.timerSound
+        .stateIn(viewModelScope, SharingStarted.Eagerly, TimerSound.BEEP)
 
     private val initialMode: TimerMode = savedStateHandle.get<String>("mode")
         ?.let { runCatching { TimerMode.valueOf(it) }.getOrNull() }
@@ -97,15 +124,14 @@ class ToolsViewModel @Inject constructor(
     fun updateTotalRoundsText(text: String) {
         _uiState.update { it.copy(totalRoundsText = text, totalRounds = text.toIntOrNull() ?: it.totalRounds) }
     }
-    fun updateTabataWarnAtSecondsText(text: String) {
-        _uiState.update { it.copy(tabataWarnAtSecondsText = text) }
-    }
-    fun updateEmomWarnAtSecondsText(text: String) {
-        _uiState.update { it.copy(emomWarnAtSecondsText = text) }
-    }
-    fun updateCountdownWarnAtSecondsText(text: String) {
-        _uiState.update { it.copy(countdownWarnAtSecondsText = text) }
-    }
+    fun updateTabataWorkWarnText(text: String) { _uiState.update { it.copy(tabataWorkWarnText = text) } }
+    fun resetTabataWorkWarn()                  { _uiState.update { it.copy(tabataWorkWarnText = "") } }
+    fun updateTabataRestWarnText(text: String) { _uiState.update { it.copy(tabataRestWarnText = text) } }
+    fun resetTabataRestWarn()                  { _uiState.update { it.copy(tabataRestWarnText = "") } }
+    fun updateEmomWarnText(text: String)       { _uiState.update { it.copy(emomWarnText = text) } }
+    fun resetEmomWarn()                        { _uiState.update { it.copy(emomWarnText = "") } }
+    fun updateCountdownWarnText(text: String)  { _uiState.update { it.copy(countdownWarnText = text) } }
+    fun resetCountdownWarn()                   { _uiState.update { it.copy(countdownWarnText = "") } }
     fun updateSetupSecondsText(text: String) {
         _uiState.update { it.copy(setupSecondsText = text, setupSeconds = text.toIntOrNull()?.coerceAtLeast(0) ?: it.setupSeconds) }
     }
@@ -204,7 +230,7 @@ class ToolsViewModel @Inject constructor(
         while (remaining > 0 && _uiState.value.isRunning) {
             _uiState.update { it.copy(displaySeconds = remaining, setupSecondsRemaining = remaining) }
             clocksTimerBridge.update(remaining, setupTotal)
-            restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+            restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
             delay(1000L)
             remaining--
         }
@@ -212,7 +238,7 @@ class ToolsViewModel @Inject constructor(
         if (!_uiState.value.isRunning) return false
 
         _uiState.update { it.copy(setupSecondsRemaining = 0, displaySeconds = 0) }
-        restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
+        restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START, timerSoundState.value)
         return true
     }
 
@@ -220,11 +246,11 @@ class ToolsViewModel @Inject constructor(
         if (!runSetupCountdown()) return
         val totalRounds   = _uiState.value.emomTotalRounds
         val roundDuration = _uiState.value.emomRoundSeconds
-        val warnAt        = _uiState.value.emomWarnAtSecondsText.toIntOrNull()
+        val warnAt        = resolveWarnAt(_uiState.value.emomWarnText, roundDuration)
 
         for (round in 1..totalRounds) {
             _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = round) }
-            restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
+            restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START, timerSoundState.value)
             var remaining = roundDuration
             var warnedThisRound = false
             while (remaining > 0 && _uiState.value.isRunning) {
@@ -232,10 +258,10 @@ class ToolsViewModel @Inject constructor(
                 clocksTimerBridge.update(remaining, roundDuration)
                 if (warnAt != null && remaining == warnAt && !warnedThisRound) {
                     warnedThisRound = true
-                    restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
+                    restTimerNotifier.triggerAudioAlert(AlertType.WARNING, timerSoundState.value)
                 }
                 if (remaining in 1..3) {
-                    restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+                    restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
                 }
                 delay(1000L)
                 remaining--
@@ -252,55 +278,56 @@ class ToolsViewModel @Inject constructor(
         var round        = state.currentRound
         val totalRounds  = state.totalRounds
         val skipLastRest = state.tabataSkipLastRest
-        val warnAt       = state.tabataWarnAtSecondsText.toIntOrNull()
 
         while (round < totalRounds) {
             val isLastRound = round == totalRounds - 1
 
             // ── WORK phase ───────────────────────────────────────────────────
             _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = round + 1) }
-            restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
+            restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START, timerSoundState.value)
             val workTotal = _uiState.value.workSeconds
+            val workWarnAt = resolveWarnAt(_uiState.value.tabataWorkWarnText, workTotal)
             var workRemaining = workTotal
             var warnedWork = false
             while (workRemaining > 0 && _uiState.value.isRunning) {
                 _uiState.update { it.copy(displaySeconds = workRemaining, tickEpochMs = System.currentTimeMillis()) }
                 clocksTimerBridge.update(workRemaining, workTotal)
-                if (warnAt != null && workRemaining == warnAt && !warnedWork) {
+                if (workWarnAt != null && workRemaining == workWarnAt && !warnedWork) {
                     warnedWork = true
-                    restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
+                    restTimerNotifier.triggerAudioAlert(AlertType.WARNING, timerSoundState.value)
                 }
                 if (workRemaining in 1..3) {
-                    restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+                    restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
                 }
                 delay(1000L)
                 workRemaining--
             }
             if (!_uiState.value.isRunning) return
-            restTimerNotifier.triggerAudioAlert(AlertType.FINISH)
+            restTimerNotifier.triggerAudioAlert(AlertType.FINISH, timerSoundState.value)
 
             // ── REST phase ───────────────────────────────────────────────────
             if (!(isLastRound && skipLastRest)) {
                 _uiState.update { it.copy(phase = TimerPhase.REST) }
-                restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START)
+                restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START, timerSoundState.value)
                 val restTotal = _uiState.value.restSeconds
+                val restWarnAt = resolveWarnAt(_uiState.value.tabataRestWarnText, restTotal)
                 var restRemaining = restTotal
                 var warnedRest = false
                 while (restRemaining > 0 && _uiState.value.isRunning) {
                     _uiState.update { it.copy(displaySeconds = restRemaining, tickEpochMs = System.currentTimeMillis()) }
                     clocksTimerBridge.update(restRemaining, restTotal)
-                    if (warnAt != null && restRemaining == warnAt && !warnedRest) {
+                    if (restWarnAt != null && restRemaining == restWarnAt && !warnedRest) {
                         warnedRest = true
-                        restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
+                        restTimerNotifier.triggerAudioAlert(AlertType.WARNING, timerSoundState.value)
                     }
                     if (restRemaining in 1..3) {
-                        restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+                        restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
                     }
                     delay(1000L)
                     restRemaining--
                 }
                 if (!_uiState.value.isRunning) return
-                restTimerNotifier.triggerAudioAlert(AlertType.FINISH)
+                restTimerNotifier.triggerAudioAlert(AlertType.FINISH, timerSoundState.value)
             }
             round++
         }
@@ -326,7 +353,7 @@ class ToolsViewModel @Inject constructor(
         val total = (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 } ?: 60
         var remaining = if (state.displaySeconds > 0) state.displaySeconds else total
 
-        val warnAt = state.countdownWarnAtSecondsText.toIntOrNull()
+        val warnAt = resolveWarnAt(state.countdownWarnText, total)
         var warnedThisRound = false
 
         _uiState.update { it.copy(phase = TimerPhase.WORK) }
@@ -336,9 +363,9 @@ class ToolsViewModel @Inject constructor(
             clocksTimerBridge.update(remaining, total)
             if (warnAt != null && remaining == warnAt && !warnedThisRound) {
                 warnedThisRound = true
-                restTimerNotifier.triggerAudioAlert(AlertType.WARNING)
+                restTimerNotifier.triggerAudioAlert(AlertType.WARNING, timerSoundState.value)
             }
-            if (remaining in 1..3) restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK)
+            if (remaining in 1..3) restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
             delay(1000L)
             remaining--
         }
@@ -349,7 +376,7 @@ class ToolsViewModel @Inject constructor(
     }
 
     private fun finishTimer() {
-        restTimerNotifier.triggerAudioAlert(AlertType.FINISH)
+        restTimerNotifier.triggerAudioAlert(AlertType.FINISH, timerSoundState.value)
         clocksTimerBridge.clear()
         wakeLockManager.release()
         _uiState.update { it.copy(isRunning = false, phase = TimerPhase.IDLE, tickEpochMs = 0L) }

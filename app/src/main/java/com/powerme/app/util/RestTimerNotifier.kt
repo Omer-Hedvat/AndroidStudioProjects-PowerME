@@ -73,8 +73,8 @@ class RestTimerNotifier(private val context: Context) {
     /**
      * Play a 150 ms warning beep (2 s / 1 s remaining).
      */
-    fun playWarningBeep() {
-        playBeep(150)
+    fun playWarningBeep(sound: TimerSound = TimerSound.BEEP) {
+        playBeep(150, sound)
     }
 
     /**
@@ -93,9 +93,9 @@ class RestTimerNotifier(private val context: Context) {
      * Play the finish beep sequence plus vibration (used at remaining == 0).
      * Pattern: 2 short beeps + 1 longer beep.
      */
-    fun notifyEnd(audioEnabled: Boolean = true, hapticsEnabled: Boolean = true) {
+    fun notifyEnd(audioEnabled: Boolean = true, hapticsEnabled: Boolean = true, sound: TimerSound = TimerSound.BEEP) {
         if (audioEnabled) {
-            playBeep(600)
+            playBeep(600, sound)
         }
         if (hapticsEnabled) {
             vibrate()
@@ -125,10 +125,17 @@ class RestTimerNotifier(private val context: Context) {
         return if (hasExternal) AudioManager.STREAM_MUSIC else AudioManager.STREAM_ALARM
     }
 
-    private fun playBeep(durationMs: Int, volume: Int = 100) {
+    private fun playBeep(durationMs: Int, sound: TimerSound = TimerSound.BEEP, volume: Int = 100) {
+        val toneType = when (sound) {
+            TimerSound.BEEP  -> ToneGenerator.TONE_DTMF_S
+            TimerSound.BELL  -> ToneGenerator.TONE_PROP_BEEP2
+            TimerSound.CHIME -> ToneGenerator.TONE_PROP_ACK
+            TimerSound.CLICK -> ToneGenerator.TONE_PROP_BEEP
+            TimerSound.NONE  -> return
+        }
         try {
             val tg = ToneGenerator(resolveStream(), volume)
-            tg.startTone(ToneGenerator.TONE_DTMF_S, durationMs)
+            tg.startTone(toneType, durationMs)
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 tg.release()
             }, durationMs.toLong() + 100)
@@ -174,27 +181,27 @@ class RestTimerNotifier(private val context: Context) {
      *
      * Audio stream: STREAM_MUSIC when headphones/Bluetooth connected, STREAM_ALARM otherwise.
      */
-    fun triggerAudioAlert(alertType: AlertType) {
+    fun triggerAudioAlert(alertType: AlertType, sound: TimerSound = TimerSound.BEEP) {
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         when (alertType) {
             AlertType.ROUND_START -> {
-                playBeep(600)
+                playBeep(600, sound)
                 hapticPhasePattern()
             }
             AlertType.WARNING -> {
-                playBeep(150)
+                playBeep(150, sound)
                 hapticShortPulse()
                 handler.postDelayed({
-                    playBeep(150)
+                    playBeep(150, sound)
                     hapticShortPulse()
                 }, 275)
             }
             AlertType.COUNTDOWN_TICK -> {
-                playBeep(150)
+                playBeep(150, sound)
                 hapticShortPulse()
             }
             AlertType.FINISH -> {
-                playBeep(600)
+                playBeep(600, sound)
                 hapticPhasePattern()
             }
         }

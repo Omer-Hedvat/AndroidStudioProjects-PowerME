@@ -10,6 +10,7 @@ import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.util.TimerSound
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettings
 import com.powerme.app.data.database.UserSettingsDao
@@ -51,6 +52,8 @@ data class SettingsUiState(
     val useRpeAutoPop: Boolean = false,
     // Get Ready countdown before timed sets
     val timedSetSetupSeconds: Int = 3,
+    // Timer sound
+    val timerSound: TimerSound = TimerSound.BEEP,
     // Appearance
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Units
@@ -118,6 +121,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appSettingsDataStore.timedSetSetupSeconds.collect { value ->
                 _uiState.update { it.copy(timedSetSetupSeconds = value) }
+            }
+        }
+        viewModelScope.launch {
+            appSettingsDataStore.timerSound.collect { value ->
+                _uiState.update { it.copy(timerSound = value) }
             }
         }
     }
@@ -235,6 +243,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appSettingsDataStore.setTimedSetSetupSeconds(seconds)
             _uiState.update { it.copy(timedSetSetupSeconds = seconds) }
+            firestoreSyncManager.pushAppPreferences()
+        }
+    }
+
+    fun setTimerSound(sound: TimerSound) {
+        viewModelScope.launch {
+            appSettingsDataStore.setTimerSound(sound)
+            _uiState.update { it.copy(timerSound = sound) }
             firestoreSyncManager.pushAppPreferences()
         }
     }

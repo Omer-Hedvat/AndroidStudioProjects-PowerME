@@ -32,6 +32,7 @@ import com.powerme.app.data.repository.WarmupRepository
 import com.powerme.app.data.repository.WorkoutRepository
 import com.powerme.app.util.ClocksTimerBridge
 import com.powerme.app.util.RestTimerNotifier
+import com.powerme.app.util.TimerSound
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.util.WorkoutTimerService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -103,9 +104,10 @@ data class ActiveSet(
     val rpeValue: Int? = null,        // Badge-style RPE (Int×10: 60=6.0, 65=6.5, …, 100=10.0)
     val setType: SetType = SetType.NORMAL,
     val isCompleted: Boolean = false,
-    val ghostWeight: String? = null,  // Previous session weight hint
-    val ghostReps: String? = null,    // Previous session reps hint
-    val ghostRpe: String? = null,     // Previous session RPE hint
+    val ghostWeight: String? = null,      // Previous session weight hint
+    val ghostReps: String? = null,        // Previous session reps hint
+    val ghostRpe: String? = null,         // Previous session RPE hint
+    val ghostTimeSeconds: String? = null, // Previous session time hint (timed exercises)
     val setNotes: String = "",        // Session-specific notes for this set
     val distance: String = "",        // For cardio exercises (km)
     val timeSeconds: String = ""      // For cardio/timed exercises (seconds)
@@ -208,6 +210,9 @@ class WorkoutViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val restTimerNotifier = RestTimerNotifier(context)
+
+    private val timerSoundState: StateFlow<TimerSound> = appSettingsDataStore.timerSound
+        .stateIn(viewModelScope, SharingStarted.Eagerly, TimerSound.BEEP)
 
     val unitSystem: StateFlow<UnitSystem> = appSettingsDataStore.unitSystem
         .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
@@ -341,14 +346,14 @@ class WorkoutViewModel @Inject constructor(
                         )
                     ) }
                     if (_workoutState.value.standaloneTimer.remainingSeconds in 1..2) {
-                        restTimerNotifier.playWarningBeep()
+                        restTimerNotifier.playWarningBeep(timerSoundState.value)
                     }
                 } else {
                     delay(500)
                 }
             }
             if (_workoutState.value.standaloneTimer.remainingSeconds == 0) {
-                restTimerNotifier.notifyEnd()
+                restTimerNotifier.notifyEnd(sound = timerSoundState.value)
                 stopStandaloneTimer()
             }
         }
@@ -479,7 +484,8 @@ class WorkoutViewModel @Inject constructor(
                         reps = ws.reps.toString(),
                         setType = ws.setType,
                         ghostWeight = ghost?.weight?.let { if (it > 0.0) formatWeight(it, currentUnit) else null },
-                        ghostReps = ghost?.reps?.let { if (it > 0) it.toString() else null }
+                        ghostReps = ghost?.reps?.let { if (it > 0) it.toString() else null },
+                        ghostTimeSeconds = ghost?.timeSeconds?.let { if (it > 0) it.toString() else null }
                     )
                 }
                 val sticky = try { routineExerciseDao.getStickyNote(routineId, re.exerciseId) } catch (_: Exception) { null }
@@ -1282,7 +1288,10 @@ class WorkoutViewModel @Inject constructor(
 
                 // Routine sync: detect changes vs snapshot captured at workout start
                 val snapshot = state.routineSnapshot
-                if (snapshot.isNotEmpty() && state.routineId.isNotBlank()) {
+                val hasCompletedWorkSets = state.exercises.any { ex ->
+                    ex.sets.any { it.isCompleted && it.setType != SetType.WARMUP }
+                }
+                if (snapshot.isNotEmpty() && state.routineId.isNotBlank() && hasCompletedWorkSets) {
                     val currentExerciseIds = state.exercises.map { it.exercise.id }
                     val snapshotExerciseIds = snapshot.map { it.exerciseId }
 
@@ -1516,19 +1525,20 @@ class WorkoutViewModel @Inject constructor(
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
         restTimerNotifier.notifyEnd(
             audioEnabled = settings.restTimerAudioEnabled,
-            hapticsEnabled = settings.restTimerHapticsEnabled
+            hapticsEnabled = settings.restTimerHapticsEnabled,
+            sound = timerSoundState.value
         )
     }
 
     fun timerWarningTickFeedback() {
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
-        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
+        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep(timerSoundState.value)
         if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
     }
 
     fun setupCountdownTickFeedback() {
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
-        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
+        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep(timerSoundState.value)
         if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
     }
 
@@ -1536,7 +1546,7 @@ class WorkoutViewModel @Inject constructor(
         // Fall back to defaults when the settings row hasn't been created yet.
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
         if (remaining in 1..3) {
-            if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
+            if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep(timerSoundState.value)
             if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
         }
     }
@@ -1546,7 +1556,8 @@ class WorkoutViewModel @Inject constructor(
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
         restTimerNotifier.notifyEnd(
             audioEnabled = settings.restTimerAudioEnabled,
-            hapticsEnabled = settings.restTimerHapticsEnabled
+            hapticsEnabled = settings.restTimerHapticsEnabled,
+            sound = timerSoundState.value
         )
         // Auto-hide the rest separator that just finished so it doesn't linger as a passive row.
         val finishedExerciseId = _workoutState.value.restTimer.exerciseId
@@ -1620,13 +1631,14 @@ class WorkoutViewModel @Inject constructor(
                     _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
                     val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
                     if (i in 1..3) {
-                        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
+                        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep(timerSoundState.value)
                         if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
                     }
                     if (i == 0) {
                         restTimerNotifier.notifyEnd(
                             audioEnabled = settings.restTimerAudioEnabled,
-                            hapticsEnabled = settings.restTimerHapticsEnabled
+                            hapticsEnabled = settings.restTimerHapticsEnabled,
+                            sound = timerSoundState.value
                         )
                     }
                     if (i > 0) delay(1000)
@@ -1898,13 +1910,14 @@ class WorkoutViewModel @Inject constructor(
                     _workoutState.update { it.copy(restTimer = it.restTimer.copy(remainingSeconds = i)) }
                     val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
                     if (i in 1..3) {
-                        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep()
+                        if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep(timerSoundState.value)
                         if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
                     }
                     if (i == 0) {
                         restTimerNotifier.notifyEnd(
                             audioEnabled = settings.restTimerAudioEnabled,
-                            hapticsEnabled = settings.restTimerHapticsEnabled
+                            hapticsEnabled = settings.restTimerHapticsEnabled,
+                            sound = timerSoundState.value
                         )
                     }
                     if (i > 0) delay(1000)

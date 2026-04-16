@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.util.TimerSound
 import com.powerme.app.data.database.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -114,7 +115,8 @@ class FirestoreSyncManager @Inject constructor(
                 "keepScreenOn"        to appSettingsDataStore.keepScreenOn.first(),
                 "useRpeAutoPop"       to appSettingsDataStore.useRpeAutoPop.first(),
                 "timedSetSetupSeconds" to appSettingsDataStore.timedSetSetupSeconds.first(),
-                "language"            to appSettingsDataStore.language.first()
+                "language"            to appSettingsDataStore.language.first(),
+                "timerSound"          to appSettingsDataStore.timerSound.first().name
             )
             userRef(uid).collection("appPreferences").document("data").set(map)
         }
@@ -154,7 +156,8 @@ class FirestoreSyncManager @Inject constructor(
                 "keepScreenOn"         to appSettingsDataStore.keepScreenOn.first(),
                 "useRpeAutoPop"        to appSettingsDataStore.useRpeAutoPop.first(),
                 "timedSetSetupSeconds" to appSettingsDataStore.timedSetSetupSeconds.first(),
-                "language"             to appSettingsDataStore.language.first()
+                "language"             to appSettingsDataStore.language.first(),
+                "timerSound"           to appSettingsDataStore.timerSound.first().name
             )
             userRef(uid).collection("appPreferences").document("data").set(prefsMap).await()
             SyncResult(success = true, workoutsImported = workouts.size, routinesImported = routines.size, profileImported = true, settingsImported = true)
@@ -224,6 +227,10 @@ class FirestoreSyncManager @Inject constructor(
             doc.getBoolean("useRpeAutoPop")?.let { appSettingsDataStore.setUseRpeAutoPop(it) }
             doc.getLong("timedSetSetupSeconds")?.let { appSettingsDataStore.setTimedSetSetupSeconds(it.toInt()) }
             doc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
+            doc.getString("timerSound")?.let { name ->
+                TimerSound.entries.firstOrNull { it.name == name }
+                    ?.let { appSettingsDataStore.setTimerSound(it) }
+            }
             true
         } catch (e: Exception) {
             false
@@ -302,6 +309,10 @@ class FirestoreSyncManager @Inject constructor(
                 appPrefsDoc.getBoolean("useRpeAutoPop")?.let { appSettingsDataStore.setUseRpeAutoPop(it) }
                 appPrefsDoc.getLong("timedSetSetupSeconds")?.let { appSettingsDataStore.setTimedSetSetupSeconds(it.toInt()) }
                 appPrefsDoc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
+                appPrefsDoc.getString("timerSound")?.let { name ->
+                    TimerSound.entries.firstOrNull { it.name == name }
+                        ?.let { appSettingsDataStore.setTimerSound(it) }
+                }
             }
 
             // Routines must be restored before workouts — workouts FK-reference routines via routineId

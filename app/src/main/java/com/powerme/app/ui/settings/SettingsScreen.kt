@@ -25,6 +25,7 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.util.TimerSound
 import com.powerme.app.ui.theme.SetupAmber
 import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.util.UnitConverter
@@ -404,6 +405,49 @@ fun SettingsScreen(
                                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                         )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Timer sound dropdown
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Timer sound", color = MaterialTheme.colorScheme.onSurface)
+                            Text("Alert tone for rest timers and clocks", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        }
+                        var timerSoundExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = timerSoundExpanded,
+                            onExpandedChange = { timerSoundExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.timerSound.displayName,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = timerSoundExpanded) },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .width(120.dp),
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                singleLine = true
+                            )
+                            ExposedDropdownMenu(
+                                expanded = timerSoundExpanded,
+                                onDismissRequest = { timerSoundExpanded = false }
+                            ) {
+                                TimerSound.entries.forEach { sound ->
+                                    DropdownMenuItem(
+                                        text = { Text(sound.displayName) },
+                                        onClick = {
+                                            viewModel.setTimerSound(sound)
+                                            timerSoundExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

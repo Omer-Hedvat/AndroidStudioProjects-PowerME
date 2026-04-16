@@ -86,6 +86,7 @@ class SettingsViewModelHealthConnectTest {
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         whenever(mockAppSettingsDataStore.hcWorkoutBackfillDone).thenReturn(flowOf(true)) // prevent backfill in tests
         whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
+        whenever(mockAppSettingsDataStore.timerSound).thenReturn(flowOf(com.powerme.app.util.TimerSound.BEEP))
         whenever(mockAuth.currentUser).thenReturn(null)
     }
 

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.util.TimerSound
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
 
@@ -41,6 +42,10 @@ class AppSettingsDataStore @Inject constructor(
     val timedSetSetupSeconds: Flow<Int> = ctx.dataStore.data.map { it[TIMED_SET_SETUP_SECONDS_KEY] ?: 3 }
     /** True once the user has dismissed the post-login HC offer (skip or connect). Never shown again after set. */
     val hcOfferDismissed: Flow<Boolean> = ctx.dataStore.data.map { it[HC_OFFER_DISMISSED_KEY] ?: false }
+    /** Selected alert tone for rest timers and clocks. Default: BEEP. */
+    val timerSound: Flow<TimerSound> = ctx.dataStore.data.map {
+        it[TIMER_SOUND_KEY]?.let { name -> TimerSound.entries.firstOrNull { e -> e.name == name } } ?: TimerSound.BEEP
+    }
 
     suspend fun setThemeMode(value: ThemeMode) = ctx.dataStore.edit { it[THEME_MODE_KEY] = value.name }
     suspend fun setLanguage(value: String) = ctx.dataStore.edit { it[LANGUAGE_KEY] = value }
@@ -54,6 +59,7 @@ class AppSettingsDataStore @Inject constructor(
     suspend fun setHcWorkoutBackfillDone(value: Boolean) = ctx.dataStore.edit { it[HC_WORKOUT_BACKFILL_DONE_KEY] = value }
     suspend fun setTimedSetSetupSeconds(value: Int) = ctx.dataStore.edit { it[TIMED_SET_SETUP_SECONDS_KEY] = value.coerceIn(0, 10) }
     suspend fun setHcOfferDismissed(value: Boolean) = ctx.dataStore.edit { it[HC_OFFER_DISMISSED_KEY] = value }
+    suspend fun setTimerSound(value: TimerSound) = ctx.dataStore.edit { it[TIMER_SOUND_KEY] = value.name }
 
     companion object {
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
@@ -67,5 +73,6 @@ class AppSettingsDataStore @Inject constructor(
         val HC_WORKOUT_BACKFILL_DONE_KEY = booleanPreferencesKey("hc_workout_backfill_done")
         val TIMED_SET_SETUP_SECONDS_KEY = intPreferencesKey("timed_set_setup_seconds")
         val HC_OFFER_DISMISSED_KEY = booleanPreferencesKey("hc_offer_dismissed")
+        val TIMER_SOUND_KEY = stringPreferencesKey("timer_sound")
     }
 }
