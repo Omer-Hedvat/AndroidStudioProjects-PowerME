@@ -30,6 +30,7 @@ Single source of truth for bug status across sessions.
 | [BUG_hc_offer_skipped_on_login](BUG_hc_offer_skipped_on_login.md) | Existing users skip HC connect screen on login — navigates directly to Workouts | ✅ Completed | `AppSettingsDataStore.kt`, `AuthViewModel.kt`, `WelcomeScreen.kt`, `PowerMeNavigation.kt`, `HcOfferScreen.kt` (new), `HcOfferViewModel.kt` (new) |
 | [BUG_trends_scroll_crash](BUG_trends_scroll_crash.md) | Trends tab crashes when scrolling to VolumeTrendCard — likely MuscleGroupVolumeCard producer race | ✅ Completed | `TrendsViewModel.kt` |
 | [BUG_timed_exercise_row_columns](BUG_timed_exercise_row_columns.md) | Timed exercise row: missing PREV column, spurious RPE column, orphaned '-' box with no header | 🔴 Open | — |
+| [BUG_warning_beep_gap_too_wide](BUG_warning_beep_gap_too_wide.md) | WARNING double-beep has 300ms gap — too wide, sounds like two separate events | 🔴 Open | `RestTimerNotifier.kt` |
 
 ---
 

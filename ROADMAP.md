@@ -39,7 +39,8 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | Set row spacing (2dp → 8dp) | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §2` | XS | `done` | — |
-| 3-second countdown beep on all timers | `TOOLS_SPEC.md §5` | XS | `completed` | — |
+| 3-second countdown beep on all timers | `TOOLS_SPEC.md §5` | XS | `wrapped` | — |
+| Clocks warn auto half-time default | `future_devs/CLOCKS_WARN_AUTO_HALFTIME_SPEC.md` | S | `not-started` | — |
 
 ---
 
