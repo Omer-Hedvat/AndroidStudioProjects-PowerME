@@ -19,4 +19,7 @@ interface ExerciseMuscleGroupDao {
 
     @Query("DELETE FROM exercise_muscle_groups WHERE exerciseId = :exerciseId")
     suspend fun deleteForExercise(exerciseId: Long)
+
+    @Query("SELECT DISTINCT exerciseId FROM exercise_muscle_groups")
+    suspend fun getAllExerciseIds(): List<Long>
 }

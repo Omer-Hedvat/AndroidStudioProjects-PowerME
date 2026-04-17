@@ -5,6 +5,8 @@ import android.util.Log
 import com.powerme.app.R
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseDao
+import com.powerme.app.data.database.ExerciseMuscleGroup
+import com.powerme.app.data.database.ExerciseMuscleGroupDao
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.SetType
@@ -37,6 +39,7 @@ import javax.inject.Singleton
 class StrongCsvImporter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val exerciseDao: ExerciseDao,
+    private val exerciseMuscleGroupDao: ExerciseMuscleGroupDao,
     private val workoutDao: WorkoutDao,
     private val workoutSetDao: WorkoutSetDao,
     private val database: PowerMeDatabase
@@ -158,6 +161,9 @@ class StrongCsvImporter @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
                 val newId = exerciseDao.insertExercise(newExercise)
+                exerciseMuscleGroupDao.insert(
+                    ExerciseMuscleGroup(exerciseId = newId, majorGroup = newExercise.muscleGroup, isPrimary = true)
+                )
                 exerciseIdByName[powerMeName] = newId
                 strongNameToId[strongName] = newId
                 Log.i(TAG, "Created custom exercise: $powerMeName (id=$newId)")

@@ -33,13 +33,14 @@ import javax.inject.Singleton
 @Singleton
 class MasterExerciseSeeder @Inject constructor(
     private val context: Context,
-    private val exerciseDao: ExerciseDao
+    private val exerciseDao: ExerciseDao,
+    private val exerciseMuscleGroupDao: ExerciseMuscleGroupDao
 ) {
     companion object {
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "1.7"  // bumped: remove 4 duplicate lowercase-"up" exercise entries
+        private const val CURRENT_VERSION = "1.8"  // bumped: populate exercise_muscle_groups on fresh install + backfill upgrade users
     }
 
     private val json = Json {
@@ -122,6 +123,9 @@ class MasterExerciseSeeder @Inject constructor(
             var skippedCount = 0
             val masterNames = mutableSetOf<String>()
 
+            // Fetch all exerciseIds that already have EMG rows — used to avoid duplicate inserts
+            val existingEmgIds = exerciseMuscleGroupDao.getAllExerciseIds().toHashSet()
+
             masterData.exercises.forEach { masterExercise ->
                 masterNames += masterExercise.name
                 val existing = existingByName[masterExercise.name]
@@ -129,7 +133,11 @@ class MasterExerciseSeeder @Inject constructor(
                 when {
                     existing == null -> {
                         // New exercise - insert
-                        exerciseDao.insertExercise(masterExercise.copy(searchName = masterExercise.name.toSearchName()))
+                        val newId = exerciseDao.insertExercise(masterExercise.copy(searchName = masterExercise.name.toSearchName()))
+                        exerciseMuscleGroupDao.insert(
+                            ExerciseMuscleGroup(exerciseId = newId, majorGroup = masterExercise.muscleGroup, isPrimary = true)
+                        )
+                        existingEmgIds += newId
                         insertedCount++
                     }
                     existing.isCustom -> {
@@ -146,6 +154,13 @@ class MasterExerciseSeeder @Inject constructor(
                             searchName = masterExercise.name.toSearchName()
                         )
                         exerciseDao.updateExercise(updated)
+                        // Ensure EMG row exists for this exercise (may be missing on fresh install or after new seeder versions)
+                        if (existing.id !in existingEmgIds) {
+                            exerciseMuscleGroupDao.insert(
+                                ExerciseMuscleGroup(exerciseId = existing.id, majorGroup = masterExercise.muscleGroup, isPrimary = true)
+                            )
+                            existingEmgIds += existing.id
+                        }
                         updatedCount++
                     }
                 }
@@ -158,6 +173,17 @@ class MasterExerciseSeeder @Inject constructor(
                 staleExercises.forEach { Log.d(TAG, "Deleted stale exercise: ${it.name}") }
             }
             val deletedCount = staleExercises.size
+
+            // Backfill: ensure every exercise (including custom) has at least a primary EMG row.
+            // This repairs upgrade users and any edge cases where EMG rows were missed.
+            val allExercisesAfterSeed = exerciseDao.getAllExercisesSync()
+            val backfillEntries = allExercisesAfterSeed
+                .filter { it.id !in existingEmgIds }
+                .map { ExerciseMuscleGroup(exerciseId = it.id, majorGroup = it.muscleGroup, isPrimary = true) }
+            if (backfillEntries.isNotEmpty()) {
+                exerciseMuscleGroupDao.insertAll(backfillEntries)
+                Log.i(TAG, "Backfilled ${backfillEntries.size} missing exercise_muscle_groups rows")
+            }
 
             val totalSeeded = insertedCount + updatedCount
             Log.i(TAG, """

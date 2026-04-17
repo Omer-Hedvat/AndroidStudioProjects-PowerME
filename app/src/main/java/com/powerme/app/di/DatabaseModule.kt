@@ -959,6 +959,11 @@ object DatabaseModule {
 
     @Provides
     @Singleton
+    fun provideExerciseMuscleGroupDao(database: PowerMeDatabase): com.powerme.app.data.database.ExerciseMuscleGroupDao =
+        database.exerciseMuscleGroupDao()
+
+    @Provides
+    @Singleton
     fun provideRoutineDao(database: PowerMeDatabase): RoutineDao {
         return database.routineDao()
     }
@@ -1063,9 +1068,10 @@ object DatabaseModule {
     @Singleton
     fun provideMasterExerciseSeeder(
         @ApplicationContext context: Context,
-        exerciseDao: ExerciseDao
+        exerciseDao: ExerciseDao,
+        exerciseMuscleGroupDao: com.powerme.app.data.database.ExerciseMuscleGroupDao
     ): MasterExerciseSeeder {
-        return MasterExerciseSeeder(context, exerciseDao)
+        return MasterExerciseSeeder(context, exerciseDao, exerciseMuscleGroupDao)
     }
 
     @Provides
