@@ -45,11 +45,17 @@ a null-safety fallback. This fires on the very first draw pass before any user i
 Vico calls `getMaxLabelWidth` during layout measurement, which hits the formatter for every
 x-axis tick, including ticks that map beyond the available data index (no null-safe mapping).
 
-**Definitive fix:** Replaced every `return@CartesianValueFormatter ""` with
-`return@CartesianValueFormatter " "` (single space) in:
+**Definitive fix:** Changed all 4 xFormatters to use `coerceIn(list.indices)` so the formatter
+always returns a real `"MMM d"` date string. Empty-list guard returns `"–"` (em-dash — never
+empty, never blank regardless of Vico's internal check). Applied to:
 - `VolumeTrendCard.kt` xFormatter
 - `E1RMProgressionCard.kt` xFormatter
 - `MuscleGroupVolumeCard.kt` xFormatter
+- `EffectiveSetsCard.kt` xFormatter (4th card, discovered on device testing)
+
+Earlier intermediate attempts (`" "` single space) were insufficient because Vico's
+`formatForAxis` may use `isBlank()` internally. The `coerceIn` approach eliminates the null
+branch entirely — the formatter can never reach a fallback path.
 
 Prior attempts (LazyColumn→Column, suspend→launch) addressed a different hypothesis and are
 irrelevant to this crash — but the Column+verticalScroll change in MetricsScreen is benign and
