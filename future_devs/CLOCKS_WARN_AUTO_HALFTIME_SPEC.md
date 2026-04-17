@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Phase** | P1 |
-| **Status** | `not-started` |
+| **Status** | `completed` |
 | **Effort** | S |
 | **Depends on** | — |
 

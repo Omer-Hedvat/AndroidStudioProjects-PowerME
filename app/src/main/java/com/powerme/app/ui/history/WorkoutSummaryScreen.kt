@@ -199,6 +199,12 @@ fun WorkoutSummaryScreen(
             if (uiState.isPostWorkout) {
                 item {
                     Spacer(Modifier.height(4.dp))
+                    TextButton(
+                        onClick = { showSaveAsRoutineDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Save as Routine")
+                    }
                     Button(
                         onClick = onNavigateBack,
                         modifier = Modifier.fillMaxWidth(),

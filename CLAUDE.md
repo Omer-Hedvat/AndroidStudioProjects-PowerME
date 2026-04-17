@@ -115,6 +115,9 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/TRENDS_CHARTS_SPEC.md` | P4 / P5 | Trends chart cards Steps 2–8 (Volume, E1RM, Muscle Balance, Effective Sets, Body Composition, Steps, Chronotype) |
 | `future_devs/HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | P4 | HC extended reads — HR, Calories, VO₂ Max, Distance, SpO₂ |
 | `future_devs/CSV_IMPORT_SPEC.md` | P5 | CSV workout history import (Strong, Hevy, FitBod, generic) |
+| `future_devs/EXERCISE_ANIMATIONS_SPEC.md` | P5 | Animated WebP exercise demos in ExerciseDetailSheet (assets already in `assets/exercise_animations/`) |
+| `future_devs/EXERCISE_JOINTS_SPEC.md` | P5 | Stressed joint indicators per exercise in ExerciseDetailSheet; Health History integration |
+| `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` | P2 | Show all sets with weights and RPE in history workout summary cards |
 
 ---
 

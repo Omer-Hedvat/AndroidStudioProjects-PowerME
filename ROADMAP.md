@@ -66,6 +66,7 @@ Post-workout experience + user identity. Can be built in any order within the ph
 | Profile / Settings split (separate pages + nav icons) | `PROFILE_SETTINGS_REDESIGN_SPEC.md §1` | M | `done` | — |
 | Fitness level card (Novice/Trained/Experienced/Athlete) | `PROFILE_SETTINGS_REDESIGN_SPEC.md §3` | S | `done` | Profile/Settings split |
 | RPE auto-pop setting | `PROFILE_SETTINGS_REDESIGN_SPEC.md §4` | S | `wrapped` | — |
+| History card set details (weights + RPE) | `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` | S | `not-started` | History Summary Step A ✅ |
 
 ---
 
@@ -96,7 +97,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 
 ---
 
-## Phase P5 — Trends Advanced + CSV Import
+## Phase P5 — Trends Advanced + CSV Import + Exercise Library
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
@@ -104,6 +105,8 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Trends Step 7 — StepsTrendCard | `TRENDS_CHARTS_SPEC.md §Step 7` | S | `not-started` | HC Extended Reads (calories) |
 | Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `not-started` | — |
 | CSV Import (Strong, Hevy, FitBod, generic) | `CSV_IMPORT_SPEC.md` | L | `not-started` | — |
+| Exercise animations in ExerciseDetailSheet | `future_devs/EXERCISE_ANIMATIONS_SPEC.md` | S | `not-started` | — |
+| Exercise joint indicators in ExerciseDetailSheet | `future_devs/EXERCISE_JOINTS_SPEC.md` | M | `not-started` | — |
 
 ---
 
@@ -144,6 +147,8 @@ P5 (steps trend card)    ── requires ─────────────
 P5 (body composition)    ──────────────────────────────► ship anytime
 P5 (chronotype)          ──────────────────────────────► ship anytime
 P5 (CSV import)          ──────────────────────────────► ship anytime
+P5 (exercise animations) ──────────────────────────────► ship anytime (assets already generated)
+P5 (exercise joints)     ──────────────────────────────► ship anytime
 
 P6 (gemini expansion)    ── requires ──────────────────► manual seed
 P6 (heatmap card)        ── requires ──────────────────► all P6 sub-tasks + P4 complete

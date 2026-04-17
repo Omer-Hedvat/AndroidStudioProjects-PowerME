@@ -29,8 +29,28 @@ is the same pre-attachment race condition.
 
 ## Fix Notes
 
-Root cause: Vico 2.x's `CartesianChartModelProducer.runTransaction` is a suspend function that **blocks until a `CartesianChartHost` is registered**. During `loadAll()` in `init {}`, `pushMuscleGroupToProducer()` called `runTransaction` on a producer whose host (MuscleGroupVolumeCard is item #5 in the LazyColumn) hadn't attached yet. The coroutine suspended indefinitely, which also blocked the parent `coroutineScope` — meaning `_isLoading` was stuck `true` and all data loads in that scope were considered in-flight. When the user scrolled down and the host finally attached, the suspended transaction resumed mid-composition, causing the crash.
+Confirmed root cause (from logcat):
 
-Volume and E1RM didn't crash because their cards are items #2–3, pre-fetched by LazyColumn before the coroutine ran. They have the same latent bug on slow/small-screen devices.
+```
+java.lang.IllegalStateException: `CartesianValueFormatter.format` returned an empty string.
+Use HorizontalAxis.ItemPlacer and VerticalAxis.ItemPlacer, not empty strings, to control which
+x and y values are labeled.
+  at CartesianValueFormatterKt.formatForAxis (CartesianValueFormatter.kt:86)
+  at HorizontalAxis.getMaxLabelWidth (HorizontalAxis.kt:440)
+```
 
-Fix: Changed `pushVolumeToProducer()`, `pushE1rmToProducer()`, and `pushMuscleGroupToProducer()` from `suspend fun` to regular `fun` with their bodies wrapped in `viewModelScope.launch {}`. Producer pushes are now fire-and-forget: they suspend independently waiting for host attachment without blocking `loadAll()`. The `coroutineScope` completes promptly, `_isLoading` clears correctly, and producer transactions resume safely when hosts attach on scroll.
+Vico 2.x throws `IllegalStateException` if any `CartesianValueFormatter` lambda returns `""`.
+All three x-axis formatters in the chart cards used `?: return@CartesianValueFormatter ""` as
+a null-safety fallback. This fires on the very first draw pass before any user interaction —
+Vico calls `getMaxLabelWidth` during layout measurement, which hits the formatter for every
+x-axis tick, including ticks that map beyond the available data index (no null-safe mapping).
+
+**Definitive fix:** Replaced every `return@CartesianValueFormatter ""` with
+`return@CartesianValueFormatter " "` (single space) in:
+- `VolumeTrendCard.kt` xFormatter
+- `E1RMProgressionCard.kt` xFormatter
+- `MuscleGroupVolumeCard.kt` xFormatter
+
+Prior attempts (LazyColumn→Column, suspend→launch) addressed a different hypothesis and are
+irrelevant to this crash — but the Column+verticalScroll change in MetricsScreen is benign and
+was left in place.

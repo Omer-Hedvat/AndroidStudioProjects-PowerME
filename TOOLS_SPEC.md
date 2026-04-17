@@ -56,7 +56,8 @@ enum class TimerPhase { IDLE, SETUP, WORK, REST }
 | `workSeconds` | 20 | `workSecondsText = "20"` |
 | `restSeconds` | 10 | `restSecondsText = "10"` |
 | `totalRounds` | 8 | `totalRoundsText = "8"` |
-| `tabataWarnAtSecondsText` | "2" | Warn-before-finish field |
+| `tabataWorkWarnText` | "" | Warn-before-finish field for WORK phase (blank = auto half-time) |
+| `tabataRestWarnText` | "" | Warn-before-finish field for REST phase (blank = auto half-time) |
 | `tabataSkipLastRest` | false | Switch toggle |
 
 ### EMOM Config
@@ -64,7 +65,7 @@ enum class TimerPhase { IDLE, SETUP, WORK, REST }
 |----------|---------|------------|
 | `emomRoundSeconds` | 60 | `emomRoundSecondsText = "60"` |
 | `emomTotalRounds` | 5 | `emomTotalRoundsText = "5"` |
-| `emomWarnAtSecondsText` | "2" | Warn-before-finish field |
+| `emomWarnText` | "" | Warn-before-finish field (blank = auto half-time) |
 | `emomSkipLastRest` | false | — |
 
 ### COUNTDOWN Config
@@ -72,7 +73,7 @@ enum class TimerPhase { IDLE, SETUP, WORK, REST }
 |----------|------|---------|-------|
 | `countdownMinutes` | Int | 1 | Wheel picker value (0–59) |
 | `countdownSeconds` | Int | 0 | Wheel picker value (0–59) |
-| `countdownWarnAtSecondsText` | String | "2" | Warn-before-finish field |
+| `countdownWarnText` | String | "" | Warn-before-finish field (blank = auto half-time) |
 
 The paired text-field pattern (Dual-Property below) does NOT apply to Countdown. Minutes and seconds are set exclusively via the Roulette wheel picker or preset chips — there are no free-text fields for the countdown duration.
 
@@ -105,7 +106,7 @@ UI field: `TimerConfigField("Setup time (sec)")` shown in all 4 mode config sect
 
 ### Countdown (`runCountdown`)
 1. Resolve `remaining` from `displaySeconds` (resume) or `countdownTotalSeconds` (fresh start; falls back to 60s if total is 0)
-2. Parse optional `countdownWarnAtSecondsText`
+2. Resolve warn via `resolveWarnAt(countdownWarnText, total)` — blank → auto (`floor(total/2)`); suppressed when auto ≤ 3
 3. Phase → WORK
 4. Loop: display → warn check → delay 1s → decrement
 5. Warning threshold → `triggerAudioAlert(AlertType.WARNING)`; last 3 seconds → `triggerAudioAlert(AlertType.COUNTDOWN_TICK)`
@@ -119,13 +120,13 @@ Per round:
 3. Skip-last-rest: if enabled AND last round → skip REST phase entirely
 4. After all rounds → `finishTimer()`
 
-Last-2-second `COUNTDOWN_TICK` beeps fire in both WORK and REST phases. `tabataWarnAtSecondsText` fires a `WARNING` alert once per phase when remaining == warnAt (both WORK and REST phases).
+Last-3-second `COUNTDOWN_TICK` beeps fire in both WORK and REST phases. Warn resolved independently per phase via `resolveWarnAt(tabataWorkWarnText, workTotal)` and `resolveWarnAt(tabataRestWarnText, restTotal)` — blank fields default to auto (`floor(phaseSeconds/2)`); suppressed when auto ≤ 3.
 
 ### EMOM (`runEmom`)
 Per round:
 1. Phase → WORK, `ROUND_START` beep
-2. Countdown `roundDuration` with optional mid-round `WARNING` beep
-3. Last-2-second `COUNTDOWN_TICK` beeps
+2. Countdown `roundDuration` with warn resolved via `resolveWarnAt(emomWarnText, roundDuration)` — blank → auto (`floor(roundDuration/2)`); suppressed when auto ≤ 3
+3. Last-3-second `COUNTDOWN_TICK` beeps
 4. Next round starts immediately (no REST phase)
 5. After all rounds → `finishTimer()`
 
@@ -199,11 +200,11 @@ Column(fillMaxSize, padding=horizontal 16dp / vertical 12dp)
 
 ### ConfigInputs
 - **Stopwatch:** Setup time field only
-- **Countdown:** MM:SS Roulette Picker + `Row` of "Warn before finish (sec)" / "Setup time (sec)"
-- **Tabata:** `Row` of Work (s) / Rest (s) / Rounds + `Row` of "Warn before finish (sec)" / "Setup time (sec)" + Skip-last-rest row
-- **EMOM:** `Row` of Round (sec) / Rounds + `Row` of "Warn before finish (sec)" / "Setup time (sec)"
+- **Countdown:** MM:SS Roulette Picker + `Row` of `WarnBeforeFinishField("Warn (sec)")` / "Setup time (sec)"
+- **Tabata:** `Row` of Work (s) / Rest (s) / Rounds + `Row` of `WarnBeforeFinishField("Warn – Work")` / `WarnBeforeFinishField("Warn – Rest")` / "Setup (sec)" + Skip-last-rest row
+- **EMOM:** `Row` of Round (sec) / Rounds + `Row` of `WarnBeforeFinishField("Warn (sec)")` / "Setup time (sec)"
 
-All "Warn before finish" fields fire a `WARNING` alert when `remaining == warnAt`. "Setup time (sec)" is a single shared field across all modes (`setupSecondsText` in state), default "0".
+Warn fields use `WarnBeforeFinishField` composable with auto half-time default: blank field shows greyed italic placeholder `"Auto (Xs)"` where X = `floor(duration/2)`. When auto ≤ 3, placeholder shows `"Auto (off)"` (warn suppressed — overlaps countdown ticks). User can type a manual override; a `↺` reset icon appears to return to auto. Resolved at runtime by `resolveWarnAt()`. "Setup time (sec)" is a single shared field across all modes (`setupSecondsText` in state), default "0".
 
 **Tabata skip-last-rest row:** `Row(SpaceBetween)` — left side is a `Column` with label "Skip last rest" (14sp) and subtitle "End after last work interval" (11sp, 0.5α); right side is a `Switch` with `checkedThumbColor = onSurface`, `uncheckedThumbColor = onSurface`, `checkedTrackColor = primary`, `uncheckedTrackColor = surfaceVariant` — produces white thumb on dark theme, black thumb on light theme.
 

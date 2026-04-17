@@ -107,6 +107,13 @@ class TrendsRepository @Inject constructor(
         }
     }
 
+    /** Returns 0f–100f: fraction of qualifying sets where the user logged any RPE value. */
+    suspend fun getEffectiveSetsCoverage(range: TrendsTimeRange): Float {
+        val total = trendsDao.getTotalSetsCount(range.sinceMs())
+        val covered = trendsDao.getRpeCoveredSetsCount(range.sinceMs())
+        return if (total > 0) covered.toFloat() / total.toFloat() * 100f else 0f
+    }
+
     suspend fun getWorkoutsByTimeOfDay(range: TrendsTimeRange): List<TimeOfDayChartPoint> {
         return trendsDao.getWorkoutsByTimeOfDay(range.sinceMs()).map {
             TimeOfDayChartPoint(it.startHour, it.totalVolume)

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.ui.theme.JetBrainsMono
 import com.powerme.app.ui.theme.MonoTextStyle
+import com.powerme.app.ui.theme.ProSubGrey
 import com.powerme.app.ui.theme.ReadinessAmber
 import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.ui.theme.TimerRed
@@ -420,10 +421,12 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TimerConfigField(
-                    label = "Warn before finish (sec)",
-                    value = state.emomWarnAtSecondsText,
-                    onValueChange = viewModel::updateEmomWarnAtSecondsText,
+                WarnBeforeFinishField(
+                    label = "Warn (sec)",
+                    value = state.emomWarnText,
+                    autoValue = state.emomRoundSeconds.takeIf { it > 0 }?.div(2),
+                    onValueChange = viewModel::updateEmomWarnText,
+                    onReset = viewModel::resetEmomWarn,
                     modifier = Modifier.weight(1f)
                 )
                 TimerConfigField(
@@ -464,14 +467,24 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TimerConfigField(
-                    label = "Warn before finish (sec)",
-                    value = state.tabataWarnAtSecondsText,
-                    onValueChange = viewModel::updateTabataWarnAtSecondsText,
+                WarnBeforeFinishField(
+                    label = "Warn – Work",
+                    value = state.tabataWorkWarnText,
+                    autoValue = state.workSeconds.takeIf { it > 0 }?.div(2),
+                    onValueChange = viewModel::updateTabataWorkWarnText,
+                    onReset = viewModel::resetTabataWorkWarn,
+                    modifier = Modifier.weight(1f)
+                )
+                WarnBeforeFinishField(
+                    label = "Warn – Rest",
+                    value = state.tabataRestWarnText,
+                    autoValue = state.restSeconds.takeIf { it > 0 }?.div(2),
+                    onValueChange = viewModel::updateTabataRestWarnText,
+                    onReset = viewModel::resetTabataRestWarn,
                     modifier = Modifier.weight(1f)
                 )
                 TimerConfigField(
-                    label = "Setup time (sec)",
+                    label = "Setup (sec)",
                     value = state.setupSecondsText,
                     onValueChange = viewModel::updateSetupSecondsText,
                     modifier = Modifier.weight(1f)
@@ -516,10 +529,12 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TimerConfigField(
-                    label = "Warn before finish (sec)",
-                    value = state.countdownWarnAtSecondsText,
-                    onValueChange = viewModel::updateCountdownWarnAtSecondsText,
+                WarnBeforeFinishField(
+                    label = "Warn (sec)",
+                    value = state.countdownWarnText,
+                    autoValue = (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 }?.div(2),
+                    onValueChange = viewModel::updateCountdownWarnText,
+                    onReset = viewModel::resetCountdownWarn,
                     modifier = Modifier.weight(1f)
                 )
                 TimerConfigField(
@@ -721,6 +736,106 @@ private fun TimerConfigField(
             )
         }
         // Focused accent line
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(
+                    color = if (isFocused) accentColor else Color.Transparent,
+                    shape = MaterialTheme.shapes.small
+                )
+        )
+    }
+}
+
+@Composable
+private fun WarnBeforeFinishField(
+    label: String,
+    value: String,
+    autoValue: Int?,
+    onValueChange: (String) -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val (tfv, selectAllMod) = rememberSelectAllState(value)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val accentColor = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
+    val isManual = value.isNotBlank()
+
+    val placeholderText: String? = if (isManual) null else when {
+        autoValue == null -> "Auto"
+        autoValue <= 3    -> "Auto (off)"
+        else              -> "Auto (${autoValue}s)"
+    }
+
+    Column(modifier = modifier) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isFocused) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            maxLines = 1
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(surfaceColor, shape = MaterialTheme.shapes.small)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    if (placeholderText != null) {
+                        Text(
+                            text = placeholderText,
+                            style = MonoTextStyle.copy(
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = ProSubGrey,
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                            )
+                        )
+                    }
+                    BasicTextField(
+                        value = tfv.value,
+                        onValueChange = { newTfv ->
+                            val newText = newTfv.text
+                            if (newText.isEmpty() || newText.all { it.isDigit() }) {
+                                tfv.value = newTfv
+                                onValueChange(newText)
+                            }
+                        },
+                        textStyle = MonoTextStyle.copy(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isManual) MaterialTheme.colorScheme.onSurface else Color.Transparent
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        interactionSource = interactionSource,
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(accentColor),
+                        modifier = selectAllMod.fillMaxWidth()
+                    )
+                }
+                if (isManual) {
+                    IconButton(
+                        onClick = onReset,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Reset to auto",
+                            tint = ProSubGrey,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()

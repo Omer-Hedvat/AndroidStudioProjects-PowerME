@@ -52,6 +52,9 @@ import com.powerme.app.ui.components.WorkoutInputField
 import com.powerme.app.ui.exercises.ExercisesScreen
 import com.powerme.app.util.UnitConverter
 import com.powerme.app.util.RpeCategory
+import com.powerme.app.util.RpeInfo
+import com.powerme.app.util.RPE_SCALE
+import com.powerme.app.util.displayLabel
 import com.powerme.app.util.rpeCategory
 import com.powerme.app.ui.theme.*
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -161,25 +164,11 @@ fun ActiveWorkoutScreen(
         )
     }
 
-    // Post-workout summary sheet — shown whenever summary is available (routine sync is inside sheet)
-    workoutState.pendingWorkoutSummary?.let { summary ->
-        PostWorkoutSummarySheet(
-            summary = summary,
-            unitSystem = unitSystem,
-            onSaveAsRoutine = { routineName -> viewModel.saveWorkoutAsRoutine(routineName) },
-            onDone = {
-                viewModel.dismissWorkoutSummary()
-                onWorkoutFinished()
-            },
-            onDismiss = {
-                viewModel.dismissWorkoutSummary()
-                onWorkoutFinished()
-            },
-            onConfirmSyncValues = { viewModel.confirmUpdateRoutineValues() },
-            onConfirmSyncStructure = { viewModel.confirmUpdateRoutineStructure() },
-            onConfirmSyncBoth = { viewModel.confirmUpdateBoth() },
-            onDismissSync = { viewModel.dismissRoutineSync() }
-        )
+    // Auto-navigate to WorkoutSummaryScreen when finishWorkout() completes
+    LaunchedEffect(workoutState.pendingWorkoutSummary) {
+        if (workoutState.pendingWorkoutSummary != null) {
+            onWorkoutFinished()
+        }
     }
 
     // Cancel confirmation dialog
@@ -1142,6 +1131,13 @@ private fun formatGhostLabel(weight: String?, reps: String?, rpe: String?): Stri
     return if (rpe != null) "${weight}\u00D7${reps}@${rpe}" else "${weight}\u00D7${reps}"
 }
 
+private fun formatGhostTimedLabel(weight: String?, timeSeconds: String?): String = when {
+    weight != null && timeSeconds != null -> "${weight}\u00D7${timeSeconds}s"
+    weight != null -> weight
+    timeSeconds != null -> "${timeSeconds}s"
+    else -> "—"
+}
+
 @Composable
 private fun StrengthHeader(isEditMode: Boolean = false) {
     var showPrevTooltip by remember { mutableStateOf(false) }
@@ -1764,12 +1760,21 @@ private fun CardioHeader(unitSystem: UnitSystem = UnitSystem.METRIC) {
 
 @Composable
 private fun TimedHeader() {
+    var showPrevTooltip by remember { mutableStateOf(false) }
+    if (showPrevTooltip) {
+        AlertDialog(
+            onDismissRequest = { showPrevTooltip = false },
+            title = { Text("Previous Session") },
+            text = { Text("Shows your weight × time from the last time you performed this exercise.") },
+            confirmButton = { TextButton(onClick = { showPrevTooltip = false }) { Text("Got it") } }
+        )
+    }
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text("SET", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.10f))
-        Text("WEIGHT", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
-        Text("TIME(S)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.35f))
-        Text("RPE", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.20f))
-        Spacer(modifier = Modifier.weight(0.10f))
+        Text("SET", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(SET_COL_WEIGHT))
+        Text("PREV", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(PREV_COL_WEIGHT).clickable { showPrevTooltip = true })
+        Text("WEIGHT", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(WEIGHT_COL_WEIGHT))
+        Text("TIME(S)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
+        Spacer(modifier = Modifier.weight(0.20f))
     }
 }
 
@@ -1958,13 +1963,22 @@ fun TimedSetRow(
                 modifier = Modifier.fillMaxWidth().height(44.dp).padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.weight(SET_COL_WEIGHT), contentAlignment = Alignment.Center) {
                     Text(text = "${set.setOrder}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Box(modifier = Modifier.weight(PREV_COL_WEIGHT).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = formatGhostTimedLabel(set.ghostWeight, set.ghostTimeSeconds),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 WorkoutInputField(
                     value = weight,
                     onValueChange = onWeightChanged,
-                    modifier = Modifier.weight(0.22f).padding(horizontal = 2.dp),
+                    modifier = Modifier.weight(WEIGHT_COL_WEIGHT).padding(horizontal = 2.dp),
                     placeholder = "0"
                 )
                 WorkoutInputField(
@@ -1973,15 +1987,9 @@ fun TimedSetRow(
                     modifier = Modifier.weight(0.25f).padding(horizontal = 2.dp),
                     placeholder = "0"
                 )
-                WorkoutInputField(
-                    value = rpe,
-                    onValueChange = { onUpdateSet(time, it, set.isCompleted) },
-                    modifier = Modifier.weight(0.15f).padding(horizontal = 2.dp),
-                    placeholder = "—"
-                )
                 Box(
                     modifier = Modifier
-                        .weight(0.18f)
+                        .weight(0.14f)
                         .fillMaxHeight()
                         .padding(horizontal = 2.dp)
                         .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.extraSmall)
@@ -1998,17 +2006,16 @@ fun TimedSetRow(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Start", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.PlayArrow, contentDescription = "Start", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
                 }
                 Box(
                     modifier = Modifier
-                        .weight(0.10f)
+                        .weight(0.06f)
                         .fillMaxHeight()
-                        .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
                         .clickable(onClick = onCompleteSet),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                    Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f), modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -2169,13 +2176,22 @@ fun TimedSetRow(
                 modifier = Modifier.fillMaxWidth().height(44.dp).padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.weight(SET_COL_WEIGHT), contentAlignment = Alignment.Center) {
                     Text(text = "${set.setOrder}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Box(modifier = Modifier.weight(PREV_COL_WEIGHT).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = formatGhostTimedLabel(set.ghostWeight, set.ghostTimeSeconds),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 WorkoutInputField(
                     value = weight,
                     onValueChange = onWeightChanged,
-                    modifier = Modifier.weight(0.22f).padding(horizontal = 2.dp),
+                    modifier = Modifier.weight(WEIGHT_COL_WEIGHT).padding(horizontal = 2.dp),
                     placeholder = "0"
                 )
                 WorkoutInputField(
@@ -2184,13 +2200,7 @@ fun TimedSetRow(
                     modifier = Modifier.weight(0.25f).padding(horizontal = 2.dp),
                     placeholder = "0"
                 )
-                WorkoutInputField(
-                    value = rpe,
-                    onValueChange = { onUpdateSet(time, it, set.isCompleted) },
-                    modifier = Modifier.weight(0.15f).padding(horizontal = 2.dp),
-                    placeholder = "—"
-                )
-                Spacer(modifier = Modifier.weight(0.18f))
+                Spacer(modifier = Modifier.weight(0.10f))
                 Box(
                     modifier = Modifier
                         .weight(0.10f)
@@ -2206,243 +2216,182 @@ fun TimedSetRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RpePickerSheet(
     currentRpe: Int?,
     onUpdateRpe: (Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val rpeValues = (60..100 step 5).toList()
-    val anchorLabels = mapOf(
-        60 to "Very Light",
-        80 to "Hard — 2 reps in reserve",
-        100 to "Maximum Effort"
-    )
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val groupedScale = RPE_SCALE.groupBy { it.category }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = 4.dp, bottom = 12.dp)
         ) {
             Text(
                 "Rate of Perceived Exertion",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
+                fontWeight = FontWeight.Bold
             )
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rpeValues.forEach { v ->
-                    val label = "%.1f".format(v / 10.0)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        FilterChip(
-                            selected = currentRpe == v,
-                            onClick = { onUpdateRpe(v) },
-                            label = { Text(label, fontFamily = JetBrainsMono) }
-                        )
-                        anchorLabels[v]?.let { anchor ->
-                            Text(
-                                anchor,
-                                fontSize = 9.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                textAlign = TextAlign.Center,
-                                maxLines = 3,
-                                modifier = Modifier.width(64.dp)
-                            )
-                        }
-                    }
-                }
+            Text(
+                "How many reps could you still do?",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
+            )
+
+            listOf(
+                RpeCategory.LOW,
+                RpeCategory.MODERATE,
+                RpeCategory.GOLDEN,
+                RpeCategory.MAX_EFFORT
+            ).forEach { category ->
+                val entries = groupedScale[category] ?: return@forEach
+                RpeCategoryGroup(
+                    category = category,
+                    entries = entries,
+                    currentRpe = currentRpe,
+                    onSelect = { onUpdateRpe(it) }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
             }
-            Spacer(modifier = Modifier.height(8.dp))
+
             TextButton(
                 onClick = { onUpdateRpe(null) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Clear", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PostWorkoutSummarySheet(
-    summary: WorkoutSummary,
-    unitSystem: UnitSystem = UnitSystem.METRIC,
-    onSaveAsRoutine: (String) -> Unit,
-    onDone: () -> Unit,
-    onDismiss: () -> Unit,
-    onConfirmSyncValues: () -> Unit = {},
-    onConfirmSyncStructure: () -> Unit = {},
-    onConfirmSyncBoth: () -> Unit = {},
-    onDismissSync: () -> Unit = {}
+private fun RpeCategoryGroup(
+    category: RpeCategory,
+    entries: List<RpeInfo>,
+    currentRpe: Int?,
+    onSelect: (Int) -> Unit
 ) {
-    var showSaveAsRoutineDialog by remember { mutableStateOf(false) }
-    var routineNameInput by remember { mutableStateOf(summary.workoutName) }
+    val headerColor = when (category) {
+        RpeCategory.LOW        -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+        RpeCategory.MODERATE   -> ReadinessAmber
+        RpeCategory.GOLDEN     -> GoldenRPE
+        RpeCategory.MAX_EFFORT -> ProError
+    }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isGolden = category == RpeCategory.GOLDEN
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        contentWindowInsets = { WindowInsets(0) }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxHeight(0.95f) // Force to near-full screen to show buttons at bottom immediately
-                .fillMaxWidth()
-                .navigationBarsPadding()
-        ) {
-            // Scrollable section: workout title, stats, exercise list
-            // weight(1f) ensures this takes up all available space, pushing buttons to the bottom
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 16.dp, bottom = 8.dp)
+    @Composable
+    fun groupContent() {
+        Column(modifier = Modifier.padding(if (isGolden) 12.dp else 0.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = if (isGolden) 2.dp else 4.dp)
             ) {
                 Text(
-                    text = summary.workoutName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    category.displayLabel(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = headerColor
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        text = "%d:%02d".format(summary.durationSeconds / 60, summary.durationSeconds % 60),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = UnitConverter.formatWeight(summary.totalVolume, unitSystem) + " total",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = "${summary.setCount} sets",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                summary.exerciseNames.forEach { name ->
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
             }
-
-            // Fixed button section — Always at the bottom of the screen
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-            ) {
-                // Sync CTAs
-                when (summary.pendingRoutineSync) {
-                    RoutineSyncType.VALUES -> {
-                        Button(
-                            onClick = { onConfirmSyncValues() },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) { Text("Update values", fontWeight = FontWeight.Bold) }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = { onDismissSync() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Keep original routine") }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    RoutineSyncType.STRUCTURE -> {
-                        Button(
-                            onClick = { onConfirmSyncStructure() },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) { Text("Update routine", fontWeight = FontWeight.Bold) }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = { onDismissSync() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Keep original routine") }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    RoutineSyncType.BOTH -> {
-                        Button(
-                            onClick = { onConfirmSyncValues() },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) { Text("Update values only", fontWeight = FontWeight.Bold) }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { onConfirmSyncBoth() },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) { Text("Update values and routine", fontWeight = FontWeight.Bold) }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = { onDismissSync() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Keep original routine") }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    null -> Unit
-                }
-                TextButton(
-                    onClick = { showSaveAsRoutineDialog = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Save as Routine")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onDone,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = TimerGreen.copy(alpha = 0.15f), contentColor = TimerGreen)
-                ) {
-                    Text("Done", fontWeight = FontWeight.Bold)
-                }
-                // Extra safety buffer for gesture handle
-                Spacer(modifier = Modifier.height(12.dp))
+            if (isGolden) {
+                Text(
+                    "Target zone for hypertrophy",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GoldenRPE.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            entries.forEach { info ->
+                RpeRow(
+                    info = info,
+                    isSelected = currentRpe == info.value,
+                    numberColor = when (category) {
+                        RpeCategory.GOLDEN     -> GoldenRPE
+                        RpeCategory.MAX_EFFORT -> ProError
+                        else                   -> MaterialTheme.colorScheme.onSurface
+                    },
+                    selectedBackground = if (isGolden)
+                        GoldenRPE.copy(alpha = 0.18f)
+                    else
+                        MaterialTheme.colorScheme.primaryContainer,
+                    onClick = { onSelect(info.value) }
+                )
             }
         }
     }
 
-    if (showSaveAsRoutineDialog) {
-        AlertDialog(
-            onDismissRequest = { showSaveAsRoutineDialog = false },
-            title = { Text("Save as Routine") },
-            text = {
-                OutlinedTextField(
-                    value = routineNameInput,
-                    onValueChange = { routineNameInput = it },
-                    label = { Text("Routine Name") },
-                    singleLine = true
+    if (isGolden) {
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = GoldenRPE.copy(alpha = 0.08f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = GoldenRPE.copy(alpha = 0.3f),
+                    shape = MaterialTheme.shapes.medium
                 )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (routineNameInput.isNotBlank()) {
-                        onSaveAsRoutine(routineNameInput)
-                        showSaveAsRoutineDialog = false
-                    }
-                }) { Text("Save") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSaveAsRoutineDialog = false }) { Text("Cancel") }
-            }
-        )
+        ) {
+            groupContent()
+        }
+    } else {
+        groupContent()
     }
+}
 
+@Composable
+private fun RpeRow(
+    info: RpeInfo,
+    isSelected: Boolean,
+    numberColor: Color,
+    selectedBackground: Color,
+    onClick: () -> Unit
+) {
+    val background = if (isSelected) selectedBackground else Color.Transparent
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp)
+            .heightIn(min = 52.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = info.display,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            fontFamily = JetBrainsMono,
+            color = numberColor,
+            modifier = Modifier.width(40.dp)
+        )
+        Text(
+            text = info.description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            modifier = Modifier.weight(1f)
+        )
+        if (isSelected) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = numberColor.copy(alpha = 0.8f),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
 }
 
 @Composable

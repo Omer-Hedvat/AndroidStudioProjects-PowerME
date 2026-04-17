@@ -256,6 +256,30 @@ Like MuscleGroupVolumeCard but counts *effective sets* (RPE ≥ 7.0) rather than
 - WARMUP and DROP sets excluded — already in DAO query
 - The RPE coverage % needs a companion DAO query (or compute in Repository from total set count vs sets with non-null RPE). Add `getTotalSetsCount(sinceMs)` to TrendsDao if not already there
 
+### Implementation Notes (as built)
+
+- `TrendsDao` — added `getTotalSetsCount(sinceMs)` and `getRpeCoveredSetsCount(sinceMs)` for coverage %
+- `TrendsRepository.getEffectiveSetsCoverage(range)` computes `covered / total * 100f` (returns 0f when no sets)
+- `TrendsViewModel` — added `effectiveSetsModelProducer`, `_effectiveSetsCoverage` StateFlow, updated `loadEffectiveSets()` to also fetch coverage and call `pushEffectiveSetsToProducer()`
+- `pushEffectiveSetsToProducer()` is a non-suspend fun using `viewModelScope.launch{}` — same anti-race pattern as `pushMuscleGroupToProducer()`; always pushes exactly 8 series in `VicoChartHelpers.muscleGroupOrder` order
+- Empty state trigger: `weeks.isEmpty()` (no effective sets data in range)
+- Sparse warning trigger: `coveragePct > 0f && coveragePct < 30f` — shows amber text below chart
+- Coverage subtitle shows amber color when `coveragePct < 50f`
+- "THIS WEEK" distribution row shows effective set COUNT per group (not %) — bar fraction = group count / total effective sets this week
+- `WorkoutViewModelTest` required a `timerSound` stub (`flowOf(TimerSound.BEEP)`) due to pre-existing `WorkoutViewModel.kt` changes that added `timerSoundState`
+
+### How to QA
+
+1. Navigate to Trends tab — the EFFECTIVE SETS card should appear below the MUSCLE BALANCE card
+2. **Coverage banner:** Verify "Based on X% of sets with RPE logged" appears below the header; amber color if < 50%
+3. **Stacked bars:** Verify bars appear for each week, stacked by muscle group with the correct colors
+4. **Legend:** Color dots with group names render below the chart (only groups with effective sets in range)
+5. **Distribution row:** "THIS WEEK" section shows bars + set counts for the current week
+6. **Empty state:** On a fresh account or with no RPE logged, overlay shows "Log RPE on your sets to track effective training"
+7. **Sparse warning:** With < 30% RPE coverage, amber text "Low RPE coverage — results may not be representative" appears below the chart
+8. **Time range chips:** Switching 1M/3M/6M/1Y reloads the chart data
+9. **Navigation:** Switching away and back to the Trends tab preserves chart state without crash
+
 ---
 
 ## Step 6 — BodyCompositionCard

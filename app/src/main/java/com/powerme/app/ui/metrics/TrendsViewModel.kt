@@ -46,6 +46,9 @@ class TrendsViewModel @Inject constructor(
     private val _effectiveSets = MutableStateFlow<List<EffectiveSetsChartPoint>>(emptyList())
     val effectiveSets: StateFlow<List<EffectiveSetsChartPoint>> = _effectiveSets.asStateFlow()
 
+    private val _effectiveSetsCoverage = MutableStateFlow(0f)
+    val effectiveSetsCoverage: StateFlow<Float> = _effectiveSetsCoverage.asStateFlow()
+
     private val _bodyComposition = MutableStateFlow<BodyCompositionData?>(null)
     val bodyComposition: StateFlow<BodyCompositionData?> = _bodyComposition.asStateFlow()
 
@@ -68,6 +71,7 @@ class TrendsViewModel @Inject constructor(
     val volumeModelProducer = CartesianChartModelProducer()
     val e1rmModelProducer = CartesianChartModelProducer()
     val muscleGroupModelProducer = CartesianChartModelProducer()
+    val effectiveSetsModelProducer = CartesianChartModelProducer()
 
     // Tracks the current load coroutine so we can cancel it before starting a new one,
     // preventing concurrent runTransaction calls on the same producer.
@@ -270,9 +274,42 @@ class TrendsViewModel @Inject constructor(
 
     private suspend fun loadEffectiveSets() {
         try {
-            _effectiveSets.value = trendsRepository.getWeeklyEffectiveSets(_timeRange.value)
+            val data = trendsRepository.getWeeklyEffectiveSets(_timeRange.value)
+            val coverage = trendsRepository.getEffectiveSetsCoverage(_timeRange.value)
+            _effectiveSets.value = data
+            _effectiveSetsCoverage.value = coverage
+            pushEffectiveSetsToProducer(data)
         } catch (_: Exception) {
             _effectiveSets.value = emptyList()
+            _effectiveSetsCoverage.value = 0f
+        }
+    }
+
+    private fun pushEffectiveSetsToProducer(points: List<EffectiveSetsChartPoint>) {
+        viewModelScope.launch {
+            val weeks = points.map { it.weekStartMs }.distinct().sorted()
+            if (weeks.isEmpty()) {
+                effectiveSetsModelProducer.runTransaction {
+                    columnSeries {
+                        repeat(VicoChartHelpers.muscleGroupOrder.size) { series(listOf(0.0, 0.0)) }
+                    }
+                }
+                return@launch
+            }
+            val weekIndex = weeks.withIndex().associate { (i, ms) -> ms to i }
+            effectiveSetsModelProducer.runTransaction {
+                columnSeries {
+                    VicoChartHelpers.muscleGroupOrder.forEach { group ->
+                        val countsByWeek = DoubleArray(weeks.size)
+                        points.filter { it.majorGroup == group }.forEach { p ->
+                            weekIndex[p.weekStartMs]?.let { idx ->
+                                countsByWeek[idx] = p.setCount.toDouble()
+                            }
+                        }
+                        series(countsByWeek.toList())
+                    }
+                }
+            }
         }
     }
 

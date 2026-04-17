@@ -38,7 +38,7 @@ data class Exercise(
     val updatedAt: Long = 0L // Epoch ms, set on every mutation (v35)
 )
 
-fun String.toSearchName(): String = lowercase().replace(Regex("[\\s\\-()]"), "")
+fun String.toSearchName(): String = lowercase().replace(Regex("[\\s\\-()'/]"), "")
 
 fun String.toSearchTokens(): List<String> = trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
 

@@ -1,13 +1,15 @@
 package com.powerme.app.ui.metrics
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -17,6 +19,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.analytics.ReadinessEngine
 import com.powerme.app.ui.metrics.charts.E1RMProgressionCard
+import com.powerme.app.ui.metrics.charts.EffectiveSetsCard
 import com.powerme.app.ui.metrics.charts.MuscleGroupVolumeCard
 import com.powerme.app.ui.metrics.charts.VolumeTrendCard
 
@@ -37,12 +40,15 @@ fun MetricsScreen(
     val selectedExerciseId by trendsViewModel.selectedExerciseId.collectAsState()
     val deepLinkPending by trendsViewModel.deepLinkPending.collectAsState()
     val muscleGroupVolume by trendsViewModel.muscleGroupVolume.collectAsState()
+    val effectiveSets by trendsViewModel.effectiveSets.collectAsState()
+    val effectiveSetsCoverage by trendsViewModel.effectiveSetsCoverage.collectAsState()
 
-    // Auto-scroll to the E1RM card (index 3) when arriving via a deep-link.
-    val listState = rememberLazyListState()
-    LaunchedEffect(deepLinkPending) {
-        if (deepLinkPending) {
-            listState.animateScrollToItem(3)
+    // Auto-scroll to the E1RM card when arriving via a deep-link.
+    val scrollState = rememberScrollState()
+    var e1rmCardY by remember { mutableIntStateOf(0) }
+    LaunchedEffect(deepLinkPending, e1rmCardY) {
+        if (deepLinkPending && e1rmCardY > 0) {
+            scrollState.animateScrollTo(e1rmCardY)
             trendsViewModel.consumeDeepLink()
         }
     }
@@ -62,64 +68,67 @@ fun MetricsScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ── Body & Vitals ──────────────────────────────
-        item {
-            BodyVitalsCard(
-                state = uiState.bodyVitals,
-                onSyncClick = { viewModel.syncHealthConnect() },
-                onConnectClick = onNavigateToSettings,
-                unitSystem = unitSystem
-            )
-        }
+        BodyVitalsCard(
+            state = uiState.bodyVitals,
+            onSyncClick = { viewModel.syncHealthConnect() },
+            onConnectClick = onNavigateToSettings,
+            unitSystem = unitSystem
+        )
 
         // ── Readiness Gauge ────────────────────────────
-        item {
-            ReadinessGaugeCard(
-                readinessScore = readinessScore,
-                hcAvailability = uiState.bodyVitals.hcAvailability,
-                hrvDelta = readinessSubMetrics.hrvDelta,
-                rhrDelta = readinessSubMetrics.rhrDelta,
-                sleepMinutes = readinessSubMetrics.sleepMinutes
-            )
-        }
+        ReadinessGaugeCard(
+            readinessScore = readinessScore,
+            hcAvailability = uiState.bodyVitals.hcAvailability,
+            hrvDelta = readinessSubMetrics.hrvDelta,
+            rhrDelta = readinessSubMetrics.rhrDelta,
+            sleepMinutes = readinessSubMetrics.sleepMinutes
+        )
 
         // ── Volume Trend ───────────────────────────────
-        item {
-            VolumeTrendCard(
-                volumeData = weeklyVolume,
-                timeRange = timeRange,
-                unitSystem = unitSystem,
-                onTimeRangeChange = trendsViewModel::setTimeRange,
-                modelProducer = trendsViewModel.volumeModelProducer
-            )
-        }
+        VolumeTrendCard(
+            volumeData = weeklyVolume,
+            timeRange = timeRange,
+            unitSystem = unitSystem,
+            onTimeRangeChange = trendsViewModel::setTimeRange,
+            modelProducer = trendsViewModel.volumeModelProducer
+        )
 
         // ── E1RM Progression ───────────────────────────
-        item {
-            E1RMProgressionCard(
-                e1rmData = e1rmData,
-                exercisePickerItems = exercisePickerItems,
-                selectedExerciseId = selectedExerciseId,
-                unitSystem = unitSystem,
-                onExerciseSelected = trendsViewModel::selectExercise,
-                modelProducer = trendsViewModel.e1rmModelProducer
-            )
-        }
+        E1RMProgressionCard(
+            e1rmData = e1rmData,
+            exercisePickerItems = exercisePickerItems,
+            selectedExerciseId = selectedExerciseId,
+            unitSystem = unitSystem,
+            onExerciseSelected = trendsViewModel::selectExercise,
+            modelProducer = trendsViewModel.e1rmModelProducer,
+            modifier = Modifier.onGloballyPositioned { coords ->
+                e1rmCardY = coords.positionInParent().y.toInt()
+            }
+        )
 
         // ── Muscle Balance ─────────────────────────────
-        item {
-            MuscleGroupVolumeCard(
-                muscleGroupData = muscleGroupVolume,
-                timeRange = timeRange,
-                onTimeRangeChange = trendsViewModel::setTimeRange,
-                modelProducer = trendsViewModel.muscleGroupModelProducer
-            )
-        }
+        MuscleGroupVolumeCard(
+            muscleGroupData = muscleGroupVolume,
+            timeRange = timeRange,
+            onTimeRangeChange = trendsViewModel::setTimeRange,
+            modelProducer = trendsViewModel.muscleGroupModelProducer
+        )
+
+        // ── Effective Sets ────────────────────────────
+        EffectiveSetsCard(
+            effectiveSetsData = effectiveSets,
+            coveragePct = effectiveSetsCoverage,
+            timeRange = timeRange,
+            onTimeRangeChange = trendsViewModel::setTimeRange,
+            modelProducer = trendsViewModel.effectiveSetsModelProducer
+        )
     }
 }

@@ -43,7 +43,7 @@
 | `settings` | Push | — | Screen-scoped | — |
 | `profile` | Push | — | Screen-scoped | Accessed via AccountCircle icon in TopAppBar (left of Settings gear) |
 | `workout_detail/{workoutId}` | Push | `workoutId: String` | Screen-scoped | Accessed from `WorkoutSummaryScreen` Edit button only |
-| `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}` | Push | `workoutId: String`, `isPostWorkout: Bool` (default false), `syncType: String` (default "NONE") | Screen-scoped | Post-workout: navigated from `onWorkoutFinished`. History: navigated from `HistoryScreen` tap |
+| `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}` | Push | `workoutId: String`, `isPostWorkout: Bool` (default false), `syncType: String` (default "NONE") | Screen-scoped | Post-workout: `LaunchedEffect(pendingWorkoutSummary)` in `ActiveWorkoutScreen` triggers `onWorkoutFinished()` when summary is set; `PowerMeNavigation` reads `lastFinishedWorkoutId`/`lastPendingRoutineSync` and navigates here with `popUpTo(WORKOUT){inclusive=true}`. History: navigated from `HistoryScreen` tap (no sync args). |
 | `template_builder/{routineId}` | Push | `routineId: Long` | Screen-scoped | `routineId = -1` sentinel = new routine (see below) |
 | `exercise_picker` | Push | — | Screen-scoped | Returns result via `savedStateHandle` |
 

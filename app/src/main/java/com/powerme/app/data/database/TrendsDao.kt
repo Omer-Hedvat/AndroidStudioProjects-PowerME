@@ -136,6 +136,42 @@ interface TrendsDao {
     suspend fun getWeeklyEffectiveSets(sinceMs: Long): List<EffectiveSetsRow>
 
     /**
+     * Total completed non-WARMUP/non-DROP sets with weight+reps in range.
+     * Used as the denominator for RPE coverage %.
+     */
+    @Query("""
+        SELECT COUNT(ws.id)
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE w.isCompleted = 1
+          AND w.isArchived = 0
+          AND ws.isCompleted = 1
+          AND ws.setType NOT IN ('WARMUP', 'DROP')
+          AND ws.weight > 0
+          AND ws.reps > 0
+          AND w.timestamp >= :sinceMs
+    """)
+    suspend fun getTotalSetsCount(sinceMs: Long): Int
+
+    /**
+     * Same as getTotalSetsCount but requires rpe IS NOT NULL — numerator for RPE coverage %.
+     */
+    @Query("""
+        SELECT COUNT(ws.id)
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE w.isCompleted = 1
+          AND w.isArchived = 0
+          AND ws.isCompleted = 1
+          AND ws.setType NOT IN ('WARMUP', 'DROP')
+          AND ws.weight > 0
+          AND ws.reps > 0
+          AND ws.rpe IS NOT NULL
+          AND w.timestamp >= :sinceMs
+    """)
+    suspend fun getRpeCoveredSetsCount(sinceMs: Long): Int
+
+    /**
      * Completed workouts with start time and volume for chronotype scatter plot.
      */
     @Query("""

@@ -1,7 +1,7 @@
 # BUG: Post-workout routine sync prompt appears multiple times (triple prompt)
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Description
 After finishing a workout the user is asked about routine sync 3 times:
@@ -32,11 +32,19 @@ In the screenshots the workout contains 0 completed sets / 0 kg volume, yet `Rou
 - Related spec: `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` (WorkoutSummaryScreen introduction)
 
 ## Fix Notes
-<!-- populated after fix is applied -->
-<!--
-Expected fix direction:
-- Remove the `PostWorkoutSummarySheet` from ActiveWorkoutScreen (it is superseded by WorkoutSummaryScreen).
-- `finishWorkout()` should navigate directly to `workout_summary/{id}?isPostWorkout=true&syncType={type}` — no interim bottom sheet.
-- `WorkoutSummaryScreen` becomes the sole owner of sync UI per §7.5.
-- The diff should only fire a non-null RoutineSyncType when there are actual completed sets to compare against; an all-incomplete session should return null (no prompt).
--->
+
+**Root cause:** `PostWorkoutSummarySheet` (in `ActiveWorkoutScreen.kt`) and `RoutineSyncCard` (in `WorkoutSummaryScreen.kt`) both owned the routine sync UI. After `finishWorkout()`, the sheet rendered twice (pre-diff and post-diff state) then the user saw the card again after navigation.
+
+**Secondary bug:** The diff engine ran when `snapshot.isNotEmpty() && routineId.isNotBlank()` — even with 0 completed sets — causing a false-positive `STRUCTURE` sync type for aborted workouts.
+
+**Fix applied:**
+
+1. **`WorkoutViewModel.kt`** — Added `hasCompletedWorkSets` guard before the diff block. Diff only runs when at least one non-warmup set is completed.
+
+2. **`ActiveWorkoutScreen.kt`** — Removed the `PostWorkoutSummarySheet` block entirely (including the ~175-line dead composable definition). Replaced with `LaunchedEffect(pendingWorkoutSummary) { if (it != null) onWorkoutFinished() }` that auto-navigates to `WorkoutSummaryScreen`.
+
+3. **`WorkoutSummaryScreen.kt`** — Added the missing "Save as Routine" `TextButton` trigger (the dialog and callback were already wired but had no trigger button).
+
+4. **`WorkoutViewModelTest.kt`** — Added test: `finishWorkout with routine snapshot but 0 completed sets returns null routineSync`.
+
+5. **Spec updates** — `WORKOUT_SPEC.md §7.3`, `§7.3b`, `§7.5`, `§8`, invariants #4 and #20 updated. `NAVIGATION_SPEC.md` `workout_summary` route note updated.

@@ -1,7 +1,7 @@
 # BUG: Timed set row layout is crowded in IDLE state
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Description
 In the active workout screen, timed exercises (e.g. Bird-Dog, Plank) show a crowded row when a set is not yet started (IDLE state). The row squeezes six visual elements into one line: set number | weight input | time input | RPE input | [▶ Play] | [✓ Check]. The play button (purple/violet) and the manual-complete checkmark end up side by side at the far right with very little space, making the row look inconsistent and cramped compared to completed timed sets (which show the clean green checkmark only).
@@ -18,4 +18,4 @@ Root source: `TimedSetRow` IDLE branch in `ActiveWorkoutScreen.kt` uses weights 
 - Related spec: `WORKOUT_SPEC.md §4.8` (TimedSetRow state machine)
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+Redistributed the 0.20f action area in the IDLE branch of `TimedSetRow`: Play button widened from 0.10f to 0.14f (icon 18→20dp), Check button narrowed from 0.10f to 0.06f with background removed entirely and icon reduced to 16dp at 0.25f alpha. Creates clear visual hierarchy — Play is the obvious primary CTA, Check is a subtle ghost icon for manual-complete.

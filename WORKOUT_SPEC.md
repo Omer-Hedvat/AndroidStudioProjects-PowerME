@@ -48,7 +48,7 @@ Loading > Edit Mode > Active Workout > Summary > Idle
 
 **Rendering order in `ActiveWorkoutScreen`** (overlays checked first):
 1. `StandaloneTimerSheet` — `ModalBottomSheet` opened via timer icon; does NOT block main content
-2. `PostWorkoutSummarySheet` — when `pendingWorkoutSummary != null` (contains inline sync CTAs)
+2. `LaunchedEffect(pendingWorkoutSummary)` — fires `onWorkoutFinished()` when summary becomes non-null, navigating to `WorkoutSummaryScreen`
 3. `LaunchedEffect(editModeSaved)` — fires `onWorkoutFinished()` when `editModeSaved=true`
 4. Main content `when` branch — IDLE / LIVE+EDIT
 
@@ -399,13 +399,15 @@ IDLE → (setupSeconds == 0) → RUNNING → PAUSED → RUNNING
 SETUP → (cancel) → IDLE
 ```
 
+**Column layout (IDLE / COMPLETED states):** SET(`SET_COL_WEIGHT`) | PREV(`PREV_COL_WEIGHT`) | WEIGHT(`WEIGHT_COL_WEIGHT`) | TIME(S)(0.25f) | Actions(0.20f). PREV shows `ghostWeight × ghostTimeSeconds` from the previous session (formatted by `formatGhostTimedLabel`). RPE is not shown as an inline column — it is persisted only via the auto-pop RPE picker sheet when the `useRpeAutoPop` setting is ON.
+
 | State | Columns / Controls |
 |---|---|
-| IDLE | SET \| WEIGHT input \| TIME input (editable) \| RPE input \| ▶ Start button \| CHECK |
+| IDLE | SET \| PREV (ghost) \| WEIGHT input \| TIME input (editable) \| ▶ Start button (0.14f, primaryContainer) \| ✓ ghost check (0.06f, no bg, faded) |
 | SETUP | SET \| "Get Ready" label (SetupAmber) \| remaining seconds (large, SetupAmber) \| ✕ Cancel button \| amber `LinearProgressIndicator` below |
 | RUNNING | SET \| MM:SS countdown (TimerGreen, `titleMedium`) \| `LinearProgressIndicator` below row \| ■ Stop button |
 | PAUSED | SET \| remaining MM:SS (muted) \| ▶ Resume \| ✓ Mark Done \| ↺ Reset |
-| COMPLETED | SET \| WEIGHT input \| TIME input \| RPE input \| (empty spacer) \| CHECK (TimerGreen filled) |
+| COMPLETED | SET \| PREV (ghost) \| WEIGHT input \| TIME input \| (spacer) \| CHECK (TimerGreen filled) |
 
 **Get Ready countdown (SETUP state):** Controlled by the `timedSetSetupSeconds` global preference (0–10s, default 3s, configurable in Settings → Rest Timer). When Play is tapped and `setupSeconds > 0`, the row enters SETUP state showing an amber countdown. Each second fires `onSetupCountdownTick()` (same beep/haptic as warning tick). At 0, automatically transitions to RUNNING. Tapping the ✕ cancel button returns to IDLE with original time restored.
 
@@ -584,31 +586,31 @@ Detection runs in `finishWorkout()` by comparing `ActiveExercise` state against 
 
 ### 7.3 UX Flow (Inline Sync CTA)
 
-The sync process is fully integrated into the `PostWorkoutSummarySheet`. There are no blocking pre-summary dialogs or secondary sync buttons. The Diff Engine result is presented as a set of **Inline Sync CTAs** at the bottom of the summary sheet, appearing only if changes were detected.
+The sync process is fully integrated into `WorkoutSummaryScreen` (route `workout_summary/{id}?isPostWorkout=true&syncType={type}`). There are no blocking pre-summary dialogs or interim bottom sheets. The Diff Engine result is presented as a `RoutineSyncCard` inline in the summary, appearing only if changes were detected.
 
 ```
-PostWorkoutSummarySheet (always shown immediately after tapping FINISH WORKOUT)
+finishWorkout() completes
     │
-    ├─ No changes detected ─── [Done] (closes summary)
-    │
-    └─ Changes detected ────── Shows Inline Sync CTAs based on diff:
-           │
-           ├─ VALUES only     ─── [Update Values] · [Keep Original]
-           ├─ STRUCTURE only  ─── [Update Routine] · [Keep Original]
-           └─ BOTH            ─── [Update Both] · [Update Values] · [Keep Original]
+    └── LaunchedEffect in ActiveWorkoutScreen detects pendingWorkoutSummary != null
+        └── onWorkoutFinished() → navigate to workout_summary/{id}?isPostWorkout=true&syncType={type}
+            │
+            ├─ syncType=NONE ─── No RoutineSyncCard shown; just Done + Save as Routine
+            │
+            └─ syncType set  ─── RoutineSyncCard shown:
+                   ├─ VALUES only     ─── [Update Values] · [Keep Original]
+                   ├─ STRUCTURE only  ─── [Update Routine] · [Keep Original]
+                   └─ BOTH            ─── [Update Both] · [Update Values] · [Keep Original]
 ```
 
-**Key principle:** The user resolves the sync directly within the summary view. Tapping a sync button (e.g., [Update Both]) performs the write and then updates the UI to show a "Routine Updated" confirmation state (or simply hides the buttons). Tapping [Done] without tapping a sync button is equivalent to "Keep Original" — the routine template is left untouched.
-
-> **`WorkoutSummary` gains a `pendingRoutineSync: RoutineSyncType?` field.** `finishWorkout()` passes the detected sync type into the summary object. The summary sheet renders the corresponding buttons in its footer area, above the final [Done] button.
+**Key principle:** The user resolves the sync directly within `WorkoutSummaryScreen`. Tapping a sync button performs the write (via `WorkoutViewModel`) and hides the card. Tapping Done without tapping a sync button is equivalent to "Keep Original".
 
 ### 7.3b Value-Change Inline Prompt
 
-When the Diff Engine detects `RoutineSyncType.VALUES` (weight/reps differ from stored defaults), the **[Update Values]** CTA is shown at the bottom of the `PostWorkoutSummarySheet`.
+When the Diff Engine detects `RoutineSyncType.VALUES` (weight/reps differ from stored defaults), the **[Update Values]** CTA is shown in `RoutineSyncCard` within `WorkoutSummaryScreen`.
 
 - Tapping **[Update Values]** immediately writes the new defaults to the routine template.
-- This prompt is **non-blocking** — the user can tap **[Done]** on the summary sheet without ever engaging with the sync buttons.
-- This is the standard path for all sync types: inline, optional, and integrated into the summary footer.
+- This prompt is **non-blocking** — the user can tap **Done** without ever engaging with the sync card.
+- This is the standard path for all sync types: inline, optional, and integrated into the summary screen.
 
 ### 7.4 ViewModel Methods
 
@@ -622,19 +624,29 @@ When the Diff Engine detects `RoutineSyncType.VALUES` (weight/reps differ from s
 
 ### 7.5 Implementation Invariant
 
-The `PostWorkoutSummarySheet` is the sole owner of the sync UI. No `AlertDialog`s or intermediate screens should be used to resolve the routine sync. The logic for determining which buttons to show lives in the ViewModel and is passed to the sheet via the `WorkoutSummary` state.
+`WorkoutSummaryScreen` (route `workout_summary/{workoutId}?isPostWorkout=true&syncType={type}`) is the **sole owner of the sync UI**. `PostWorkoutSummarySheet` has been removed. `finishWorkout()` sets `lastFinishedWorkoutId` + `lastPendingRoutineSync`, and a `LaunchedEffect(pendingWorkoutSummary)` in `ActiveWorkoutScreen` auto-navigates to `WorkoutSummaryScreen` without any interim bottom sheet. No `AlertDialog`s or intermediate screens should be used to resolve the routine sync.
+
+**False-positive guard:** The diff engine only runs when `hasCompletedWorkSets` is true (at least one non-warmup completed set). Finishing a workout with 0 completed work sets always produces `pendingRoutineSync = null`.
+
+**`WorkoutSummaryScreen` owns:** RoutineSyncCard CTAs, "Save as Routine" TextButton → `SaveAsRoutineDialog`, Done button → `onNavigateBack`.
 
 ---
 
-## 8. Post-Workout Summary Sheet
+## 8. Post-Workout Summary (WorkoutSummaryScreen)
 
-Shown after routine sync is resolved. Displays:
-- Workout name, duration, total volume, set count, exercise list.
-- **Set count shown excludes WARMUP sets.** Total = count of NORMAL + FAILURE + DROP completed sets only. WARMUP sets are excluded from the displayed count. Implementation: `finishWorkout()` filters `it.isCompleted && it.setType != SetType.WARMUP`.
-- **Volume excludes WARMUP sets.** WARMUP set volume is not counted in `totalVolume`. Same filter applied.
-- **Exercise list excludes exercises with 0 completed work sets.** An exercise only appears in `exerciseNames` if it has at least 1 completed non-warmup set.
-- **Save as Routine** button → `AlertDialog` (name input) → `saveWorkoutAsRoutine(name)` — creates a new `Routine` + `RoutineExercise` rows from all completed sets.
-- **Done** → `dismissWorkoutSummary()` + navigate away.
+`PostWorkoutSummarySheet` has been removed. All post-workout summary UI is now in `WorkoutSummaryScreen` (`ui/history/WorkoutSummaryScreen.kt`), reached via route `workout_summary/{workoutId}?isPostWorkout=true&syncType={type}`.
+
+When `isPostWorkout=true`, the screen shows:
+- Hero header (date, duration, volume, sets, PRs)
+- Session rating row
+- RoutineSyncCard (if `syncType` is non-null) — inline Update/Keep CTAs
+- Exercise summary cards (best set, e1RM, volume delta, avg RPE, golden zone badge, View Trend)
+- Muscle group distribution bars
+- Notes field
+- "Save as Routine" `TextButton` → `SaveAsRoutineDialog` → `saveWorkoutAsRoutine(name)` (wired via `PowerMeNavigation` → `workoutViewModel`)
+- "Done" `Button` → `onNavigateBack`
+
+**Set count shown excludes WARMUP sets.** Total = count of NORMAL + FAILURE + DROP completed sets only. Implementation: `finishWorkout()` filters `it.isCompleted && it.setType != SetType.WARMUP`. Volume and exercise list also exclude WARMUP sets.
 
 ---
 
@@ -926,19 +938,35 @@ It is **not** placed in the `TopAppBar`. The TopAppBar contains only: minimize/c
 
 - **Scale:** 6.0 – 10.0 in 0.5 increments.
 - **Storage:** Integer × 10 (e.g. 8.5 → stored as `85`) in `workout_sets.rpe`.
-- **UI:** Tapping the RPE column cell opens `RpePickerSheet` (ModalBottomSheet with FilterChip grid + Clear button).
+- **UI:** Tapping the RPE column cell opens `RpePickerSheet` (ModalBottomSheet with vertical grouped list + Clear button).
 - **Display:** RPE column shows the formatted value (e.g. `8.5`) or `—` if unset.
 - **Analytics:** RPE is surfaced in the PREV ghost label: `{weight}×{reps}@{rpe}`. Included in e1RM context but does not alter the Epley formula directly.
 
-**RPE Picker anchor labels:** The `RpePickerSheet` must include descriptive context labels anchored at three points in the chip grid to explain what the scale means in practical terms:
+**RPE Picker layout:** `RpePickerSheet` uses a vertical grouped list (not a chip grid). Values are grouped into 4 categories with color-coded headers and a per-value reps-in-reserve description. Each row: RPE number (monospace bold) + description + checkmark if selected.
 
-| Value | Label |
-|---|---|
-| 6.0 | "Very Light" |
-| 8.0 | "Hard — 2 reps in reserve" |
-| 10.0 | "Maximum Effort" |
+**RPE scale data (`RPE_SCALE` in `util/RpeHelper.kt`):**
 
-These labels are rendered as small muted text below or beside the corresponding chip, not as separate rows. They are informational only — they do not change the selection behaviour.
+| Value | Display | Description | Category |
+|---|---|---|---|
+| 60 | 6 | 4+ reps left — very light | LOW |
+| 65 | 6.5 | 3–4 reps left — light | LOW |
+| 70 | 7 | 3 reps left — moderate | MODERATE |
+| 75 | 7.5 | 2–3 reps left — challenging | MODERATE |
+| 80 | 8 | 2 reps left — hard | GOLDEN |
+| 85 | 8.5 | 1–2 reps left — very hard | GOLDEN |
+| 90 | 9 | 1 rep left — near max | GOLDEN |
+| 95 | 9.5 | Maybe 1 rep left — grinding | MAX_EFFORT |
+| 100 | 10 | Absolute failure — nothing left | MAX_EFFORT |
+
+**Category headers and colors:**
+- LOW → "WARM-UP ZONE", muted grey (`onSurface` 40%)
+- MODERATE → "WORKING ZONE", `ReadinessAmber`
+- GOLDEN → "GOLDEN ZONE ✦" + subtitle "Target zone for hypertrophy", `GoldenRPE`
+- MAX_EFFORT → "MAX EFFORT", `ProError`
+
+**Golden zone visual treatment:** RPE 8–9 group is wrapped in a `Surface` with `GoldenRPE.copy(alpha=0.08f)` background, `1dp` border at `GoldenRPE.copy(alpha=0.3f)`, and `shapes.medium` corners. RPE numbers in golden rows are colored `GoldenRPE`. Selected golden rows use `GoldenRPE.copy(alpha=0.18f)` background instead of `primaryContainer`.
+
+**Sheet opens fully expanded** (`skipPartiallyExpanded = true`) to ensure the golden zone is immediately visible.
 
 ### 14.4 Plate Calculator
 
@@ -1339,7 +1367,7 @@ The **PREV column is replaced by an e1RM column** in this screen. Each set's e1R
 1. **State priority:** UI renders one state at a time per the hierarchy `Loading > EditMode > ActiveWorkout > Summary > Idle`. Never allow overlapping states.
 2. **Swipe coupling — set deletes both, rest deletes only rest:** The set row swipe deletes the set AND hides the rest separator below it (coupling via `deleteSet()` callback adding the rest key to `hiddenRestSeparators`). The rest separator swipe deletes only the rest separator. Both still use **separate `SwipeToDismissBox` instances** — never group into a single shared box. The coupling is in the callback, not the Compose tree.
 3. **Navigation via `LaunchedEffect`:** Any `ActiveWorkoutState` flag that triggers navigation must do so through a `LaunchedEffect`, not inside a composable branch that might not render.
-4. **Sync UI in summary:** The routine sync process must be handled exclusively within the `PostWorkoutSummarySheet` using inline CTAs. No separate blocking `AlertDialog`s should be used for this flow.
+4. **Sync UI in summary:** The routine sync process must be handled exclusively within `WorkoutSummaryScreen` using inline CTAs (`RoutineSyncCard`). No separate blocking `AlertDialog`s or interim bottom sheets should be used for this flow.
 5. **Atomic routine writes:** `saveRoutineEdits()` must use `database.withTransaction { }` — never bare sequential DAO calls.
 6. **State cleanup on disposal:** `cancelEditMode()` must be invoked in a `DisposableEffect` on `ActiveWorkoutScreen` exit to prevent `isEditMode=true` leaking into the next session.
 7. **Iron Vault off in edit mode:** Never write to `workout_sets` when `isEditMode=true`. Only `routine_exercises` is a valid write target in edit mode, and only on explicit Save.
@@ -1355,7 +1383,7 @@ The **PREV column is replaced by an e1RM column** in this screen. Each set's e1R
 17. **`FLAG_KEEP_SCREEN_ON` must be cleared on session end:** When `finishWorkout()` or `cancelWorkout()` resolves, the window flag must be cleared regardless of the `keepScreenOn` user preference.
 18. **Set deletion uses clipboard, not Snackbar:** Swipe-to-delete a set row saves the set's values to `deletedSetClipboard[exerciseId]`. There is no "Undo" snackbar for this action. Recovery is via [Add Set] which pastes clipboard values. Do not add a toast or snackbar for set deletion.
 19. **`TelemetryEngine` is the canonical name:** Do not use `stateHistoryRepository` in new code. The component is `TelemetryEngine`; the old identifier is deprecated pending a rename refactor.
-20. **Routine sync is not blocking:** `finishWorkout()` must always navigate directly to `PostWorkoutSummarySheet`. The Diff Engine result (`RoutineSyncType`) is embedded in `WorkoutSummary.pendingRoutineSync` and surfaced as an opt-in button in the sheet. The old pre-summary `AlertDialog` pattern must not be restored.
+20. **Routine sync is not blocking:** `finishWorkout()` sets `lastFinishedWorkoutId`/`lastPendingRoutineSync`, then a `LaunchedEffect` in `ActiveWorkoutScreen` auto-navigates to `WorkoutSummaryScreen`. The Diff Engine result (`RoutineSyncType`) is passed as a route arg and surfaced as `RoutineSyncCard` in `WorkoutSummaryScreen`. No interim bottom sheet or `AlertDialog` may be used. The sync diff only fires when `hasCompletedWorkSets == true`; an all-incomplete session produces `syncType=null`.
 21. **No hidden gestures:** Every interaction in the workout screen must be initiated through a visible, explicit UI element. Double-taps, long-presses (that are the sole path to an action), and swipe-only flows without visible affordance are prohibited. All set type changes go through the DropdownMenu (§10.2). All RPE changes go through `RpePickerSheet` (§14.3).
 22. **Touch targets ≥ 48dp:** SET badge column and CHECK column in `WorkoutSetRow` must use `Modifier.minimumInteractiveComponentSize()`. RPE column clickable area must fill the full row height and column width.
 23. **Keyboard types are explicit at call site:** Weight inputs pass `KeyboardType.Decimal`; reps inputs pass `KeyboardType.Number`. These are set at the `WorkoutSetRow` call site, not as defaults in `WorkoutInputField`.

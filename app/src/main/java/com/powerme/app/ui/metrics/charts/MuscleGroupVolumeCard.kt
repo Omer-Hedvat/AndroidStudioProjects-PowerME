@@ -88,8 +88,9 @@ fun MuscleGroupVolumeCard(
 
     val xFormatter = remember {
         CartesianValueFormatter { _, value, _ ->
-            val ts = weekTimestamps.value.getOrNull(value.roundToInt())
-                ?: return@CartesianValueFormatter ""
+            val list = weekTimestamps.value
+            if (list.isEmpty()) return@CartesianValueFormatter "–"
+            val ts = list[value.roundToInt().coerceIn(list.indices)]
             dateFormat.format(Date(ts))
         }
     }

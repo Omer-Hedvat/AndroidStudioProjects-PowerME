@@ -1,7 +1,7 @@
 # BUG: Timed exercise row has wrong columns (no PREV, spurious RPE field)
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Description
 In the Active Workout screen, timed (time-based) exercises render incorrect columns in their set rows:
@@ -20,4 +20,8 @@ In the Active Workout screen, timed (time-based) exercises render incorrect colu
 - Screenshot: provided by user (Bird-Dog card in active workout, headers SET | WEIGHT | TIME(S) | RPE with a '-' box and play/check buttons in the row)
 
 ## Fix Notes
-<!-- populated after the fix is applied -->
+- Added `ghostTimeSeconds: String?` field to `ActiveSet` and populated it from `ghost?.timeSeconds` in the workout loading logic.
+- Added `formatGhostTimedLabel(weight, timeSeconds)` helper in `ActiveWorkoutScreen.kt`.
+- Rewrote `TimedHeader()` to use the shared column-weight constants (`SET_COL_WEIGHT`, `PREV_COL_WEIGHT`, `WEIGHT_COL_WEIGHT`) plus a 0.25f TIME(S) column and 0.20f trailing spacer — matching IDLE/COMPLETED data-row weights exactly.
+- Replaced RPE inline input field in IDLE and COMPLETED states with a PREV ghost-data box aligned to `PREV_COL_WEIGHT`.
+- RPE is still persisted via the auto-pop RPE picker sheet; the inline column was the only thing removed.
