@@ -440,7 +440,7 @@ private fun StrengthSetDetailRow(
                     .weight(WEIGHT_COL_WEIGHT)
                     .padding(horizontal = 2.dp)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 BasicEditField(value = weightDisplay, onValueChange = onWeightChanged, keyboardType = KeyboardType.Decimal)
@@ -451,7 +451,7 @@ private fun StrengthSetDetailRow(
                     .weight(REPS_COL_WEIGHT)
                     .padding(horizontal = 2.dp)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 BasicEditField(value = repsDisplay, onValueChange = onRepsChanged, keyboardType = KeyboardType.Number)
@@ -519,8 +519,9 @@ private fun BasicEditField(
         ),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            cursorColor = MaterialTheme.colorScheme.primary,
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
             focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,

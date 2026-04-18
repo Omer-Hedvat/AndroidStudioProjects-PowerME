@@ -45,7 +45,8 @@ Single source of truth for bug status across sessions.
 | [BUG_profile_setup_not_skippable](BUG_profile_setup_not_skippable.md) | Profile Setup screen cannot be skipped | ✅ Completed | P1 | — | — | `ProfileSetupViewModel.kt`, `ProfileSetupScreen.kt` |
 | [BUG_rpe_auto_page_non_work_sets](BUG_rpe_auto_page_non_work_sets.md) | RPE auto-page fires for non-work set types (warmup, drop, failure) | 🔵 Open | P2 | — | — | — |
 | [BUG_timed_exercise_rpe_column](BUG_timed_exercise_rpe_column.md) | Timed exercise rows missing RPE column | 🔵 Open | P2 | BUG_timed_exercise_row_columns ✅ | — | — |
-| [BUG_post_workout_state_not_cleared](BUG_post_workout_state_not_cleared.md) | Post-workout state not cleared — Resume button loops to finished workout's summary | 🔵 Open | P0 | — | — | — |
+| [BUG_post_workout_state_not_cleared](BUG_post_workout_state_not_cleared.md) | Post-workout state not cleared — Resume button loops to finished workout's summary | 🟡 In Progress | P0 | — | — | — |
+| [BUG_history_edit_weighted_unreadable](BUG_history_edit_weighted_unreadable.md) | History edit mode — weighted exercise fields unreadable (dark text on dark purple) | ✅ Wrapped | P1 | BUG_history_edit_unreadable_values_v2 ✅ | — | `WorkoutDetailScreen.kt` |
 
 ---
 
