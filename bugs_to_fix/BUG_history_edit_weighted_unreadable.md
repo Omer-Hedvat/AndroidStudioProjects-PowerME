@@ -29,4 +29,6 @@ Screenshot: `bugs_to_fix/assets/history_edit_weighted_unreadable/screenshot.png`
 - Related spec: `HISTORY_ANALYTICS_SPEC.md`
 
 ## Fix Notes
-Changed the Box background color tokens for weight and reps input fields in `StrengthSetDetailRow` from `primaryContainer` (dark purple `#2D2052`) to `surfaceVariant` (grey). This matches the pattern used by `TimedSetDetailRow` and `CardioSetDetailRow`. The `BasicEditField` text already used `onSurface` (from v2 fix), so this background change makes the fields fully readable.
+**Root cause (re-investigation):** The previous fix correctly set the Box background to `surfaceVariant` (#282828) and the text to `onSurface` (#EDEDEF), but `BasicEditField` used `OutlinedTextField` which has a **minimum intrinsic height of ~56dp** in Material3. Since the wrapping `Row` constrains height to 36dp, the `OutlinedTextField` overflows its bounds and renders with unpredictable internal state, causing the visible background/text mismatch.
+
+**Actual fix:** Replaced `OutlinedTextField` in `BasicEditField` with `BasicTextField` (same approach as `WorkoutInputField` in active workout). `BasicTextField` has no minimum height constraint, respects the parent Box's 36dp bounds, and renders the text with explicit `onSurface` color set in `textStyle`. The `surfaceVariant` background on the wrapping `Box` is now correctly visible.

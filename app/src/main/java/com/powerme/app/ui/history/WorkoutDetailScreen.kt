@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import com.powerme.app.ui.theme.PowerMeDefaults
 import androidx.compose.material.icons.Icons
@@ -506,7 +507,7 @@ private fun BasicEditField(
     keyboardType: KeyboardType
 ) {
     val (tfv, selectAllMod) = rememberSelectAllState(value)
-    OutlinedTextField(
+    BasicTextField(
         value = tfv.value,
         onValueChange = { newTfv ->
             tfv.value = newTfv
@@ -515,19 +516,16 @@ private fun BasicEditField(
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(
             textAlign = TextAlign.Center,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
         ),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-            focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-            unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent
-        ),
-        modifier = Modifier.fillMaxWidth().then(selectAllMod)
+        modifier = Modifier.fillMaxWidth().then(selectAllMod),
+        decorationBox = { innerTextField ->
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                innerTextField()
+            }
+        }
     )
 }
 
