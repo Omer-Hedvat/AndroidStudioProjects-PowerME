@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import com.powerme.app.data.database.ExperienceLevel
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -181,6 +182,65 @@ class ProfileViewModelPersonalInfoTest {
         runCurrent()
 
         verify(mockUserSessionManager, never()).saveUser(any())
+    }
+
+    // ── Fitness Level ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `loadPersonalInfo loads experienceLevel and trainingAgeYears from User`() = runTest(testDispatcher) {
+        val user = sampleUser.copy(experienceLevel = "EXPERIENCED", trainingAgeYears = 4)
+        runBlocking { whenever(mockUserSessionManager.getCurrentUser()).thenReturn(user) }
+        val vm = buildViewModel()
+        runCurrent()
+
+        assertEquals(ExperienceLevel.EXPERIENCED, vm.uiState.value.experienceLevel)
+        assertEquals(4, vm.uiState.value.trainingAgeYears)
+    }
+
+    @Test
+    fun `loadPersonalInfo leaves experienceLevel null when User has no level set`() = runTest(testDispatcher) {
+        runBlocking { whenever(mockUserSessionManager.getCurrentUser()).thenReturn(sampleUser) }
+        val vm = buildViewModel()
+        runCurrent()
+
+        assertNull(vm.uiState.value.experienceLevel)
+        assertEquals(0, vm.uiState.value.trainingAgeYears)
+    }
+
+    // ── Body Metrics seeding from User entity ─────────────────────────────────
+
+    @Test
+    fun `loadPersonalInfo seeds weight from User entity when MetricLog is empty`() = runTest(testDispatcher) {
+        val user = sampleUser.copy(weightKg = 75.0f)
+        runBlocking { whenever(mockUserSessionManager.getCurrentUser()).thenReturn(user) }
+        val vm = buildViewModel()
+        runCurrent()
+
+        assertEquals(75.0, vm.uiState.value.lastWeight)
+        assertEquals("75.0", vm.uiState.value.weightInput)
+    }
+
+    @Test
+    fun `loadPersonalInfo seeds bodyFat from User entity when MetricLog is empty`() = runTest(testDispatcher) {
+        val user = sampleUser.copy(bodyFatPercent = 18.5f)
+        runBlocking { whenever(mockUserSessionManager.getCurrentUser()).thenReturn(user) }
+        val vm = buildViewModel()
+        runCurrent()
+
+        assertEquals(18.5, vm.uiState.value.lastBodyFat!!, 0.01)
+        assertEquals("18.5", vm.uiState.value.bodyFatInput)
+    }
+
+    @Test
+    fun `weight and bodyFat remain empty when User and MetricLog have no data`() = runTest(testDispatcher) {
+        runBlocking { whenever(mockUserSessionManager.getCurrentUser()).thenReturn(sampleUser) }
+        val vm = buildViewModel()
+        runCurrent()
+
+        assertEquals("", vm.uiState.value.weightInput)
+        assertEquals("", vm.uiState.value.bodyFatInput)
+        assertNull(vm.uiState.value.lastWeight)
+        assertNull(vm.uiState.value.lastBodyFat)
     }
 
     @Test

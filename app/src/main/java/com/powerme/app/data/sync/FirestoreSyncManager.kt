@@ -564,6 +564,8 @@ private fun User.toFirestoreMap(): Map<String, Any?> = mapOf(
     "createdAt"         to createdAt,
     "gender"            to gender,
     "trainingTargets"   to trainingTargets,
+    "experienceLevel"   to experienceLevel,
+    "trainingAgeYears"  to trainingAgeYears,
     "updatedAt"         to updatedAt
 )
 
@@ -584,6 +586,8 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toUser(): User? {
         createdAt = getLong("createdAt") ?: System.currentTimeMillis(),
         gender = getString("gender"),
         trainingTargets = getString("trainingTargets"),
+        experienceLevel = getString("experienceLevel"),
+        trainingAgeYears = getLong("trainingAgeYears")?.toInt(),
         updatedAt = getLong("updatedAt") ?: 0L
     )
 }
