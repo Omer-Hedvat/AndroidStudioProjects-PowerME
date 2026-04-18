@@ -68,7 +68,8 @@ Post-workout experience + user identity. Can be built in any order within the ph
 | Profile / Settings split (separate pages + nav icons) | `PROFILE_SETTINGS_REDESIGN_SPEC.md §1` | M | `done` | — |
 | Fitness level card (Novice/Trained/Experienced/Athlete) | `PROFILE_SETTINGS_REDESIGN_SPEC.md §3` | S | `done` | Profile/Settings split |
 | RPE auto-pop setting | `PROFILE_SETTINGS_REDESIGN_SPEC.md §4` | S | `wrapped` | — |
-| History card set details (weights + RPE) | `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` | S | `completed` | History Summary Step A ✅ |
+| History card set details (weights + RPE) | `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` | S | `wrapped` | History Summary Step A ✅ |
+| History cards default expanded | `future_devs/HISTORY_CARDS_DEFAULT_EXPANDED_SPEC.md` | XS | `not-started` | History card set details ✅ |
 
 ---
 
@@ -96,6 +97,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | HC Phase B — Write workouts to Health Connect | `HEALTH_CONNECT_SPEC.md §8` | S | `wrapped` | — |
 | HC Backfill — Push last 90 days to Health Connect on permission grant | `future_devs/HC_BACKFILL_SPEC.md` | S | `wrapped` | HC Phase B ✅ |
 | History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `completed` | Trends Step 3 (E1RM) ✅ + History Summary Step A ✅ |
+| E1RM Progression — line only (no area fill) | `future_devs/TRENDS_E1RM_LINE_ONLY_SPEC.md` | XS | `not-started` | Trends Step 3 (E1RM) ✅ |
 
 ---
 

@@ -307,7 +307,43 @@ The analyzer uses this to generate week-over-week 1RM trend cards (e.g. *"Your B
 
 ---
 
-## 7. BoazPerformanceAnalyzer (V2 — Deferred)
+## 7. WorkoutSummaryScreen — Set Detail Breakdown
+
+### 7.1 Overview
+
+`WorkoutSummaryScreen` is the post-workout/history detail sheet that displays per-exercise set data. Each exercise card shows a collapsible `SetDetailsTable` with a row per completed set.
+
+### 7.2 Data Model
+
+`SetDetail` (data class in `WorkoutSummaryViewModel.kt`):
+- `setNumber: Int` — display index (1-based, by `setOrder`)
+- `setType: SetType` — WORKING / WARMUP / DROP / FAILURE
+- `weight: Double?`
+- `reps: Int?`
+- `rpe: Float?`
+- `displayWeight: String` — formatted weight with unit
+
+`ExerciseCard.sets: List<SetDetail>` — exposed from `WorkoutSummaryViewModel`. Only sets with `isCompleted = true` are included.
+
+### 7.3 UI Behaviour
+
+- Each exercise card header has a **chevron toggle** (expand/collapse).
+- **Default state:** expanded in post-workout view (`isPostWorkout = true`), collapsed in history view.
+- `AnimatedVisibility` with `expandVertically` / `shrinkVertically` for smooth transition.
+- Set row layout: `#  |  weight × reps  |  RPE badge` — compact single-line.
+- RPE badge reuses `RpeHelper.kt` zone styling (gold for 8–9, amber for 7–7.5, etc.).
+- Warmup / Drop sets show a set-type label (lighter `onSurfaceVariant` text) to distinguish from WORKING sets.
+- Summary stats (best set, e1RM, volume delta, avg RPE) remain above the set detail section — additive, not replaced.
+
+### 7.4 Invariants
+
+- Only `isCompleted = true` sets appear in `SetDetailsTable`. Incomplete sets (logged but abandoned) are excluded.
+- Set ordering is by `setOrder` ascending.
+- Sets with null weight AND null reps are omitted from the detail table.
+
+---
+
+## 8. BoazPerformanceAnalyzer (V2 — Deferred)
 
 ### 7.1 MVP Status: No-Op Stub
 
@@ -329,7 +365,7 @@ The stub must not throw, must not block the coroutine, and must not make any DB 
 
 ---
 
-## 8. Technical Invariants
+## 9. Technical Invariants
 
 1. **No stored PR flags.** Never add `isPR` to `workout_sets` or any other table. PRs are always derived via `MAX()` at query time. Retroactive edits recalculate PRs automatically.
 

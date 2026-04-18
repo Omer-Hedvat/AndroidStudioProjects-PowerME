@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Phase** | P2 |
-| **Status** | `not-started` |
+| **Status** | `done` |
 | **Effort** | S |
 | **Depends on** | History Summary Redesign (Step A) ✅ |
 
@@ -37,6 +37,18 @@ This feature enhances the post-workout / history detail view so that each exerci
 - Collapse/expand toggle on the exercise card header (chevron icon)
 - Default: **expanded** in post-workout view (`isPostWorkout=true`), **collapsed** in history view
 - `AnimatedVisibility` with `expandVertically` / `shrinkVertically`
+
+### Stats Row Layout (canonical)
+
+The summary stats row must be a single horizontal row:
+
+```
+[ Best Set ]   [ Est 1RM ]   [ Sparkline trend line ]
+```
+
+- All three elements on **one row**, space-evenly or space-between
+- Below this row: the set-by-set detail list
+- The sparkline must **not** appear on its own row or below the sets
 
 ---
 
