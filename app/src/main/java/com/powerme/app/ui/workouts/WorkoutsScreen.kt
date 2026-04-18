@@ -101,7 +101,7 @@ fun WorkoutsScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Text(
-                        "Start Empty Workout",
+                        "Quick Start",
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )

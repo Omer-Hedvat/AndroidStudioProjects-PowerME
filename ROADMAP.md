@@ -17,7 +17,7 @@
 | `in-progress` | Currently being implemented |
 | `blocked` | Waiting on another feature listed in "Depends on" |
 | `completed` | Dev done, tests pass, ready for QA on device |
-| `wrapped` | User QA'd and ran `/wrap_feature` (simplify + build + test + commit + push) |
+| `wrapped` | User QA'd and ran `/wrap_task` (simplify + build + test + commit + push) |
 | `done` | Legacy status — same as `wrapped` (used by older shipped items) |
 
 ## Effort Legend
@@ -42,6 +42,8 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | 3-second countdown beep on all timers | `TOOLS_SPEC.md §5` | XS | `wrapped` | — |
 | Clocks warn auto half-time default | `future_devs/CLOCKS_WARN_AUTO_HALFTIME_SPEC.md` | S | `completed` | — |
 | Timer sound options (bell, chime, click, silent) | `future_devs/TIMER_SOUND_OPTIONS_SPEC.md` | S | `wrapped` | — |
+| Logout button on Profile page | `future_devs/PROFILE_LOGOUT_BUTTON_SPEC.md` | XS | `completed` | Profile/Settings split ✅ |
+| Quick Start Workout (blank workout, no routine) | `future_devs/QUICK_START_WORKOUT_SPEC.md` | XS | `wrapped` | — |
 
 ---
 
@@ -66,7 +68,7 @@ Post-workout experience + user identity. Can be built in any order within the ph
 | Profile / Settings split (separate pages + nav icons) | `PROFILE_SETTINGS_REDESIGN_SPEC.md §1` | M | `done` | — |
 | Fitness level card (Novice/Trained/Experienced/Athlete) | `PROFILE_SETTINGS_REDESIGN_SPEC.md §3` | S | `done` | Profile/Settings split |
 | RPE auto-pop setting | `PROFILE_SETTINGS_REDESIGN_SPEC.md §4` | S | `wrapped` | — |
-| History card set details (weights + RPE) | `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` | S | `not-started` | History Summary Step A ✅ |
+| History card set details (weights + RPE) | `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` | S | `completed` | History Summary Step A ✅ |
 
 ---
 
@@ -90,7 +92,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Trends Step 3 — E1RMProgressionCard | `TRENDS_CHARTS_SPEC.md §Step 3` | M | `done` | — |
 | Trends Step 4 — MuscleGroupVolumeCard | `TRENDS_CHARTS_SPEC.md §Step 4` | M | `completed` | — |
 | Trends Step 5 — EffectiveSetsCard | `TRENDS_CHARTS_SPEC.md §Step 5` | M | `completed` | — |
-| HC Extended Reads (HR, Calories, VO₂ Max, Distance, SpO₂) | `HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | M | `not-started` | — |
+| HC Extended Reads (HR, Calories, VO₂ Max, Distance, SpO₂) | `HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | M | `completed` | — |
 | HC Phase B — Write workouts to Health Connect | `HEALTH_CONNECT_SPEC.md §8` | S | `wrapped` | — |
 | HC Backfill — Push last 90 days to Health Connect on permission grant | `future_devs/HC_BACKFILL_SPEC.md` | S | `wrapped` | HC Phase B ✅ |
 | History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `completed` | Trends Step 3 (E1RM) ✅ + History Summary Step A ✅ |
@@ -101,12 +103,12 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| Trends Step 6 — BodyCompositionCard | `TRENDS_CHARTS_SPEC.md §Step 6` | L | `not-started` | — |
+| Trends Step 6 — BodyCompositionCard | `TRENDS_CHARTS_SPEC.md §Step 6` | L | `completed` | — |
 | Trends Step 7 — StepsTrendCard | `TRENDS_CHARTS_SPEC.md §Step 7` | S | `not-started` | HC Extended Reads (calories) |
-| Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `not-started` | — |
-| CSV Import (Strong, Hevy, FitBod, generic) | `CSV_IMPORT_SPEC.md` | L | `not-started` | — |
-| Exercise animations in ExerciseDetailSheet | `future_devs/EXERCISE_ANIMATIONS_SPEC.md` | S | `not-started` | — |
-| Exercise joint indicators in ExerciseDetailSheet | `future_devs/EXERCISE_JOINTS_SPEC.md` | M | `not-started` | — |
+| Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `in-progress` | — |
+| CSV Import (Strong, Hevy, FitBod, generic) | `CSV_IMPORT_SPEC.md` | L | `completed` | — |
+| Exercise animations in ExerciseDetailSheet | `future_devs/EXERCISE_ANIMATIONS_SPEC.md` | S | `completed` | — |
+| Exercise joint indicators in ExerciseDetailSheet | `future_devs/EXERCISE_JOINTS_SPEC.md` | M | `completed` | — |
 
 ---
 
@@ -116,11 +118,21 @@ Flagship feature. Requires all groundwork below before any UI work begins.
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `not-started` | — |
+| Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `in-progress` | — |
 | Stress vectors — Gemini expansion (remaining 120+) | `TRENDS_SPEC.md §10` | M | `blocked` | Manual seed done first |
-| Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `not-started` | — |
+| Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `in-progress` | — |
 | SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `not-started` | — |
 | Full heatmap card (wired end-to-end) | `TRENDS_SPEC.md §10` | XL | `blocked` | All above + Trends P4 complete |
+
+---
+
+## Phase P7 — AI Workout Generation
+
+On-device or cloud AI that turns free text or a photo into a ready-to-start workout. Architecture (on-device Gemma 4 vs Gemini Flash API vs hybrid) is **TBD — requires discussion before implementation starts.**
+
+| Feature | Spec | Effort | Status | Depends on |
+|---|---|---|---|---|
+| AI Workout Generation (text + photo → workout) | `future_devs/AI_WORKOUT_GENERATION_SPEC.md` | XL | `not-started` | Quick Start Workout ✅ |
 
 ---
 
@@ -152,6 +164,9 @@ P5 (exercise joints)     ──────────────────�
 
 P6 (gemini expansion)    ── requires ──────────────────► manual seed
 P6 (heatmap card)        ── requires ──────────────────► all P6 sub-tasks + P4 complete
+
+P0 (quick start workout) ──────────────────────────────► ship anytime
+P7 (AI workout gen)      ── requires ──────────────────► Quick Start Workout
 ```
 
 ---

@@ -37,6 +37,7 @@
 - **Health Connect Body & Vitals card** (Trends tab): 3×3 grid (Age/Weight/BMI/BodyFat/Height/Steps/Sleep/HRV/RHR); 4 states (CHECKING/UNAVAILABLE/NOT_GRANTED/GRANTED). See HEALTH_CONNECT_SPEC.md.
 - Injury / medical ledger (red-list / yellow-list exercises)
 - **Profile/Settings split** — separate `ProfileScreen` (route `profile`) and trimmed `SettingsScreen`. Profile icon (AccountCircle) + Settings gear in TopAppBar actions. `ProfileViewModel` owns Personal Info, Body Metrics, Fitness Level, Health History. See `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md`.
+- **Log Out button** — full-width `OutlinedButton` (error color) at the bottom of `ProfileScreen` `LazyColumn`. Confirmation `AlertDialog` ("Log out?" / Cancel + Log Out). On confirm, calls `ProfileViewModel.signOut()` → `UserSessionManager.clearUser()` + navigates to Welcome screen with cleared back stack. See `future_devs/PROFILE_LOGOUT_BUTTON_SPEC.md`.
 - **Fitness Level card** in ProfileScreen — 4 tappable cards (Novice/Trained/Experienced/Athlete) + training age slider (0–30). Persisted to `User` entity via `experienceLevel` + `trainingAgeYears` columns (v39).
 - **Health History ledger** in ProfileScreen — injuries/surgeries/conditions with severity tiers; add/edit via `ModalBottomSheet`; auto-rebuilds `MedicalLedger` red/yellow lists on save. `HealthHistoryEntry` entity in `health_history_entries` table (v40).
 - Performance metrics, trends, and charts
@@ -50,26 +51,29 @@
 - **E1RMProgressionCard** — Single-exercise e1RM progression line chart (raw + 3-session MA), scrollable FilterChip exercise picker, percent-change badge. `ui/metrics/charts/E1RMProgressionCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 3`.
 - **MuscleGroupVolumeCard** — Weekly stacked bar chart of training volume per muscle group, 8 fixed series in `VicoChartHelpers.muscleGroupOrder`, THIS WEEK distribution row. `ui/metrics/charts/MuscleGroupVolumeCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 4`.
 - **EffectiveSetsCard** — Weekly stacked bar chart of effective sets (RPE ≥ 7.0) per muscle group; RPE coverage banner (amber < 50%); sparse warning (< 30%); THIS WEEK distribution row with set counts. `ui/metrics/charts/EffectiveSetsCard.kt`. `TrendsDao.getTotalSetsCount()`/`getRpeCoveredSetsCount()` compute coverage %; `TrendsViewModel.effectiveSetsModelProducer` + `effectiveSetsCoverage` StateFlow. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 5`.
+- **BodyCompositionCard** — Weight and body fat % dual-line chart with independent toggle chips per series. `ui/metrics/charts/BodyCompositionCard.kt`. Data from `MetricLogRepository.getByType(WEIGHT/BODY_FAT)` via `TrendsRepository.getBodyCompositionData()`. `TrendsViewModel.bodyCompositionModelProducer` + `bodyCompTimestamps` StateFlow. Toggle chips control line alpha without changing Vico series count. Empty state when < 2 timestamps. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 6`.
 - Clocks tab (Stopwatch, Timer, Tabata, EMOM): centiseconds display, countdown beeps, haptics, wake lock. See TOOLS_SPEC.md.
 - StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository. See HISTORY_ANALYTICS_SPEC.md.
-- ExerciseDetailSheet (ModalBottomSheet): Form Cues (gold banner). YouTube TextButton removed (deprecated field). See EXERCISES_SPEC.md §5–§6.
+- **ExerciseDetailSheet** (ModalBottomSheet): animated WebP hero at top, Form Cues (gold banner), **joint indicator chip row** (primary filled chips + secondary outlined chips; error tint if user has active MODERATE/SEVERE health history for that joint). `Joint` enum (`data/database/Joint.kt`, 10 values). `Exercise.primaryJoints`/`secondaryJoints` stored as JSON arrays (v44). `ExercisesViewModel.affectedJoints` StateFlow collects from `HealthHistoryRepository`. See `future_devs/EXERCISE_JOINTS_SPEC.md`.
 - **Elastic search**: token-based word-order-independent; synonym expansion via `ExerciseSynonyms`. See EXERCISES_SPEC.md.
 - **Firestore cloud sync**: push on finish/save/archive; LWW pull; settings + app preferences sync; "Back Up Now" + auto-restore on foreground. See SETTINGS_SPEC.md.
-- **WorkoutSummaryScreen** — unified post-workout + history detail view. Hero header (date/duration/volume/sets/PRs), 5-star session rating, per-exercise cards (best set, e1RM, volume delta, avg RPE, golden zone badge, PR badge, View Trend button), muscle group distribution bars, notes field. Route: `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}`. See `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md`.
+- **WorkoutSummaryScreen** — unified post-workout + history detail view. Hero header (date/duration/volume/sets/PRs), 5-star session rating, per-exercise cards (best set, e1RM, volume delta, avg RPE, golden zone badge, PR badge, View Trend button, collapsible set-by-set detail table), muscle group distribution bars, notes field. Set detail table: chevron toggle in card header, expanded by default in post-workout view, collapsed in history view; rows show label (W/1/2/D) + weight × reps + RPE badge coloured by `RpeCategory`. Route: `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}`. See `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` + `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md`.
 - **Health Connect Phase B (write)** — completed workouts pushed to HC as `ExerciseSessionRecord` on `finishWorkout()`. `WRITE_EXERCISE` + `READ_EXERCISE` permissions requested in Connect flow (best-effort; denied write never blocks "Connected" state). `CORE_PERMISSIONS` (7 reads) gates Connected UI; `ALL_PERMISSIONS` = CORE + exercise read/write (launcher only). `deriveHcExerciseType()` maps exercise composition → WEIGHTLIFTING / OTHER_WORKOUT / YOGA. `clientRecordId = workout.id` prevents duplicate writes. See `HEALTH_CONNECT_SPEC.md §8`.
 - **HC Workout Backfill** — one-time silent background push of completed workouts from the last 90 days when `WRITE_EXERCISE` is granted. Triggered from `SettingsViewModel.triggerBackfillIfNeeded()` (called from all 3 grant paths). Guard flag `hcWorkoutBackfillDone` in `AppSettingsDataStore` (key `"hc_workout_backfill_done"`) flipped before backfill runs to prevent re-trigger on revoke+re-grant. `WorkoutDao.getCompletedWorkoutsSince()` + `WorkoutSetDao.getSetsWithExerciseForWorkout()` resolve exercise types. `clientRecordId = workout.id` deduplicates. See `HEALTH_CONNECT_SPEC.md §9`.
+- **CSV Workout History Import** — Settings → Data & Backup → "Import Workout History". Opens SAF file picker; auto-detects Strong/Hevy/FitBod/Jefit by header (case-insensitive); falls back to interactive column-mapping UI for unknown formats. `CsvFormatDetector` (header detection), `CsvRowParser` (per-format row → `ParsedWorkoutRow`), `CsvImportManager` (exercise resolution, grouping, weight conversion, chunked transactional insert). `ImportViewModel` + `ImportWorkoutsScreen`. Undo via soft-delete on `importBatchId`. Route: `import_workouts`. See `future_devs/CSV_IMPORT_SPEC.md`.
+- **Quick Start Workout** — "Quick Start" `OutlinedButton` at top of Workouts tab (above Routines header). Calls `WorkoutViewModel.startWorkout("")` → creates empty workout with no `routineId` and no exercises. Nav wiring in `PowerMeNavigation` already branched on empty `routineId`. On finish, `WorkoutSummaryScreen` shows "Save as Routine" button to promote the one-off workout. No new ViewModel method or DB change required.
 
 **Color System:** Pro Tracker v6.0. See THEME_SPEC.md for all tokens, DarkColorScheme, LightColorScheme, semantic colors, and usage rules.
 
-**Database:** Room v42 — 17 entities, 18 DAOs (`TrendsDao` is query-only, no corresponding entity). Migrations v6→v42 covered. See `DB_UPGRADE.md` for full history.
-Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38), `experienceLevel`/`trainingAgeYears` on users (v39), `health_history_entries` table (v40), `sessionRating` on workouts (v41).
+**Database:** Room v45 — 17 entities, 18 DAOs (`TrendsDao` is query-only, no corresponding entity). Migrations v6→v45 covered. See `DB_UPGRADE.md` for full history.
+Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38), `experienceLevel`/`trainingAgeYears` on users (v39), `health_history_entries` table (v40), `sessionRating` on workouts (v41), HC extended reads columns on `health_connect_sync` (v43), `primaryJoints`/`secondaryJoints` on `exercises` (v44), `source`/`importBatchId` on `workouts` (v45).
 
 **SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides `parseDecimal()`, `parseReps()`, `isLeakedMetric()`, `MIGRATION_SQL`, `MIGRATION_SQL_V19`. No inline try-catch in ViewModels or Composables.
 
 **Health Connect permissions:** 7 READ permissions: READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. `MetricType` enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT. Height sync via `getLatestHeight()` (365-day window); dual-sink to MetricLog + User entity.
 
-**Unit Tests (src/test/, 21 files, ~370 tests — all passing):**
-ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), SettingsVM-TimerSound(5), ProfileVM-PersonalInfo(7), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7), WorkoutSummaryVM(21), RpeHelper(5)
+**Unit Tests (src/test/, 25 files, ~547 tests — all passing):**
+ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), SettingsVM-TimerSound(5), ProfileVM-PersonalInfo(7), ProfileVM-Logout(1), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7), WorkoutSummaryVM(21), RpeHelper(5), Joint(14), CsvFormatDetector(~21), CsvRowParser(~20)
 
 ---
 
@@ -114,10 +118,13 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md` | P2 / P3 | Profile/Settings split, health history ledger, fitness level, RPE auto-pop |
 | `future_devs/TRENDS_CHARTS_SPEC.md` | P4 / P5 | Trends chart cards Steps 2–8 (Volume, E1RM, Muscle Balance, Effective Sets, Body Composition, Steps, Chronotype) |
 | `future_devs/HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | P4 | HC extended reads — HR, Calories, VO₂ Max, Distance, SpO₂ |
-| `future_devs/CSV_IMPORT_SPEC.md` | P5 | CSV workout history import (Strong, Hevy, FitBod, generic) |
-| `future_devs/EXERCISE_ANIMATIONS_SPEC.md` | P5 | Animated WebP exercise demos in ExerciseDetailSheet (assets already in `assets/exercise_animations/`) |
-| `future_devs/EXERCISE_JOINTS_SPEC.md` | P5 | Stressed joint indicators per exercise in ExerciseDetailSheet; Health History integration |
-| `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` | P2 | Show all sets with weights and RPE in history workout summary cards |
+| ~~`future_devs/CSV_IMPORT_SPEC.md`~~ | ~~P5~~ | ~~CSV workout history import (Strong, Hevy, FitBod, generic)~~ — **✅ completed** |
+| ~~`future_devs/EXERCISE_ANIMATIONS_SPEC.md`~~ | ~~P5~~ | ~~Animated WebP exercise demos in ExerciseDetailSheet~~ — **✅ completed** |
+| ~~`future_devs/EXERCISE_JOINTS_SPEC.md`~~ | ~~P5~~ | ~~Stressed joint indicators per exercise in ExerciseDetailSheet; Health History integration~~ — **✅ completed** |
+| ~~`future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md`~~ | ~~P2~~ | ~~Show all sets with weights and RPE in history workout summary cards~~ — **✅ completed** |
+| ~~`future_devs/PROFILE_LOGOUT_BUTTON_SPEC.md`~~ | ~~P0~~ | ~~Log Out button at bottom of ProfileScreen with confirmation dialog~~ — **✅ completed** |
+| ~~`future_devs/QUICK_START_WORKOUT_SPEC.md`~~ | ~~P0~~ | ~~Start a blank workout without a pre-built routine~~ — **✅ completed** |
+| `future_devs/AI_WORKOUT_GENERATION_SPEC.md` | P7 | AI-powered workout creation from free text or photo (architecture TBD — Gemini Flash vs on-device Gemma 4) |
 
 ---
 
@@ -174,7 +181,9 @@ Each bug also has its own `.md` file.
 
 **Bug lifecycle:** `Open` → `In Progress` → `Completed` → `Wrapped`
 
-When assigned a bug: immediately update `BUG_TRACKER.md` status to `In Progress` and set `## Status` in the `BUG_<slug>.md` to `[ ] In Progress`. Then read the `.md` file, check linked assets, fix the issue, run `/simplify` to clean up changed code, mark **Status** as `[x] Fixed`, fill **Fix Notes**, create a `SUMMARY_<slug>.md` file, update `BUG_TRACKER.md` status to `Completed`. The user QAs on device, then runs `/wrap_task <slug>` to flip it to `Wrapped` (build + test + commit + push). Multiple bugs can sit in `Completed` waiting for batch QA.
+Use the task skills to move through the lifecycle:
+- `/start_task <slug>` — marks In Progress (do this before writing any code)
+- `/wrap_task <slug>` — runs build + test + commit + push, flips to Wrapped (run after user QA)
 
 ---
 
@@ -251,23 +260,23 @@ At the start of a session, orient yourself in this order:
     - After implementing any feature defined by a spec, update that spec to reflect the final implementation details, state transitions, or UI components introduced.
     - If a spec is found to be outdated relative to the current implementation, note it and update it immediately.
 
-### Mandatory Documentation Checklist (run at end of every task)
+### Task Lifecycle Skills
 
-No task is complete until ALL applicable items below are done:
+Use these skills to move tasks through their lifecycle — do not manually edit status fields:
 
-| What happened | What to update |
+| When | Skill |
 |---|---|
-| Bug discovered | Add row to `bugs_to_fix/BUG_TRACKER.md` + create `bugs_to_fix/BUG_<slug>.md` |
-| Bug work started | Set `BUG_TRACKER.md` status to `In Progress` + set `## Status` in `BUG_<slug>.md` to `[ ] In Progress` |
-| Bug dev done | Run `/simplify`, then mark `[x] Fixed` in `BUG_<slug>.md`, fill Fix Notes, create `bugs_to_fix/SUMMARY_<slug>.md` (root cause, files changed, surfaces fixed, How to QA), update `BUG_TRACKER.md` status to `Completed` |
-| Bug QA'd by user | Run `/wrap_task <slug>` → flips status to `Wrapped`, runs build + test + commit + push |
-| Feature started | Set status `in-progress` in `ROADMAP.md` + spec file header |
-| Feature dev done | Run `/simplify`, then set status `completed` in `ROADMAP.md`; update the relevant implemented spec (e.g. `WORKOUT_SPEC.md`); append a **How to QA** section to the feature's `future_devs/<NAME>_SPEC.md`; update "Current State" in `CLAUDE.md` if schema/architecture changed |
-| Feature QA'd by user | Run `/wrap_task <name>` → flips status to `wrapped`, runs build + test + commit + push |
-| New feature conceived (not yet built) | Create `future_devs/<NAME>_SPEC.md` with standardized header + add row to `ROADMAP.md` under the correct phase |
-| DB schema changed | Increment Room version, add migration, update `DB_UPGRADE.md` |
-| New screen or ViewModel added | Register in `NAVIGATION_SPEC.md` route map and update `CLAUDE.md` Current State |
-| Spec found to be outdated | Fix the spec immediately — do not leave stale documentation |
+| Discovered a bug or feature to build | `/file_task <description>` |
+| Starting work on a task | `/start_task <slug>` — marks In Progress, prints Touches files |
+| Dev done, ready for QA | Mark `[x] Fixed` / set `completed` manually, create `SUMMARY_<slug>.md` for bugs |
+| User QA passed | `/wrap_task <slug>` — build + test + commit + push + Wrapped |
+| Want a dashboard | `/tasks_status` |
+| Planning parallel sessions | `/plan_sessions <N>` |
+
+Non-skill documentation updates that are still manual:
+- DB schema changed → increment Room version, add migration, update `DB_UPGRADE.md`
+- New screen or ViewModel → register in `NAVIGATION_SPEC.md`, update `CLAUDE.md` Current State
+- Spec found outdated → fix it immediately
 
 ### Testing
 - **Writing and running tests is a mandatory step after any business-logic change — not optional, not deferred.** Do not consider a feature or fix complete until tests are written AND pass.
