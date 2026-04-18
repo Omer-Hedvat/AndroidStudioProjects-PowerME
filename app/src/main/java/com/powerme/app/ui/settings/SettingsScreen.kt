@@ -38,7 +38,8 @@ import java.time.temporal.ChronoUnit
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit = {}
+    onNavigateBack: () -> Unit = {},
+    onNavigateToImport: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -452,12 +453,13 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Database Export ─────────────────────────────────────
+            // ── Data & Backup ────────────────────────────────────────
             item {
-                SettingsCard(title = "Data Export") {
+                SettingsCard(title = "Data & Backup") {
                     Button(
                         onClick = viewModel::exportDatabase,
                         enabled = !uiState.isExporting,
+                        modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)
                     ) {
                         if (uiState.isExporting) {
@@ -468,6 +470,15 @@ fun SettingsScreen(
                     }
                     uiState.exportSuccessMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
                     uiState.exportErrorMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onNavigateToImport,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Import Workout History")
+                    }
                 }
             }
 

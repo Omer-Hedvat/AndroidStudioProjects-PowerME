@@ -2365,4 +2365,87 @@ class WorkoutViewModelTest {
 
         assertNull("consumeRpeAutoPop() should reset signal to null", target)
     }
+
+    // -------------------------------------------------------------------------
+    // ghostRpe population when starting from routine
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `startWorkoutFromRoutine populates ghostRpe from previous session data`() = vmTest {
+        val exerciseId = 90L
+        val exercise = Exercise(id = exerciseId, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+        val routineExercise = RoutineExercise(id = "re-90", routineId = "90", exerciseId = exerciseId, sets = 2, reps = 8)
+
+        // Previous session sets with RPE values
+        val ghostSet1 = WorkoutSet(id = "g1", workoutId = "prev-w", exerciseId = exerciseId, setOrder = 1, weight = 100.0, reps = 8, rpe = 8)
+        val ghostSet2 = WorkoutSet(id = "g2", workoutId = "prev-w", exerciseId = exerciseId, setOrder = 2, weight = 100.0, reps = 8, rpe = 9)
+
+        // Current workout sets (blank — not yet filled in)
+        val ws1 = WorkoutSet(id = "ws1", workoutId = "w-90", exerciseId = exerciseId, setOrder = 1, weight = 0.0, reps = 0)
+        val ws2 = WorkoutSet(id = "ws2", workoutId = "w-90", exerciseId = exerciseId, setOrder = 2, weight = 0.0, reps = 0)
+
+        runBlocking {
+            whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("90"))
+                .thenReturn(WorkoutBootstrap(
+                    workoutId = "w-90",
+                    ghostMap = mapOf(exerciseId to listOf(ghostSet1, ghostSet2)),
+                    workoutSets = listOf(ws1, ws2)
+                ))
+            whenever(mockRoutineExerciseDao.getForRoutine("90")).thenReturn(listOf(routineExercise))
+            whenever(mockRoutineExerciseDao.getStickyNote("90", exerciseId)).thenReturn(null)
+            whenever(mockExerciseRepository.getExerciseById(exerciseId)).thenReturn(exercise)
+            whenever(mockRoutineDao.getRoutineById("90")).thenReturn(Routine(id = "90", name = "Leg Day"))
+            whenever(mockRoutineDao.updateLastPerformed(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkoutFromRoutine("90")
+        runCurrent()
+
+        val exercises = viewModel.workoutState.value.exercises
+        val sets = exercises.firstOrNull { it.exercise.id == exerciseId }?.sets
+
+        val ghostRpeSet1 = sets?.getOrNull(0)?.ghostRpe
+        val ghostRpeSet2 = sets?.getOrNull(1)?.ghostRpe
+
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertEquals("Set 1 ghostRpe should be '8' from previous session", "8", ghostRpeSet1)
+        assertEquals("Set 2 ghostRpe should be '9' from previous session", "9", ghostRpeSet2)
+    }
+
+    @Test
+    fun `startWorkoutFromRoutine ghostRpe is null when previous session has no RPE`() = vmTest {
+        val exerciseId = 91L
+        val exercise = Exercise(id = exerciseId, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
+        val routineExercise = RoutineExercise(id = "re-91", routineId = "91", exerciseId = exerciseId, sets = 1, reps = 10)
+
+        val ghostSet = WorkoutSet(id = "g3", workoutId = "prev-w2", exerciseId = exerciseId, setOrder = 1, weight = 80.0, reps = 10, rpe = null)
+        val ws = WorkoutSet(id = "ws3", workoutId = "w-91", exerciseId = exerciseId, setOrder = 1, weight = 0.0, reps = 0)
+
+        runBlocking {
+            whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("91"))
+                .thenReturn(WorkoutBootstrap(
+                    workoutId = "w-91",
+                    ghostMap = mapOf(exerciseId to listOf(ghostSet)),
+                    workoutSets = listOf(ws)
+                ))
+            whenever(mockRoutineExerciseDao.getForRoutine("91")).thenReturn(listOf(routineExercise))
+            whenever(mockRoutineExerciseDao.getStickyNote("91", exerciseId)).thenReturn(null)
+            whenever(mockExerciseRepository.getExerciseById(exerciseId)).thenReturn(exercise)
+            whenever(mockRoutineDao.getRoutineById("91")).thenReturn(Routine(id = "91", name = "Push Day"))
+            whenever(mockRoutineDao.updateLastPerformed(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkoutFromRoutine("91")
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.firstOrNull { it.exercise.id == exerciseId }?.sets
+        val ghostRpe = sets?.getOrNull(0)?.ghostRpe
+
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertNull("ghostRpe should be null when previous session had no RPE", ghostRpe)
+    }
 }

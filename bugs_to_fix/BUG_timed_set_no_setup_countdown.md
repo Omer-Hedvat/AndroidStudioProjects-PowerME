@@ -13,6 +13,14 @@ This affects any isometric or bodyweight timed exercise where the user needs a m
 - When ▶ is tapped and `setupSeconds > 0`: show a "Get Ready" countdown overlay (3… 2… 1…) with distinct audio/haptic (different from the end-of-set beeps), then automatically start the main exercise timer when it reaches 0.
 - When `setupSeconds == 0`: behavior unchanged — timer starts immediately (no regression).
 
+## Severity
+P2
+
+## Dependencies
+- **Depends on:** —
+- **Blocks:** —
+- **Touches:** `AppSettingsDataStore.kt`, `FirestoreSyncManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt`, `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `Color.kt`
+
 ## Steps to Reproduce
 1. Add a timed exercise (e.g. Plank, 60 seconds) to a routine.
 2. Start an active workout, navigate to that exercise set.
