@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.Routine
 import com.powerme.app.data.database.RoutineDao
+import com.powerme.app.data.database.RoutineExercise
 import com.powerme.app.data.database.RoutineExerciseDao
 import com.powerme.app.data.database.SetType
 import java.util.UUID
@@ -17,6 +18,35 @@ class RoutineRepository @Inject constructor(
     private val routineExerciseDao: RoutineExerciseDao,
     private val database: PowerMeDatabase
 ) {
+    /**
+     * Creates a new routine from an AI-generated plan.
+     * Returns the new routine's id.
+     */
+    suspend fun createRoutineFromPlan(name: String, exercises: List<PlanExercise>): String {
+        return database.withTransaction {
+            val now = System.currentTimeMillis()
+            val routineId = UUID.randomUUID().toString()
+            routineDao.insertRoutine(
+                Routine(id = routineId, name = name, isCustom = true, updatedAt = now)
+            )
+            routineExerciseDao.insertAll(
+                exercises.mapIndexed { idx, pe ->
+                    RoutineExercise(
+                        id = UUID.randomUUID().toString(),
+                        routineId = routineId,
+                        exerciseId = pe.exerciseId,
+                        order = idx,
+                        sets = pe.sets,
+                        reps = pe.reps,
+                        restTime = pe.restSeconds ?: 90,
+                        defaultWeight = (pe.weight ?: 0.0).toString()
+                    )
+                }
+            )
+            routineId
+        }
+    }
+
     /**
      * Deep-copies a routine and all its exercises atomically.
      * Saved name: "[Original Name] (Copy)".

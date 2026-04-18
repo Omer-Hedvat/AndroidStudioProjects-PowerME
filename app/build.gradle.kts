@@ -29,6 +29,8 @@ android {
         }
         val googleWebClientId = properties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        val geminiApiKey = properties.getProperty("GEMINI_API_KEY", "")
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
     buildTypes {
@@ -95,6 +97,10 @@ dependencies {
     // Vico Charts
     implementation(libs.vico.compose.m3)
 
+    // Coil (image loading + animated WebP)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+
     // Compose Google Fonts (for JetBrains Mono downloadable font)
     implementation("androidx.compose.ui:ui-text-google-fonts:1.7.0")
 
@@ -112,6 +118,12 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // Gemini AI
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+
+    // ML Kit Text Recognition (on-device OCR)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 
     // Google Sign-In (Credential Manager)
     implementation("androidx.credentials:credentials:1.3.0")

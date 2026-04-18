@@ -105,7 +105,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 |---|---|---|---|---|
 | Trends Step 6 — BodyCompositionCard | `TRENDS_CHARTS_SPEC.md §Step 6` | L | `completed` | — |
 | Trends Step 7 — StepsTrendCard | `TRENDS_CHARTS_SPEC.md §Step 7` | S | `not-started` | HC Extended Reads (calories) |
-| Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `in-progress` | — |
+| Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `completed` | — |
 | CSV Import (Strong, Hevy, FitBod, generic) | `CSV_IMPORT_SPEC.md` | L | `completed` | — |
 | Exercise animations in ExerciseDetailSheet | `future_devs/EXERCISE_ANIMATIONS_SPEC.md` | S | `completed` | — |
 | Exercise joint indicators in ExerciseDetailSheet | `future_devs/EXERCISE_JOINTS_SPEC.md` | M | `completed` | — |
@@ -118,21 +118,21 @@ Flagship feature. Requires all groundwork below before any UI work begins.
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `in-progress` | — |
+| Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `completed` | — |
 | Stress vectors — Gemini expansion (remaining 120+) | `TRENDS_SPEC.md §10` | M | `blocked` | Manual seed done first |
-| Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `in-progress` | — |
-| SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `not-started` | — |
+| Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `completed` | — |
+| SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `completed` | — |
 | Full heatmap card (wired end-to-end) | `TRENDS_SPEC.md §10` | XL | `blocked` | All above + Trends P4 complete |
 
 ---
 
 ## Phase P7 — AI Workout Generation
 
-On-device or cloud AI that turns free text or a photo into a ready-to-start workout. Architecture (on-device Gemma 4 vs Gemini Flash API vs hybrid) is **TBD — requires discussion before implementation starts.**
+Cloud AI that turns free text or a photo into a ready-to-start workout. **Architecture resolved: Gemini Flash API (cloud) + ML Kit Text Recognition (on-device OCR).**
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| AI Workout Generation (text + photo → workout) | `future_devs/AI_WORKOUT_GENERATION_SPEC.md` | XL | `not-started` | Quick Start Workout ✅ |
+| AI Workout Generation (text + photo → workout) | `future_devs/AI_WORKOUT_GENERATION_SPEC.md` | XL | `wrapped` | Quick Start Workout ✅ |
 
 ---
 

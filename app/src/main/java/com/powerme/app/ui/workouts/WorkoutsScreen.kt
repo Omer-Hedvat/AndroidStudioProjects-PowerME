@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -36,6 +37,7 @@ fun WorkoutsScreen(
     onResumeWorkout: () -> Unit = {},
     onCreateRoutine: () -> Unit = {},
     onEditRoutine: (String) -> Unit = {},
+    onGenerateWithAi: () -> Unit = {},
     viewModel: WorkoutsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -102,6 +104,26 @@ fun WorkoutsScreen(
                 ) {
                     Text(
                         "Quick Start",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            item {
+                OutlinedButton(
+                    onClick = onGenerateWithAi,
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Generate with AI",
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )

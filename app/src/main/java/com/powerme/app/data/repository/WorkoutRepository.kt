@@ -22,6 +22,18 @@ private fun String.splitCsvTypes(count: Int): List<SetType> {
     }
 }
 
+/**
+ * A single exercise entry in an AI-generated workout plan.
+ * Used by [WorkoutRepository.createWorkoutFromPlan] and [RoutineRepository.createRoutineFromPlan].
+ */
+data class PlanExercise(
+    val exerciseId: Long,
+    val sets: Int,
+    val reps: Int,
+    val weight: Double?,
+    val restSeconds: Int?
+)
+
 data class WorkoutBootstrap(
     val workoutId: String,
     val ghostMap: Map<Long, List<WorkoutSet>>,
@@ -139,5 +151,70 @@ class WorkoutRepository @Inject constructor(
             }
             WorkoutBootstrap(workoutId = workoutId, ghostMap = ghostMap, workoutSets = workoutSets)
         }
+    }
+
+    // ── AI-generated workout ─────────────────────────────────────────────────
+
+    /**
+     * Creates a new workout from an AI-generated plan and inserts all sets atomically.
+     * Returns a [WorkoutBootstrap] with an empty ghost map (no prior session to compare against).
+     */
+    suspend fun createWorkoutFromPlan(exercises: List<PlanExercise>): WorkoutBootstrap {
+        return database.withTransaction {
+            val now = System.currentTimeMillis()
+            val workoutId = UUID.randomUUID().toString()
+            workoutDao.insertWorkout(
+                Workout(
+                    id = workoutId,
+                    routineId = null,
+                    timestamp = now,
+                    durationSeconds = 0,
+                    totalVolume = 0.0,
+                    startTimeMs = now,
+                    updatedAt = now
+                )
+            )
+            val sets = exercises.flatMap { pe ->
+                (1..pe.sets).map { setNum ->
+                    WorkoutSet(
+                        id = UUID.randomUUID().toString(),
+                        workoutId = workoutId,
+                        exerciseId = pe.exerciseId,
+                        setOrder = setNum,
+                        weight = pe.weight ?: 0.0,
+                        reps = pe.reps,
+                        setType = SetType.NORMAL
+                    )
+                }
+            }
+            workoutSetDao.insertSets(sets)
+            val workoutSets = workoutSetDao.getSetsForWorkout(workoutId).first()
+            WorkoutBootstrap(workoutId = workoutId, ghostMap = emptyMap(), workoutSets = workoutSets)
+        }
+    }
+
+    // ── CSV Import ────────────────────────────────────────────────────────────
+
+    /**
+     * Inserts a batch of imported workouts and their sets atomically.
+     * All workouts must already have [Workout.importBatchId] set to the same UUID.
+     */
+    suspend fun importWorkouts(
+        workouts: List<Workout>,
+        setsByWorkoutId: Map<String, List<WorkoutSet>>
+    ) {
+        database.withTransaction {
+            for (workout in workouts) {
+                workoutDao.insertWorkout(workout)
+                setsByWorkoutId[workout.id]?.let { sets ->
+                    workoutSetDao.insertSets(sets)
+                }
+            }
+        }
+    }
+
+    /** Soft-deletes all workouts (and their cascade-deleted sets) from the given import batch. */
+    suspend fun undoImport(batchId: String) {
+        workoutDao.softDeleteBatch(batchId)
     }
 }

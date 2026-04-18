@@ -26,6 +26,7 @@ import com.powerme.app.data.database.WarmupLog
 import com.powerme.app.analytics.BoazPerformanceAnalyzer
 import com.powerme.app.data.database.StateHistoryEntry
 import com.powerme.app.data.repository.ExerciseRepository
+import com.powerme.app.data.repository.WorkoutBootstrap
 import com.powerme.app.data.repository.MedicalLedgerRepository
 import com.powerme.app.data.repository.StateHistoryRepository
 import com.powerme.app.data.repository.WarmupRepository
@@ -485,6 +486,7 @@ class WorkoutViewModel @Inject constructor(
                         setType = ws.setType,
                         ghostWeight = ghost?.weight?.let { if (it > 0.0) formatWeight(it, currentUnit) else null },
                         ghostReps = ghost?.reps?.let { if (it > 0) it.toString() else null },
+                        ghostRpe = ghost?.rpe?.toString(),
                         ghostTimeSeconds = ghost?.timeSeconds?.let { if (it > 0) it.toString() else null }
                     )
                 }
@@ -534,6 +536,48 @@ class WorkoutViewModel @Inject constructor(
                     startTime = System.currentTimeMillis(),
                     exercises = emptyList(),
                     workoutName = "Empty Workout",
+                    editModeSaved = false
+                )
+            }
+            startElapsedTimer()
+        }
+    }
+
+    /**
+     * Starts a workout from a pre-created [WorkoutBootstrap] (produced by AI workout generation).
+     * The bootstrap already has the workout and sets persisted in the DB; this method just loads
+     * them into the active-workout state so the user can track the session.
+     */
+    fun startWorkoutFromPlan(bootstrap: WorkoutBootstrap) {
+        if (_workoutState.value.isMinimized || _workoutState.value.isActive) {
+            maximizeWorkout()
+            return
+        }
+        _workoutState.update { it.copy(editModeSaved = false) }
+        viewModelScope.launch {
+            val dbSetsByExercise = bootstrap.workoutSets.groupBy { it.exerciseId }
+            val exercises = dbSetsByExercise.entries.mapNotNull { (exerciseId, dbSets) ->
+                val exercise = exerciseRepository.getExerciseById(exerciseId) ?: return@mapNotNull null
+                val activeSets = dbSets.sortedBy { it.setOrder }.mapIndexed { i, ws ->
+                    val weightStr = if (ws.weight > 0.0) formatWeight(ws.weight, currentUnit) else "0"
+                    ActiveSet(
+                        id = ws.id,
+                        setOrder = ws.setOrder,
+                        weight = weightStr,
+                        reps = ws.reps.toString(),
+                        setType = ws.setType
+                    )
+                }
+                ExerciseWithSets(exercise = exercise, sets = activeSets)
+            }
+            _workoutState.update {
+                it.copy(
+                    isActive = true,
+                    workoutId = bootstrap.workoutId,
+                    routineId = "",
+                    startTime = System.currentTimeMillis(),
+                    exercises = exercises,
+                    workoutName = "AI Workout",
                     editModeSaved = false
                 )
             }

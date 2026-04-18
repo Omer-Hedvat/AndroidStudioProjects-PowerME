@@ -46,6 +46,7 @@
 | `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}` | Push | `workoutId: String`, `isPostWorkout: Bool` (default false), `syncType: String` (default "NONE") | Screen-scoped | Post-workout: `LaunchedEffect(pendingWorkoutSummary)` in `ActiveWorkoutScreen` triggers `onWorkoutFinished()` when summary is set; `PowerMeNavigation` reads `lastFinishedWorkoutId`/`lastPendingRoutineSync` and navigates here with `popUpTo(WORKOUT){inclusive=true}`. History: navigated from `HistoryScreen` tap (no sync args). |
 | `template_builder/{routineId}` | Push | `routineId: Long` | Screen-scoped | `routineId = -1` sentinel = new routine (see below) |
 | `exercise_picker` | Push | — | Screen-scoped | Returns result via `savedStateHandle` |
+| `ai_workout` | Push | — | Screen-scoped `AiWorkoutViewModel` | "Generate with AI" entry point from `WorkoutsScreen`; on Start Workout calls `workoutViewModel.startWorkoutFromPlan(bootstrap)` then navigates to `workout` |
 
 ### `template_builder` Sentinel Value
 

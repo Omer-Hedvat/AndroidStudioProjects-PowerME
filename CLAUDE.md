@@ -8,72 +8,29 @@
 - Language: Kotlin 2.0.21
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
-- Database: Room (v42, 17 entities, 18 DAOs)
+- Database: Room (v46, 18 entities, 19 DAOs)
 - Auth/Backend: Firebase Auth (email/password + Google Sign-In via Credential Manager) + Firestore
 - Health: Health Connect API
 - Charts: Vico (Material 3)
 - Drag-and-drop: `sh.calvin.reorderable:reorderable-compose`
+- AI: Gemini Flash API (`com.google.ai.client.generativeai:generativeai:0.9.0`) + ML Kit Text Recognition (`com.google.mlkit:text-recognition:16.0.1`)
 - Build: Gradle Kotlin DSL, KSP, min SDK 26, target SDK 35
 
 **Package:** `com.powerme.app`
 
-**Main Features Implemented:**
-- Workout routine creation and management
-- Active workout tracking (sets, reps, weight, duration)
-- **Workout/Routine flow** — Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary. See **WORKOUT_SPEC.md**. Per-set-type rest: `computeRestDuration()` returns 0s DROP, 30s WARMUP→WARMUP, exercise default otherwise. `startRestTimer()` skips (returns early) if duration ≤ 0. `completeSet()` skips timer on last set unless `exercise.restAfterLastSet == true`. Configurable via "Set Rest Timers" dialog ("Rest after last set" toggle, default OFF).
-- **Active workout set row UX** — Set row spacing 8dp (2dp `Spacer` between each `SetWithRestRow`). Completed rows: `TimerGreen.copy(alpha=0.12f).compositeOver(surface)` background (opaque blend applied at `SetWithRestRow` level; `compositeOver` prevents swipe-delete red bleed-through). `WorkoutInputField` selects all text on every tap via `PressInteraction.Release` collected from `interactionSource` (fires even when field already focused). Set type dropdown clears keyboard focus (`focusManager.clearFocus()`) on item selection, Delete Timer click, and dismiss. Rest separator auto-hides when timer naturally expires: both `onTimerFinish()` and in-process coroutine add `"${exerciseId}_${setOrder}"` to `hiddenRestSeparators`. Golden RPE indicator badge on completed sets (✦ gold for 8–9, amber dot for 7–7.5, grey dot for <7, red dot for ≥9.5–10); logic in `util/RpeHelper.kt`. Timed exercise countdown timer in `TimedSetRow` (IDLE→RUNNING→PAUSED→COMPLETED state machine, local Compose state, audio/haptic via `WorkoutViewModel.timerFinishedFeedback()` + `timerWarningTickFeedback()`). See WORKOUT_SPEC.md §4.4 and §4.8.
-- **Organize Mode** — superset grouping, ungrouping, drag-reorder in one persistent session. CAB: Done + "Organize • N" + contextual Group/Ungroup icon. See WORKOUT_SPEC.md.
-- Theme mode: LIGHT/DARK/SYSTEM via `ThemeMode` enum + `AppSettingsDataStore`. See THEME_SPEC.md.
-- Unit system: METRIC/IMPERIAL via `UnitSystem` enum; `UnitConverter` is single source of truth; storage always metric. See SETTINGS_SPEC.md.
-- Google Fonts: `BarlowCondensed` + `Barlow` via GoogleFont.Provider; 11 M3 typography roles; fallback to system sans-serif.
-- Shape system: `PowerMeShapes` (6/10/16/24/32dp); `PowerMeDefaults` in `ui/theme/Defaults.kt`. See THEME_SPEC.md §7–§9.
-- Nav tab order: Workouts / History / Exercises / Tools / Trends
-- Exercise library (150+ exercises, muscle groups, equipment types)
-- Multi-select muscle group + equipment filter chips in Exercises tab (AND-combined). See EXERCISES_SPEC.md §4.
-- Firebase Auth (email/password + Google Sign-In): two-step Credential Manager strategy; account linking flow; debug SHA-1 registered. See PROFILE_SETUP_SPEC.md.
-- User profile (DOB, height, weight, gender, goals, chronotype, occupation); two-step onboarding. See PROFILE_SETUP_SPEC.md + SETTINGS_SPEC.md.
-- Gym profiles data layer preserved (GymProfileRepository, GymProfile entity) but gym setup navigation removed from Settings
-- Health Connect sync: sleep, HRV, RHR, steps; 7 READ permissions; anomaly detection; PermissionsRationaleActivity with Android 13+14 fallbacks. See HEALTH_CONNECT_SPEC.md.
-- **Health Connect Body & Vitals card** (Trends tab): 3×3 grid (Age/Weight/BMI/BodyFat/Height/Steps/Sleep/HRV/RHR); 4 states (CHECKING/UNAVAILABLE/NOT_GRANTED/GRANTED). See HEALTH_CONNECT_SPEC.md.
-- Injury / medical ledger (red-list / yellow-list exercises)
-- **Profile/Settings split** — separate `ProfileScreen` (route `profile`) and trimmed `SettingsScreen`. Profile icon (AccountCircle) + Settings gear in TopAppBar actions. `ProfileViewModel` owns Personal Info, Body Metrics, Fitness Level, Health History. See `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md`.
-- **Log Out button** — full-width `OutlinedButton` (error color) at the bottom of `ProfileScreen` `LazyColumn`. Confirmation `AlertDialog` ("Log out?" / Cancel + Log Out). On confirm, calls `ProfileViewModel.signOut()` → `UserSessionManager.clearUser()` + navigates to Welcome screen with cleared back stack. See `future_devs/PROFILE_LOGOUT_BUTTON_SPEC.md`.
-- **Fitness Level card** in ProfileScreen — 4 tappable cards (Novice/Trained/Experienced/Athlete) + training age slider (0–30). Persisted to `User` entity via `experienceLevel` + `trainingAgeYears` columns (v39).
-- **Health History ledger** in ProfileScreen — injuries/surgeries/conditions with severity tiers; add/edit via `ModalBottomSheet`; auto-rebuilds `MedicalLedger` red/yellow lists on save. `HealthHistoryEntry` entity in `health_history_entries` table (v40).
-- Performance metrics, trends, and charts
-- State history auditing trail
-- DataStore preferences (plates config, timers, language, keepScreenOn, dailyStepTarget, useRpeAutoPop, timedSetSetupSeconds, timerSound)
-- **Timer Sound Options** — user-selectable alert tone for all timers (rest, countdown, Tabata, EMOM, timed set). 5 options: Beep/Bell/Chime/Click/Silent. Persisted to `AppSettingsDataStore.timerSound` (key `"timer_sound"`, default `BEEP`). `TimerSound` enum in `util/TimerSound.kt`. `RestTimerNotifier` dispatches tone type per selection; `NONE` silences audio (haptics unchanged). Dropdown in Settings → Display & Workout. Firestore-synced. See `future_devs/TIMER_SOUND_OPTIONS_SPEC.md`.
-- **RPE auto-pop setting** — "Use RPE" toggle in Settings → Display & Workout card; persisted to `AppSettingsDataStore.useRpeAutoPop` (key `"use_rpe_auto_pop"`, default `false`); when ON, RPE picker auto-opens after each completed set in `WorkoutViewModel`. "Get Ready countdown" stepper (0–10s) also added (`timedSetSetupSeconds`, default 3s). See `PROFILE_SETTINGS_REDESIGN_SPEC.md §4`.
-- **Trends tab** — `ReadinessEngine` (z-score, HRV 0.45/Sleep 0.35/RHR 0.20), `TrendsDao` (6 aggregate queries), `TrendsRepository`, `TrendsViewModel` (11 StateFlows), `VicoChartHelpers`. See TRENDS_SPEC.md.
-- **ReadinessGaugeCard** — Custom Canvas arc (240° sweep gradient), needle dot, NoData/Calibrating/Score states. See TRENDS_SPEC.md.
-- **VolumeTrendCard** — Weekly volume bar chart (Vico `ColumnCartesianLayer`, ProViolet) + 4-week MA line overlay (TimerGreen), time range FilterChip row. `ui/metrics/charts/VolumeTrendCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 2`.
-- **E1RMProgressionCard** — Single-exercise e1RM progression line chart (raw + 3-session MA), scrollable FilterChip exercise picker, percent-change badge. `ui/metrics/charts/E1RMProgressionCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 3`.
-- **MuscleGroupVolumeCard** — Weekly stacked bar chart of training volume per muscle group, 8 fixed series in `VicoChartHelpers.muscleGroupOrder`, THIS WEEK distribution row. `ui/metrics/charts/MuscleGroupVolumeCard.kt`. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 4`.
-- **EffectiveSetsCard** — Weekly stacked bar chart of effective sets (RPE ≥ 7.0) per muscle group; RPE coverage banner (amber < 50%); sparse warning (< 30%); THIS WEEK distribution row with set counts. `ui/metrics/charts/EffectiveSetsCard.kt`. `TrendsDao.getTotalSetsCount()`/`getRpeCoveredSetsCount()` compute coverage %; `TrendsViewModel.effectiveSetsModelProducer` + `effectiveSetsCoverage` StateFlow. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 5`.
-- **BodyCompositionCard** — Weight and body fat % dual-line chart with independent toggle chips per series. `ui/metrics/charts/BodyCompositionCard.kt`. Data from `MetricLogRepository.getByType(WEIGHT/BODY_FAT)` via `TrendsRepository.getBodyCompositionData()`. `TrendsViewModel.bodyCompositionModelProducer` + `bodyCompTimestamps` StateFlow. Toggle chips control line alpha without changing Vico series count. Empty state when < 2 timestamps. See `future_devs/TRENDS_CHARTS_SPEC.md §Step 6`.
-- Clocks tab (Stopwatch, Timer, Tabata, EMOM): centiseconds display, countdown beeps, haptics, wake lock. See TOOLS_SPEC.md.
-- StatisticalEngine (Epley 1RM, Bayesian M-Estimate 1RM), WeeklyInsightsAnalyzer, AnalyticsRepository. See HISTORY_ANALYTICS_SPEC.md.
-- **ExerciseDetailSheet** (ModalBottomSheet): animated WebP hero at top, Form Cues (gold banner), **joint indicator chip row** (primary filled chips + secondary outlined chips; error tint if user has active MODERATE/SEVERE health history for that joint). `Joint` enum (`data/database/Joint.kt`, 10 values). `Exercise.primaryJoints`/`secondaryJoints` stored as JSON arrays (v44). `ExercisesViewModel.affectedJoints` StateFlow collects from `HealthHistoryRepository`. See `future_devs/EXERCISE_JOINTS_SPEC.md`.
-- **Elastic search**: token-based word-order-independent; synonym expansion via `ExerciseSynonyms`. See EXERCISES_SPEC.md.
-- **Firestore cloud sync**: push on finish/save/archive; LWW pull; settings + app preferences sync; "Back Up Now" + auto-restore on foreground. See SETTINGS_SPEC.md.
-- **WorkoutSummaryScreen** — unified post-workout + history detail view. Hero header (date/duration/volume/sets/PRs), 5-star session rating, per-exercise cards (best set, e1RM, volume delta, avg RPE, golden zone badge, PR badge, View Trend button, collapsible set-by-set detail table), muscle group distribution bars, notes field. Set detail table: chevron toggle in card header, expanded by default in post-workout view, collapsed in history view; rows show label (W/1/2/D) + weight × reps + RPE badge coloured by `RpeCategory`. Route: `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}`. See `future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md` + `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md`.
-- **Health Connect Phase B (write)** — completed workouts pushed to HC as `ExerciseSessionRecord` on `finishWorkout()`. `WRITE_EXERCISE` + `READ_EXERCISE` permissions requested in Connect flow (best-effort; denied write never blocks "Connected" state). `CORE_PERMISSIONS` (7 reads) gates Connected UI; `ALL_PERMISSIONS` = CORE + exercise read/write (launcher only). `deriveHcExerciseType()` maps exercise composition → WEIGHTLIFTING / OTHER_WORKOUT / YOGA. `clientRecordId = workout.id` prevents duplicate writes. See `HEALTH_CONNECT_SPEC.md §8`.
-- **HC Workout Backfill** — one-time silent background push of completed workouts from the last 90 days when `WRITE_EXERCISE` is granted. Triggered from `SettingsViewModel.triggerBackfillIfNeeded()` (called from all 3 grant paths). Guard flag `hcWorkoutBackfillDone` in `AppSettingsDataStore` (key `"hc_workout_backfill_done"`) flipped before backfill runs to prevent re-trigger on revoke+re-grant. `WorkoutDao.getCompletedWorkoutsSince()` + `WorkoutSetDao.getSetsWithExerciseForWorkout()` resolve exercise types. `clientRecordId = workout.id` deduplicates. See `HEALTH_CONNECT_SPEC.md §9`.
-- **CSV Workout History Import** — Settings → Data & Backup → "Import Workout History". Opens SAF file picker; auto-detects Strong/Hevy/FitBod/Jefit by header (case-insensitive); falls back to interactive column-mapping UI for unknown formats. `CsvFormatDetector` (header detection), `CsvRowParser` (per-format row → `ParsedWorkoutRow`), `CsvImportManager` (exercise resolution, grouping, weight conversion, chunked transactional insert). `ImportViewModel` + `ImportWorkoutsScreen`. Undo via soft-delete on `importBatchId`. Route: `import_workouts`. See `future_devs/CSV_IMPORT_SPEC.md`.
-- **Quick Start Workout** — "Quick Start" `OutlinedButton` at top of Workouts tab (above Routines header). Calls `WorkoutViewModel.startWorkout("")` → creates empty workout with no `routineId` and no exercises. Nav wiring in `PowerMeNavigation` already branched on empty `routineId`. On finish, `WorkoutSummaryScreen` shows "Save as Routine" button to promote the one-off workout. No new ViewModel method or DB change required.
+**Nav tab order:** Workouts / History / Exercises / Tools / Trends
 
 **Color System:** Pro Tracker v6.0. See THEME_SPEC.md for all tokens, DarkColorScheme, LightColorScheme, semantic colors, and usage rules.
 
-**Database:** Room v45 — 17 entities, 18 DAOs (`TrendsDao` is query-only, no corresponding entity). Migrations v6→v45 covered. See `DB_UPGRADE.md` for full history.
-Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38), `experienceLevel`/`trainingAgeYears` on users (v39), `health_history_entries` table (v40), `sessionRating` on workouts (v41), HC extended reads columns on `health_connect_sync` (v43), `primaryJoints`/`secondaryJoints` on `exercises` (v44), `source`/`importBatchId` on `workouts` (v45).
+**Database:** Room v46 — 18 entities, 19 DAOs (`TrendsDao` is query-only, no corresponding entity). Migrations v6→v46 covered. See `DB_UPGRADE.md` for full history.
+Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38), `experienceLevel`/`trainingAgeYears` on users (v39), `health_history_entries` table (v40), `sessionRating` on workouts (v41), HC extended reads columns on `health_connect_sync` (v43), `primaryJoints`/`secondaryJoints` on `exercises` (v44), `source`/`importBatchId` on `workouts` (v45), `exercise_stress_vectors` table with `BodyRegion` enum (16 values) + `StressAccumulationEngine` (v46).
 
 **SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides `parseDecimal()`, `parseReps()`, `isLeakedMetric()`, `MIGRATION_SQL`, `MIGRATION_SQL_V19`. No inline try-catch in ViewModels or Composables.
 
 **Health Connect permissions:** 7 READ permissions: READ_WEIGHT, READ_BODY_FAT, READ_HEIGHT, READ_SLEEP, READ_HEART_RATE_VARIABILITY, READ_RESTING_HEART_RATE, READ_STEPS. `MetricType` enum: WEIGHT, BODY_FAT, CALORIES, HEIGHT. Height sync via `getLatestHeight()` (365-day window); dual-sink to MetricLog + User entity.
 
-**Unit Tests (src/test/, 25 files, ~547 tests — all passing):**
-ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), SettingsVM-TimerSound(5), ProfileVM-PersonalInfo(7), ProfileVM-Logout(1), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7), WorkoutSummaryVM(21), RpeHelper(5), Joint(14), CsvFormatDetector(~21), CsvRowParser(~20)
+**Unit Tests (src/test/, 34 files, ~673 tests — all passing):**
+ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator(25), SurgicalValidator(18), PlateCalculator(18), UnitConverter(~40), StatisticalEngine(13), ReadinessEngine(16), HistoryViewModel(13), ExerciseFilter(24), WorkoutViewModel(58), SettingsVM-HC(7), SettingsVM-TimerSound(5), ProfileVM-PersonalInfo(7), ProfileVM-Logout(1), MetricLogRepository(4), MetricsVM-BodyVitals(6), AuthVM-GoogleSignIn(9), ProfileSetupVM(7), WorkoutSummaryVM(21), RpeHelper(5), Joint(14), CsvFormatDetector(~21), CsvRowParser(~20), StressAccumulationEngine(11), ExerciseStressVectorSeedData(10), TrendsRepositoryChronotype(~10), TrendsViewModelChronotype(7), JaroWinkler(10), ExerciseMatcher(13), GeminiWorkoutParser(12), AiWorkoutViewModel(13), StressColorMapper(12)
 
 ---
 
@@ -83,105 +40,33 @@ ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator
 
 Future feature specs live in `future_devs/`. Each spec has a metadata header (Phase, Status, Effort, Depends on). Do not implement anything from `future_devs/` without first checking `ROADMAP.md` to confirm dependencies are met and updating the status to `in-progress`.
 
----
-
-## Feature Specs
+## Spec Index
 
 Read the relevant spec before touching files in that domain.
 
-### Implemented
-
-| Spec File | Status | Domain |
-|---|---|---|
-| `WORKOUT_SPEC.md` | ✅ Complete | Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary, warmup, notes, minimize/maximize, Iron Vault |
-| `EXERCISES_SPEC.md` | ✅ Exists | Exercise library (150+ exercises), search/filter UI, ExerciseDetailSheet, equipment display, picker mode |
-| `HISTORY_ANALYTICS_SPEC.md` | ✅ Complete | HistoryScreen layout, StatisticalEngine (Epley/Bayesian 1RM, Volume, dynamic PRs), WeeklyInsightsAnalyzer, WorkoutDetailScreen data contract + retroactive edit flow, BoazPerformanceAnalyzer (V2 stub) |
-| `NAVIGATION_SPEC.md` | ✅ Complete | Route map (16 routes), auth decision tree, WorkoutViewModel scope, minimize/maximize state machine, transitions, MainAppScaffold + MainActivity contracts |
-| `THEME_SPEC.md` | ✅ Complete | Pro Tracker v6.0 palette (all tokens), DarkColorScheme, LightColorScheme, ThemeMode system, typography (Barlow + BarlowCondensed + JetBrainsMono), semantic color contexts, WCAG contrast audit, token rules |
-| `TOOLS_SPEC.md` | ✅ Complete | Clocks tab — Stopwatch, Countdown, Tabata, EMOM timer modes, audio/haptic alerts, wake lock, input validation, phase state machine |
-| `HEALTH_CONNECT_SPEC.md` | ✅ Complete | Permission declaration, sync logic (8 data types, parallel reads), dual-sink write, anomaly detection, 3 UI card states; Phase B: write completed workouts as `ExerciseSessionRecord` |
-| `TRENDS_SPEC.md` | 🚧 In Progress | Trends tab — Readiness gauge, e1RM progression, volume trends, muscle group volume, effective sets, body composition overlay, NEAT guardrail, chronotype/sleep, body heatmap (future phase), ReadinessEngine algorithm, TrendsDao queries, Vico chart integration guide |
-| `PROFILE_SETUP_SPEC.md` | ✅ Complete | Onboarding profile setup — two-step flow, HC offer, all 11 fields, unit selector, shared composables |
-| `SETTINGS_SPEC.md` | ✅ Complete | Settings screen — all 10 cards, Personal Info edit, Body Metrics, HC sync, SettingsViewModel state |
-| `DB_UPGRADE.md` | ✅ Exists | Migration history v6→v42, schema changes |
-| `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | ✅ Step A done | WorkoutSummaryScreen — hero header, session rating, per-exercise cards, muscle group bars, notes |
-| `DB_ARCHITECTURE.md` | ✅ Exists | Core entity relationships, template-to-instance pattern, UUID migration, workout lifecycle |
-| `future_devs/HC_BACKFILL_SPEC.md` | ✅ Complete | HC Workout Backfill — one-time silent background push of last 90 days when `WRITE_EXERCISE` granted; `hcWorkoutBackfillDone` guard prevents double-run |
-| `future_devs/TIMER_SOUND_OPTIONS_SPEC.md` | ✅ Complete | Timer Sound Options — 5 selectable alert tones (Beep/Bell/Chime/Click/Silent) for all timers; `TimerSound` enum, `AppSettingsDataStore.timerSound`, Firestore-synced |
-
-### Future (not yet implemented — see `ROADMAP.md` for phase/status)
-
-| Spec File | Phase | Domain |
-|---|---|---|
-| `future_devs/ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md` | P0 / P1 | Row spacing, golden RPE indicator, timed exercise countdown timer |
-| `future_devs/HISTORY_SUMMARY_REDESIGN_SPEC.md` | P4 (Step B only) | Trends deep-link (`?exerciseId=`) — requires E1RMProgressionCard |
-| `future_devs/PROFILE_SETTINGS_REDESIGN_SPEC.md` | P2 / P3 | Profile/Settings split, health history ledger, fitness level, RPE auto-pop |
-| `future_devs/TRENDS_CHARTS_SPEC.md` | P4 / P5 | Trends chart cards Steps 2–8 (Volume, E1RM, Muscle Balance, Effective Sets, Body Composition, Steps, Chronotype) |
-| `future_devs/HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | P4 | HC extended reads — HR, Calories, VO₂ Max, Distance, SpO₂ |
-| ~~`future_devs/CSV_IMPORT_SPEC.md`~~ | ~~P5~~ | ~~CSV workout history import (Strong, Hevy, FitBod, generic)~~ — **✅ completed** |
-| ~~`future_devs/EXERCISE_ANIMATIONS_SPEC.md`~~ | ~~P5~~ | ~~Animated WebP exercise demos in ExerciseDetailSheet~~ — **✅ completed** |
-| ~~`future_devs/EXERCISE_JOINTS_SPEC.md`~~ | ~~P5~~ | ~~Stressed joint indicators per exercise in ExerciseDetailSheet; Health History integration~~ — **✅ completed** |
-| ~~`future_devs/HISTORY_CARD_SET_DETAILS_SPEC.md`~~ | ~~P2~~ | ~~Show all sets with weights and RPE in history workout summary cards~~ — **✅ completed** |
-| ~~`future_devs/PROFILE_LOGOUT_BUTTON_SPEC.md`~~ | ~~P0~~ | ~~Log Out button at bottom of ProfileScreen with confirmation dialog~~ — **✅ completed** |
-| ~~`future_devs/QUICK_START_WORKOUT_SPEC.md`~~ | ~~P0~~ | ~~Start a blank workout without a pre-built routine~~ — **✅ completed** |
-| `future_devs/AI_WORKOUT_GENERATION_SPEC.md` | P7 | AI-powered workout creation from free text or photo (architecture TBD — Gemini Flash vs on-device Gemma 4) |
+| Spec File | Domain |
+|---|---|
+| `WORKOUT_SPEC.md` | Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary |
+| `EXERCISES_SPEC.md` | Exercise library, search/filter, ExerciseDetailSheet |
+| `HISTORY_ANALYTICS_SPEC.md` | History screen, StatisticalEngine (1RM, Volume, PRs), WorkoutDetailScreen |
+| `NAVIGATION_SPEC.md` | Route map, auth decision tree, WorkoutViewModel scope, transitions |
+| `THEME_SPEC.md` | Color palette, typography, shapes, dark/light scheme |
+| `TOOLS_SPEC.md` | Clocks tab — Stopwatch, Countdown, Tabata, EMOM |
+| `HEALTH_CONNECT_SPEC.md` | HC permissions, sync logic, Phase B writes, backfill |
+| `TRENDS_SPEC.md` | Trends tab — all chart cards, ReadinessEngine, TrendsDao, body heatmap |
+| `PROFILE_SETUP_SPEC.md` | Onboarding, two-step flow, HC offer |
+| `SETTINGS_SPEC.md` | Settings screen, all cards, SettingsViewModel |
+| `DB_UPGRADE.md` | Migration history, schema changes |
+| `DB_ARCHITECTURE.md` | Entity relationships, template-to-instance, UUID migration |
+| `future_devs/` | All planned features — see `ROADMAP.md` for phase/status |
 
 ---
 
 ## Bug Tracking
 
-Bugs are tracked in `bugs_to_fix/`. **`bugs_to_fix/BUG_TRACKER.md` is the single source of truth** — check it first to see what is Open, In Progress, or Fixed. Update it at the start and end of every bug-fix session.
-
-Each bug also has its own `.md` file.
-
-**File naming:** `BUG_<short-slug>.md` (e.g. `BUG_rest_timer_flicker.md`)
-
-**File format:**
-```markdown
-# BUG: <title>
-
-## Status
-[ ] Open / [x] Fixed
-
-## Description
-<what is broken and where>
-
-## Steps to Reproduce
-1. ...
-
-## Assets
-- Images: `bugs_to_fix/assets/<slug>/screenshot.png`
-- Videos: `bugs_to_fix/assets/<slug>/recording.mp4`
-- Related spec: `WORKOUT_SPEC.md §X`
-
-## Fix Notes
-<populated after the fix is applied>
-```
-
-**Summary file naming:** `SUMMARY_<short-slug>.md` (e.g. `SUMMARY_rest_timer_flicker.md`)
-
-**Summary file format:**
-```markdown
-# Fix Summary: <title>
-
-## Root Cause
-<what caused the bug>
-
-## Files Changed
-| File | Change |
-|---|---|
-| `path/to/file` | description of change |
-
-## Surfaces Fixed
-- <screen or behaviour fixed>
-
-## How to QA
-- <step-by-step manual test the user can run on device>
-```
+Bugs are tracked in `bugs_to_fix/`. **`bugs_to_fix/BUG_TRACKER.md` is the single source of truth** — check it first to see what is Open, In Progress, or Fixed. File formats, templates, and lifecycle instructions are all in that file.
 
 **Bug lifecycle:** `Open` → `In Progress` → `Completed` → `Wrapped`
-
-Use the task skills to move through the lifecycle:
 - `/start_task <slug>` — marks In Progress (do this before writing any code)
 - `/wrap_task <slug>` — runs build + test + commit + push, flips to Wrapped (run after user QA)
 

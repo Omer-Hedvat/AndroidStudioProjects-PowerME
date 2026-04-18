@@ -51,12 +51,15 @@ import com.powerme.app.ui.history.WorkoutDetailScreen
 import com.powerme.app.ui.history.WorkoutSummaryScreen
 import com.powerme.app.ui.metrics.MetricsScreen
 import com.powerme.app.ui.profile.ProfileScreen
+import com.powerme.app.ui.settings.ImportWorkoutsScreen
 import com.powerme.app.ui.settings.SettingsScreen
 import com.powerme.app.ui.theme.ProBackground
 import com.powerme.app.ui.tools.ToolsScreen
 import com.powerme.app.ui.workout.ActiveWorkoutScreen
 import com.powerme.app.ui.workouts.TemplateBuilderScreen
 import com.powerme.app.ui.workouts.WorkoutsScreen
+import com.powerme.app.ui.workouts.ai.AiWorkoutEvent
+import com.powerme.app.ui.workouts.ai.AiWorkoutGenerationScreen
 import com.powerme.app.ui.workout.WorkoutViewModel
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -86,6 +89,8 @@ private object Routes {
     const val WORKOUT_SUMMARY = "workout_summary/{workoutId}?isPostWorkout={isPostWorkout}&syncType={syncType}"
     const val TEMPLATE_BUILDER = "template_builder/{routineId}"
     const val EXERCISE_PICKER = "exercise_picker"
+    const val IMPORT_WORKOUTS = "import_workouts"
+    const val AI_WORKOUT = "ai_workout"
 }
 
 /** Handles startup auth/session check to determine the initial navigation route. */
@@ -309,7 +314,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                         if (!workoutViewModel.workoutState.value.showEditGuard) {
                             navController.navigate(Routes.WORKOUT)
                         }
-                    }
+                    },
+                    onGenerateWithAi = { navController.navigate(Routes.AI_WORKOUT) }
                 )
             }
         }
@@ -416,6 +422,19 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
             SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToImport = { navController.navigate(Routes.IMPORT_WORKOUTS) }
+            )
+        }
+
+        composable(
+            route = Routes.IMPORT_WORKOUTS,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            ImportWorkoutsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -428,7 +447,12 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
             ProfileScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onSignOut = {
+                    navController.navigate(Routes.AUTH_WELCOME) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             )
         }
 
@@ -441,6 +465,26 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
             TemplateBuilderScreen(navController = navController)
+        }
+
+        composable(
+            route = Routes.AI_WORKOUT,
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            AiWorkoutGenerationScreen(
+                navController = navController,
+                onNavigateBack = { navController.popBackStack() },
+                onStartWorkout = { event ->
+                    workoutViewModel.startWorkoutFromPlan(event.bootstrap)
+                    navController.navigate(Routes.WORKOUT) {
+                        popUpTo(Routes.AI_WORKOUT) { inclusive = true }
+                    }
+                },
+                onPickExercise = { navController.navigate(Routes.EXERCISE_PICKER) }
+            )
         }
 
         composable(
