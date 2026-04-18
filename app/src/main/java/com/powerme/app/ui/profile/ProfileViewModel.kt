@@ -111,6 +111,8 @@ class ProfileViewModel @Inject constructor(
                 )
             }
             loadUserHeight(user.heightCm)
+            loadUserWeight(user.weightKg)
+            loadUserBodyFat(user.bodyFatPercent)
         }
     }
 
@@ -124,6 +126,28 @@ class ProfileViewModel @Inject constructor(
             }
         } else {
             _uiState.update { it.copy(lastHeight = heightCm, heightInput = heightCm.toInt().toString()) }
+        }
+    }
+
+    private fun loadUserWeight(weightKg: Float?) {
+        if (weightKg == null) return
+        val unit = _uiState.value.unitSystem
+        val displayWeight = UnitConverter.displayWeight(weightKg.toDouble(), unit)
+        _uiState.update {
+            it.copy(
+                lastWeight = weightKg.toDouble(),
+                weightInput = if (it.weightInput.isEmpty()) "%.1f".format(displayWeight) else it.weightInput
+            )
+        }
+    }
+
+    private fun loadUserBodyFat(bodyFatPercent: Float?) {
+        if (bodyFatPercent == null) return
+        _uiState.update {
+            it.copy(
+                lastBodyFat = bodyFatPercent.toDouble(),
+                bodyFatInput = if (it.bodyFatInput.isEmpty()) "%.1f".format(bodyFatPercent) else it.bodyFatInput
+            )
         }
     }
 
@@ -189,7 +213,7 @@ class ProfileViewModel @Inject constructor(
                 _uiState.update { state ->
                     val displayWeight = latestKg?.let { UnitConverter.displayWeight(it, state.unitSystem) }
                     state.copy(
-                        lastWeight = latestKg,
+                        lastWeight = latestKg ?: state.lastWeight,
                         weightInput = if (state.weightInput.isEmpty() && displayWeight != null)
                             "%.1f".format(displayWeight) else state.weightInput
                     )
@@ -201,7 +225,7 @@ class ProfileViewModel @Inject constructor(
                 val latest = entries.lastOrNull()?.value
                 _uiState.update { state ->
                     state.copy(
-                        lastBodyFat = latest,
+                        lastBodyFat = latest ?: state.lastBodyFat,
                         bodyFatInput = if (state.bodyFatInput.isEmpty() && latest != null)
                             "%.1f".format(latest) else state.bodyFatInput
                     )
@@ -371,6 +395,12 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             healthHistoryRepository.archive(id)
             _uiState.update { it.copy(showHealthHistorySheet = false, editingHealthEntry = null) }
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            userSessionManager.clearUser()
         }
     }
 }
