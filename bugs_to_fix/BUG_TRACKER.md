@@ -22,7 +22,7 @@ Single source of truth for bug status across sessions.
 | [BUG_chart_crash_on_filter_change](BUG_chart_crash_on_filter_change.md) | App crashes when changing time filter in VolumeTrendCard or exercise in E1RMProgressionCard | ✅ Completed | P0 | — | — | `VolumeTrendCard.kt`, `E1RMProgressionCard.kt` |
 | [BUG_health_history_type_wrap](BUG_health_history_type_wrap.md) | Health History "Add" sheet — Type segmented buttons wrap mid-word | ✅ Wrapped | P2 | — | — | `HealthHistoryEntry.kt`, `ProfileScreen.kt` |
 | [BUG_rest_timer_leaks_after_workout](BUG_rest_timer_leaks_after_workout.md) | Rest timer keeps running after workout ends; previous timer not cancelled on new start | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_timed_set_row_crowded](BUG_timed_set_row_crowded.md) | Timed set row layout is crowded in IDLE state (dual action buttons squished) | ✅ Completed | P2 | — | — | `ActiveWorkoutScreen.kt`, `WORKOUT_SPEC.md` |
+| [BUG_timed_set_row_crowded](BUG_timed_set_row_crowded.md) | Timed set row layout is crowded in IDLE state (dual action buttons squished) | ✅ Wrapped | P2 | — | — | `ActiveWorkoutScreen.kt`, `WORKOUT_SPEC.md` |
 | [BUG_timed_set_no_setup_countdown](BUG_timed_set_no_setup_countdown.md) | No setup countdown before timed exercise timer starts | ✅ Wrapped | P2 | — | — | `AppSettingsDataStore.kt`, `FirestoreSyncManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt`, `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `Color.kt`, `WorkoutViewModelTest.kt`, `SettingsViewModelHealthConnectTest.kt` |
 | [BUG_post_workout_triple_sync_prompt](BUG_post_workout_triple_sync_prompt.md) | Post-workout routine sync prompt appears 3 times (PostWorkoutSummarySheet + WorkoutSummaryScreen both show it) | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutSummaryScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_history_slow_first_load](BUG_history_slow_first_load.md) | History tab takes ~3 seconds to show records on first open | ✅ Wrapped | P1 | — | — | `WorkoutDao.kt`, `WorkoutSet.kt`, `Workout.kt`, `PowerMeDatabase.kt`, `DatabaseModule.kt`, `HistoryViewModel.kt` |
@@ -41,8 +41,11 @@ Single source of truth for bug status across sessions.
 | [BUG_post_workout_note_no_save](BUG_post_workout_note_no_save.md) | Post-workout notes field has no Save button | ✅ Completed | P1 | — | — | `WorkoutSummaryScreen.kt`, `WorkoutSummaryViewModelTest.kt` |
 | [BUG_muscle_group_table_not_seeded](BUG_muscle_group_table_not_seeded.md) | exercise_muscle_groups never populated on fresh install — MuscleGroupVolumeCard + EffectiveSetsCard always empty | ✅ Completed | P0 | — | — | `ExerciseMuscleGroupDao.kt`, `DatabaseModule.kt`, `MasterExerciseSeeder.kt`, `StrongCsvImporter.kt`, `MasterExerciseSeederTest.kt` |
 | [BUG_trends_chart_scroll_starts_oldest](BUG_trends_chart_scroll_starts_oldest.md) | Trends chart cards scroll starts at oldest data instead of most recent | ✅ Completed | P2 | — | — | `VolumeTrendCard.kt`, `MuscleGroupVolumeCard.kt`, `EffectiveSetsCard.kt`, `E1RMProgressionCard.kt`, `BodyCompositionCard.kt` |
-| [BUG_login_profile_setup_reshown](BUG_login_profile_setup_reshown.md) | Logout wipes local profile data and re-login doesn't restore it (wrong routing + data loss) | 🔵 Open | P0 | — | — | — |
-| [BUG_profile_setup_not_skippable](BUG_profile_setup_not_skippable.md) | Profile Setup screen cannot be skipped | 🟡 In Progress | P1 | — | — | — |
+| [BUG_login_profile_setup_reshown](BUG_login_profile_setup_reshown.md) | Logout wipes local profile data and re-login doesn't restore it (wrong routing + data loss) | ✅ Completed | P0 | — | — | `UserSessionManager.kt`, `AuthViewModel.kt`, `AuthViewModelGoogleSignInTest.kt` |
+| [BUG_profile_setup_not_skippable](BUG_profile_setup_not_skippable.md) | Profile Setup screen cannot be skipped | ✅ Completed | P1 | — | — | `ProfileSetupViewModel.kt`, `ProfileSetupScreen.kt` |
+| [BUG_rpe_auto_page_non_work_sets](BUG_rpe_auto_page_non_work_sets.md) | RPE auto-page fires for non-work set types (warmup, drop, failure) | 🔵 Open | P2 | — | — | — |
+| [BUG_timed_exercise_rpe_column](BUG_timed_exercise_rpe_column.md) | Timed exercise rows missing RPE column | 🔵 Open | P2 | BUG_timed_exercise_row_columns ✅ | — | — |
+| [BUG_post_workout_state_not_cleared](BUG_post_workout_state_not_cleared.md) | Post-workout state not cleared — Resume button loops to finished workout's summary | 🔵 Open | P0 | — | — | — |
 
 ---
 

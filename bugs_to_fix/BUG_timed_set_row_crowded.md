@@ -8,6 +8,14 @@ In the active workout screen, timed exercises (e.g. Bird-Dog, Plank) show a crow
 
 Root source: `TimedSetRow` IDLE branch in `ActiveWorkoutScreen.kt` uses weights `0.10 + 0.22 + 0.25 + 0.15 + 0.18 + 0.10 = 1.0f` — six columns where the last two are both action buttons with no visual separation or hierarchy.
 
+## Severity
+P2
+
+## Dependencies
+- **Depends on:** —
+- **Blocks:** —
+- **Touches:** `ActiveWorkoutScreen.kt`, `WORKOUT_SPEC.md`
+
 ## Steps to Reproduce
 1. Create or open a routine that contains a timed exercise (any TIMED type, e.g. Bird-Dog, Plank).
 2. Start an active workout session with that routine.
