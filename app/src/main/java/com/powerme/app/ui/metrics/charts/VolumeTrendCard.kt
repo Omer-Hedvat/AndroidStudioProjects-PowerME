@@ -27,6 +27,8 @@ import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.*
 import com.patrykandpatrick.vico.compose.cartesian.layer.*
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.core.cartesian.Scroll
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.fill
@@ -184,7 +186,8 @@ fun VolumeTrendCard(
                         )
                     ),
                     modelProducer = modelProducer,
-                    modifier = Modifier.matchParentSize()
+                    modifier = Modifier.matchParentSize(),
+                    scrollState = rememberVicoScrollState(initialScroll = Scroll.Absolute.End)
                 )
 
                 if (points.size < 2) {

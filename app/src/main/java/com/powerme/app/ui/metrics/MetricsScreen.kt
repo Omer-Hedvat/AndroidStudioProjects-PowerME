@@ -18,6 +18,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.ui.metrics.charts.BodyCompositionCard
+import com.powerme.app.ui.metrics.charts.BodyStressHeatmapCard
+import com.powerme.app.ui.metrics.charts.ChronotypeCard
 import com.powerme.app.ui.metrics.charts.E1RMProgressionCard
 import com.powerme.app.ui.metrics.charts.EffectiveSetsCard
 import com.powerme.app.ui.metrics.charts.MuscleGroupVolumeCard
@@ -42,6 +45,10 @@ fun MetricsScreen(
     val muscleGroupVolume by trendsViewModel.muscleGroupVolume.collectAsState()
     val effectiveSets by trendsViewModel.effectiveSets.collectAsState()
     val effectiveSetsCoverage by trendsViewModel.effectiveSetsCoverage.collectAsState()
+    val bodyComposition by trendsViewModel.bodyComposition.collectAsState()
+    val chronotypeData by trendsViewModel.chronotypeData.collectAsState()
+    val bodyStressMap by trendsViewModel.bodyStressMap.collectAsState()
+    val selectedBodyRegion by trendsViewModel.selectedBodyRegion.collectAsState()
 
     // Auto-scroll to the E1RM card when arriving via a deep-link.
     val scrollState = rememberScrollState()
@@ -129,6 +136,30 @@ fun MetricsScreen(
             timeRange = timeRange,
             onTimeRangeChange = trendsViewModel::setTimeRange,
             modelProducer = trendsViewModel.effectiveSetsModelProducer
+        )
+
+        // ── Body Stress Map ───────────────────────────
+        BodyStressHeatmapCard(
+            stressData = bodyStressMap,
+            selectedRegion = selectedBodyRegion,
+            onRegionTapped = { region -> trendsViewModel.selectBodyRegion(region) }
+        )
+
+        // ── Body Composition ──────────────────────────
+        BodyCompositionCard(
+            bodyCompositionData = bodyComposition,
+            timeRange = timeRange,
+            unitSystem = unitSystem,
+            onTimeRangeChange = trendsViewModel::setTimeRange,
+            modelProducer = trendsViewModel.bodyCompositionModelProducer
+        )
+
+        // ── Chronotype ────────────────────────────────
+        ChronotypeCard(
+            chronotypeData = chronotypeData,
+            timeRange = timeRange,
+            onTimeRangeChange = trendsViewModel::setTimeRange,
+            sleepModelProducer = trendsViewModel.sleepModelProducer
         )
     }
 }

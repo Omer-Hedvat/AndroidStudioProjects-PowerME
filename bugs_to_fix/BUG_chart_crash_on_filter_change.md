@@ -10,6 +10,14 @@ The app crashes when:
 
 Both crashes share the same root cause: `CartesianChartModelProducer` retains stale data after a filter change when the new data has fewer than 2 points. The `CartesianChartHost` is conditionally removed from composition (switches to empty-state branch) while the producer's internal Vico coroutine may still reference it, causing a crash.
 
+## Severity
+P0
+
+## Dependencies
+- **Depends on:** —
+- **Blocks:** —
+- **Touches:** `VolumeTrendCard.kt`, `E1RMProgressionCard.kt`, `TrendsViewModel.kt`
+
 ## Steps to Reproduce
 1. Open the Trends tab with some workout history logged
 2. VolumeTrendCard crash: tap a time range chip that results in fewer than 2 weeks of data (e.g., "1M" with only 1 week logged)

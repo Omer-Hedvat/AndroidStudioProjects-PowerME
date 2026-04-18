@@ -7,6 +7,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.data.database.BodyRegion
 import com.powerme.app.data.database.ExerciseWithHistory
 import com.powerme.app.data.repository.TrendsRepository
 import com.powerme.app.ui.metrics.charts.VicoChartHelpers
@@ -52,8 +53,18 @@ class TrendsViewModel @Inject constructor(
     private val _bodyComposition = MutableStateFlow<BodyCompositionData?>(null)
     val bodyComposition: StateFlow<BodyCompositionData?> = _bodyComposition.asStateFlow()
 
-    private val _chronotypeData = MutableStateFlow<List<TimeOfDayChartPoint>>(emptyList())
-    val chronotypeData: StateFlow<List<TimeOfDayChartPoint>> = _chronotypeData.asStateFlow()
+    private val _chronotypeData = MutableStateFlow<ChronotypeData?>(null)
+    val chronotypeData: StateFlow<ChronotypeData?> = _chronotypeData.asStateFlow()
+
+    private val _bodyStressMap = MutableStateFlow<BodyStressMapData?>(null)
+    val bodyStressMap: StateFlow<BodyStressMapData?> = _bodyStressMap.asStateFlow()
+
+    private val _selectedBodyRegion = MutableStateFlow<BodyRegion?>(null)
+    val selectedBodyRegion: StateFlow<BodyRegion?> = _selectedBodyRegion.asStateFlow()
+
+    fun selectBodyRegion(region: BodyRegion?) {
+        _selectedBodyRegion.value = region
+    }
 
     private val _exercisePickerItems = MutableStateFlow<List<ExerciseWithHistory>>(emptyList())
     val exercisePickerItems: StateFlow<List<ExerciseWithHistory>> = _exercisePickerItems.asStateFlow()
@@ -72,6 +83,8 @@ class TrendsViewModel @Inject constructor(
     val e1rmModelProducer = CartesianChartModelProducer()
     val muscleGroupModelProducer = CartesianChartModelProducer()
     val effectiveSetsModelProducer = CartesianChartModelProducer()
+    val bodyCompositionModelProducer = CartesianChartModelProducer()
+    val sleepModelProducer = CartesianChartModelProducer()
 
     // Tracks the current load coroutine so we can cancel it before starting a new one,
     // preventing concurrent runTransaction calls on the same producer.
@@ -141,6 +154,7 @@ class TrendsViewModel @Inject constructor(
                     launch { loadEffectiveSets() }
                     launch { loadBodyComposition() }
                     launch { loadChronotypeData() }
+                    launch { loadBodyStressMap() }
                 }
             } catch (_: Exception) {
                 // Individual loads handle their own errors
@@ -315,17 +329,86 @@ class TrendsViewModel @Inject constructor(
 
     private suspend fun loadBodyComposition() {
         try {
-            _bodyComposition.value = trendsRepository.getBodyCompositionData(_timeRange.value)
+            val data = trendsRepository.getBodyCompositionData(_timeRange.value)
+            _bodyComposition.value = data
+            pushBodyCompositionToProducer(data)
         } catch (_: Exception) {
             _bodyComposition.value = null
         }
     }
 
+    private fun pushBodyCompositionToProducer(data: BodyCompositionData?) {
+        viewModelScope.launch {
+            val weightPts = data?.weightPoints.orEmpty()
+            val bodyFatPts = data?.bodyFatPoints.orEmpty()
+            val allTimestamps = (weightPts.map { it.timestampMs } + bodyFatPts.map { it.timestampMs })
+                .distinct().sorted()
+
+            if (allTimestamps.size < 2) {
+                // Always push exactly 2 series so the layer count stays stable;
+                // Vico crashes on series-count changes. Empty-state overlay hides it.
+                bodyCompositionModelProducer.runTransaction {
+                    lineSeries {
+                        series(listOf(0.0, 0.0))
+                        series(listOf(0.0, 0.0))
+                    }
+                }
+                return@launch
+            }
+
+            val weightByTs = weightPts.associate { it.timestampMs to it.value }
+            val bodyFatByTs = bodyFatPts.associate { it.timestampMs to it.value }
+            val weightSeries = allTimestamps.map { ts -> weightByTs[ts] ?: 0.0 }
+            val bodyFatSeries = allTimestamps.map { ts -> bodyFatByTs[ts] ?: 0.0 }
+
+            bodyCompositionModelProducer.runTransaction {
+                lineSeries {
+                    series(weightSeries)
+                    series(bodyFatSeries)
+                }
+            }
+        }
+    }
+
     private suspend fun loadChronotypeData() {
         try {
-            _chronotypeData.value = trendsRepository.getWorkoutsByTimeOfDay(_timeRange.value)
+            val data = trendsRepository.getChronotypeData(_timeRange.value)
+            _chronotypeData.value = data
+            pushSleepToProducer(data.sleepPoints)
         } catch (_: Exception) {
-            _chronotypeData.value = emptyList()
+            _chronotypeData.value = null
+        }
+    }
+
+    private suspend fun loadBodyStressMap() {
+        try {
+            val stresses = trendsRepository.getBodyStressMap()
+            val maxStress = stresses.maxOfOrNull { it.totalStress } ?: 0.0
+            _bodyStressMap.value = BodyStressMapData(stresses, maxStress)
+        } catch (_: Exception) {
+            _bodyStressMap.value = null
+        }
+    }
+
+    private fun pushSleepToProducer(points: List<SleepChartPoint>) {
+        viewModelScope.launch {
+            try {
+                val hasSufficientData = points.size >= 7
+                val greenSeries = if (hasSufficientData) {
+                    points.map { if (it.durationMinutes >= 420) it.durationHours else 0.0 }
+                } else listOf(0.0, 0.0)
+                val redSeries = if (hasSufficientData) {
+                    points.map { if (it.durationMinutes < 420) it.durationHours else 0.0 }
+                } else listOf(0.0, 0.0)
+                sleepModelProducer.runTransaction {
+                    columnSeries {
+                        series(greenSeries)
+                        series(redSeries)
+                    }
+                }
+            } catch (_: Exception) {
+                // Producer push is best-effort; empty state overlay handles missing data.
+            }
         }
     }
 }

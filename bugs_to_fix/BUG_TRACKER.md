@@ -19,7 +19,7 @@ Single source of truth for bug status across sessions.
 | [BUG_edit_mode_false_discard_prompt](BUG_edit_mode_false_discard_prompt.md) | Discard Changes dialog shown even when nothing changed in edit mode | ✅ Wrapped | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt` |
 | [BUG_detail_single_decimal](BUG_detail_single_decimal.md) | Workout detail (from summary) shows weights with only 1 decimal place | ✅ Wrapped | P3 | — | — | `UnitConverter.kt`, `UnitConverterTest.kt` |
 | [BUG_detail_double_edit_mode](BUG_detail_double_edit_mode.md) | Workout detail has two redundant edit modes; inner edit mode has unreadable values | ✅ Wrapped | P1 | — | — | `WorkoutDetailViewModel.kt`, `WorkoutDetailScreen.kt`, `WorkoutDetailViewModelTest.kt` |
-| [BUG_chart_crash_on_filter_change](BUG_chart_crash_on_filter_change.md) | App crashes when changing time filter in VolumeTrendCard or exercise in E1RMProgressionCard | ✅ Completed | P0 | — | — | `VolumeTrendCard.kt`, `E1RMProgressionCard.kt` |
+| [BUG_chart_crash_on_filter_change](BUG_chart_crash_on_filter_change.md) | App crashes when changing time filter in VolumeTrendCard or exercise in E1RMProgressionCard | ✅ Wrapped | P0 | — | — | `TrendsViewModel.kt`, `VolumeTrendCard.kt`, `E1RMProgressionCard.kt`, `MetricsScreen.kt` |
 | [BUG_health_history_type_wrap](BUG_health_history_type_wrap.md) | Health History "Add" sheet — Type segmented buttons wrap mid-word | ✅ Wrapped | P2 | — | — | `HealthHistoryEntry.kt`, `ProfileScreen.kt` |
 | [BUG_rest_timer_leaks_after_workout](BUG_rest_timer_leaks_after_workout.md) | Rest timer keeps running after workout ends; previous timer not cancelled on new start | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_timed_set_row_crowded](BUG_timed_set_row_crowded.md) | Timed set row layout is crowded in IDLE state (dual action buttons squished) | ✅ Wrapped | P2 | — | — | `ActiveWorkoutScreen.kt`, `WORKOUT_SPEC.md` |
@@ -49,6 +49,7 @@ Single source of truth for bug status across sessions.
 | [BUG_history_edit_weighted_unreadable](BUG_history_edit_weighted_unreadable.md) | History edit mode — weighted exercise fields unreadable (dark text on dark purple) | ✅ Wrapped | P1 | BUG_history_edit_unreadable_values_v2 ✅ | — | `WorkoutDetailScreen.kt` |
 | [BUG_history_card_sparkline_misplaced](BUG_history_card_sparkline_misplaced.md) | History exercise card — sparkline trend line not inline with Best Set / Est 1RM stats | 🔵 Open | P2 | History card set details ✅ | — | — |
 | [BUG_deep_link_nav_tab_broken](BUG_deep_link_nav_tab_broken.md) | Bottom nav broken after History → Trends deep-link — History tab does nothing, then misdirects to Trends | 🔵 Open | P1 | History → Trends deep-link ✅ | — | — |
+| [BUG_history_delete_nav_back](BUG_history_delete_nav_back.md) | Delete workout from History navigates back to deleted workout summary instead of History list | 🔵 Open | P1 | — | — | — |
 
 ---
 

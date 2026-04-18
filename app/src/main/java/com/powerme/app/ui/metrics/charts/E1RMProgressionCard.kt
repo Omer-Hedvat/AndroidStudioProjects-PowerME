@@ -34,6 +34,8 @@ import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.*
 import com.patrykandpatrick.vico.compose.cartesian.layer.*
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.core.cartesian.Scroll
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.fill
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
@@ -213,7 +215,8 @@ fun E1RMProgressionCard(
                         )
                     ),
                     modelProducer = modelProducer,
-                    modifier = Modifier.matchParentSize()
+                    modifier = Modifier.matchParentSize(),
+                    scrollState = rememberVicoScrollState(initialScroll = Scroll.Absolute.End)
                 )
 
                 // Overlay when insufficient data or no exercises
