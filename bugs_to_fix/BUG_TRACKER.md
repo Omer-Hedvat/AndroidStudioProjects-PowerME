@@ -32,7 +32,7 @@ Single source of truth for bug status across sessions.
 | [BUG_timed_exercise_row_columns](BUG_timed_exercise_row_columns.md) | Timed exercise row: missing PREV column, spurious RPE column, orphaned '-' box with no header | ✅ Completed | P1 | — | — | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
 | [BUG_warning_beep_gap_too_wide](BUG_warning_beep_gap_too_wide.md) | WARNING double-beep has 300ms gap — too wide, sounds like two separate events | ✅ Wrapped | P3 | — | — | `RestTimerNotifier.kt`, `TOOLS_SPEC.md` |
 | [BUG_toggle_colors_inconsistent](BUG_toggle_colors_inconsistent.md) | Switch/Toggle colors inconsistent across screens | ✅ Wrapped | P3 | — | — | `SettingsScreen.kt`, `ActiveWorkoutScreen.kt` |
-| [BUG_trends_card_crash_on_open](BUG_trends_card_crash_on_open.md) | Trends card crashes when opened | ✅ Completed | P0 | — | — | — |
+| [BUG_trends_card_crash_on_open](BUG_trends_card_crash_on_open.md) | Trends card crashes when opened | ✅ Wrapped | P0 | — | — | `VolumeTrendCard.kt`, `E1RMProgressionCard.kt`, `MuscleGroupVolumeCard.kt`, `EffectiveSetsCard.kt` |
 | [BUG_next_field_not_selected_on_confirm](BUG_next_field_not_selected_on_confirm.md) | Next input field not auto-selected when confirming with checkmark | ✅ Completed | P2 | — | — | `WorkoutInputField.kt` |
 | [BUG_history_edit_unreadable_values_v2](BUG_history_edit_unreadable_values_v2.md) | History edit values unreadable (regression) | ✅ Completed | P1 | — | — | `WorkoutDetailScreen.kt` |
 | [BUG_prev_session_rpe_missing](BUG_prev_session_rpe_missing.md) | RPE missing from previous session values in active workout | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
