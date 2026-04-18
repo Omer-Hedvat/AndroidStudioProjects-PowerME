@@ -39,14 +39,16 @@ Single source of truth for bug status across sessions.
 | [BUG_fitness_level_not_persisted](BUG_fitness_level_not_persisted.md) | Fitness level selection doesn't persist after app restart | ✅ Wrapped | P1 | — | — | `FirestoreSyncManager.kt`, `ProfileViewModelPersonalInfoTest.kt` |
 | [BUG_body_metrics_not_populated_from_hc](BUG_body_metrics_not_populated_from_hc.md) | Body Metrics weight/body fat not populated from Health Connect | ✅ Wrapped | P1 | — | — | `ProfileViewModel.kt`, `ProfileViewModelPersonalInfoTest.kt` |
 | [BUG_post_workout_note_no_save](BUG_post_workout_note_no_save.md) | Post-workout notes field has no Save button | ✅ Completed | P1 | — | — | `WorkoutSummaryScreen.kt`, `WorkoutSummaryViewModelTest.kt` |
-| [BUG_muscle_group_table_not_seeded](BUG_muscle_group_table_not_seeded.md) | exercise_muscle_groups never populated on fresh install — MuscleGroupVolumeCard + EffectiveSetsCard always empty | ✅ Completed | P0 | — | — | `ExerciseMuscleGroupDao.kt`, `DatabaseModule.kt`, `MasterExerciseSeeder.kt`, `StrongCsvImporter.kt`, `MasterExerciseSeederTest.kt` |
+| [BUG_muscle_group_table_not_seeded](BUG_muscle_group_table_not_seeded.md) | exercise_muscle_groups never populated on fresh install — MuscleGroupVolumeCard + EffectiveSetsCard always empty | ✅ Wrapped | P0 | — | — | `ExerciseMuscleGroupDao.kt`, `DatabaseModule.kt`, `MasterExerciseSeeder.kt`, `StrongCsvImporter.kt`, `MasterExerciseSeederTest.kt` |
 | [BUG_trends_chart_scroll_starts_oldest](BUG_trends_chart_scroll_starts_oldest.md) | Trends chart cards scroll starts at oldest data instead of most recent | ✅ Completed | P2 | — | — | `VolumeTrendCard.kt`, `MuscleGroupVolumeCard.kt`, `EffectiveSetsCard.kt`, `E1RMProgressionCard.kt`, `BodyCompositionCard.kt` |
 | [BUG_login_profile_setup_reshown](BUG_login_profile_setup_reshown.md) | Logout wipes local profile data and re-login doesn't restore it (wrong routing + data loss) | ✅ Completed | P0 | — | — | `UserSessionManager.kt`, `AuthViewModel.kt`, `AuthViewModelGoogleSignInTest.kt` |
 | [BUG_profile_setup_not_skippable](BUG_profile_setup_not_skippable.md) | Profile Setup screen cannot be skipped | ✅ Completed | P1 | — | — | `ProfileSetupViewModel.kt`, `ProfileSetupScreen.kt` |
-| [BUG_rpe_auto_page_non_work_sets](BUG_rpe_auto_page_non_work_sets.md) | RPE auto-page fires for non-work set types (warmup, drop, failure) | 🔵 Open | P2 | — | — | — |
-| [BUG_timed_exercise_rpe_column](BUG_timed_exercise_rpe_column.md) | Timed exercise rows missing RPE column | 🔵 Open | P2 | BUG_timed_exercise_row_columns ✅ | — | — |
-| [BUG_post_workout_state_not_cleared](BUG_post_workout_state_not_cleared.md) | Post-workout state not cleared — Resume button loops to finished workout's summary | 🟡 In Progress | P0 | — | — | — |
+| [BUG_rpe_auto_page_non_work_sets](BUG_rpe_auto_page_non_work_sets.md) | RPE auto-page fires for non-work set types (warmup, drop, failure) | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_timed_exercise_rpe_column](BUG_timed_exercise_rpe_column.md) | Timed exercise rows missing RPE column | ✅ Completed | P2 | BUG_timed_exercise_row_columns ✅ | — | `ActiveWorkoutScreen.kt`, `WORKOUT_SPEC.md` |
+| [BUG_post_workout_state_not_cleared](BUG_post_workout_state_not_cleared.md) | Post-workout state not cleared — Resume button loops to finished workout's summary | ✅ Completed | P0 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_history_edit_weighted_unreadable](BUG_history_edit_weighted_unreadable.md) | History edit mode — weighted exercise fields unreadable (dark text on dark purple) | ✅ Wrapped | P1 | BUG_history_edit_unreadable_values_v2 ✅ | — | `WorkoutDetailScreen.kt` |
+| [BUG_history_card_sparkline_misplaced](BUG_history_card_sparkline_misplaced.md) | History exercise card — sparkline trend line not inline with Best Set / Est 1RM stats | 🔵 Open | P2 | History card set details ✅ | — | — |
+| [BUG_deep_link_nav_tab_broken](BUG_deep_link_nav_tab_broken.md) | Bottom nav broken after History → Trends deep-link — History tab does nothing, then misdirects to Trends | 🔵 Open | P1 | History → Trends deep-link ✅ | — | — |
 
 ---
 
