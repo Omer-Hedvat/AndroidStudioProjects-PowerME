@@ -94,16 +94,16 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 |---|---|---|---|---|
 | Trends Step 2 — VolumeTrendCard | `TRENDS_CHARTS_SPEC.md §Step 2` | M | `done` | — |
 | Trends Step 3 — E1RMProgressionCard | `TRENDS_CHARTS_SPEC.md §Step 3` | M | `done` | — |
-| Trends Step 4 — MuscleGroupVolumeCard | `TRENDS_CHARTS_SPEC.md §Step 4` | M | `completed` | — |
+| Trends Step 4 — MuscleGroupVolumeCard | `TRENDS_CHARTS_SPEC.md §Step 4` | M | `wrapped` | — |
 | Trends Step 5 — EffectiveSetsCard | `TRENDS_CHARTS_SPEC.md §Step 5` | M | `completed` | — |
 | HC Extended Reads (HR, Calories, VO₂ Max, Distance, SpO₂) | `HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | M | `completed` | — |
 | HC Phase B — Write workouts to Health Connect | `HEALTH_CONNECT_SPEC.md §8` | S | `wrapped` | — |
 | HC Backfill — Push last 90 days to Health Connect on permission grant | `future_devs/HC_BACKFILL_SPEC.md` | S | `wrapped` | HC Phase B ✅ |
-| History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `in-progress` | Trends Step 3 (E1RM) ✅ + History Summary Step A ✅ |
-| E1RM Progression — line only (no area fill) | `future_devs/TRENDS_E1RM_LINE_ONLY_SPEC.md` | XS | `completed` | Trends Step 3 (E1RM) ✅ |
+| History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `completed` | Trends Step 3 (E1RM) ✅ + History Summary Step A ✅ |
+| E1RM Progression — line only (no area fill) | `future_devs/TRENDS_E1RM_LINE_ONLY_SPEC.md` | XS | `wrapped` | Trends Step 3 (E1RM) ✅ |
 | Trends — hide cards with insufficient data | `future_devs/TRENDS_EMPTY_CARDS_HIDDEN_SPEC.md` | S | `completed` | — |
 | Trends charts — Y axis values only, unit at top | `future_devs/TRENDS_CHART_Y_AXIS_UNIT_AT_TOP_SPEC.md` | XS | `completed` | — |
-| Trends charts — zoomed out by default, pinch to zoom | `future_devs/TRENDS_CHART_ZOOM_DEFAULT_OUT_SPEC.md` | S | `completed` | — |
+| Trends charts — zoomed out by default, pinch to zoom | `future_devs/TRENDS_CHART_ZOOM_DEFAULT_OUT_SPEC.md` | S | `in-progress` | — |
 
 ---
 

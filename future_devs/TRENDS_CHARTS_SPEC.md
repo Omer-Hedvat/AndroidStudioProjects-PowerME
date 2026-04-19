@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Phase** | P4 (Steps 2–5) · P5 (Steps 6–8) |
-| **Status** | Steps 2–4 `done` · Steps 5–8 `not-started` |
+| **Status** | Steps 2–4 `wrapped` · Steps 5–6 `completed` · Step 7 `not-started` · Step 8 `completed` |
 | **Effort** | M per step (Steps 2–5) · L (Steps 6, 8) · S (Step 7) |
 | **Depends on** | Step 7 depends on HC Extended Reads (calories). Step B deep-link depends on Step 3. |
 | **Roadmap** | `ROADMAP.md §P4` and `§P5` |
@@ -282,10 +282,16 @@ Like MuscleGroupVolumeCard but counts *effective sets* (RPE ≥ 7.0) rather than
 
 ---
 
-## Step 6 — BodyCompositionCard
+## Step 6 — BodyCompositionCard ✅ completed
 
 **File:** `ui/metrics/charts/BodyCompositionCard.kt`  
 **ViewModel data:** `TrendsViewModel.bodyComposition: StateFlow<BodyCompositionData?>`
+
+> **Implementation note:** Volume MA overlay was dropped in favour of a simpler 2-line design
+> (Weight + Body Fat %). Volume MA is already visible in VolumeTrendCard and the dual-axis
+> approach in Vico 2.0.0-beta.2 is fragile with mismatched scales. Toggle chips control
+> per-series visibility by toggling alpha — series count in the producer stays constant (2)
+> to prevent Vico crashes. `bodyCompTimestamps` StateFlow drives the x-axis formatter.
 
 ### What to Build
 
