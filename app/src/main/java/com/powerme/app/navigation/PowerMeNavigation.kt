@@ -513,7 +513,10 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
-            WorkoutDetailScreen(onNavigateBack = { navController.popBackStack() })
+            WorkoutDetailScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onDeleted = { navController.popBackStack(Screen.History.route, inclusive = false) }
+            )
         }
 
         composable(
@@ -534,7 +537,13 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                     navController.navigate("workout_detail/$workoutId")
                 },
                 onNavigateToTrends = { exerciseId ->
-                    navController.navigate("${Screen.Trends.route}?exerciseId=$exerciseId")
+                    navController.navigate("${Screen.Trends.route}?exerciseId=$exerciseId") {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
                 onConfirmSyncValues = { workoutViewModel.confirmUpdateRoutineValues() },
                 onConfirmSyncStructure = { workoutViewModel.confirmUpdateRoutineStructure() },
