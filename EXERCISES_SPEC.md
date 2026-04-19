@@ -1,7 +1,7 @@
 # EXERCISES_SPEC.md — PowerME Exercise Library
 
-**Status:** ✅ Complete (v2.0 — March 2026)
-**Domain:** Exercise Library · Browse Mode · Picker Mode · Exercise Detail · Custom Creation · Gym Profile Soft-Lock
+**Status:** ✅ Complete (v3.0 — April 2026)
+**Domain:** Exercise Library · Browse Mode · Picker Mode · Exercise Detail Screen · Custom Creation · Gym Profile Soft-Lock
 
 > **Living document.** Update this file whenever exercise library or search/filter behaviour changes.
 > Cross-referenced by `CLAUDE.md`. Read this before touching `ExercisesScreen.kt`, `ExercisesViewModel.kt`, or any exercise-related composable.
@@ -17,7 +17,7 @@
 5. [Exercise Card](#5-exercise-card)
 6. [Custom Exercise Creation](#6-custom-exercise-creation)
 7. [Expanded Exercise Data Schema](#7-expanded-exercise-data-schema)
-8. [Exercise Detail Sheet](#8-exercise-detail-sheet)
+8. [Exercise Detail Screen](#8-exercise-detail-screen)
 9. [Navigation & Route Map](#9-navigation--route-map)
 10. [Technical Invariants](#10-technical-invariants)
 
@@ -94,7 +94,7 @@ ExercisesUiState update → LazyColumn recomposes
 **Entry:** Main bottom nav tab (Exercises).
 
 **Behaviour:**
-- Tapping an `ExerciseCard` opens `ExerciseDetailSheet` as a `ModalBottomSheet` (`skipPartiallyExpanded = true`). Driven by `var selectedExercise by remember { mutableStateOf<Exercise?>(null) }` at the `ExercisesScreen` composable level (screen-scoped — see §10.4).
+- Tapping an `ExerciseCard` navigates to `exercise_detail/{exerciseId}` — a full-screen detail page (see §8). The old `ExerciseDetailSheet` bottom sheet has been removed.
 - No selection highlight or checkmark on cards.
 - FAB visible: **Add Exercise** (opens MagicAddDialog). The Start Workout FAB has been removed from this tab.
 - `selectedExerciseIds` is always empty in this mode.
@@ -106,8 +106,8 @@ ExercisesUiState update → LazyColumn recomposes
 **Behaviour:**
 - **'Replace Exercise'** (from active workout) opens the full Exercise finder page with all filters and data.
 - `ExercisesScreen` receives `pickerMode = true` and `onExercisesSelected: (List<Long>) -> Unit`.
-- **Tap** on an `ExerciseCard` — toggles the exercise in `selectedExerciseIds`. Does NOT open the detail sheet.
-- **Long press** on an `ExerciseCard` — opens `ExerciseDetailSheet` for inspection without altering selection.
+- **Tap** on an `ExerciseCard` — toggles the exercise in `selectedExerciseIds`. Does NOT navigate to the detail screen.
+- **Long press** on a custom `ExerciseCard` — shows delete confirmation dialog.
 - Selected cards render with `primaryContainer` background tint and a checkmark icon overlay in the top-right corner.
 - **FAB:** `[Add X Exercises]` (X = `selectedExerciseIds.size`) — visible only when `selectedExerciseIds.isNotEmpty()`. On tap: calls `onExercisesSelected(selectedExerciseIds.toList())`, sets `savedStateHandle["selected_exercises"]`, pops back stack.
 - The Add Exercise FAB is **hidden** in picker mode.
@@ -234,8 +234,8 @@ When `activeGymProfileId` is non-null, the ViewModel loads the corresponding `Gy
 
 | Mode | Tap | Long Press |
 |---|---|---|
-| Browse | Opens `ExerciseDetailSheet` | — |
-| Picker | Toggles `selectedExerciseIds` | Opens `ExerciseDetailSheet` |
+| Browse | Navigates to `exercise_detail/{exerciseId}` | Deletes exercise (custom only) |
+| Picker | Toggles `selectedExerciseIds` | Deletes exercise (custom only) |
 
 ### 5.3 Empty States
 
@@ -393,93 +393,144 @@ For catalog deep-dives and pre-workout study.
 
 ---
 
-## 8. Exercise Detail Sheet
+## 8. Exercise Detail Screen
 
-### 8.1 Trigger
+Full-screen navigable route (`exercise_detail/{exerciseId}`) with a `Scaffold` + back button + `LazyColumn`. Replaced the old `ExerciseDetailSheet` bottom sheet (removed in v47). Implemented in `ui/exercises/detail/ExerciseDetailScreen.kt` backed by `ExerciseDetailViewModel` + `ExerciseDetailRepository`.
 
-`ModalBottomSheet` (`skipPartiallyExpanded = true`) opened when:
-- **Browse mode:** Single tap on `ExerciseCard`.
-- **Picker mode:** Long press on `ExerciseCard`.
+### 8.1 Trigger & Navigation
 
-Sheet visibility driven by `var selectedExercise by remember { mutableStateOf<Exercise?>(null) }` at the `ExercisesScreen` composable level (screen-scoped — see §10.4).
+- **Browse mode:** Single tap on `ExerciseCard` → `navController.navigate("exercise_detail/$exerciseId")`.
+- **Picker mode:** Long press still selects (no navigation).
+- **Route:** `exercise_detail/{exerciseId}` with `NavType.LongType` argument.
+- **Transitions:** `slideInHorizontally / slideOutHorizontally(tween(300))` — same pattern as `workout_summary`.
+- **Back nav:** `onNavigateBack = { navController.popBackStack() }`.
+- **Alternative tap:** Navigates to another `exercise_detail/{exerciseId}` — pushes new entry on back stack.
+- **Workout history tap:** Navigates to `workout_summary/{workoutId}`.
 
-### 8.2 Hero Animation
+### 8.2 Section Order (LazyColumn)
+
+All 13 sections rendered top-to-bottom. Each section is separated by a `SectionDivider` (`HorizontalDivider` at 0.3f alpha). Section headers use `labelMedium` typography with 16dp horizontal padding.
+
+| # | Section | Composable | Empty State |
+|---|---------|-----------|-------------|
+| 1 | **Hero Animation** | `ExerciseAnimationImage` | Icon placeholder |
+| 2 | **Header** | `HeaderSection` | N/A (always rendered) |
+| 3 | **Joint Indicators** | `JointIndicatorsSection` | Hidden if no joints |
+| 4 | **Form Cues** | `FormCuesSection` | Hidden if null |
+| 5 | **Personal Records** | `PersonalRecordsSection` | "No records yet" |
+| 6 | **Progressive Overload** | `ProgressiveOverloadSection` | "No session data yet" |
+| 7 | **Trends** | `TrendsSection` | "No data yet" per chart |
+| 8 | **Set/Rep Zone Guide** | `SetRepZoneGuideSection` | Always rendered |
+| 9 | **Warm-Up Ramp** | `WarmUpRampSection` | Hidden if bodyweight |
+| 10 | **Muscle Activation** | `MuscleActivationSection` | Hidden if no vectors |
+| 11 | **Alternative Exercises** | `AlternativeExercisesSection` | Hidden if < 2 |
+| 12 | **Workout History** | `WorkoutHistorySection` | "No sessions yet" |
+| 13 | **User Notes** | `UserNotesSection` | Placeholder text |
+
+### 8.3 Hero Animation (Section 1)
+
+- **Source:** `assets/exercise_animations/{searchName}.webp`. Convention-based — no DB column.
+- **Loader:** Coil `SubcomposeAsyncImage`, `ImageDecoderDecoder` (API 28+) / `GifDecoder` (API 26–27).
+- **Size:** `fillMaxWidth()`, `aspectRatio(16f / 9f)`, `ContentScale.Crop`.
+- **Fallback:** `Icons.Default.FitnessCenter` (48dp, `onSurfaceVariant`) on `surfaceVariant` background.
+
+### 8.4 Header (Section 2)
+
+- Exercise name (`headlineMedium`, `primary`), `FlowRow` with muscle/equipment/difficulty tags (`SuggestionChip`).
+- **Last performed:** Date + `setCount × avgReps @ avgWeight` from `TrendsDao.getLastPerformed()`.
+- **Session count:** "X sessions" from `WorkoutSetDao.getExerciseSessionCount()`.
+- **Injury warning banner:** `errorContainer` background, shown when any of the exercise's `primaryJoints` or `secondaryJoints` overlaps with active `MODERATE`/`SEVERE` health history entries (from `HealthHistoryRepository`).
+
+### 8.5 Joint Indicators (Section 3)
+
+- **Primary joints:** Filled `AssistChip`, `primaryContainer` background.
+- **Secondary joints:** Outlined `AssistChip`, transparent background.
+- **Affected joint:** `errorContainer` background, error icon prefix.
+- Data from `exercise.primaryJoints` / `exercise.secondaryJoints` (added v44).
+
+### 8.6 Form Cues (Section 4)
+
+- Gold banner background (`0xFF5A4D1A` — `FormCuesGold`), pin icon, `setupNotes` text.
+- Cues > 120 characters collapsed by default; "Read more" `TextButton` expands via `AnimatedVisibility`.
+
+### 8.7 Personal Records (Section 5)
+
+2×2 grid of `PrStatCard` (`ElevatedCard`):
+- Best Set (weight × reps, date)
+- e1RM PR (Epley formula, date)
+- Volume PR (total session volume, date)
+- Best Total Reps (single session, date)
+
+**Relative strength subline:** If latest bodyweight is available (from `MetricLogDao`), shows "e1RM = X.Xx bodyweight" below the e1RM PR card.
+
+Data source: `WorkoutSetDao.getAllSetsForExercise()` → in-memory computation in `ExerciseDetailRepository.computePersonalRecords()`.
+
+### 8.8 Progressive Overload (Section 6)
+
+Sealed class `OverloadSuggestion`:
+- `IncreaseReps(from, to, weight)` — shown when avg reps < 12.
+- `IncreaseWeight(fromWeight, toWeight, reps)` — shown when avg reps ≥ 12, increments +2.5 kg (barbell) / +1.0 kg (dumbbell).
+- `NoData` — section shows `EmptySectionPlaceholder`.
+
+Card uses `primaryContainer` background. Display: "Last session: 80 kg × 10. Try 80 kg × 12".
+
+### 8.9 Trends (Section 7)
+
+5 mini `CartesianChartHost` (Vico) charts, each 110dp height:
+1. **e1RM** — estimated 1RM per session (Epley)
+2. **Max Weight** — heaviest set per session
+3. **Volume** — total session volume (weight × reps)
+4. **Best Set** — best weight × reps per session
+5. **RPE Trend** — avg RPE per session (only rendered if ≥ 2 sessions with RPE data)
+
+**Time range:** `FilterChip` row — 1M / 3M / 6M / 1Y. Calls `ExerciseDetailViewModel.onTimeRangeChanged()`. Chart producers are ViewModel-owned `CartesianChartModelProducer` instances — survive recompositions.
+
+Fallback: if fewer than 2 data points, producers receive `listOf(0.0, 0.0)` dummy series and show empty state text.
+
+### 8.10 Set/Rep Zone Guide (Section 8)
+
+Three `Surface` boxes side by side:
+- **Strength** — 1–5 reps, `tertiaryContainer` background
+- **Hypertrophy** — 6–12 reps, `secondaryContainer` background
+- **Endurance** — 15+ reps, `surfaceVariant` background
+
+The zone matching the user's best-set rep count is highlighted with a `BorderStroke(2.dp, primary)`.
+
+### 8.11 Warm-Up Ramp (Section 9)
+
+Shown only for loaded exercises (last session weight > 0). Table in `Surface(surfaceVariant)`:
 
 ```
-┌──────────────────────────────────────────────────┐
-│                                                  │
-│          [Looping Animated WebP]                 │
-│          (aspect ratio: 16:9, top corners 16dp)  │
-│                                                  │
-└──────────────────────────────────────────────────┘
+50% × 8  →  70% × 5  →  85% × 3  →  Working weight
 ```
 
-- **Source:** Local asset at `assets/exercise_animations/{searchName}.webp`. Convention-based path — no DB column needed. See §11 for how assets are produced.
-- **Loader:** Coil `SubcomposeAsyncImage` with a locally-remembered `ImageLoader` configured with `ImageDecoderDecoder` (API 28+) or `GifDecoder` (API 26–27) for Animated WebP support. Zero network calls at runtime.
-- **Looping:** Coil's GIF/WebP decoder loops by default. No manual replay logic needed.
-- **Fallback:** If the asset file is missing, display `Icons.Default.FitnessCenter` (48dp, `onSurfaceVariant` tint) centered on a `surfaceVariant` background via the `error` slot.
-- **Size constraint:** `fillMaxWidth()`, `aspectRatio(16f / 9f)`, `ContentScale.Crop`, `clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))`.
-- **Placement:** Above the padded `Column` (outside horizontal 20dp padding) so the image fills the full sheet width.
+Data computed in `ExerciseDetailRepository.computeWarmUpRamp()` from last session's average working-set weight.
 
-### 8.3 Title & Tags
+### 8.12 Muscle Activation (Section 10)
 
-```
-┌──────────────────────────────────────────────────┐
-│  Exercise Name (headlineMedium, primary)         │
-│  [Muscle Chip]  [Equipment Chip]  ☆ (Favorite)  │
-│                            [Replace] or [Add]    │
-└──────────────────────────────────────────────────┘
-```
+`BodyOutlineCanvas` (reused from Trends tab) with `Map<BodyRegion, Color>` derived from `exercise_stress_vectors` table. Color interpolation: `lerp(Color.Transparent, primaryColor.copy(alpha=0.85f), coefficient)`. Display-only (`onRegionTapped = {}`).
 
-- **Exercise Name:** `headlineMedium`, `MaterialTheme.colorScheme.primary`.
-- **Muscle Chip:** `SuggestionChip`, `primaryContainer` background.
-- **Equipment Chip:** `SuggestionChip`, `secondaryContainer` background. Label uses `toEquipmentDisplayName()`.
-- **Favorite Toggle:** `IconButton` with `Icons.Default.Star` (filled, `primaryContainer`) / `Icons.Default.StarBorder`. Calls `ExercisesViewModel.toggleFavorite(exercise)` → `ExerciseDao.updateFavorite()`.
-- **Contextual Action Button:** Shown only when opened from an active workout context. **Replace** or **Add** action. Hidden in browse-only and picker contexts.
+### 8.13 Alternative Exercises (Section 11)
 
-### 8.4 Form Cues Banner
+`LazyRow` of 130dp wide `ElevatedCard` items. Alternatives ranked by in-memory score:
+- +100 same `familyId`
+- +50 same `muscleGroup`
+- +20 same `equipmentType`
+- +10 same `exerciseType`
 
-- Gold banner background (`Color(0xFF5A4D1A)`), pin icon, `setupNotes` text.
-- Visible by default when `setupNotes != null`.
-- Toggled via Info icon in the header area.
+Minimum score ≥ 50 required. Up to 6 shown. Each card includes estimated starting weight (equipment transfer ratio applied to user's best e1RM from alternatives). Tap navigates to `exercise_detail/{alternativeId}`.
 
-### 8.5 Recent History
+Hidden if fewer than 2 alternatives meet the threshold.
 
-Compact list of the last 3–5 completed sessions for this exercise.
+### 8.14 Workout History (Section 12)
 
-```
-┌──────────────────────────────────────────────────┐
-│  Recent History                                  │
-│  ─────────────────────────────────────────────── │
-│  Mar 28  ·  3×8 @ 80 kg                         │
-│  Mar 25  ·  4×6 @ 85 kg                         │
-│  Mar 21  ·  3×10 @ 75 kg                        │
-│                                                  │
-│  [View All History →]                            │
-└──────────────────────────────────────────────────┘
-```
+Paginated list (`PAGE_SIZE = 20`). Each row: date, routine name, set count, total volume. Tap → `onNavigateToWorkout(workoutId)`. "Load more" `OutlinedButton` at bottom when `hasMoreHistory = true`.
 
-- **Data source:** `WorkoutSetDao` joining `workout_sets` → `workouts` (filter `isCompleted = 1`), grouped by `workoutId`, ordered by date descending, LIMIT 5.
-- **Row format:** Date (`bodyMedium`, `onSurfaceVariant`) · Sets×Reps @ Weight (`bodyMedium`, `onSurface`).
-- **"View All History":** `TextButton` navigating to a dedicated exercise history screen showing all sessions with per-set detail and e1RM calculations.
-- **Empty state:** "No history yet" text in `bodySmall`, `onSurfaceVariant`.
+Data from `TrendsDao.getWorkoutHistoryForExercise(exerciseId, limit, offset)`.
 
-### 8.6 Alternatives Card
+### 8.15 User Notes (Section 13)
 
-```
-┌──────────────────────────────────────────────────┐
-│  Alternatives                   (surfaceVariant) │
-│  ─────────────────────────────────────────────── │
-│  [Incline DB Press]  [Cable Fly]  [Push-Up]     │
-└──────────────────────────────────────────────────┘
-```
-
-- **Container:** `Card` with `surfaceVariant` background, 12.dp corner radius, 16.dp padding.
-- **Data source:** `ExerciseDao` query: `SELECT * FROM exercises WHERE muscleGroup = :muscleGroup AND id != :currentId ORDER BY RANDOM() LIMIT 3`.
-- **Rendering:** Each alternative as a clickable `AssistChip` showing the exercise name.
-- **Tap behaviour:** Tapping an alternative chip updates `selectedExercise` to that exercise, swapping the entire detail sheet context in-place. The sheet does NOT close and reopen — it re-renders with the new exercise data.
-- **UX rationale:** Critical for gym environments where equipment is occupied — users can quickly find an alternative without leaving the sheet.
-- **Empty state:** If fewer than 2 alternatives exist for the muscle group, hide the entire card.
+`OutlinedTextField` (minLines = 3). Edits debounced 500ms → `ExerciseDao.updateUserNote()`. Persisted in `exercises.userNote` column (added v47, `TEXT NOT NULL DEFAULT ''`).
 
 ---
 
@@ -489,8 +540,9 @@ Compact list of the last 3–5 completed sessions for this exercise.
 |---|---|---|---|
 | `exercises` | Bottom nav | `ExercisesScreen(pickerMode = false)` | Browse |
 | `exercise_picker` | `navController.navigate("exercise_picker")` | `ExercisesScreen(pickerMode = true, onExercisesSelected = { ids -> ... })` | Picker |
+| `exercise_detail/{exerciseId}` | Tap on `ExerciseCard` (browse) | `ExerciseDetailScreen` | Detail |
 
-`ExercisesViewModel` is **screen-scoped** — a fresh instance per navigation to the exercises route.
+`ExercisesViewModel` is **screen-scoped** — a fresh instance per navigation to the exercises route. `ExerciseDetailViewModel` is **nav-entry-scoped** — scoped to the `exercise_detail` back-stack entry via Hilt + `SavedStateHandle`.
 
 ---
 
@@ -502,7 +554,7 @@ Compact list of the last 3–5 completed sessions for this exercise.
 
 3. **State Integrity in Picker Mode** — `selectedExerciseIds` must not be cleared when the user changes search query, toggles filters, or switches gym profiles. Only an explicit deselect tap or screen exit clears it.
 
-4. **`selectedExercise` (Detail Sheet Trigger) is Screen-Scoped** — `var selectedExercise by remember { mutableStateOf<Exercise?>(null) }` at `ExercisesScreen` composable level. Do NOT hoist to ViewModel. (`selectedExerciseIds` is in ViewModel — these are different variables.)
+4. **Exercise Detail is a Nav Route, Not a Sheet** — `ExerciseDetailScreen` is a full-screen route (`exercise_detail/{exerciseId}`), not a bottom sheet. The old `selectedExercise` screen-state variable has been removed. Navigation is handled via `onExerciseClick: (Long) -> Unit` callback on `ExercisesScreen`.
 
 5. **Soft-Lock Is Sorting + Opacity Only** — Gym Profiles dictate list ordering and visual opacity. The `onClick` handler on `ExerciseCard` is never disabled.
 
@@ -512,7 +564,7 @@ Compact list of the last 3–5 completed sessions for this exercise.
 
 8. **Equipment Matching Is Case-Insensitive** — DB may store mixed-case; comparisons use `.equals(..., ignoreCase = true)`.
 
-9. **No Animation Preview on ExerciseCard** — Animated WebP demos appear only inside `ExerciseDetailSheet`. Cards show static data only.
+9. **No Animation Preview on ExerciseCard** — Animated WebP demos appear only inside `ExerciseDetailScreen`. Cards show static data only.
 
 10. **Coil WebP Dependency** — `io.coil-kt:coil-compose` + `io.coil-kt:coil-gif` are required dependencies for hero animations. No ExoPlayer or YouTube SDK in the dependency graph.
 
@@ -522,7 +574,7 @@ Compact list of the last 3–5 completed sessions for this exercise.
 
 ## 11. Exercise Animation Asset Pipeline
 
-**Status:** ✅ Complete. 240 animated WebP assets bundled in `app/src/main/assets/exercise_animations/`. UI renders them via Coil in `ExerciseDetailSheet`; fallback placeholder shown for missing files.
+**Status:** ✅ Complete. 240 animated WebP assets bundled in `app/src/main/assets/exercise_animations/`. UI renders them via Coil in `ExerciseDetailScreen` (§8.3); fallback placeholder shown for missing files.
 
 ### 11.1 Source
 

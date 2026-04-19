@@ -1,5 +1,35 @@
 # PowerME Database Upgrade Log
 
+## v47 — Exercise User Notes
+
+**Migration:** `MIGRATION_46_47`
+
+### Changes
+
+- **`exercises` table:** Added column `userNote TEXT NOT NULL DEFAULT ''`
+  - Stores per-exercise user-authored notes, tips, and reminders
+  - Default empty string — backwards-compatible with existing rows
+- **`ExerciseDao`:** Added `updateUserNote(exerciseId, note, updatedAt)` query
+- **New DAO queries in `WorkoutSetDao`:** 6 new queries for exercise detail analytics
+  - `getExerciseSessionVolume(exerciseId, sinceMs)` → per-session total volume
+  - `getExerciseSessionMaxWeight(exerciseId, sinceMs)` → per-session max weight
+  - `getExerciseSessionBestSet(exerciseId, sinceMs)` → per-session best set (weight × reps)
+  - `getAllSetsForExercisePRs(exerciseId)` → all-time completed sets for PR computation
+  - `getExerciseSessionCount(exerciseId)` → total distinct session count
+  - `getExerciseRpeTrend(exerciseId, sinceMs)` → per-session avg RPE (only sessions with RPE logged)
+- **New DAO queries in `TrendsDao`:** 2 new queries for exercise history
+  - `getExerciseWorkoutHistory(exerciseId, limit, offset)` → paginated DESC history
+  - `getExerciseLastPerformed(exerciseId)` → most recent session summary
+- **New repository:** `ExerciseDetailRepository` — aggregates all exercise-detail data
+
+### Related
+
+- New full-screen route: `exercise_detail/{exerciseId}` — replaces old `ExerciseDetailSheet` bottom sheet
+- New files: `ExerciseDetailScreen.kt`, `ExerciseDetailViewModel.kt`, `ExerciseDetailModels.kt`
+- `ExercisesScreen.kt` — removed `ExerciseDetailSheet`, wired `onExerciseClick → navController`
+
+---
+
 ## v46 — Exercise Stress Vectors (Body Heatmap P6 foundation)
 
 **Migration:** `MIGRATION_45_46`

@@ -580,6 +580,25 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onSaveAsRoutine = { name -> workoutViewModel.saveWorkoutAsRoutine(name) }
             )
         }
+
+        composable(
+            route = Routes.EXERCISE_DETAIL,
+            arguments = listOf(navArgument("exerciseId") { type = NavType.LongType }),
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            ExerciseDetailScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToWorkout = { workoutId ->
+                    navController.navigate("workout_summary/$workoutId")
+                },
+                onNavigateToExerciseDetail = { exerciseId ->
+                    navController.navigate("exercise_detail/$exerciseId")
+                }
+            )
+        }
     }
 }
 
