@@ -466,7 +466,9 @@ class WorkoutViewModel @Inject constructor(
             maximizeWorkout()
             return
         }
-        _workoutState.update { it.copy(editModeSaved = false) }
+        _lastFinishedWorkoutId = null
+        _lastPendingRoutineSync = null
+        _workoutState.update { ActiveWorkoutState(availableExercises = it.availableExercises) }
         viewModelScope.launch {
             val bootstrap = workoutRepository.instantiateWorkoutFromRoutine(routineId)
             val routineExercises = routineExerciseDao.getForRoutine(routineId)
@@ -484,6 +486,7 @@ class WorkoutViewModel @Inject constructor(
                         weight = weightStr,
                         reps = ws.reps.toString(),
                         setType = ws.setType,
+                        timeSeconds = ghost?.timeSeconds?.let { if (it > 0) it.toString() else "" } ?: "",
                         ghostWeight = ghost?.weight?.let { if (it > 0.0) formatWeight(it, currentUnit) else null },
                         ghostReps = ghost?.reps?.let { if (it > 0) it.toString() else null },
                         ghostRpe = ghost?.rpe?.toString(),
@@ -510,10 +513,13 @@ class WorkoutViewModel @Inject constructor(
             }
             _workoutState.update {
                 it.copy(
-                    isActive = true, workoutId = bootstrap.workoutId,
-                    routineId = routineId, startTime = System.currentTimeMillis(),
-                    exercises = exercises, workoutName = name,
-                    routineSnapshot = snapshot, editModeSaved = false
+                    isActive = true,
+                    workoutId = bootstrap.workoutId,
+                    routineId = routineId,
+                    startTime = System.currentTimeMillis(),
+                    exercises = exercises,
+                    workoutName = name,
+                    routineSnapshot = snapshot
                 )
             }
             startElapsedTimer()
@@ -525,7 +531,9 @@ class WorkoutViewModel @Inject constructor(
             maximizeWorkout()
             return
         }
-        _workoutState.update { it.copy(editModeSaved = false) }
+        _lastFinishedWorkoutId = null
+        _lastPendingRoutineSync = null
+        _workoutState.update { ActiveWorkoutState(availableExercises = it.availableExercises) }
         viewModelScope.launch {
             val id = workoutRepository.createEmptyWorkout(routineId.takeIf { it.isNotBlank() })
             _workoutState.update {
@@ -535,8 +543,7 @@ class WorkoutViewModel @Inject constructor(
                     routineId = routineId,
                     startTime = System.currentTimeMillis(),
                     exercises = emptyList(),
-                    workoutName = "Empty Workout",
-                    editModeSaved = false
+                    workoutName = "Empty Workout"
                 )
             }
             startElapsedTimer()
@@ -553,7 +560,9 @@ class WorkoutViewModel @Inject constructor(
             maximizeWorkout()
             return
         }
-        _workoutState.update { it.copy(editModeSaved = false) }
+        _lastFinishedWorkoutId = null
+        _lastPendingRoutineSync = null
+        _workoutState.update { ActiveWorkoutState(availableExercises = it.availableExercises) }
         viewModelScope.launch {
             val dbSetsByExercise = bootstrap.workoutSets.groupBy { it.exerciseId }
             val exercises = dbSetsByExercise.entries.mapNotNull { (exerciseId, dbSets) ->
@@ -577,8 +586,7 @@ class WorkoutViewModel @Inject constructor(
                     routineId = "",
                     startTime = System.currentTimeMillis(),
                     exercises = exercises,
-                    workoutName = "AI Workout",
-                    editModeSaved = false
+                    workoutName = "AI Workout"
                 )
             }
             startElapsedTimer()
@@ -731,13 +739,16 @@ class WorkoutViewModel @Inject constructor(
             val initialSets = if (previousSets.isNotEmpty()) {
                 previousSets.mapIndexed { index, prevSet ->
                     val weightStr = formatWeight(prevSet.weight, unit)
+                    val prevTimeStr = prevSet.timeSeconds?.let { if (it > 0) it.toString() else null }
                     ActiveSet(
                         setOrder = index + 1,
                         weight = weightStr,
                         reps = prevSet.reps.toString(),
+                        timeSeconds = prevTimeStr ?: "",
                         ghostWeight = weightStr,
                         ghostReps = prevSet.reps.toString(),
-                        ghostRpe = prevSet.rpe?.toString()
+                        ghostRpe = prevSet.rpe?.toString(),
+                        ghostTimeSeconds = prevTimeStr
                     )
                 }
             } else {
@@ -1047,11 +1058,11 @@ class WorkoutViewModel @Inject constructor(
             if (wasCompleted) {
                 stopRestTimer()
             } else {
-                if (useRpeAutoPopEnabled) {
-                    _rpeAutoPopTarget.value = "${exerciseId}_${setOrder}"
-                }
                 val ex = _workoutState.value.exercises.find { it.exercise.id == exerciseId }
                 val completedSet = ex?.sets?.find { it.setOrder == setOrder }
+                if (useRpeAutoPopEnabled && completedSet?.setType == SetType.NORMAL) {
+                    _rpeAutoPopTarget.value = "${exerciseId}_${setOrder}"
+                }
                 val nextSet = ex?.sets
                     ?.filter { !it.isCompleted && it.setOrder > setOrder }
                     ?.minByOrNull { it.setOrder }
@@ -1394,6 +1405,8 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun dismissWorkoutSummary() {
+        _lastFinishedWorkoutId = null
+        _lastPendingRoutineSync = null
         _workoutState.update {
             ActiveWorkoutState(availableExercises = it.availableExercises)
         }
@@ -1577,6 +1590,18 @@ class WorkoutViewModel @Inject constructor(
     fun timerWarningTickFeedback() {
         val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
         if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep(timerSoundState.value)
+        if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
+    }
+
+    fun timerHalftimeTickFeedback() {
+        val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
+        if (settings.restTimerAudioEnabled) {
+            restTimerNotifier.playWarningBeep(timerSoundState.value)
+            viewModelScope.launch {
+                delay(150L)
+                restTimerNotifier.playWarningBeep(timerSoundState.value)
+            }
+        }
         if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
     }
 

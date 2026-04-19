@@ -514,7 +514,8 @@ private fun LazyListScope.activeWorkoutListItems(
                     rpeAutoPopTarget = rpeAutoPopTarget,
                     onConsumeRpeAutoPop = onConsumeRpeAutoPop,
                     setupSeconds = setupSeconds,
-                    onSetupCountdownTick = onSetupCountdownTick
+                    onSetupCountdownTick = onSetupCountdownTick,
+                    onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() }
                 )
             }
         } else {
@@ -566,7 +567,8 @@ private fun LazyListScope.activeWorkoutListItems(
                 rpeAutoPopTarget = rpeAutoPopTarget,
                 onConsumeRpeAutoPop = onConsumeRpeAutoPop,
                 setupSeconds = setupSeconds,
-                onSetupCountdownTick = onSetupCountdownTick
+                onSetupCountdownTick = onSetupCountdownTick,
+                onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() }
             )
         }
     }
@@ -671,7 +673,8 @@ private fun ExerciseCard(
     rpeAutoPopTarget: String? = null,
     onConsumeRpeAutoPop: () -> Unit = {},
     setupSeconds: Int = 0,
-    onSetupCountdownTick: () -> Unit = {}
+    onSetupCountdownTick: () -> Unit = {},
+    onTimerHalftimeTick: () -> Unit = {}
 ) {
     var showSetupNotesEditor by remember { mutableStateOf(false) }
     var setupNotesText by remember { mutableStateOf(exerciseWithSets.exercise.setupNotes ?: "") }
@@ -868,7 +871,8 @@ private fun ExerciseCard(
                                     shouldAutoPopRpe = shouldAutoPopRpe,
                                     onAutoPopRpeConsumed = onConsumeRpeAutoPop,
                                     setupSeconds = setupSeconds,
-                                    onSetupCountdownTick = onSetupCountdownTick
+                                    onSetupCountdownTick = onSetupCountdownTick,
+                                    onTimerHalftimeTick = onTimerHalftimeTick
                                 )
                             }
                             if (index < exerciseWithSets.sets.lastIndex) {
@@ -1050,7 +1054,8 @@ private fun SetWithRestRow(
     shouldAutoPopRpe: Boolean = false,
     onAutoPopRpeConsumed: () -> Unit = {},
     setupSeconds: Int = 0,
-    onSetupCountdownTick: () -> Unit = {}
+    onSetupCountdownTick: () -> Unit = {},
+    onTimerHalftimeTick: () -> Unit = {}
 ) {
     val setSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteSet(); true } else false })
     val restSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteRestSeparator(); true } else it == SwipeToDismissBoxValue.Settled })
@@ -1081,7 +1086,7 @@ private fun SetWithRestRow(
             Box(modifier = Modifier.fillMaxWidth().background(rowBg)) {
                 when (exerciseType) {
                     ExerciseType.CARDIO -> CardioSetRow(set, onUpdateCardioSet, onCompleteSet, shouldAutoPopRpe, onAutoPopRpeConsumed)
-                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged, onTimerFinished, onTimerWarningTick, shouldAutoPopRpe, onAutoPopRpeConsumed, setupSeconds, onSetupCountdownTick)
+                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged, onTimerFinished, onTimerWarningTick, shouldAutoPopRpe, onAutoPopRpeConsumed, onUpdateRpe, setupSeconds, onSetupCountdownTick, onTimerHalftimeTick)
                     else -> WorkoutSetRow(
                         set = set,
                         onWeightChanged = onWeightChanged,
@@ -1131,11 +1136,14 @@ private fun formatGhostLabel(weight: String?, reps: String?, rpe: String?): Stri
     return if (rpe != null) "${weight}\u00D7${reps}@${rpe}" else "${weight}\u00D7${reps}"
 }
 
-private fun formatGhostTimedLabel(weight: String?, timeSeconds: String?): String = when {
-    weight != null && timeSeconds != null -> "${weight}\u00D7${timeSeconds}s"
-    weight != null -> weight
-    timeSeconds != null -> "${timeSeconds}s"
-    else -> "—"
+private fun formatGhostTimedLabel(weight: String?, timeSeconds: String?, rpe: String?): String {
+    val base = when {
+        weight != null && timeSeconds != null -> "${weight}\u00D7${timeSeconds}s"
+        weight != null -> weight
+        timeSeconds != null -> "${timeSeconds}s"
+        else -> return "—"
+    }
+    return if (rpe != null) "$base@$rpe" else base
 }
 
 @Composable
@@ -1772,9 +1780,10 @@ private fun TimedHeader() {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text("SET", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(SET_COL_WEIGHT))
         Text("PREV", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(PREV_COL_WEIGHT).clickable { showPrevTooltip = true })
-        Text("WEIGHT", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(WEIGHT_COL_WEIGHT))
-        Text("TIME(S)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.25f))
-        Spacer(modifier = Modifier.weight(0.20f))
+        Text("WEIGHT", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.22f))
+        Text("TIME(S)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.20f))
+        Text("RPE", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), textAlign = TextAlign.Center, modifier = Modifier.weight(0.10f))
+        Spacer(modifier = Modifier.weight(0.18f))
     }
 }
 
@@ -1879,8 +1888,10 @@ fun TimedSetRow(
     onTimerWarningTick: () -> Unit = {},
     shouldAutoPopRpe: Boolean = false,
     onAutoPopRpeConsumed: () -> Unit = {},
+    onUpdateRpe: (Int?) -> Unit = {},
     setupSeconds: Int = 0,
-    onSetupCountdownTick: () -> Unit = {}
+    onSetupCountdownTick: () -> Unit = {},
+    onTimerHalftimeTick: () -> Unit = {}
 ) {
     val totalSeconds = set.timeSeconds.toIntOrNull() ?: 0
     var timerState by remember(set.id) { mutableStateOf(if (set.isCompleted) TimedSetState.COMPLETED else TimedSetState.IDLE) }
@@ -1923,6 +1934,9 @@ fun TimedSetRow(
                     if (remainingSeconds in 1..3) {
                         onTimerWarningTick()
                     }
+                    if (totalSeconds > 1 && remainingSeconds == totalSeconds / 2) {
+                        onTimerHalftimeTick()
+                    }
                 }
                 if (timerState == TimedSetState.RUNNING) {
                     timerState = TimedSetState.COMPLETED
@@ -1949,8 +1963,7 @@ fun TimedSetRow(
         RpePickerSheet(
             currentRpe = set.rpeValue,
             onUpdateRpe = { value ->
-                val rpeText = value?.let { "%.1f".format(it / 10.0) } ?: ""
-                onUpdateSet(time, rpeText, set.isCompleted)
+                onUpdateRpe(value)
                 showRpePicker = false
             },
             onDismiss = { showRpePicker = false }
@@ -1968,7 +1981,7 @@ fun TimedSetRow(
                 }
                 Box(modifier = Modifier.weight(PREV_COL_WEIGHT).fillMaxHeight(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = formatGhostTimedLabel(set.ghostWeight, set.ghostTimeSeconds),
+                        text = formatGhostTimedLabel(set.ghostWeight, set.ghostTimeSeconds, set.ghostRpe),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         maxLines = 1,
@@ -1978,18 +1991,35 @@ fun TimedSetRow(
                 WorkoutInputField(
                     value = weight,
                     onValueChange = onWeightChanged,
-                    modifier = Modifier.weight(WEIGHT_COL_WEIGHT).padding(horizontal = 2.dp),
+                    modifier = Modifier.weight(0.22f).padding(horizontal = 2.dp),
                     placeholder = "0"
                 )
                 WorkoutInputField(
                     value = time,
                     onValueChange = { onTimeChanged(it) },
-                    modifier = Modifier.weight(0.25f).padding(horizontal = 2.dp),
+                    modifier = Modifier.weight(0.20f).padding(horizontal = 2.dp),
                     placeholder = "0"
                 )
                 Box(
                     modifier = Modifier
-                        .weight(0.14f)
+                        .weight(0.10f)
+                        .fillMaxHeight()
+                        .clickable { showRpePicker = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    val rpeText = set.rpeValue?.let { v ->
+                        val d = v / 10.0
+                        if (d == d.toLong().toDouble()) d.toLong().toString() else "%.1f".format(d)
+                    } ?: "—"
+                    Text(
+                        text = rpeText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (set.rpeValue != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(0.12f)
                         .fillMaxHeight()
                         .padding(horizontal = 2.dp)
                         .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.extraSmall)
@@ -2181,7 +2211,7 @@ fun TimedSetRow(
                 }
                 Box(modifier = Modifier.weight(PREV_COL_WEIGHT).fillMaxHeight(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = formatGhostTimedLabel(set.ghostWeight, set.ghostTimeSeconds),
+                        text = formatGhostTimedLabel(set.ghostWeight, set.ghostTimeSeconds, set.ghostRpe),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         maxLines = 1,
@@ -2191,16 +2221,44 @@ fun TimedSetRow(
                 WorkoutInputField(
                     value = weight,
                     onValueChange = onWeightChanged,
-                    modifier = Modifier.weight(WEIGHT_COL_WEIGHT).padding(horizontal = 2.dp),
+                    modifier = Modifier.weight(0.22f).padding(horizontal = 2.dp),
                     placeholder = "0"
                 )
                 WorkoutInputField(
                     value = time,
                     onValueChange = { onTimeChanged(it) },
-                    modifier = Modifier.weight(0.25f).padding(horizontal = 2.dp),
+                    modifier = Modifier.weight(0.20f).padding(horizontal = 2.dp),
                     placeholder = "0"
                 )
-                Spacer(modifier = Modifier.weight(0.10f))
+                Box(
+                    modifier = Modifier
+                        .weight(0.10f)
+                        .fillMaxHeight()
+                        .clickable { showRpePicker = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    val rpeText = set.rpeValue?.let { v ->
+                        val d = v / 10.0
+                        if (d == d.toLong().toDouble()) d.toLong().toString() else "%.1f".format(d)
+                    } ?: "—"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = rpeText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (set.rpeValue != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        )
+                        if (set.rpeValue != null) {
+                            Spacer(modifier = Modifier.width(2.dp))
+                            when (rpeCategory(set.rpeValue)) {
+                                RpeCategory.GOLDEN -> Text("✦", fontSize = 10.sp, color = GoldenRPE)
+                                RpeCategory.MAX_EFFORT -> Box(modifier = Modifier.size(6.dp).background(ProError, CircleShape))
+                                RpeCategory.MODERATE -> Box(modifier = Modifier.size(6.dp).background(ReadinessAmber, CircleShape))
+                                RpeCategory.LOW -> Box(modifier = Modifier.size(6.dp).background(Color.Gray, CircleShape))
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.weight(0.08f))
                 Box(
                     modifier = Modifier
                         .weight(0.10f)

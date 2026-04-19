@@ -2366,6 +2366,153 @@ class WorkoutViewModelTest {
         assertNull("consumeRpeAutoPop() should reset signal to null", target)
     }
 
+    @Test
+    fun `completeSet with rpeAutoPop enabled does not emit rpeAutoPopTarget for Warmup set`() = vmTest {
+        val exercise = Exercise(id = 84L, name = "Bar Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            context = mockContext
+        )
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+        viewModel.selectSetType(84L, 1, SetType.WARMUP)
+        runCurrent()
+
+        viewModel.completeSet(84L, 1)
+        runCurrent()
+
+        val target = viewModel.rpeAutoPopTarget.value
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertNull("RPE auto-pop should not fire for Warmup sets", target)
+    }
+
+    @Test
+    fun `completeSet with rpeAutoPop enabled does not emit rpeAutoPopTarget for Drop set`() = vmTest {
+        val exercise = Exercise(id = 85L, name = "Cable Curl", muscleGroup = "Biceps", equipmentType = "Cable")
+        runBlocking {
+            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            context = mockContext
+        )
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+        viewModel.selectSetType(85L, 1, SetType.DROP)
+        runCurrent()
+
+        viewModel.completeSet(85L, 1)
+        runCurrent()
+
+        val target = viewModel.rpeAutoPopTarget.value
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertNull("RPE auto-pop should not fire for Drop sets", target)
+    }
+
+    @Test
+    fun `completeSet with rpeAutoPop enabled does not emit rpeAutoPopTarget for Failure set`() = vmTest {
+        val exercise = Exercise(id = 86L, name = "Leg Press", muscleGroup = "Legs", equipmentType = "Machine")
+        runBlocking {
+            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            context = mockContext
+        )
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+        viewModel.selectSetType(86L, 1, SetType.FAILURE)
+        runCurrent()
+
+        viewModel.completeSet(86L, 1)
+        runCurrent()
+
+        val target = viewModel.rpeAutoPopTarget.value
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertNull("RPE auto-pop should not fire for Failure sets", target)
+    }
+
     // -------------------------------------------------------------------------
     // ghostRpe population when starting from routine
     // -------------------------------------------------------------------------
@@ -2448,4 +2595,212 @@ class WorkoutViewModelTest {
 
         assertNull("ghostRpe should be null when previous session had no RPE", ghostRpe)
     }
+
+    // -------------------------------------------------------------------------
+    // BUG_post_workout_state_not_cleared — state reset on new workout start
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `startWorkout clears pendingWorkoutSummary from previous workout`() =
+        vmTest {
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.finishWorkout()
+            runCurrent()
+
+            assertNotNull(viewModel.workoutState.value.pendingWorkoutSummary)
+
+            // Start new workout WITHOUT dismissing summary first
+            viewModel.startWorkout("")
+            runCurrent()
+
+            assertNull(viewModel.workoutState.value.pendingWorkoutSummary)
+            assertTrue(viewModel.workoutState.value.isActive)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    @Test
+    fun `startWorkout clears lastFinishedWorkoutId from previous workout`() =
+        vmTest {
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.finishWorkout()
+            runCurrent()
+
+            assertNotNull(viewModel.lastFinishedWorkoutId)
+
+            viewModel.startWorkout("")
+            runCurrent()
+
+            assertNull(viewModel.lastFinishedWorkoutId)
+            assertNull(viewModel.lastPendingRoutineSync)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    @Test
+    fun `startWorkout resets all transient state from previous workout`() =
+        vmTest {
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.finishWorkout()
+            runCurrent()
+
+            viewModel.startWorkout("")
+            runCurrent()
+
+            val state = viewModel.workoutState.value
+            assertTrue(state.hiddenRestSeparators.isEmpty())
+            assertTrue(state.restTimeOverrides.isEmpty())
+            assertTrue(state.collapsedExerciseIds.isEmpty())
+            assertTrue(state.deletedSetClipboard.isEmpty())
+            assertNull(state.pendingRoutineSync)
+            assertFalse(state.isEditMode)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    @Test
+    fun `dismissWorkoutSummary clears lastFinishedWorkoutId`() =
+        vmTest {
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.finishWorkout()
+            runCurrent()
+
+            assertNotNull(viewModel.lastFinishedWorkoutId)
+
+            viewModel.dismissWorkoutSummary()
+
+            assertNull(viewModel.lastFinishedWorkoutId)
+            assertNull(viewModel.lastPendingRoutineSync)
+        }
+
+    // -------------------------------------------------------------------------
+    // Timed exercise ghost data and duration pre-fill
+    // BUG_timed_exercise_prev_only_first_set, BUG_timed_exercise_time_not_persisted,
+    // BUG_timed_exercise_prev_rpe_missing
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `addExercise populates ghostTimeSeconds for all set indices from previous session`() =
+        vmTest {
+            val timedExercise = Exercise(
+                id = 42L, name = "Plank", muscleGroup = "Core", equipmentType = "None",
+                exerciseType = ExerciseType.TIMED
+            )
+            val prevSets = listOf(
+                WorkoutSet(id = "ps1", workoutId = "old-w", exerciseId = 42L, setOrder = 1, weight = 0.0, reps = 0, timeSeconds = 60),
+                WorkoutSet(id = "ps2", workoutId = "old-w", exerciseId = 42L, setOrder = 2, weight = 0.0, reps = 0, timeSeconds = 45),
+                WorkoutSet(id = "ps3", workoutId = "old-w", exerciseId = 42L, setOrder = 3, weight = 0.0, reps = 0, timeSeconds = 30)
+            )
+            runBlocking {
+                whenever(mockWorkoutSetDao.getPreviousSessionSets(eq(42L), any())).thenReturn(prevSets)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            }
+
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.addExercise(timedExercise)
+            runCurrent()
+
+            val sets = viewModel.workoutState.value.exercises.first().sets
+            assertEquals(3, sets.size)
+            assertEquals("60", sets[0].ghostTimeSeconds)
+            assertEquals("45", sets[1].ghostTimeSeconds)
+            assertEquals("30", sets[2].ghostTimeSeconds)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    @Test
+    fun `addExercise pre-fills timeSeconds from previous session for all sets`() =
+        vmTest {
+            val timedExercise = Exercise(
+                id = 43L, name = "Wall Sit", muscleGroup = "Legs", equipmentType = "None",
+                exerciseType = ExerciseType.TIMED
+            )
+            val prevSets = listOf(
+                WorkoutSet(id = "ps1", workoutId = "old-w", exerciseId = 43L, setOrder = 1, weight = 0.0, reps = 0, timeSeconds = 60),
+                WorkoutSet(id = "ps2", workoutId = "old-w", exerciseId = 43L, setOrder = 2, weight = 0.0, reps = 0, timeSeconds = 60)
+            )
+            runBlocking {
+                whenever(mockWorkoutSetDao.getPreviousSessionSets(eq(43L), any())).thenReturn(prevSets)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            }
+
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.addExercise(timedExercise)
+            runCurrent()
+
+            val sets = viewModel.workoutState.value.exercises.first().sets
+            assertEquals("60", sets[0].timeSeconds)
+            assertEquals("60", sets[1].timeSeconds)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    @Test
+    fun `addExercise populates ghostRpe for timed exercise sets from previous session`() =
+        vmTest {
+            val timedExercise = Exercise(
+                id = 44L, name = "Dead Hang", muscleGroup = "Back", equipmentType = "None",
+                exerciseType = ExerciseType.TIMED
+            )
+            val prevSets = listOf(
+                WorkoutSet(id = "ps1", workoutId = "old-w", exerciseId = 44L, setOrder = 1, weight = 0.0, reps = 0, timeSeconds = 30, rpe = 8),
+                WorkoutSet(id = "ps2", workoutId = "old-w", exerciseId = 44L, setOrder = 2, weight = 0.0, reps = 0, timeSeconds = 25, rpe = 9)
+            )
+            runBlocking {
+                whenever(mockWorkoutSetDao.getPreviousSessionSets(eq(44L), any())).thenReturn(prevSets)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            }
+
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.addExercise(timedExercise)
+            runCurrent()
+
+            val sets = viewModel.workoutState.value.exercises.first().sets
+            assertEquals("8", sets[0].ghostRpe)
+            assertEquals("9", sets[1].ghostRpe)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
+
+    @Test
+    fun `addExercise with zero timeSeconds in previous session does not pre-fill timeSeconds`() =
+        vmTest {
+            val timedExercise = Exercise(
+                id = 45L, name = "L-Sit", muscleGroup = "Core", equipmentType = "None",
+                exerciseType = ExerciseType.TIMED
+            )
+            val prevSets = listOf(
+                WorkoutSet(id = "ps1", workoutId = "old-w", exerciseId = 45L, setOrder = 1, weight = 0.0, reps = 0, timeSeconds = 0)
+            )
+            runBlocking {
+                whenever(mockWorkoutSetDao.getPreviousSessionSets(eq(45L), any())).thenReturn(prevSets)
+                whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            }
+
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.addExercise(timedExercise)
+            runCurrent()
+
+            val sets = viewModel.workoutState.value.exercises.first().sets
+            assertEquals("", sets[0].timeSeconds)
+            assertNull(sets[0].ghostTimeSeconds)
+
+            viewModel.cancelWorkout()
+            runCurrent()
+        }
 }
