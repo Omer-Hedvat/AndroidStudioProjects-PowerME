@@ -34,7 +34,7 @@ Single source of truth for bug status across sessions.
 | [BUG_toggle_colors_inconsistent](BUG_toggle_colors_inconsistent.md) | Switch/Toggle colors inconsistent across screens | ✅ Wrapped | P3 | — | — | `SettingsScreen.kt`, `ActiveWorkoutScreen.kt` |
 | [BUG_trends_card_crash_on_open](BUG_trends_card_crash_on_open.md) | Trends card crashes when opened | ✅ Wrapped | P0 | — | — | `VolumeTrendCard.kt`, `E1RMProgressionCard.kt`, `MuscleGroupVolumeCard.kt`, `EffectiveSetsCard.kt` |
 | [BUG_next_field_not_selected_on_confirm](BUG_next_field_not_selected_on_confirm.md) | Next input field not auto-selected when confirming with checkmark | ✅ Completed | P2 | — | — | `WorkoutInputField.kt` |
-| [BUG_history_edit_unreadable_values_v2](BUG_history_edit_unreadable_values_v2.md) | History edit values unreadable (regression) | ✅ Completed | P1 | — | — | `WorkoutDetailScreen.kt` |
+| [BUG_history_edit_unreadable_values_v2](BUG_history_edit_unreadable_values_v2.md) | History edit values unreadable (regression) | ✅ Wrapped | P1 | — | — | `WorkoutDetailScreen.kt` |
 | [BUG_prev_session_rpe_missing](BUG_prev_session_rpe_missing.md) | RPE missing from previous session values in active workout | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_fitness_level_not_persisted](BUG_fitness_level_not_persisted.md) | Fitness level selection doesn't persist after app restart | ✅ Wrapped | P1 | — | — | `FirestoreSyncManager.kt`, `ProfileViewModelPersonalInfoTest.kt` |
 | [BUG_body_metrics_not_populated_from_hc](BUG_body_metrics_not_populated_from_hc.md) | Body Metrics weight/body fat not populated from Health Connect | ✅ Wrapped | P1 | — | — | `ProfileViewModel.kt`, `ProfileViewModelPersonalInfoTest.kt` |
