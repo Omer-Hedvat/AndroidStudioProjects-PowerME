@@ -313,6 +313,49 @@ class MetricsViewModelBodyVitalsTest {
     }
 
     @Test
+    fun `syncHealthConnect - uses returned HC result even when DB write failed and getLatestSync returns null`() = runTest(testDispatcher) {
+        val extendedHcResult = sampleHcResult.copy(
+            avgHeartRateBpm = 72,
+            vo2MaxMlKgMin = 45.5,
+            spo2Percent = 97.0,
+            lowSpO2Flag = false,
+            activeCaloriesKcal = 520.0,
+            distanceMetres = 6200.0,
+            sleepScore = 78
+        )
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockUserSessionManager.getCurrentUser()).thenReturn(sampleUser)
+            // Simulate DB write failure: getLatestSync returns null (table empty)
+            whenever(mockHealthConnectSyncDao.getLatestSync()).thenReturn(null)
+            whenever(mockHealthConnectManager.syncAndRead()).thenReturn(extendedHcResult)
+        }
+
+        val vm = buildViewModel()
+        runCurrent()
+
+        vm.syncHealthConnect()
+        runCurrent()
+
+        val vitals = vm.uiState.value.bodyVitals
+        // Core vitals from live HC result — must not be null even though DB has no row
+        assertEquals(450, vitals.sleepMinutes)
+        assertEquals(48.0, vitals.hrvMs!!, 0.001)
+        assertEquals(58, vitals.rhrBpm)
+        assertEquals(7842, vitals.stepsToday)
+        // Extended vitals from live HC result
+        assertEquals(72, vitals.avgHeartRateBpm)
+        assertEquals(45.5, vitals.vo2MaxMlKgMin!!, 0.01)
+        assertEquals(97.0, vitals.spo2Percent!!, 0.01)
+        assertFalse(vitals.lowSpO2Flag)
+        assertEquals(520.0, vitals.activeCaloriesKcal!!, 0.01)
+        assertEquals(6200.0, vitals.distanceMetres!!, 0.01)
+        assertEquals(78, vitals.sleepScore)
+        assertNull(vitals.syncError)
+    }
+
+    @Test
     fun `syncHealthConnect - sets syncError on failure`() = runTest(testDispatcher) {
         whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
         runBlocking {

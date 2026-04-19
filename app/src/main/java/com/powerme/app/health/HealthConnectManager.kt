@@ -1,6 +1,7 @@
 package com.powerme.app.health
 
 import android.content.Context
+import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -102,6 +103,8 @@ class HealthConnectManager @Inject constructor(
 ) {
 
     companion object {
+        private const val TAG = "PowerME_HC"
+
         /** The 7 read permissions that determine "Connected" status in the UI. */
         val CORE_PERMISSIONS: Set<String> = setOf(
             HealthPermission.getReadPermission(WeightRecord::class),
@@ -271,7 +274,7 @@ class HealthConnectManager @Inject constructor(
             distanceMetres = distance.await(),
             spo2Percent = spo2Result,
             lowSpO2Flag = spo2Result != null && spo2Result < 92.0
-        )
+        ).also { Log.d(TAG, "readAllData: $it") }
     }
 
     suspend fun syncAndRead(): HealthConnectReadResult {
@@ -310,7 +313,10 @@ class HealthConnectManager @Inject constructor(
                 userSessionManager.updateBodyMetricsFromHc(
                     weightKg = result.weight, bodyFatPercent = result.bodyFat, heightCm = result.height?.toDouble()
                 )
-            } catch (e: Exception) { e.printStackTrace() }
+                Log.d(TAG, "syncAndRead: DB write succeeded for ${LocalDate.now()}")
+            } catch (e: Exception) {
+                Log.e(TAG, "syncAndRead: DB write FAILED — Metrics screen will use live HC values as fallback", e)
+            }
         }
         return result
     }

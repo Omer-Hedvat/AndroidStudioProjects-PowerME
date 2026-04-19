@@ -28,18 +28,23 @@ Root cause likely: the selected time range is not being passed to the TrendsDao 
 - Related spec: `future_devs/TRENDS_CHARTS_SPEC.md §Step 5`
 
 ## Fix Notes
-Root cause: The `getWeeklyEffectiveSets` SQL had the same weekStartMs bug as
-`getWeeklyMuscleGroupVolume` — `MIN(w.timestamp)` per (weekBucket, majorGroup) returned
-a different timestamp for each muscle group depending on which day of the week it was trained.
-This caused the chart to treat each workout as a separate bar, making all time ranges look
-identical in structure (just more or fewer workout-bars, not week-bars).
 
-The ViewModel wiring (setTimeRange → loadAll → loadEffectiveSets) was already correct.
-The SQL filter `w.timestamp >= :sinceMs` was correctly applied. The visual "same data"
-symptom was caused by the grouping bug making every workout appear as a separate bar
-regardless of range.
+### First fix (SQL grouping — landed, QA failed)
+Root cause identified: `getWeeklyEffectiveSets` SQL used `MIN(w.timestamp)` per `(weekBucket, majorGroup)`, giving each muscle group a different `weekStartMs` for the same ISO week. Every workout appeared as a separate bar, making all time ranges look structurally identical.
 
-Fix: replaced `MIN(w.timestamp)` with `(w.timestamp / 604800000 * 604800000)` in both
-queries. Now weekStartMs is the epoch-aligned week boundary, identical for all muscle groups
-in the same week. The filter chips now produce visually distinct results as the week count
-changes proportionally with the selected range.
+Fix: replaced `MIN(w.timestamp)` with `(w.timestamp / 604800000 * 604800000)` so all muscle groups trained in the same week share the same epoch-aligned `weekStartMs`. ViewModel wiring and SQL `w.timestamp >= :sinceMs` filter were already correct.
+
+QA result: still showed "same data" for all chips after this fix.
+
+### Second fix (push-job race condition — resolves QA failure)
+Root cause: Each `push<Chart>ToProducer` launches `viewModelScope.launch { ... }` **outside** the `loadJob` scope. When the user taps a chip while a previous `loadAll()` is still running:
+1. `loadJob.cancel()` stops the in-flight DAO query, but
+2. any already-launched push coroutine continues to run in `viewModelScope`.
+
+If the slower (larger-range) push's `runTransaction` completes **after** the newer push, stale data overwrites the chart. The effective-sets query (3 JOINs + GROUP BY + RPE filter) is the slowest, making this card most susceptible.
+
+Fix: added six `*PushJob: Job?` fields to `TrendsViewModel` — one per producer. Each `push*ToProducer` method cancels its prior job before launching a new one (`effectiveSetsPushJob?.cancel(); effectiveSetsPushJob = viewModelScope.launch { … }`). Applied symmetrically to all six push methods to eliminate the same latent race on other charts.
+
+Also fixed `TrendsViewModelDeepLinkTest.tearDown()` — was missing `Thread.sleep(100)` before `resetMain()`, same guard that `TrendsViewModelEffectiveSetsFilterTest` already had for Vico's real background thread.
+
+New test file: `TrendsRepositoryEffectiveSetsTest.kt` — 10 tests verifying correct `sinceMs` per range for `getWeeklyEffectiveSets` and `getEffectiveSetsCoverage`, plus data mapping and edge cases. All 10 pass.

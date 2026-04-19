@@ -118,20 +118,20 @@ class MetricsViewModel @Inject constructor(
                 bodyFatPct = bodyFatPct,
                 heightCm = heightCm,
                 bmi = bmi,
-                sleepMinutes = latestSync?.sleepDurationMinutes,
-                hrvMs = latestSync?.hrv,
-                rhrBpm = latestSync?.rhr,
-                stepsToday = latestSync?.steps,
-                lastSyncTimestamp = latestSync?.syncTimestamp,
+                sleepMinutes = latestSync?.sleepDurationMinutes ?: it.bodyVitals.sleepMinutes,
+                hrvMs = latestSync?.hrv ?: it.bodyVitals.hrvMs,
+                rhrBpm = latestSync?.rhr ?: it.bodyVitals.rhrBpm,
+                stepsToday = latestSync?.steps ?: it.bodyVitals.stepsToday,
+                lastSyncTimestamp = latestSync?.syncTimestamp ?: it.bodyVitals.lastSyncTimestamp,
                 weightDelta7d = compute7dDelta(_uiState.value.weightEntries),
                 bodyFatDelta7d = compute7dDelta(_uiState.value.bodyFatEntries),
-                sleepScore = latestSync?.sleepScore,
-                avgHeartRateBpm = latestSync?.avgHeartRateBpm,
-                vo2MaxMlKgMin = latestSync?.vo2MaxMlKgMin,
-                spo2Percent = latestSync?.spo2Percent,
-                lowSpO2Flag = latestSync?.lowSpO2Flag ?: false,
-                activeCaloriesKcal = latestSync?.activeCaloriesKcal,
-                distanceMetres = latestSync?.distanceMetres
+                sleepScore = latestSync?.sleepScore ?: it.bodyVitals.sleepScore,
+                avgHeartRateBpm = latestSync?.avgHeartRateBpm ?: it.bodyVitals.avgHeartRateBpm,
+                vo2MaxMlKgMin = latestSync?.vo2MaxMlKgMin ?: it.bodyVitals.vo2MaxMlKgMin,
+                spo2Percent = latestSync?.spo2Percent ?: it.bodyVitals.spo2Percent,
+                lowSpO2Flag = latestSync?.lowSpO2Flag ?: it.bodyVitals.lowSpO2Flag,
+                activeCaloriesKcal = latestSync?.activeCaloriesKcal ?: it.bodyVitals.activeCaloriesKcal,
+                distanceMetres = latestSync?.distanceMetres ?: it.bodyVitals.distanceMetres
             ))
         }
     }
@@ -140,7 +140,26 @@ class MetricsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(isSyncing = true, syncError = null)) }
             try {
-                healthConnectManager.syncAndRead()
+                val result = healthConnectManager.syncAndRead()
+                // Apply HC result directly so data shows even if the DB write failed silently
+                _uiState.update {
+                    it.copy(bodyVitals = it.bodyVitals.copy(
+                        hcAvailability = HcAvailability.AVAILABLE_GRANTED,
+                        sleepMinutes = result.sleepMinutes,
+                        hrvMs = result.hrv,
+                        rhrBpm = result.rhr,
+                        stepsToday = result.steps,
+                        lastSyncTimestamp = System.currentTimeMillis(),
+                        sleepScore = result.sleepScore,
+                        avgHeartRateBpm = result.avgHeartRateBpm,
+                        vo2MaxMlKgMin = result.vo2MaxMlKgMin,
+                        spo2Percent = result.spo2Percent,
+                        lowSpO2Flag = result.lowSpO2Flag,
+                        activeCaloriesKcal = result.activeCaloriesKcal,
+                        distanceMetres = result.distanceMetres
+                    ))
+                }
+                // Reload from DB for weight/bodyFat deltas and user profile — null-coalesces with live values above
                 doLoadBodyVitals()
             } catch (e: Exception) {
                 _uiState.update { it.copy(bodyVitals = it.bodyVitals.copy(syncError = e.message ?: "Sync failed")) }
