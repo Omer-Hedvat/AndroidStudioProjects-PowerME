@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
@@ -35,6 +34,7 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.*
 import com.patrykandpatrick.vico.compose.cartesian.layer.*
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.core.cartesian.AutoScrollCondition
 import com.patrykandpatrick.vico.core.cartesian.Scroll
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.fill
@@ -181,12 +181,14 @@ fun E1RMProgressionCard(
                 fill = LineCartesianLayer.LineFill.single(
                     fill(VicoChartHelpers.LinePrimary)
                 ),
+                areaFill = null,
                 thickness = 2.dp
             )
             val maLine = LineCartesianLayer.rememberLine(
                 fill = LineCartesianLayer.LineFill.single(
                     fill(VicoChartHelpers.LineSecondary.copy(alpha = 0.8f))
                 ),
+                areaFill = null,
                 thickness = 1.5.dp
             )
 
@@ -216,35 +218,13 @@ fun E1RMProgressionCard(
                     ),
                     modelProducer = modelProducer,
                     modifier = Modifier.matchParentSize(),
-                    scrollState = rememberVicoScrollState(initialScroll = Scroll.Absolute.End)
+                    scrollState = rememberVicoScrollState(
+                        initialScroll = Scroll.Absolute.End,
+                        autoScroll = Scroll.Absolute.End,
+                        autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
+                    )
                 )
 
-                // Overlay when insufficient data or no exercises
-                if (!hasData) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(MaterialTheme.colorScheme.surface),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val exerciseName = e1rmData?.exerciseName
-                            ?: exercisePickerItems.firstOrNull { it.id == selectedExerciseId }?.name
-                        val message = when {
-                            exercisePickerItems.isEmpty() ->
-                                "Complete workouts with weighted sets\nto track strength progression"
-                            exerciseName != null ->
-                                "Log at least 2 sessions of $exerciseName\nto see strength progression"
-                            else ->
-                                "Select an exercise above to see progression"
-                        }
-                        Text(
-                            text = message,
-                            fontSize = 13.sp,
-                            color = ProSubGrey,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
             }
 
             // ── Legend (only when chart has data) ─────────────────────────────

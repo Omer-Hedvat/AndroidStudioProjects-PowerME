@@ -1,6 +1,5 @@
 package com.powerme.app.ui.metrics.charts
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +19,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
@@ -28,6 +26,7 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.*
 import com.patrykandpatrick.vico.compose.cartesian.layer.*
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.core.cartesian.AutoScrollCondition
 import com.patrykandpatrick.vico.core.cartesian.Scroll
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
@@ -187,24 +186,13 @@ fun VolumeTrendCard(
                     ),
                     modelProducer = modelProducer,
                     modifier = Modifier.matchParentSize(),
-                    scrollState = rememberVicoScrollState(initialScroll = Scroll.Absolute.End)
+                    scrollState = rememberVicoScrollState(
+                        initialScroll = Scroll.Absolute.End,
+                        autoScroll = Scroll.Absolute.End,
+                        autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
+                    )
                 )
 
-                if (points.size < 2) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(MaterialTheme.colorScheme.surface),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Log at least 2 weeks of workouts\nto see volume trends",
-                            fontSize = 13.sp,
-                            color = ProSubGrey,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
             }
         }
     }

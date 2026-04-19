@@ -35,6 +35,9 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.core.cartesian.AutoScrollCondition
+import com.patrykandpatrick.vico.core.cartesian.Scroll
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
@@ -171,24 +174,14 @@ fun MuscleGroupVolumeCard(
                         )
                     ),
                     modelProducer = modelProducer,
-                    modifier = Modifier.matchParentSize()
+                    modifier = Modifier.matchParentSize(),
+                    scrollState = rememberVicoScrollState(
+                        initialScroll = Scroll.Absolute.End,
+                        autoScroll = Scroll.Absolute.End,
+                        autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
+                    )
                 )
 
-                if (weeks.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(MaterialTheme.colorScheme.surface),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Log at least 1 week of workouts\nto see muscle breakdown",
-                            fontSize = 13.sp,
-                            color = ProSubGrey,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
             }
 
             // ── Legend (only when data exists) ────────────────────────────────
