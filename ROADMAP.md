@@ -57,6 +57,9 @@ Core workout loop improvements. Independent of all other phases.
 | Golden RPE indicator (8–9 highlight) | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §1` | S | `done` | — |
 | Timed exercise countdown timer | `ACTIVE_WORKOUT_ENHANCEMENTS_SPEC.md §3` | M | `done` | — |
 | Timed exercise — half-time double beep | `future_devs/TIMED_EXERCISE_HALFTIME_BEEP_SPEC.md` | XS | `wrapped` | Timed exercise countdown timer ✅ |
+| Warmup sets — auto-collapse after completion | `future_devs/WARMUP_SETS_AUTO_COLLAPSE_SPEC.md` | S | `not-started` | — |
+| Numeric keyboard ±1 increment/decrement buttons | `future_devs/NUMERIC_KEYBOARD_PLUS_MINUS_SPEC.md` | S | `not-started` | — |
+| Watch & phone workout notifications | `future_devs/WATCH_WORKOUT_NOTIFICATIONS_SPEC.md` | L | `not-started` | — |
 
 ---
 
