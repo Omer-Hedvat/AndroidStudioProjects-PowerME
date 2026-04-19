@@ -59,10 +59,11 @@ Single source of truth for bug status across sessions.
 | [BUG_timed_exercise_prev_rpe_missing](BUG_timed_exercise_prev_rpe_missing.md) | RPE missing from PREV column for timed exercises | ✅ Wrapped | P2 | — | — | `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_timed_exercise_prev_only_first_set](BUG_timed_exercise_prev_only_first_set.md) | Timed exercise PREV data only shown for first set, not subsequent sets | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_timed_exercise_time_not_persisted](BUG_timed_exercise_time_not_persisted.md) | Timed exercise target duration resets to 0 between workouts | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_routine_sync_card_no_dismiss](BUG_routine_sync_card_no_dismiss.md) | Routine sync card doesn't dismiss after tapping Update/Keep on post-workout summary | ✅ Completed | P1 | BUG_post_workout_triple_sync_prompt ✅ | — | `WorkoutSummaryViewModel.kt`, `WorkoutSummaryScreen.kt`, `WorkoutSummaryViewModelTest.kt` |
+| [BUG_routine_sync_card_no_dismiss](BUG_routine_sync_card_no_dismiss.md) | Routine sync card doesn't dismiss after tapping Update/Keep on post-workout summary | ✅ Wrapped | P1 | BUG_post_workout_triple_sync_prompt ✅ | — | `WorkoutSummaryViewModel.kt`, `WorkoutSummaryScreen.kt`, `WorkoutSummaryViewModelTest.kt` |
 | [BUG_body_stress_map_no_time_decay](BUG_body_stress_map_no_time_decay.md) | Body stress heatmap does not update stress decay on resume | ✅ Completed | P2 | — | — | `TrendsViewModel.kt`, `MetricsScreen.kt`, `TrendsViewModelBodyStressRefreshTest.kt` |
 | [BUG_summary_set_rpe_format](BUG_summary_set_rpe_format.md) | Workout summary set rows show RPE right-aligned instead of inline (REPSxWEIGHT@RPE) | ✅ Completed | P2 | History card set details ✅ | — | `WorkoutSummaryScreen.kt` |
 | [BUG_exercise_joints_rework](BUG_exercise_joints_rework.md) | Exercise joint indicators — no primary/secondary split, chips look interactive, health-history tint wrong | ~~Superseded~~ | P2 | — | — | Absorbed into `EXERCISE_DETAIL_SHEET_REVISION_SPEC.md` |
+| [BUG_timed_exercise_parallel_timers](BUG_timed_exercise_parallel_timers.md) | Timed exercise — rest timer and setup timer run in parallel when set fires | 🔵 Open | P1 | — | — | — |
 
 ---
 

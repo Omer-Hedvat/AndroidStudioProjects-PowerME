@@ -67,6 +67,8 @@ class WorkoutSummaryViewModelTest {
         reps: Int = 5,
         rpe: Int? = null,
         setType: SetType = SetType.NORMAL,
+        setOrder: Int = 1,
+        isCompleted: Boolean = true,
         supersetGroupId: String? = null,
         exerciseName: String = "Bench Press",
         muscleGroup: String? = "Chest"
@@ -74,14 +76,14 @@ class WorkoutSummaryViewModelTest {
         id = UUID.randomUUID().toString(),
         workoutId = workoutId,
         exerciseId = exerciseId,
-        setOrder = 1,
+        setOrder = setOrder,
         weight = weight,
         reps = reps,
         rpe = rpe,
         setType = setType,
         setNotes = null,
         supersetGroupId = supersetGroupId,
-        isCompleted = true,
+        isCompleted = isCompleted,
         exerciseName = exerciseName,
         muscleGroup = muscleGroup,
         equipmentType = null,
@@ -510,5 +512,190 @@ class WorkoutSummaryViewModelTest {
         advanceUntilIdle()
 
         assertNull(vm.uiState.value.pendingRoutineSync)
+    }
+
+    // ── Set detail list ───────────────────────────────────────────────────────
+
+    @Test
+    fun `sets populated with correct labels for mixed set types`() = runTest(testDispatcher) {
+        val sets = listOf(
+            makeSetWithExercise(setType = SetType.WARMUP, setOrder = 1, weight = 40.0, reps = 10, rpe = null),
+            makeSetWithExercise(setType = SetType.NORMAL, setOrder = 2, weight = 80.0, reps = 5,  rpe = 80),
+            makeSetWithExercise(setType = SetType.NORMAL, setOrder = 3, weight = 90.0, reps = 3,  rpe = 85),
+            makeSetWithExercise(setType = SetType.DROP,   setOrder = 4, weight = 60.0, reps = 8,  rpe = null)
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(sets)
+        whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())
+        whenever(workoutSetDao.getHistoricalBestE1RM(any(), any())).thenReturn(null)
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val details = vm.uiState.value.exerciseCards.first().sets
+        assertEquals(4, details.size)
+        assertEquals("W", details[0].label)
+        assertEquals("1", details[1].label)
+        assertEquals("2", details[2].label)
+        assertEquals("D", details[3].label)
+    }
+
+    @Test
+    fun `sets contain correct weight, reps, and rpe values`() = runTest(testDispatcher) {
+        val sets = listOf(
+            makeSetWithExercise(setType = SetType.NORMAL, setOrder = 1, weight = 100.0, reps = 5, rpe = 85),
+            makeSetWithExercise(setType = SetType.NORMAL, setOrder = 2, weight = 105.0, reps = 3, rpe = null)
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(sets)
+        whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())
+        whenever(workoutSetDao.getHistoricalBestE1RM(any(), any())).thenReturn(null)
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val details = vm.uiState.value.exerciseCards.first().sets
+        assertEquals(2, details.size)
+        assertEquals(100.0, details[0].weight, 0.001)
+        assertEquals(5, details[0].reps)
+        assertEquals(85, details[0].rpe)
+        assertEquals(105.0, details[1].weight, 0.001)
+        assertEquals(3, details[1].reps)
+        assertNull(details[1].rpe)
+    }
+
+    @Test
+    fun `incomplete sets excluded from set detail list`() = runTest(testDispatcher) {
+        val sets = listOf(
+            makeSetWithExercise(setType = SetType.NORMAL, setOrder = 1, weight = 100.0, reps = 5, isCompleted = true),
+            makeSetWithExercise(setType = SetType.NORMAL, setOrder = 2, weight = 100.0, reps = 5, isCompleted = false)
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(sets)
+        whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())
+        whenever(workoutSetDao.getHistoricalBestE1RM(any(), any())).thenReturn(null)
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val details = vm.uiState.value.exerciseCards.first().sets
+        assertEquals(1, details.size)
+        assertEquals("1", details[0].label)
+    }
+
+    @Test
+    fun `sets are ordered by setOrder regardless of input order`() = runTest(testDispatcher) {
+        // Provide sets out of order
+        val sets = listOf(
+            makeSetWithExercise(setType = SetType.NORMAL, setOrder = 3, weight = 90.0, reps = 3),
+            makeSetWithExercise(setType = SetType.WARMUP, setOrder = 1, weight = 40.0, reps = 10),
+            makeSetWithExercise(setType = SetType.NORMAL, setOrder = 2, weight = 80.0, reps = 5)
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(sets)
+        whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())
+        whenever(workoutSetDao.getHistoricalBestE1RM(any(), any())).thenReturn(null)
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val details = vm.uiState.value.exerciseCards.first().sets
+        assertEquals(3, details.size)
+        assertEquals("W", details[0].label)   // setOrder 1
+        assertEquals("1", details[1].label)   // setOrder 2
+        assertEquals("2", details[2].label)   // setOrder 3
+    }
+
+    // ── Routine sync card dismiss ─────────────────────────────────────────────
+
+    @Test
+    fun `dismissRoutineSync clears pendingRoutineSync`() = runTest(testDispatcher) {
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+
+        val vm = buildViewModel(isPostWorkout = true, syncType = "VALUES")
+        advanceUntilIdle()
+
+        assertEquals(com.powerme.app.ui.workout.RoutineSyncType.VALUES, vm.uiState.value.pendingRoutineSync)
+
+        vm.dismissRoutineSync()
+
+        assertNull(vm.uiState.value.pendingRoutineSync)
+    }
+
+    @Test
+    fun `confirmRoutineSync clears pendingRoutineSync and sets snackbarMessage`() = runTest(testDispatcher) {
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+
+        val vm = buildViewModel(isPostWorkout = true, syncType = "STRUCTURE")
+        advanceUntilIdle()
+
+        assertEquals(com.powerme.app.ui.workout.RoutineSyncType.STRUCTURE, vm.uiState.value.pendingRoutineSync)
+
+        vm.confirmRoutineSync("Routine updated")
+
+        assertNull(vm.uiState.value.pendingRoutineSync)
+        assertEquals("Routine updated", vm.uiState.value.snackbarMessage)
+    }
+
+    @Test
+    fun `consumeSnackbar clears snackbarMessage`() = runTest(testDispatcher) {
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+
+        val vm = buildViewModel(isPostWorkout = true, syncType = "BOTH")
+        advanceUntilIdle()
+
+        vm.confirmRoutineSync("Routine structure and defaults updated")
+        assertNotNull(vm.uiState.value.snackbarMessage)
+
+        vm.consumeSnackbar()
+        assertNull(vm.uiState.value.snackbarMessage)
+    }
+
+    @Test
+    fun `dismissRoutineSync does not set snackbarMessage`() = runTest(testDispatcher) {
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+
+        val vm = buildViewModel(isPostWorkout = true, syncType = "VALUES")
+        advanceUntilIdle()
+
+        vm.dismissRoutineSync()
+
+        assertNull(vm.uiState.value.snackbarMessage)
+    }
+
+    // ── Notes persistence ─────────────────────────────────────────────────────
+
+    @Test
+    fun `updateNotes updates state and calls DAO and Firestore`() = runTest(testDispatcher) {
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        vm.updateNotes("Great session!")
+        advanceUntilIdle()
+
+        verify(workoutDao).updateWorkout(any())
+        verify(firestoreSyncManager).pushWorkout(workoutId)
+        assertEquals("Great session!", vm.uiState.value.workout?.notes)
+    }
+
+    @Test
+    fun `updateNotes with blank text stores null`() = runTest(testDispatcher) {
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout.copy(notes = "Old note"))
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        vm.updateNotes("   ")
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.workout?.notes)
     }
 }

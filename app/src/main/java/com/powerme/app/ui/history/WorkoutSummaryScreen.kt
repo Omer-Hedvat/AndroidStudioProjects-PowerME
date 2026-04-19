@@ -1,5 +1,8 @@
 package com.powerme.app.ui.history
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.TrendingDown
@@ -19,14 +24,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.database.SetType
 import com.powerme.app.ui.theme.FormCuesGold
+import com.powerme.app.ui.theme.GoldenRPE
 import com.powerme.app.ui.theme.ProError
 import com.powerme.app.ui.theme.ProSubGrey
 import com.powerme.app.ui.theme.ReadinessAmber
@@ -34,7 +44,9 @@ import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.ui.theme.buildSupersetColorMap
 import com.powerme.app.ui.metrics.charts.VicoChartHelpers
 import com.powerme.app.ui.workout.RoutineSyncType
+import com.powerme.app.util.RpeCategory
 import com.powerme.app.util.UnitConverter
+import com.powerme.app.util.rpeCategory
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -59,6 +71,13 @@ fun WorkoutSummaryScreen(
     val uiState by viewModel.uiState.collectAsState()
     val unitSystem by viewModel.unitSystem.collectAsState()
     val workout = uiState.workout
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.snackbarMessage) {
+        val msg = uiState.snackbarMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(msg)
+        viewModel.consumeSnackbar()
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -76,6 +95,7 @@ fun WorkoutSummaryScreen(
     var showSaveAsRoutineDialog by remember { mutableStateOf(false) }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Workout Summary") },
@@ -137,10 +157,22 @@ fun WorkoutSummaryScreen(
                 item {
                     RoutineSyncCard(
                         syncType = pendingRoutineSync,
-                        onConfirmValues = onConfirmSyncValues,
-                        onConfirmStructure = onConfirmSyncStructure,
-                        onConfirmBoth = onConfirmSyncBoth,
-                        onDismiss = onDismissSync
+                        onConfirmValues = {
+                            onConfirmSyncValues()
+                            viewModel.confirmRoutineSync("Routine defaults updated")
+                        },
+                        onConfirmStructure = {
+                            onConfirmSyncStructure()
+                            viewModel.confirmRoutineSync("Routine updated")
+                        },
+                        onConfirmBoth = {
+                            onConfirmSyncBoth()
+                            viewModel.confirmRoutineSync("Routine structure and defaults updated")
+                        },
+                        onDismiss = {
+                            onDismissSync()
+                            viewModel.dismissRoutineSync()
+                        }
                     )
                 }
             }
@@ -156,6 +188,7 @@ fun WorkoutSummaryScreen(
                         card = card,
                         unitSystem = unitSystem,
                         supersetBorderColor = borderColor,
+                        isPostWorkout = uiState.isPostWorkout,
                         onViewTrend = { onNavigateToTrends(card.exerciseId) }
                     )
                 }
@@ -177,20 +210,42 @@ fun WorkoutSummaryScreen(
             }
             item {
                 var notesText by remember(workout.notes) { mutableStateOf(workout.notes ?: "") }
-                OutlinedTextField(
-                    value = notesText,
-                    onValueChange = { notesText = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Add session notes…", color = ProSubGrey) },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                    minLines = 3,
-                    maxLines = 6
-                )
-                // Debounce save: persist notes 800ms after the user stops typing
-                LaunchedEffect(notesText) {
-                    kotlinx.coroutines.delay(800)
-                    if (notesText != (workout.notes ?: "")) {
-                        viewModel.updateNotes(notesText)
+                val hasUnsavedChanges = notesText != (workout.notes ?: "")
+
+                // Safety net: flush unsaved notes when leaving the screen
+                DisposableEffect(Unit) {
+                    onDispose {
+                        if (notesText != (workout.notes ?: "")) {
+                            viewModel.updateNotes(notesText)
+                        }
+                    }
+                }
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = notesText,
+                        onValueChange = { notesText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Add session notes…", color = ProSubGrey) },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        minLines = 3,
+                        maxLines = 6
+                    )
+                    AnimatedVisibility(
+                        visible = hasUnsavedChanges,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        TextButton(
+                            onClick = { viewModel.updateNotes(notesText) },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text(
+                                "Save Note",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
@@ -435,10 +490,12 @@ private fun ExerciseSummaryCard(
     card: ExerciseSummaryCard,
     unitSystem: UnitSystem,
     supersetBorderColor: Color?,
+    isPostWorkout: Boolean,
     onViewTrend: () -> Unit
 ) {
     val bestWeightText = UnitConverter.formatWeightRaw(card.bestSetWeight, unitSystem)
     val e1RMText = UnitConverter.formatWeight(card.e1RM, unitSystem)
+    var expanded by remember { mutableStateOf(true) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -458,7 +515,7 @@ private fun ExerciseSummaryCard(
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Exercise name + muscle group
+                // Exercise name + muscle group + expand/collapse chevron
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -480,14 +537,28 @@ private fun ExerciseSummaryCard(
                             color = ProSubGrey
                         )
                     }
+                    if (card.sets.isNotEmpty()) {
+                        IconButton(
+                            onClick = { expanded = !expanded },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp
+                                              else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (expanded) "Collapse sets" else "Expand sets",
+                                tint = ProSubGrey,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
 
-                // Best set + e1RM
+                // Best set + e1RM + View Trend (single stats row per spec)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text("Best Set", style = MaterialTheme.typography.labelSmall, color = ProSubGrey)
                         Text(
                             "$bestWeightText × ${card.bestSetReps}",
@@ -495,12 +566,23 @@ private fun ExerciseSummaryCard(
                             fontWeight = FontWeight.Medium
                         )
                     }
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text("Est. 1RM", style = MaterialTheme.typography.labelSmall, color = ProSubGrey)
                         Text(
                             e1RMText,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
+                        )
+                    }
+                    TextButton(
+                        onClick = onViewTrend,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text(
+                            "Trend →",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -561,21 +643,73 @@ private fun ExerciseSummaryCard(
                     }
                 }
 
-                // View Trend button
-                TextButton(
-                    onClick = onViewTrend,
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
-                    modifier = Modifier.height(28.dp)
+                // Set detail table (collapsible)
+                AnimatedVisibility(
+                    visible = expanded,
+                    enter = expandVertically(),
+                    exit = shrinkVertically()
                 ) {
-                    Text(
-                        "View Trend →",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    SetDetailsTable(sets = card.sets, unitSystem = unitSystem)
                 }
+
             }
         }
     }
+}
+
+@Composable
+private fun SetDetailsTable(
+    sets: List<SetDetail>,
+    unitSystem: UnitSystem
+) {
+    if (sets.isEmpty()) return
+    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        sets.forEach { set ->
+            SetDetailRow(set = set, unitSystem = unitSystem)
+        }
+    }
+}
+
+@Composable
+private fun SetDetailRow(
+    set: SetDetail,
+    unitSystem: UnitSystem
+) {
+    val isSecondary = set.setType == SetType.WARMUP || set.setType == SetType.DROP
+    val textColor = if (isSecondary) ProSubGrey else MaterialTheme.colorScheme.onSurface
+    val weightText = UnitConverter.formatWeightRaw(set.weight, unitSystem)
+
+    val rpeColor = set.rpe?.let { rpe ->
+        when (rpeCategory(rpe)) {
+            RpeCategory.GOLDEN     -> GoldenRPE
+            RpeCategory.MAX_EFFORT -> ProError
+            RpeCategory.MODERATE   -> ReadinessAmber
+            RpeCategory.LOW        -> ProSubGrey
+        }
+    }
+
+    val text = buildAnnotatedString {
+        withStyle(SpanStyle(color = textColor)) {
+            append("${set.label}   $weightText × ${set.reps}")
+        }
+        if (set.rpe != null && rpeColor != null) {
+            val whole = set.rpe / 10
+            val fraction = set.rpe % 10
+            val rpeDisplay = if (fraction == 0) "$whole" else "$whole.$fraction"
+            withStyle(SpanStyle(color = rpeColor)) {
+                append(" @ $rpeDisplay")
+            }
+        }
+    }
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+    )
 }
 
 @Composable

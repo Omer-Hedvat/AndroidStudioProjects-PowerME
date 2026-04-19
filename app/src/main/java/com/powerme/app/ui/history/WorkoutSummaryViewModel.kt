@@ -24,6 +24,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class SetDetail(
+    val label: String,      // "W" for warmup, "D" for drop, "1"/"2"/… for working sets
+    val weight: Double,     // kg (storage units)
+    val reps: Int,
+    val rpe: Int?,          // scaled x10 (e.g. 85 = RPE 8.5), null if not logged
+    val setType: SetType
+)
+
 data class ExerciseSummaryCard(
     val exerciseId: Long,
     val exerciseName: String,
@@ -37,7 +45,8 @@ data class ExerciseSummaryCard(
     val avgRpe: Double?,              // null = fewer than 50% of sets have RPE logged
     val isGoldenZone: Boolean,        // avg RPE in [8.0, 9.0]
     val isPR: Boolean,
-    val supersetGroupId: String?
+    val supersetGroupId: String?,
+    val sets: List<SetDetail> = emptyList()
 )
 
 data class MuscleGroupBar(
@@ -54,6 +63,7 @@ data class WorkoutSummaryUiState(
     val prCount: Int = 0,
     val isPostWorkout: Boolean = false,
     val pendingRoutineSync: RoutineSyncType? = null,
+    val snackbarMessage: String? = null,
     val isLoading: Boolean = true
 )
 
@@ -163,6 +173,26 @@ class WorkoutSummaryViewModel @Inject constructor(
         val historicalBest = workoutSetDao.getHistoricalBestE1RM(exerciseId, workoutTimestamp) ?: 0.0
         val isPR = e1RM > historicalBest && e1RM > 0.0
 
+        // Per-set detail list (all completed sets, sorted by order)
+        var workingSetNumber = 0
+        val setDetails = sets
+            .filter { it.isCompleted }
+            .sortedBy { it.setOrder }
+            .map { s ->
+                val label = when (s.setType) {
+                    SetType.WARMUP  -> "W"
+                    SetType.DROP    -> "D"
+                    else            -> { workingSetNumber++; workingSetNumber.toString() }
+                }
+                SetDetail(
+                    label = label,
+                    weight = s.weight,
+                    reps = s.reps,
+                    rpe = s.rpe,
+                    setType = s.setType
+                )
+            }
+
         return ExerciseSummaryCard(
             exerciseId = exerciseId,
             exerciseName = firstSet.exerciseName,
@@ -176,7 +206,8 @@ class WorkoutSummaryViewModel @Inject constructor(
             avgRpe = avgRpe,
             isGoldenZone = isGoldenZone,
             isPR = isPR,
-            supersetGroupId = firstSet.supersetGroupId
+            supersetGroupId = firstSet.supersetGroupId,
+            sets = setDetails
         )
     }
 
@@ -199,6 +230,20 @@ class WorkoutSummaryViewModel @Inject constructor(
                     fraction = (volume / maxVolume).toFloat()
                 )
             }
+    }
+
+    /** Called when the user taps a confirm button on the routine sync card. */
+    fun confirmRoutineSync(message: String) {
+        _uiState.update { it.copy(pendingRoutineSync = null, snackbarMessage = message) }
+    }
+
+    /** Called when the user taps "Keep original" or dismisses the routine sync card. */
+    fun dismissRoutineSync() {
+        _uiState.update { it.copy(pendingRoutineSync = null) }
+    }
+
+    fun consumeSnackbar() {
+        _uiState.update { it.copy(snackbarMessage = null) }
     }
 
     fun setSessionRating(rating: Int) {
