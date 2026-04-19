@@ -108,4 +108,12 @@ interface WorkoutDao {
         ORDER BY timestamp ASC
     """)
     suspend fun getCompletedWorkoutsSince(sinceMs: Long): List<Workout>
+
+    // ── CSV Import ────────────────────────────────────────────────────────────
+
+    @Query("SELECT * FROM workouts WHERE importBatchId = :batchId AND isArchived = 0")
+    suspend fun getByImportBatch(batchId: String): List<Workout>
+
+    @Query("UPDATE workouts SET isArchived = 1, updatedAt = :now WHERE importBatchId = :batchId")
+    suspend fun softDeleteBatch(batchId: String, now: Long = System.currentTimeMillis())
 }

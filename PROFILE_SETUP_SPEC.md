@@ -110,6 +110,16 @@ All fields are optional — subtitle reads "All fields are optional — skip wha
 3. `userSessionManager.saveUser(user)` (Room upsert)
 4. `profileSaved = true` → `LaunchedEffect` → `onProfileSaved()` → navigate to Workouts
 
+### 4.5 Skip Behavior
+
+A low-prominence "Skip for now" `TextButton` appears below the "Get Started" button. It is disabled while a save is in progress.
+
+**On tap:** `viewModel.skipProfileSetup()` saves a minimal `User(email = FirebaseAuth.email)` with all other fields at null/default. This sets `profileSaved = true`, triggering the same `LaunchedEffect` → `onProfileSaved()` → navigate to Workouts path.
+
+**Why a User row is required on skip:** `AppStartupViewModel` checks `userSessionManager.getCurrentUser()`. If null, the user is routed back to `AUTH_PROFILE_SETUP`. The minimal User row prevents this loop.
+
+**Later completion:** Profile fields can be filled in at any time from the Profile screen.
+
 ---
 
 ## 5. Shared Composables
@@ -152,3 +162,4 @@ Composables shared with `SettingsScreen.kt` live in `ui/components/ProfileWidget
 | Google account with no `displayName` | Name field empty. |
 | HC permissions already granted | Auto-read on init, start at Step 2 with pre-filled values. |
 | Existing users with `age` but no `dateOfBirth` | `User.ageYears` extension falls back to `age`. |
+| User skips profile setup | Minimal `User(email=...)` saved. All nullable fields null. Profile screen allows later completion. |

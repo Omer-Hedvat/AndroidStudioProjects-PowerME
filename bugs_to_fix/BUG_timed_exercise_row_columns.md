@@ -10,6 +10,14 @@ In the Active Workout screen, timed (time-based) exercises render incorrect colu
 2. **RPE column present but shouldn't be** — timed exercises do not require an RPE rating. The RPE column is shown in the header but serves no purpose for this exercise type.
 3. **Orphaned '-' box with no header** — there is a box showing only a dash (`-`) that has no corresponding column header above it. This appears to be a misaligned or leftover element in the row layout.
 
+## Severity
+P1
+
+## Dependencies
+- **Depends on:** —
+- **Blocks:** —
+- **Touches:** `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt`
+
 ## Steps to Reproduce
 1. Create or open a routine that contains at least one timed exercise (e.g. Bird-Dog).
 2. Start an active workout.

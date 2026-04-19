@@ -103,6 +103,23 @@ enum class TrendsTimeRange(val label: String, val days: Int) {
 }
 ```
 
+### 2.2 Conditional Card Rendering (hide-when-empty)
+
+Each data-driven chart card is conditionally rendered based on a corresponding `Boolean StateFlow` in `TrendsViewModel`. Cards with no data are omitted entirely — no empty states shown.
+
+| Card | ViewModel flag | Hidden when |
+|---|---|---|
+| `VolumeTrendCard` | `hasVolumeData` | 0 volume data points for selected time range |
+| `E1RMProgressionCard` | `hasE1rmData` | 0 sessions for selected exercise |
+| `MuscleGroupVolumeCard` | `hasMuscleGroupData` | 0 muscle-group volume rows |
+| `EffectiveSetsCard` | `hasEffectiveSetsData` | 0 effective-set rows |
+| `BodyCompositionCard` | `hasBodyCompositionData` | 0 weight AND 0 body fat records |
+| `ChronotypeCard` | `hasChronotypeData` | Both sleep AND workout-time points are empty |
+
+**InfoCard:** When `hiddenCardCount >= 3` (out of the 6 data-driven cards), a bottom-of-list `Card` shows static copy: *"Some charts are hidden — they appear once you have enough data logged."* Disappears once fewer than 3 cards are hidden.
+
+**BodyVitalsCard** and **ReadinessGauge** are always shown (they tolerate sparse data via their own loading states).
+
 ---
 
 ## 3. Feature Cards
@@ -709,11 +726,11 @@ TrendsDao.getWorkoutsByTimeOfDay(sinceMs)
 
 #### Acceptance Criteria
 
-- [ ] Sleep trend bar chart with 7h reference line and red/green coloring
-- [ ] Training window scatter plot renders (even if using Canvas)
-- [ ] "Best training hour" summary text computed from median volume by hour bucket
-- [ ] Both sub-cards handle empty state independently
-- [ ] No sleep stage data displayed (limitation acknowledged in UI if relevant)
+- [x] Sleep trend bar chart with 7h reference line and red/green coloring
+- [x] Training window scatter plot renders (even if using Canvas)
+- [x] "Best training hour" summary text computed from median volume by hour bucket
+- [x] Both sub-cards handle empty state independently
+- [x] No sleep stage data displayed (limitation acknowledged in UI if relevant)
 
 ---
 
@@ -1059,20 +1076,35 @@ CartesianChartHost(
 
 ---
 
-## 10. Body Heatmap (Future Phase)
+## 10. Body Heatmap
 
-**Status:** FUTURE — Do not implement. Document concept only.
+**Status:** 🚧 In Progress (Canvas rendering + placeholder card shipped; full drill-down card is next)
 
 ### Concept
 
-A stylized human body outline rendered in Compose Canvas (or an SVG-to-Canvas converter library). Each major muscle group and connective tissue is a clickable region. Color intensity reflects cumulative "stress" from recent training.
+A stylized human body outline rendered in Compose Canvas. Each of the 16 body regions is a tappable zone colored by cumulative stress intensity. Color intensity reflects cumulative "stress" from the past 21 days (half-life decay).
 
-### What Is Needed
+### What Is Implemented
 
-1. **`ExerciseStressVector` entity** — Maps each exercise to the joints/tendons it stresses with a stress coefficient (0.0–1.0).
-2. **Stress accumulation algorithm** — Sum of (volume × stressCoefficient) per tissue, decayed exponentially over days since last training.
-3. **SVG paths** — Vector path data for each body region (anterior/posterior deltoid, elbow joint, knee joint, lower back, etc.) or a rasterized image with overlay Canvas drawing.
-4. **New DB table** — `exercise_stress_vectors(exerciseId, bodyRegion, stressCoefficient)`
+1. **`ExerciseStressVector` entity** ✅ — Maps each exercise to the joints/tendons it stresses with a stress coefficient (0.0–1.0). DB table `exercise_stress_vectors`.
+2. **Stress accumulation algorithm** ✅ — `StressAccumulationEngine.computeRegionStress()` — sum of (volume × coefficient × exp(-λ × daysSince)), half-life 4 days.
+3. **Canvas body outline** ✅ — `BodyOutlineCanvas.kt` + `BodyRegionPaths.kt` — pure Compose Canvas, no SVG library needed. Two silhouettes side by side (anterior/posterior), 16 tappable regions using normalized-coordinate geometry.
+4. **Color mapping** ✅ — `StressColorMapper.kt` — 3-stop gradient: `surfaceVariant` → `ProMagenta` → `error`.
+5. **Placeholder card** ✅ — `BodyStressHeatmapCard.kt` — wired into `MetricsScreen` between Effective Sets and Body Composition. 21-day lookback via `TrendsRepository.getBodyStressMap()`.
+6. **Data model** ✅ — `BodyStressMapData` in `TrendsModels.kt`. Loaded via `TrendsViewModel.loadBodyStressMap()`.
+
+### What Remains
+
+1. **Stress vectors — Gemini expansion** — Expand from top 30 exercises to all 120+ (Phase 3 in original plan).
+2. **Drill-down detail** — Tap a region → sheet showing contributing exercises, load breakdown, deload recommendation ("Your elbows are at 78% of safe load — consider scheduling a deload").
+3. **Full heatmap card (P6 final)** — Wire drill-down, weekly summary text, complete UX.
+
+### What Is Needed (original, for reference)
+
+1. **`ExerciseStressVector` entity** ✅
+2. **Stress accumulation algorithm** ✅
+3. **Canvas paths** ✅ — 16 body regions, pure Compose Canvas (no external library needed)
+4. **New DB table** ✅ — `exercise_stress_vectors(exerciseId, bodyRegion, stressCoefficient)`
 
 ### Stress Vector Data Strategy
 
@@ -1097,7 +1129,7 @@ As users log workouts, surface a "Does this feel right?" feedback mechanism. Agg
 
 ### Blocking Issues (remaining)
 
-- No SVG rendering library in current dependencies — add `com.caverock:androidsvg-aar` or use custom Canvas paths
+- Stress vectors only cover top 30 exercises — Gemini expansion needed for full coverage
 - Algorithm validation: flag coefficients > 0.8 for biomechanics review before shipping
 
 ### Interaction Design (when built)

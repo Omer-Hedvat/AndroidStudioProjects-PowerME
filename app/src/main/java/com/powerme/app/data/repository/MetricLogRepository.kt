@@ -22,6 +22,8 @@ class MetricLogRepository @Inject constructor(
 
     suspend fun getLatestForType(type: MetricType): MetricLog? = dao.getLatestForType(type.name)
 
+    fun getByTypeFlow(type: MetricType) = dao.getByType(type.name)
+
     suspend fun log(type: MetricType, value: Double) {
         val entry = MetricLog(type = type, value = value)
         dao.insert(entry)

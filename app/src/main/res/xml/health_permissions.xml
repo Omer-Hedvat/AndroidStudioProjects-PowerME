@@ -9,4 +9,10 @@
     <permission type="android.permission.health.READ_STEPS" />
     <permission type="android.permission.health.READ_EXERCISE" />
     <permission type="android.permission.health.WRITE_EXERCISE" />
+    <permission type="android.permission.health.READ_HEART_RATE" />
+    <permission type="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <permission type="android.permission.health.READ_VO2_MAX" />
+    <permission type="android.permission.health.READ_DISTANCE" />
+    <permission type="android.permission.health.READ_OXYGEN_SATURATION" />
+    <permission type="android.permission.health.READ_RESPIRATORY_RATE" />
 </permissions>

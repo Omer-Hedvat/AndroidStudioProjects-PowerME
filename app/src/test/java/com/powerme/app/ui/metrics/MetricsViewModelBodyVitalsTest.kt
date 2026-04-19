@@ -257,6 +257,61 @@ class MetricsViewModelBodyVitalsTest {
         verify(mockHealthConnectManager).syncAndRead()
     }
 
+    // ── Extended reads mapping ─────────────────────────────────────────────────
+
+    @Test
+    fun `extended fields from sync are mapped to BodyVitalsState`() = runTest(testDispatcher) {
+        val syncWithExtended = sampleSync.copy(
+            avgHeartRateBpm = 72,
+            vo2MaxMlKgMin = 45.5,
+            spo2Percent = 97.0,
+            lowSpO2Flag = false,
+            activeCaloriesKcal = 520.0,
+            distanceMetres = 6200.0,
+            sleepScore = 78
+        )
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockUserSessionManager.getCurrentUser()).thenReturn(sampleUser)
+            whenever(mockHealthConnectSyncDao.getLatestSync()).thenReturn(syncWithExtended)
+        }
+
+        val vm = buildViewModel()
+        runCurrent()
+
+        val vitals = vm.uiState.value.bodyVitals
+        assertEquals(72, vitals.avgHeartRateBpm)
+        assertEquals(45.5, vitals.vo2MaxMlKgMin!!, 0.01)
+        assertEquals(97.0, vitals.spo2Percent!!, 0.01)
+        assertFalse(vitals.lowSpO2Flag)
+        assertEquals(520.0, vitals.activeCaloriesKcal!!, 0.01)
+        assertEquals(6200.0, vitals.distanceMetres!!, 0.01)
+        assertEquals(78, vitals.sleepScore)
+    }
+
+    @Test
+    fun `extended fields null when sync has no extended data`() = runTest(testDispatcher) {
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)
+        runBlocking {
+            whenever(mockHealthConnectManager.checkPermissionsGranted()).thenReturn(true)
+            whenever(mockUserSessionManager.getCurrentUser()).thenReturn(sampleUser)
+            whenever(mockHealthConnectSyncDao.getLatestSync()).thenReturn(sampleSync)
+        }
+
+        val vm = buildViewModel()
+        runCurrent()
+
+        val vitals = vm.uiState.value.bodyVitals
+        assertNull(vitals.avgHeartRateBpm)
+        assertNull(vitals.vo2MaxMlKgMin)
+        assertNull(vitals.spo2Percent)
+        assertNull(vitals.activeCaloriesKcal)
+        assertNull(vitals.distanceMetres)
+        assertNull(vitals.sleepScore)
+        assertFalse(vitals.lowSpO2Flag)
+    }
+
     @Test
     fun `syncHealthConnect - sets syncError on failure`() = runTest(testDispatcher) {
         whenever(mockHealthConnectManager.isAvailable()).thenReturn(true)

@@ -1,5 +1,8 @@
 package com.powerme.app.ui.metrics
 
+import com.powerme.app.analytics.StressAccumulationEngine
+import java.time.LocalDate
+
 /**
  * Shared time range for all Trends tab chart cards.
  * Driven by TrendsViewModel, consumed by TrendsRepository for query parameters.
@@ -70,6 +73,30 @@ data class TimestampedValue(
 data class TimeOfDayChartPoint(
     val startHour: Int,
     val totalVolume: Double
+)
+
+/** Single night's sleep duration for the sleep trend bar chart. */
+data class SleepChartPoint(
+    val date: LocalDate,
+    val durationMinutes: Int
+) {
+    val durationHours: Double get() = durationMinutes / 60.0
+}
+
+/** Combined data for the ChronotypeCard (sleep trend + training window scatter). */
+data class ChronotypeData(
+    val sleepPoints: List<SleepChartPoint>,
+    val workoutPoints: List<TimeOfDayChartPoint>,
+    /** Hour bucket (0–23) with highest median volume; null when < 10 workouts. */
+    val peakHour: Int?,
+    /** Pre-formatted label e.g. "6am", "3pm"; null when peakHour is null. */
+    val peakHourLabel: String?
+)
+
+/** Body stress map data — one entry per non-zero region, plus the overall max for normalization. */
+data class BodyStressMapData(
+    val regionStresses: List<StressAccumulationEngine.RegionStress>,
+    val maxStress: Double
 )
 
 /** Sub-metric deltas displayed below the readiness gauge arc. */

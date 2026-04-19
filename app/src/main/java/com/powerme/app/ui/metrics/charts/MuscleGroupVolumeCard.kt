@@ -36,8 +36,10 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.core.cartesian.AutoScrollCondition
 import com.patrykandpatrick.vico.core.cartesian.Scroll
+import com.patrykandpatrick.vico.core.cartesian.Zoom
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
@@ -45,10 +47,12 @@ import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.ui.metrics.MuscleGroupVolumePoint
 import com.powerme.app.ui.metrics.TrendsTimeRange
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.ProSubGrey
+import com.powerme.app.util.UnitConverter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,6 +74,7 @@ import kotlin.math.roundToInt
 fun MuscleGroupVolumeCard(
     muscleGroupData: List<MuscleGroupVolumePoint>,
     timeRange: TrendsTimeRange,
+    unitSystem: UnitSystem,
     onTimeRangeChange: (TrendsTimeRange) -> Unit,
     modelProducer: CartesianChartModelProducer,
     modifier: Modifier = Modifier
@@ -97,6 +102,16 @@ fun MuscleGroupVolumeCard(
             dateFormat.format(Date(ts))
         }
     }
+
+    // Y axis shows numbers only — unit is displayed once as a label above the axis.
+    val yFormatter = remember(unitSystem) {
+        CartesianValueFormatter { _, value, _ ->
+            val display = UnitConverter.displayWeight(value, unitSystem)
+            if (display >= 1_000.0) "${"%.0f".format(display / 1_000)}K"
+            else "%.0f".format(display)
+        }
+    }
+    val unitLabel = UnitConverter.weightLabel(unitSystem)
 
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
 
@@ -147,7 +162,16 @@ fun MuscleGroupVolumeCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Y axis unit label (shown once at the top of the axis) ─────────
+            Text(
+                text = unitLabel.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             // ── Chart area — CartesianChartHost is always in the composition tree ──
             // When data is insufficient, dummy data renders behind a surface overlay.
@@ -167,7 +191,10 @@ fun MuscleGroupVolumeCard(
                 CartesianChartHost(
                     chart = rememberCartesianChart(
                         stackedBarLayer,
-                        startAxis = VerticalAxis.rememberStart(label = axisLabel),
+                        startAxis = VerticalAxis.rememberStart(
+                            label = axisLabel,
+                            valueFormatter = yFormatter
+                        ),
                         bottomAxis = HorizontalAxis.rememberBottom(
                             label = axisLabel,
                             valueFormatter = xFormatter
@@ -179,7 +206,8 @@ fun MuscleGroupVolumeCard(
                         initialScroll = Scroll.Absolute.End,
                         autoScroll = Scroll.Absolute.End,
                         autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
-                    )
+                    ),
+                    zoomState = rememberVicoZoomState(initialZoom = Zoom.Content)
                 )
 
             }

@@ -37,6 +37,30 @@ data class WorkoutTimeRow(
 
 data class ExerciseWithHistory(val id: Long, val name: String)
 
+/** Projection used by [StressAccumulationEngine] to compute per-region training load. */
+data class StressSetRow(
+    val exerciseId: Long,
+    val weight: Double,
+    val reps: Int,
+    val timestampMs: Long
+)
+
+// ── Per-exercise detail projections ─────────────────────────────────────────
+
+data class ExerciseWorkoutHistoryRow(
+    val workoutId: String,
+    val timestamp: Long,
+    val routineName: String,
+    val setCount: Int,
+    val totalVolume: Double
+)
+
+data class ExerciseLastPerformedRow(
+    val timestamp: Long,
+    val setCount: Int,
+    val totalVolume: Double
+)
+
 @Dao
 interface TrendsDao {
 
@@ -83,10 +107,15 @@ interface TrendsDao {
 
     /**
      * Weekly volume per muscle group with primary/secondary credit (100%/50%).
+     *
+     * weekStartMs is computed as (weekBucket * 604800000) — the epoch-aligned start of the
+     * week bucket — rather than MIN(w.timestamp). Using MIN would give each muscle group a
+     * different weekStartMs depending on which day of the week it was first trained, causing
+     * the chart to treat the same calendar week as multiple distinct bars.
      */
     @Query("""
         SELECT (w.timestamp / 604800000) AS weekBucket,
-               MIN(w.timestamp) AS weekStartMs,
+               (w.timestamp / 604800000 * 604800000) AS weekStartMs,
                emg.majorGroup,
                SUM(
                    CASE WHEN emg.isPrimary = 1 THEN ws.weight * ws.reps
@@ -111,10 +140,13 @@ interface TrendsDao {
     /**
      * Weekly effective sets per muscle group (RPE >= 70, i.e. RPE 7.0+).
      * Primary muscle groups only (no 50% secondary credit for set counts).
+     *
+     * weekStartMs uses the same epoch-aligned bucket computation as getWeeklyMuscleGroupVolume
+     * to ensure all muscle groups trained in the same week share the same weekStartMs.
      */
     @Query("""
         SELECT (w.timestamp / 604800000) AS weekBucket,
-               MIN(w.timestamp) AS weekStartMs,
+               (w.timestamp / 604800000 * 604800000) AS weekStartMs,
                emg.majorGroup,
                COUNT(ws.id) AS effectiveSets
         FROM workout_sets ws
@@ -207,4 +239,58 @@ interface TrendsDao {
         ORDER BY e.name ASC
     """)
     suspend fun getExercisesWithHistory(sinceMs: Long): List<ExerciseWithHistory>
+
+    /**
+     * Working sets (excl. WARMUP/DROP) with positive weight and reps in the given window.
+     * Used as input for [com.powerme.app.analytics.StressAccumulationEngine].
+     * Caller is responsible for choosing an appropriate lookback (typically 21 days = ~5 half-lives).
+     */
+    @Query("""
+        SELECT ws.exerciseId, ws.weight, ws.reps, w.timestamp AS timestampMs
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE w.isCompleted = 1
+          AND w.isArchived = 0
+          AND ws.isCompleted = 1
+          AND ws.setType NOT IN ('WARMUP', 'DROP')
+          AND ws.weight > 0
+          AND ws.reps > 0
+          AND w.timestamp >= :sinceMs
+        ORDER BY w.timestamp ASC
+    """)
+    suspend fun getSetsForStressAccumulation(sinceMs: Long): List<StressSetRow>
+
+    /**
+     * Paginated workout history for a specific exercise.
+     * Returns sessions in reverse-chronological order.
+     */
+    @Query("""
+        SELECT w.id AS workoutId, w.timestamp,
+               COALESCE(w.routineName, '') AS routineName,
+               COUNT(ws.id) AS setCount,
+               SUM(ws.weight * ws.reps) AS totalVolume
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND w.isCompleted = 1 AND w.isArchived = 0
+        GROUP BY w.id
+        ORDER BY w.timestamp DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun getExerciseWorkoutHistory(exerciseId: Long, limit: Int, offset: Int): List<ExerciseWorkoutHistoryRow>
+
+    /** Most recent session summary for an exercise (date + set count + volume). */
+    @Query("""
+        SELECT w.timestamp, COUNT(ws.id) AS setCount, SUM(ws.weight * ws.reps) AS totalVolume
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND w.isCompleted = 1 AND w.isArchived = 0
+        GROUP BY w.id
+        ORDER BY w.timestamp DESC
+        LIMIT 1
+    """)
+    suspend fun getExerciseLastPerformed(exerciseId: Long): ExerciseLastPerformedRow?
 }

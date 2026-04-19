@@ -1,14 +1,19 @@
 package com.powerme.app.data.repository
 
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.analytics.StressAccumulationEngine
+import com.powerme.app.data.database.ExerciseStressVectorDao
 import com.powerme.app.data.database.HealthConnectSyncDao
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.database.TrendsDao
+import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.ui.metrics.BodyCompositionData
 import com.powerme.app.ui.metrics.E1RMChartPoint
 import com.powerme.app.ui.metrics.E1RMProgressionData
 import com.powerme.app.ui.metrics.EffectiveSetsChartPoint
 import com.powerme.app.ui.metrics.MuscleGroupVolumePoint
+import com.powerme.app.ui.metrics.ChronotypeData
+import com.powerme.app.ui.metrics.SleepChartPoint
 import com.powerme.app.ui.metrics.TimeOfDayChartPoint
 import com.powerme.app.ui.metrics.TimestampedValue
 import com.powerme.app.ui.metrics.ReadinessSubMetrics
@@ -23,7 +28,9 @@ import javax.inject.Singleton
 class TrendsRepository @Inject constructor(
     private val trendsDao: TrendsDao,
     private val healthConnectSyncDao: HealthConnectSyncDao,
-    private val metricLogRepository: MetricLogRepository
+    private val metricLogRepository: MetricLogRepository,
+    private val stressVectorDao: ExerciseStressVectorDao,
+    private val healthConnectManager: HealthConnectManager
 ) {
 
     suspend fun getReadinessScore(): ReadinessEngine.ReadinessScore {
@@ -114,10 +121,31 @@ class TrendsRepository @Inject constructor(
         return if (total > 0) covered.toFloat() / total.toFloat() * 100f else 0f
     }
 
-    suspend fun getWorkoutsByTimeOfDay(range: TrendsTimeRange): List<TimeOfDayChartPoint> {
-        return trendsDao.getWorkoutsByTimeOfDay(range.sinceMs()).map {
+    suspend fun getChronotypeData(range: TrendsTimeRange): ChronotypeData {
+        val sleepRows = healthConnectSyncDao.getSleepHistory()
+        val sleepPoints = sleepRows.map { SleepChartPoint(it.date, it.sleepDurationMinutes) }
+        val workoutPoints = trendsDao.getWorkoutsByTimeOfDay(range.sinceMs()).map {
             TimeOfDayChartPoint(it.startHour, it.totalVolume)
         }
+        val peakHour = computePeakHour(workoutPoints)
+        val peakHourLabel = peakHour?.let { formatHour(it) }
+        return ChronotypeData(sleepPoints, workoutPoints, peakHour, peakHourLabel)
+    }
+
+    private fun computePeakHour(points: List<TimeOfDayChartPoint>): Int? {
+        if (points.size < 10) return null
+        return points.groupBy { it.startHour }
+            .maxByOrNull { (_, pts) ->
+                val sorted = pts.map { it.totalVolume }.sorted()
+                sorted[sorted.size / 2]
+            }?.key
+    }
+
+    internal fun formatHour(hour: Int): String = when {
+        hour == 0 -> "12am"
+        hour < 12 -> "${hour}am"
+        hour == 12 -> "12pm"
+        else -> "${hour - 12}pm"
     }
 
     suspend fun getExercisePicker(range: TrendsTimeRange): List<com.powerme.app.data.database.ExerciseWithHistory> {
@@ -126,13 +154,21 @@ class TrendsRepository @Inject constructor(
 
     suspend fun getBodyCompositionData(range: TrendsTimeRange): BodyCompositionData {
         val sinceMs = range.sinceMs()
-        val weightEntries = metricLogRepository.getByType(MetricType.WEIGHT).first()
+
+        val logWeightEntries = metricLogRepository.getByType(MetricType.WEIGHT).first()
+            .filter { it.timestamp >= sinceMs }
+            .map { TimestampedValue(it.timestamp, it.value) }
+        val logBodyFatEntries = metricLogRepository.getByType(MetricType.BODY_FAT).first()
             .filter { it.timestamp >= sinceMs }
             .map { TimestampedValue(it.timestamp, it.value) }
 
-        val bodyFatEntries = metricLogRepository.getByType(MetricType.BODY_FAT).first()
-            .filter { it.timestamp >= sinceMs }
-            .map { TimestampedValue(it.timestamp, it.value) }
+        val hcWeightHistory = healthConnectManager.getWeightHistory(sinceMs)
+            .map { (ts, v) -> TimestampedValue(ts, v) }
+        val hcBodyFatHistory = healthConnectManager.getBodyFatHistory(sinceMs)
+            .map { (ts, v) -> TimestampedValue(ts, v) }
+
+        val weightEntries = mergeMetricSources(logWeightEntries, hcWeightHistory)
+        val bodyFatEntries = mergeMetricSources(logBodyFatEntries, hcBodyFatHistory)
 
         // Compute BMI points from weight entries (need height)
         val heightEntry = metricLogRepository.getLatestForType(MetricType.HEIGHT)
@@ -147,6 +183,46 @@ class TrendsRepository @Inject constructor(
             bodyFatPoints = bodyFatEntries,
             bmiPoints = bmiPoints
         )
+    }
+
+    /**
+     * Merges metric_log entries with HC history keyed by UTC day.
+     * metric_log wins same-day conflicts so manual entries take precedence over HC readings.
+     */
+    private fun mergeMetricSources(
+        logEntries: List<TimestampedValue>,
+        hcEntries: List<TimestampedValue>
+    ): List<TimestampedValue> {
+        val byDay = mutableMapOf<Long, TimestampedValue>()
+        for (entry in hcEntries) {
+            byDay[entry.timestampMs / 86_400_000L] = entry
+        }
+        for (entry in logEntries) {
+            byDay[entry.timestampMs / 86_400_000L] = entry
+        }
+        return byDay.values.sortedBy { it.timestampMs }
+    }
+
+    /**
+     * Computes accumulated stress per body region from the last 21 days of working sets.
+     *
+     * Uses a 21-day lookback (~5 half-lives) so that stress older than that contributes
+     * less than 3% to the total — negligible for heatmap display.
+     *
+     * @return Regions with non-zero stress, sorted by descending stress magnitude.
+     */
+    suspend fun getBodyStressMap(): List<StressAccumulationEngine.RegionStress> {
+        val lookbackMs = System.currentTimeMillis() - 21L * 86_400_000L
+        val sets = trendsDao.getSetsForStressAccumulation(lookbackMs)
+        if (sets.isEmpty()) return emptyList()
+
+        val exerciseIds = sets.map { it.exerciseId }.distinct()
+        val vectors = stressVectorDao.getForExercises(exerciseIds).groupBy { it.exerciseId }
+
+        val setRecords = sets.map {
+            StressAccumulationEngine.SetRecord(it.exerciseId, it.weight, it.reps, it.timestampMs)
+        }
+        return StressAccumulationEngine.computeRegionStress(setRecords, vectors, System.currentTimeMillis())
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

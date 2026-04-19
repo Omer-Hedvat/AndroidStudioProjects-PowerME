@@ -1,5 +1,6 @@
 package com.powerme.app.util
 
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.database.User
 import com.powerme.app.data.database.UserDao
 import com.powerme.app.data.sync.FirestoreSyncManager
@@ -11,7 +12,8 @@ import javax.inject.Singleton
 @Singleton
 class UserSessionManager @Inject constructor(
     private val userDao: UserDao,
-    private val firestoreSyncManager: FirestoreSyncManager
+    private val firestoreSyncManager: FirestoreSyncManager,
+    private val appSettingsDataStore: AppSettingsDataStore
 ) {
     suspend fun getCurrentUser(): User? {
         return userDao.getCurrentUser()
@@ -43,6 +45,10 @@ class UserSessionManager @Inject constructor(
 
     suspend fun clearUser() {
         userDao.deleteUser()
+        // Reset the restore gate so the next sign-in triggers a fresh Firestore profile pull.
+        // Without this, re-login after logout skips pullProfileOnly() and routes the user to
+        // Profile Setup even though their profile exists in Firestore.
+        appSettingsDataStore.setHasRestoredOnce(false)
         Firebase.auth.signOut()
     }
 }

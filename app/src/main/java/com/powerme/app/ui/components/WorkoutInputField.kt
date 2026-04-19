@@ -83,6 +83,7 @@ fun WorkoutInputField(
     val pillShape = MaterialTheme.shapes.small
     val textFieldValue = remember { mutableStateOf(TextFieldValue(value)) }
     val selectAllTrigger = remember { mutableStateOf(0) }
+    val wasFocused = remember { mutableStateOf(false) }
 
     // Keep internal state in sync when external value changes (e.g. cascade fill)
     LaunchedEffect(value) {
@@ -122,6 +123,12 @@ fun WorkoutInputField(
                 if (isFocused) Modifier.border(1.dp, MaterialTheme.colorScheme.primary, pillShape)
                 else Modifier
             )
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused && !wasFocused.value) {
+                    selectAllTrigger.value++
+                }
+                wasFocused.value = focusState.isFocused
+            }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
         enabled = enabled,
         singleLine = true,

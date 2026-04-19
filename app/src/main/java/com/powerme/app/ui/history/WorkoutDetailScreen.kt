@@ -56,6 +56,7 @@ private const val CHECK_COL_WEIGHT  = 0.10f
 @Composable
 fun WorkoutDetailScreen(
     onNavigateBack: () -> Unit,
+    onDeleted: () -> Unit = onNavigateBack,
     viewModel: WorkoutDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -82,7 +83,7 @@ fun WorkoutDetailScreen(
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
-                        viewModel.deleteSession { onNavigateBack() }
+                        viewModel.deleteSession { onDeleted() }
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) { Text("Delete") }

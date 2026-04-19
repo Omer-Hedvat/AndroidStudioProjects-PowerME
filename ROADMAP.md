@@ -101,9 +101,9 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | HC Backfill — Push last 90 days to Health Connect on permission grant | `future_devs/HC_BACKFILL_SPEC.md` | S | `wrapped` | HC Phase B ✅ |
 | History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `completed` | Trends Step 3 (E1RM) ✅ + History Summary Step A ✅ |
 | E1RM Progression — line only (no area fill) | `future_devs/TRENDS_E1RM_LINE_ONLY_SPEC.md` | XS | `wrapped` | Trends Step 3 (E1RM) ✅ |
-| Trends — hide cards with insufficient data | `future_devs/TRENDS_EMPTY_CARDS_HIDDEN_SPEC.md` | S | `completed` | — |
+| Trends — hide cards with insufficient data | `future_devs/TRENDS_EMPTY_CARDS_HIDDEN_SPEC.md` | S | `wrapped` | — |
 | Trends charts — Y axis values only, unit at top | `future_devs/TRENDS_CHART_Y_AXIS_UNIT_AT_TOP_SPEC.md` | XS | `completed` | — |
-| Trends charts — zoomed out by default, pinch to zoom | `future_devs/TRENDS_CHART_ZOOM_DEFAULT_OUT_SPEC.md` | S | `in-progress` | — |
+| Trends charts — zoomed out by default, pinch to zoom | `future_devs/TRENDS_CHART_ZOOM_DEFAULT_OUT_SPEC.md` | S | `completed` | — |
 
 ---
 
@@ -128,7 +128,7 @@ Flagship feature. Requires all groundwork below before any UI work begins.
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `completed` | — |
-| Stress vectors — Gemini expansion (remaining 120+) | `TRENDS_SPEC.md §10` | M | `in-progress` | Manual seed ✅ |
+| Stress vectors — Gemini expansion (remaining 120+) | `TRENDS_SPEC.md §10` | M | `completed` | Manual seed ✅ |
 | Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `completed` | — |
 | SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `completed` | — |
 | Full heatmap card (wired end-to-end) | `TRENDS_SPEC.md §10` | XL | `blocked` | All above + Trends P4 complete |

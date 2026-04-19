@@ -40,7 +40,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "1.8"  // bumped: populate exercise_muscle_groups on fresh install + backfill upgrade users
+        private const val CURRENT_VERSION = "1.9"  // bumped: add primaryJoints/secondaryJoints to all 240 exercises
     }
 
     private val json = Json {

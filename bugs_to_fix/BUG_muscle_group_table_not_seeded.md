@@ -19,6 +19,14 @@ Result: the JOIN always produces zero rows, so both cards render the empty state
 
 **Upgrade users:** partly affected — `exercise_muscle_groups` was populated at migration time for exercises that existed then, but any new exercises added by later seeder versions (`v1.7` adds ~90 new exercises) also have no entries.
 
+## Severity
+P0
+
+## Dependencies
+- **Depends on:** —
+- **Blocks:** —
+- **Touches:** `MasterExerciseSeeder.kt`, `ExerciseMuscleGroupDao.kt`, `DatabaseModule.kt`, `StrongCsvImporter.kt`
+
 ## Steps to Reproduce
 1. Fresh install (or clear app data)
 2. Sign in and complete several workouts across multiple muscle groups

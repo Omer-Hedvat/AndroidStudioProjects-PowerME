@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -25,6 +26,8 @@ import com.powerme.app.ui.metrics.charts.E1RMProgressionCard
 import com.powerme.app.ui.metrics.charts.EffectiveSetsCard
 import com.powerme.app.ui.metrics.charts.MuscleGroupVolumeCard
 import com.powerme.app.ui.metrics.charts.VolumeTrendCard
+import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.ui.theme.ProSubGrey
 
 @Composable
 fun MetricsScreen(
@@ -49,6 +52,12 @@ fun MetricsScreen(
     val chronotypeData by trendsViewModel.chronotypeData.collectAsState()
     val bodyStressMap by trendsViewModel.bodyStressMap.collectAsState()
     val selectedBodyRegion by trendsViewModel.selectedBodyRegion.collectAsState()
+    val hasVolumeData by trendsViewModel.hasVolumeData.collectAsState()
+    val hasE1rmData by trendsViewModel.hasE1rmData.collectAsState()
+    val hasMuscleGroupData by trendsViewModel.hasMuscleGroupData.collectAsState()
+    val hasEffectiveSetsData by trendsViewModel.hasEffectiveSetsData.collectAsState()
+    val hasBodyCompositionData by trendsViewModel.hasBodyCompositionData.collectAsState()
+    val hasChronotypeData by trendsViewModel.hasChronotypeData.collectAsState()
 
     // Auto-scroll to the E1RM card when arriving via a deep-link.
     val scrollState = rememberScrollState()
@@ -69,6 +78,7 @@ fun MetricsScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.loadBodyVitals()
                 trendsViewModel.refreshReadiness()
+                trendsViewModel.refreshBodyStressMap()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -100,43 +110,52 @@ fun MetricsScreen(
         )
 
         // ── Volume Trend ───────────────────────────────
-        VolumeTrendCard(
-            volumeData = weeklyVolume,
-            timeRange = timeRange,
-            unitSystem = unitSystem,
-            onTimeRangeChange = trendsViewModel::setTimeRange,
-            modelProducer = trendsViewModel.volumeModelProducer
-        )
+        if (hasVolumeData) {
+            VolumeTrendCard(
+                volumeData = weeklyVolume,
+                timeRange = timeRange,
+                unitSystem = unitSystem,
+                onTimeRangeChange = trendsViewModel::setTimeRange,
+                modelProducer = trendsViewModel.volumeModelProducer
+            )
+        }
 
         // ── E1RM Progression ───────────────────────────
-        E1RMProgressionCard(
-            e1rmData = e1rmData,
-            exercisePickerItems = exercisePickerItems,
-            selectedExerciseId = selectedExerciseId,
-            unitSystem = unitSystem,
-            onExerciseSelected = trendsViewModel::selectExercise,
-            modelProducer = trendsViewModel.e1rmModelProducer,
-            modifier = Modifier.onGloballyPositioned { coords ->
-                e1rmCardY = coords.positionInParent().y.toInt()
-            }
-        )
+        if (hasE1rmData) {
+            E1RMProgressionCard(
+                e1rmData = e1rmData,
+                exercisePickerItems = exercisePickerItems,
+                selectedExerciseId = selectedExerciseId,
+                unitSystem = unitSystem,
+                onExerciseSelected = trendsViewModel::selectExercise,
+                modelProducer = trendsViewModel.e1rmModelProducer,
+                modifier = Modifier.onGloballyPositioned { coords ->
+                    e1rmCardY = coords.positionInParent().y.toInt()
+                }
+            )
+        }
 
         // ── Muscle Balance ─────────────────────────────
-        MuscleGroupVolumeCard(
-            muscleGroupData = muscleGroupVolume,
-            timeRange = timeRange,
-            onTimeRangeChange = trendsViewModel::setTimeRange,
-            modelProducer = trendsViewModel.muscleGroupModelProducer
-        )
+        if (hasMuscleGroupData) {
+            MuscleGroupVolumeCard(
+                muscleGroupData = muscleGroupVolume,
+                timeRange = timeRange,
+                unitSystem = unitSystem,
+                onTimeRangeChange = trendsViewModel::setTimeRange,
+                modelProducer = trendsViewModel.muscleGroupModelProducer
+            )
+        }
 
         // ── Effective Sets ────────────────────────────
-        EffectiveSetsCard(
-            effectiveSetsData = effectiveSets,
-            coveragePct = effectiveSetsCoverage,
-            timeRange = timeRange,
-            onTimeRangeChange = trendsViewModel::setTimeRange,
-            modelProducer = trendsViewModel.effectiveSetsModelProducer
-        )
+        if (hasEffectiveSetsData) {
+            EffectiveSetsCard(
+                effectiveSetsData = effectiveSets,
+                coveragePct = effectiveSetsCoverage,
+                timeRange = timeRange,
+                onTimeRangeChange = trendsViewModel::setTimeRange,
+                modelProducer = trendsViewModel.effectiveSetsModelProducer
+            )
+        }
 
         // ── Body Stress Map ───────────────────────────
         BodyStressHeatmapCard(
@@ -146,20 +165,50 @@ fun MetricsScreen(
         )
 
         // ── Body Composition ──────────────────────────
-        BodyCompositionCard(
-            bodyCompositionData = bodyComposition,
-            timeRange = timeRange,
-            unitSystem = unitSystem,
-            onTimeRangeChange = trendsViewModel::setTimeRange,
-            modelProducer = trendsViewModel.bodyCompositionModelProducer
-        )
+        if (hasBodyCompositionData) {
+            BodyCompositionCard(
+                bodyCompositionData = bodyComposition,
+                timeRange = timeRange,
+                unitSystem = unitSystem,
+                onTimeRangeChange = trendsViewModel::setTimeRange,
+                modelProducer = trendsViewModel.bodyCompositionModelProducer
+            )
+        }
 
         // ── Chronotype ────────────────────────────────
-        ChronotypeCard(
-            chronotypeData = chronotypeData,
-            timeRange = timeRange,
-            onTimeRangeChange = trendsViewModel::setTimeRange,
-            sleepModelProducer = trendsViewModel.sleepModelProducer
-        )
+        if (hasChronotypeData) {
+            ChronotypeCard(
+                chronotypeData = chronotypeData,
+                timeRange = timeRange,
+                unitSystem = unitSystem,
+                onTimeRangeChange = trendsViewModel::setTimeRange,
+                sleepModelProducer = trendsViewModel.sleepModelProducer
+            )
+        }
+
+        // ── Hidden-cards info notice ──────────────────
+        // Shown when ≥ 3 of the 6 data-driven cards are currently hidden.
+        val hiddenCardCount = listOf(
+            !hasVolumeData, !hasE1rmData, !hasMuscleGroupData,
+            !hasEffectiveSetsData, !hasBodyCompositionData, !hasChronotypeData
+        ).count { it }
+        if (hiddenCardCount >= 3) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = PowerMeDefaults.cardColors(),
+                elevation = PowerMeDefaults.cardElevation()
+            ) {
+                Text(
+                    text = "Some charts are hidden — they appear once you have enough data logged.",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    fontSize = 13.sp,
+                    color = ProSubGrey,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     }
 }

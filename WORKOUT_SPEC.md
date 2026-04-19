@@ -399,15 +399,15 @@ IDLE → (setupSeconds == 0) → RUNNING → PAUSED → RUNNING
 SETUP → (cancel) → IDLE
 ```
 
-**Column layout (IDLE / COMPLETED states):** SET(`SET_COL_WEIGHT`) | PREV(`PREV_COL_WEIGHT`) | WEIGHT(`WEIGHT_COL_WEIGHT`) | TIME(S)(0.25f) | Actions(0.20f). PREV shows `ghostWeight × ghostTimeSeconds` from the previous session (formatted by `formatGhostTimedLabel`). RPE is not shown as an inline column — it is persisted only via the auto-pop RPE picker sheet when the `useRpeAutoPop` setting is ON.
+**Column layout (IDLE / COMPLETED states):** SET(0.08) | PREV(0.22) | WEIGHT(0.22) | TIME(S)(0.20) | RPE(0.10) | Actions(0.18). PREV shows `ghostWeight × ghostTimeSeconds` from the previous session (formatted by `formatGhostTimedLabel`). RPE is shown as an inline tappable cell (same as strength rows) — tapping opens `RpePickerSheet`. RPE value persists via `viewModel.updateRpe()`, which writes `rpeValue` to DB via `workoutSetDao.updateRpe()`. The auto-pop sheet (when `useRpeAutoPop` is ON) also fires via `onUpdateRpe` after set completion.
 
 | State | Columns / Controls |
 |---|---|
-| IDLE | SET \| PREV (ghost) \| WEIGHT input \| TIME input (editable) \| ▶ Start button (0.14f, primaryContainer) \| ✓ ghost check (0.06f, no bg, faded) |
+| IDLE | SET \| PREV (ghost) \| WEIGHT(0.22) \| TIME(0.20) \| RPE(0.10, tappable, shows "—" or value) \| ▶ Start button (0.12, primaryContainer) \| ✓ ghost check (0.06, no bg, faded) |
 | SETUP | SET \| "Get Ready" label (SetupAmber) \| remaining seconds (large, SetupAmber) \| ✕ Cancel button \| amber `LinearProgressIndicator` below |
 | RUNNING | SET \| MM:SS countdown (TimerGreen, `titleMedium`) \| `LinearProgressIndicator` below row \| ■ Stop button |
 | PAUSED | SET \| remaining MM:SS (muted) \| ▶ Resume \| ✓ Mark Done \| ↺ Reset |
-| COMPLETED | SET \| PREV (ghost) \| WEIGHT input \| TIME input \| (spacer) \| CHECK (TimerGreen filled) |
+| COMPLETED | SET \| PREV (ghost) \| WEIGHT(0.22) \| TIME(0.20) \| RPE(0.10, tappable, with category indicator) \| spacer(0.08) \| CHECK (0.10, TimerGreen filled) |
 
 **Get Ready countdown (SETUP state):** Controlled by the `timedSetSetupSeconds` global preference (0–10s, default 3s, configurable in Settings → Rest Timer). When Play is tapped and `setupSeconds > 0`, the row enters SETUP state showing an amber countdown. Each second fires `onSetupCountdownTick()` (same beep/haptic as warning tick). At 0, automatically transitions to RUNNING. Tapping the ✕ cancel button returns to IDLE with original time restored.
 

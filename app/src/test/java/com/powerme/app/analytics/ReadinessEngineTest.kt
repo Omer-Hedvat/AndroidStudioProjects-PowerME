@@ -287,4 +287,116 @@ class ReadinessEngineTest {
         val result = ReadinessEngine.compute(syncs)
         assertTrue("5 days should be enough, got $result", result is ReadinessEngine.ReadinessScore.Score)
     }
+
+    // ── Extended reads: sleep score substitution ────────────────────────────
+
+    @Test
+    fun `sleep score 50 produces same baseline result as duration at baseline`() {
+        val today = LocalDate.now()
+        val syncWithScore = HealthConnectSync(date = today, hrv = 50.0, sleepDurationMinutes = 480, rhr = 60, sleepScore = 50)
+        val baseline = (1..14).map { offset ->
+            HealthConnectSync(date = today.minusDays(offset.toLong()), hrv = 50.0, sleepDurationMinutes = 480, rhr = 60)
+        }
+        val result = ReadinessEngine.compute(listOf(syncWithScore) + baseline)
+        assertTrue(result is ReadinessEngine.ReadinessScore.Score)
+        assertEquals(50, (result as ReadinessEngine.ReadinessScore.Score).value)
+    }
+
+    @Test
+    fun `high sleep score shifts score upward`() {
+        val today = LocalDate.now()
+        val syncHighScore = HealthConnectSync(date = today, hrv = 50.0, sleepDurationMinutes = 480, rhr = 60, sleepScore = 90)
+        val baseline = (1..14).map { offset ->
+            HealthConnectSync(date = today.minusDays(offset.toLong()), hrv = 50.0, sleepDurationMinutes = 480, rhr = 60)
+        }
+        val resultHigh = ReadinessEngine.compute(listOf(syncHighScore) + baseline)
+        val resultBase = ReadinessEngine.compute(buildHistory(15))
+        assertTrue(resultHigh is ReadinessEngine.ReadinessScore.Score)
+        assertTrue(resultBase is ReadinessEngine.ReadinessScore.Score)
+        assertTrue(
+            "High sleep score should produce higher readiness",
+            (resultHigh as ReadinessEngine.ReadinessScore.Score).value >
+                (resultBase as ReadinessEngine.ReadinessScore.Score).value
+        )
+    }
+
+    // ── Extended reads: deep sleep contribution ─────────────────────────────
+
+    @Test
+    fun `deep sleep above baseline raises score`() {
+        val today = LocalDate.now()
+        // Build 15 days of baseline with deep sleep, then today is above average
+        val syncsWithDeep = (1..14).map { offset ->
+            HealthConnectSync(date = today.minusDays(offset.toLong()), hrv = 50.0, sleepDurationMinutes = 480, rhr = 60, deepSleepMinutes = 80)
+        }
+        val todayAbove = HealthConnectSync(date = today, hrv = 50.0, sleepDurationMinutes = 480, rhr = 60, deepSleepMinutes = 120)
+        val todayBelow = HealthConnectSync(date = today, hrv = 50.0, sleepDurationMinutes = 480, rhr = 60, deepSleepMinutes = 40)
+
+        val scoreAbove = (ReadinessEngine.compute(listOf(todayAbove) + syncsWithDeep) as ReadinessEngine.ReadinessScore.Score).value
+        val scoreBelow = (ReadinessEngine.compute(listOf(todayBelow) + syncsWithDeep) as ReadinessEngine.ReadinessScore.Score).value
+        assertTrue("More deep sleep should score higher: above=$scoreAbove below=$scoreBelow", scoreAbove > scoreBelow)
+    }
+
+    // ── Extended reads: SpO2 cap ────────────────────────────────────────────
+
+    @Test
+    fun `SpO2 below 92 caps score at 40 even when other metrics are excellent`() {
+        val syncs = buildHistoryWithToday(
+            baselineDays = 20,
+            todayHrv = 200.0,       // extreme HRV — would normally push to 100
+            todaySleep = 700,
+            todayRhr = 30
+        ).let { list ->
+            val todayWithLowSpo2 = list.first().copy(spo2Percent = 88.0)
+            listOf(todayWithLowSpo2) + list.drop(1)
+        }
+        val result = ReadinessEngine.compute(syncs)
+        assertTrue(result is ReadinessEngine.ReadinessScore.Score)
+        assertTrue(
+            "SpO2 < 92 should cap score at 40",
+            (result as ReadinessEngine.ReadinessScore.Score).value <= 40
+        )
+    }
+
+    @Test
+    fun `SpO2 at 95 does not cap score`() {
+        val syncs = buildHistoryWithToday(baselineDays = 20)
+            .let { list ->
+                val todayNormal = list.first().copy(spo2Percent = 98.0)
+                listOf(todayNormal) + list.drop(1)
+            }
+        val result = ReadinessEngine.compute(syncs)
+        assertTrue(result is ReadinessEngine.ReadinessScore.Score)
+        // Baseline values → score 50, no cap applied
+        assertEquals(50, (result as ReadinessEngine.ReadinessScore.Score).value)
+    }
+
+    // ── Extended reads: elevated respiratory rate penalty ───────────────────
+
+    @Test
+    fun `elevated respiratory rate flag applies -10 penalty`() {
+        val baseResult = ReadinessEngine.compute(buildHistory(15))
+        val baseScore = (baseResult as ReadinessEngine.ReadinessScore.Score).value
+
+        val today = LocalDate.now()
+        val syncsWithFlag = buildHistory(15).let { list ->
+            val todayWithFlag = list.first().copy(elevatedRespiratoryRateFlag = true)
+            listOf(todayWithFlag) + list.drop(1)
+        }
+        val flagResult = ReadinessEngine.compute(syncsWithFlag)
+        val flagScore = (flagResult as ReadinessEngine.ReadinessScore.Score).value
+
+        assertEquals("Elevated resp rate should reduce score by 10", baseScore - 10, flagScore)
+    }
+
+    // ── Extended reads: graceful degradation ────────────────────────────────
+
+    @Test
+    fun `all new fields null behaves identically to v42 three-signal mode`() {
+        // New fields default to null — existing 3-signal behavior preserved
+        val syncs = buildHistory(days = 15)
+        val result = ReadinessEngine.compute(syncs)
+        assertTrue(result is ReadinessEngine.ReadinessScore.Score)
+        assertEquals(50, (result as ReadinessEngine.ReadinessScore.Score).value)
+    }
 }

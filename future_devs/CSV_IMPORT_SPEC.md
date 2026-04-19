@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Phase** | P5 |
-| **Status** | `not-started` |
+| **Status** | `completed` |
 | **Effort** | L |
 | **Depends on** | — |
 | **Roadmap** | `ROADMAP.md §P5` |
@@ -198,3 +198,30 @@ All imports run inside a `withTransaction` block — partial imports are not com
 - Zero data loss on round-trip (export PowerME → reimport same CSV)
 - Auto-detect rate: 100% for Strong/Hevy (the two most common apps)
 - Undo removes all and only the imported batch
+
+---
+
+## How to QA
+
+### Known-format import (Strong / Hevy / FitBod / Jefit)
+1. Go to **Settings → Data & Backup → Import Workout History**.
+2. Tap **Choose CSV File** and pick a Strong export CSV from device storage.
+3. Verify the format confirmation card reads "Strong export detected — N workouts found."
+4. Tap **Continue** → verify import options screen appears with **kg** pre-selected for Strong.
+5. Tap **Start Import** → verify the progress bar advances and the live counter updates.
+6. On completion, verify the summary sheet shows correct workout/set/exercise counts.
+7. Navigate to **History** tab → confirm imported workouts appear with the correct dates.
+8. Tap **Undo Import** in the summary sheet → confirm workouts disappear from History.
+
+### Unknown-format import (Generic)
+1. Create a CSV with custom columns (e.g. `my_date,my_exercise,my_reps,my_weight`).
+2. Import it → verify the column mapping screen appears with dropdowns for each column.
+3. Map Date → `my_date`, Exercise → `my_exercise`, Reps → `my_reps`, Weight → `my_weight`.
+4. Tap **Continue** → verify import options appear → tap **Start Import**.
+5. Verify workouts appear in History with correct exercise names and weights.
+
+### Edge cases
+- **Empty file** → "No data found" error dialog.
+- **Unknown exercise** → new exercise appears in the Exercises library with `isCustom = true`.
+- **Undo** after navigating away from summary: re-open Settings and verify workouts are gone (soft-delete persists).
+- **FitBod lbs import** → select "lbs → kg" in options; verify weights stored in kg (divide by 2.20462).

@@ -46,6 +46,7 @@ import com.powerme.app.ui.auth.HcOfferScreen
 import com.powerme.app.ui.auth.ProfileSetupScreen
 import com.powerme.app.ui.auth.WelcomeScreen
 import com.powerme.app.ui.exercises.ExercisesScreen
+import com.powerme.app.ui.exercises.detail.ExerciseDetailScreen
 import com.powerme.app.ui.history.HistoryScreen
 import com.powerme.app.ui.history.WorkoutDetailScreen
 import com.powerme.app.ui.history.WorkoutSummaryScreen
@@ -91,6 +92,7 @@ private object Routes {
     const val EXERCISE_PICKER = "exercise_picker"
     const val IMPORT_WORKOUTS = "import_workouts"
     const val AI_WORKOUT = "ai_workout"
+    const val EXERCISE_DETAIL = "exercise_detail/{exerciseId}"
 }
 
 /** Handles startup auth/session check to determine the initial navigation route. */
@@ -336,7 +338,11 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onProfileClick = { navController.navigate(Routes.PROFILE) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
-                ExercisesScreen()
+                ExercisesScreen(
+                    onExerciseClick = { exerciseId ->
+                        navController.navigate("exercise_detail/$exerciseId")
+                    }
+                )
             }
         }
 
@@ -506,6 +512,25 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         }
 
         composable(
+            route = Routes.EXERCISE_DETAIL,
+            arguments = listOf(navArgument("exerciseId") { type = NavType.LongType }),
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) {
+            ExerciseDetailScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToWorkout = { workoutId ->
+                    navController.navigate("workout_summary/$workoutId")
+                },
+                onNavigateToExerciseDetail = { exerciseId ->
+                    navController.navigate("exercise_detail/$exerciseId")
+                }
+            )
+        }
+
+        composable(
             route = Routes.WORKOUT_DETAIL,
             arguments = listOf(navArgument("workoutId") { type = NavType.StringType }),
             enterTransition = { slideInHorizontally(tween(300)) { it } },
@@ -537,12 +562,15 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                     navController.navigate("workout_detail/$workoutId")
                 },
                 onNavigateToTrends = { exerciseId ->
+                    // Do NOT use restoreState = true here: restoring a previous Trends back-stack
+                    // entry would reuse the old ViewModel (with the wrong exercise selection and
+                    // deepLinkPending = false). We always want a fresh ViewModel so that init {}
+                    // reads the new exerciseId from SavedStateHandle and pre-selects the correct chip.
                     navController.navigate("${Screen.Trends.route}?exerciseId=$exerciseId") {
                         popUpTo(navController.graph.findStartDestination().id) {
                             saveState = true
                         }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 onConfirmSyncValues = { workoutViewModel.confirmUpdateRoutineValues() },

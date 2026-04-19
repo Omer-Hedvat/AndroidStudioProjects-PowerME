@@ -136,7 +136,15 @@ class AuthViewModel @Inject constructor(
             firestoreSyncManager.launchBackgroundSync()
             appSettingsDataStore.setHasRestoredOnce(true)
         }
-        val dbUser = userSessionManager.getCurrentUser()
+        var dbUser = userSessionManager.getCurrentUser()
+        // Defensive fallback: if the local profile is missing but hasRestoredOnce was somehow
+        // not reset on logout (e.g. DataStore write failed), pull just the profile doc before
+        // routing rather than incorrectly sending the user to Profile Setup.
+        if (dbUser == null && alreadyRestored) {
+            firestoreSyncManager.pullProfileOnly()
+            firestoreSyncManager.launchBackgroundSync()
+            dbUser = userSessionManager.getCurrentUser()
+        }
         val shouldOfferHc = dbUser != null &&
             healthConnectManager.isAvailable() &&
             !healthConnectManager.checkPermissionsGranted() &&

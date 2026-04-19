@@ -75,6 +75,26 @@ class TrendsViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // ── Data-presence flags — derived from existing flows, no new DB queries ──
+    // Each flag is false until the corresponding load completes with non-empty data.
+    private val _hasVolumeData = MutableStateFlow(false)
+    val hasVolumeData: StateFlow<Boolean> = _hasVolumeData.asStateFlow()
+
+    private val _hasE1rmData = MutableStateFlow(false)
+    val hasE1rmData: StateFlow<Boolean> = _hasE1rmData.asStateFlow()
+
+    private val _hasMuscleGroupData = MutableStateFlow(false)
+    val hasMuscleGroupData: StateFlow<Boolean> = _hasMuscleGroupData.asStateFlow()
+
+    private val _hasEffectiveSetsData = MutableStateFlow(false)
+    val hasEffectiveSetsData: StateFlow<Boolean> = _hasEffectiveSetsData.asStateFlow()
+
+    private val _hasBodyCompositionData = MutableStateFlow(false)
+    val hasBodyCompositionData: StateFlow<Boolean> = _hasBodyCompositionData.asStateFlow()
+
+    private val _hasChronotypeData = MutableStateFlow(false)
+    val hasChronotypeData: StateFlow<Boolean> = _hasChronotypeData.asStateFlow()
+
     // ── Vico model producers — ViewModel-scoped so they survive tab navigation
     // and LazyColumn recycling. CartesianChartHost in each card attaches to these
     // directly; data is pushed here rather than in LaunchedEffect to avoid the
@@ -89,6 +109,16 @@ class TrendsViewModel @Inject constructor(
     // Tracks the current load coroutine so we can cancel it before starting a new one,
     // preventing concurrent runTransaction calls on the same producer.
     private var loadJob: Job? = null
+
+    // Push coroutines live in viewModelScope (not loadJob) because runTransaction must not
+    // be cancelled mid-write. Track each push job so a stale prior-range push cannot
+    // overwrite the current producer state when chips are switched rapidly.
+    private var volumePushJob: Job? = null
+    private var e1rmPushJob: Job? = null
+    private var muscleGroupPushJob: Job? = null
+    private var effectiveSetsPushJob: Job? = null
+    private var bodyCompositionPushJob: Job? = null
+    private var sleepPushJob: Job? = null
 
     // True when the screen was opened via a deep-link with exerciseId — triggers auto-scroll.
     // Consumed (set to false) by MetricsScreen after the scroll completes.
@@ -112,6 +142,13 @@ class TrendsViewModel @Inject constructor(
     fun refreshReadiness() {
         viewModelScope.launch {
             loadReadiness()
+        }
+    }
+
+    /** Reload body stress map (call on ON_RESUME so time-decay uses current wall clock). */
+    fun refreshBodyStressMap() {
+        viewModelScope.launch {
+            loadBodyStressMap()
         }
     }
 
@@ -177,11 +214,13 @@ class TrendsViewModel @Inject constructor(
         try {
             val items = trendsRepository.getExercisePicker(_timeRange.value)
             _exercisePickerItems.value = items
+            _hasE1rmData.value = items.isNotEmpty()
             // Auto-select first exercise if none selected
             if (_selectedExerciseId.value == null && items.isNotEmpty()) {
                 _selectedExerciseId.value = items.first().id
             }
         } catch (_: Exception) {
+            _hasE1rmData.value = false
             // Keep existing list
         }
     }
@@ -202,21 +241,26 @@ class TrendsViewModel @Inject constructor(
     }
 
     private fun pushE1rmToProducer(data: E1RMProgressionData?) {
-        viewModelScope.launch {
-            val rawPts = data?.points.orEmpty()
-            val maPts = data?.movingAverage.orEmpty()
-            if (rawPts.size >= 2) {
-                e1rmModelProducer.runTransaction {
-                    lineSeries {
-                        series(rawPts.map { it.e1rm })
-                        if (maPts.isNotEmpty()) series(maPts.map { it.e1rm })
+        e1rmPushJob?.cancel()
+        e1rmPushJob = viewModelScope.launch {
+            try {
+                val rawPts = data?.points.orEmpty()
+                val maPts = data?.movingAverage.orEmpty()
+                if (rawPts.size >= 2) {
+                    e1rmModelProducer.runTransaction {
+                        lineSeries {
+                            series(rawPts.map { it.e1rm })
+                            if (maPts.isNotEmpty()) series(maPts.map { it.e1rm })
+                        }
+                    }
+                } else {
+                    // Dummy data matching the single rawLine layer — overlay hides it visually.
+                    e1rmModelProducer.runTransaction {
+                        lineSeries { series(listOf(0.0, 0.0)) }
                     }
                 }
-            } else {
-                // Dummy data matching the single rawLine layer — overlay hides it visually.
-                e1rmModelProducer.runTransaction {
-                    lineSeries { series(listOf(0.0, 0.0)) }
-                }
+            } catch (_: Exception) {
+                // Producer push is best-effort; empty state overlay handles missing data.
             }
         }
     }
@@ -225,26 +269,33 @@ class TrendsViewModel @Inject constructor(
         try {
             val data = trendsRepository.getWeeklyVolume(_timeRange.value)
             _weeklyVolume.value = data
+            _hasVolumeData.value = data?.points.isNullOrEmpty().not()
             pushVolumeToProducer(data)
         } catch (_: Exception) {
             _weeklyVolume.value = null
+            _hasVolumeData.value = false
         }
     }
 
     private fun pushVolumeToProducer(data: WeeklyVolumeData?) {
-        viewModelScope.launch {
-            val pts = data?.points.orEmpty()
-            if (pts.size >= 2) {
-                volumeModelProducer.runTransaction {
-                    columnSeries { series(pts.map { it.totalVolume }) }
-                    lineSeries { series(computeVolumeMa4Week(pts)) }
+        volumePushJob?.cancel()
+        volumePushJob = viewModelScope.launch {
+            try {
+                val pts = data?.points.orEmpty()
+                if (pts.size >= 2) {
+                    volumeModelProducer.runTransaction {
+                        columnSeries { series(pts.map { it.totalVolume }) }
+                        lineSeries { series(computeVolumeMa4Week(pts)) }
+                    }
+                } else {
+                    // Dummy data matching column + line layers — overlay hides it visually.
+                    volumeModelProducer.runTransaction {
+                        columnSeries { series(listOf(0.0, 0.0)) }
+                        lineSeries { series(listOf(0.0, 0.0)) }
+                    }
                 }
-            } else {
-                // Dummy data matching column + line layers — overlay hides it visually.
-                volumeModelProducer.runTransaction {
-                    columnSeries { series(listOf(0.0, 0.0)) }
-                    lineSeries { series(listOf(0.0, 0.0)) }
-                }
+            } catch (_: Exception) {
+                // Producer push is best-effort; empty state overlay handles missing data.
             }
         }
     }
@@ -253,35 +304,42 @@ class TrendsViewModel @Inject constructor(
         try {
             val data = trendsRepository.getWeeklyMuscleGroupVolume(_timeRange.value)
             _muscleGroupVolume.value = data
+            _hasMuscleGroupData.value = data.isNotEmpty()
             pushMuscleGroupToProducer(data)
         } catch (_: Exception) {
             _muscleGroupVolume.value = emptyList()
+            _hasMuscleGroupData.value = false
         }
     }
 
     private fun pushMuscleGroupToProducer(points: List<MuscleGroupVolumePoint>) {
-        viewModelScope.launch {
-            val weeks = points.map { it.weekStartMs }.distinct().sorted()
-            if (weeks.isEmpty()) {
-                // Dummy — empty state overlay hides this visually. Series count must stay fixed at 8.
+        muscleGroupPushJob?.cancel()
+        muscleGroupPushJob = viewModelScope.launch {
+            try {
+                val weeks = points.map { it.weekStartMs }.distinct().sorted()
+                if (weeks.isEmpty()) {
+                    // Dummy — empty state overlay hides this visually. Series count must stay fixed at 8.
+                    muscleGroupModelProducer.runTransaction {
+                        columnSeries {
+                            repeat(VicoChartHelpers.muscleGroupOrder.size) { series(listOf(0.0, 0.0)) }
+                        }
+                    }
+                    return@launch
+                }
+                val weekIndex = weeks.withIndex().associate { (i, ms) -> ms to i }
                 muscleGroupModelProducer.runTransaction {
                     columnSeries {
-                        repeat(VicoChartHelpers.muscleGroupOrder.size) { series(listOf(0.0, 0.0)) }
-                    }
-                }
-                return@launch
-            }
-            val weekIndex = weeks.withIndex().associate { (i, ms) -> ms to i }
-            muscleGroupModelProducer.runTransaction {
-                columnSeries {
-                    VicoChartHelpers.muscleGroupOrder.forEach { group ->
-                        val volumeByWeek = DoubleArray(weeks.size)
-                        points.filter { it.majorGroup == group }.forEach { p ->
-                            weekIndex[p.weekStartMs]?.let { idx -> volumeByWeek[idx] = p.volume }
+                        VicoChartHelpers.muscleGroupOrder.forEach { group ->
+                            val volumeByWeek = DoubleArray(weeks.size)
+                            points.filter { it.majorGroup == group }.forEach { p ->
+                                weekIndex[p.weekStartMs]?.let { idx -> volumeByWeek[idx] = p.volume }
+                            }
+                            series(volumeByWeek.toList())
                         }
-                        series(volumeByWeek.toList())
                     }
                 }
+            } catch (_: Exception) {
+                // Producer push is best-effort; empty state overlay handles missing data.
             }
         }
     }
@@ -292,37 +350,44 @@ class TrendsViewModel @Inject constructor(
             val coverage = trendsRepository.getEffectiveSetsCoverage(_timeRange.value)
             _effectiveSets.value = data
             _effectiveSetsCoverage.value = coverage
+            _hasEffectiveSetsData.value = data.isNotEmpty()
             pushEffectiveSetsToProducer(data)
         } catch (_: Exception) {
             _effectiveSets.value = emptyList()
             _effectiveSetsCoverage.value = 0f
+            _hasEffectiveSetsData.value = false
         }
     }
 
     private fun pushEffectiveSetsToProducer(points: List<EffectiveSetsChartPoint>) {
-        viewModelScope.launch {
-            val weeks = points.map { it.weekStartMs }.distinct().sorted()
-            if (weeks.isEmpty()) {
+        effectiveSetsPushJob?.cancel()
+        effectiveSetsPushJob = viewModelScope.launch {
+            try {
+                val weeks = points.map { it.weekStartMs }.distinct().sorted()
+                if (weeks.isEmpty()) {
+                    effectiveSetsModelProducer.runTransaction {
+                        columnSeries {
+                            repeat(VicoChartHelpers.muscleGroupOrder.size) { series(listOf(0.0, 0.0)) }
+                        }
+                    }
+                    return@launch
+                }
+                val weekIndex = weeks.withIndex().associate { (i, ms) -> ms to i }
                 effectiveSetsModelProducer.runTransaction {
                     columnSeries {
-                        repeat(VicoChartHelpers.muscleGroupOrder.size) { series(listOf(0.0, 0.0)) }
-                    }
-                }
-                return@launch
-            }
-            val weekIndex = weeks.withIndex().associate { (i, ms) -> ms to i }
-            effectiveSetsModelProducer.runTransaction {
-                columnSeries {
-                    VicoChartHelpers.muscleGroupOrder.forEach { group ->
-                        val countsByWeek = DoubleArray(weeks.size)
-                        points.filter { it.majorGroup == group }.forEach { p ->
-                            weekIndex[p.weekStartMs]?.let { idx ->
-                                countsByWeek[idx] = p.setCount.toDouble()
+                        VicoChartHelpers.muscleGroupOrder.forEach { group ->
+                            val countsByWeek = DoubleArray(weeks.size)
+                            points.filter { it.majorGroup == group }.forEach { p ->
+                                weekIndex[p.weekStartMs]?.let { idx ->
+                                    countsByWeek[idx] = p.setCount.toDouble()
+                                }
                             }
+                            series(countsByWeek.toList())
                         }
-                        series(countsByWeek.toList())
                     }
                 }
+            } catch (_: Exception) {
+                // Producer push is best-effort; empty state overlay handles missing data.
             }
         }
     }
@@ -331,52 +396,114 @@ class TrendsViewModel @Inject constructor(
         try {
             val data = trendsRepository.getBodyCompositionData(_timeRange.value)
             _bodyComposition.value = data
+            _hasBodyCompositionData.value =
+                data?.weightPoints.isNullOrEmpty().not() || data?.bodyFatPoints.isNullOrEmpty().not()
             pushBodyCompositionToProducer(data)
         } catch (_: Exception) {
             _bodyComposition.value = null
+            _hasBodyCompositionData.value = false
         }
     }
 
     private fun pushBodyCompositionToProducer(data: BodyCompositionData?) {
-        viewModelScope.launch {
-            val weightPts = data?.weightPoints.orEmpty()
-            val bodyFatPts = data?.bodyFatPoints.orEmpty()
-            val allTimestamps = (weightPts.map { it.timestampMs } + bodyFatPts.map { it.timestampMs })
-                .distinct().sorted()
+        bodyCompositionPushJob?.cancel()
+        bodyCompositionPushJob = viewModelScope.launch {
+            try {
+                val weightPts = data?.weightPoints.orEmpty()
+                val bodyFatPts = data?.bodyFatPoints.orEmpty()
+                val allTimestamps = (weightPts.map { it.timestampMs } + bodyFatPts.map { it.timestampMs })
+                    .distinct().sorted()
 
-            if (allTimestamps.size < 2) {
-                // Always push exactly 2 series so the layer count stays stable;
-                // Vico crashes on series-count changes. Empty-state overlay hides it.
-                bodyCompositionModelProducer.runTransaction {
-                    lineSeries {
-                        series(listOf(0.0, 0.0))
-                        series(listOf(0.0, 0.0))
+                if (allTimestamps.size < 2) {
+                    // Always push exactly 2 series so the layer count stays stable;
+                    // Vico crashes on series-count changes. Card is hidden via hasBodyCompositionData.
+                    bodyCompositionModelProducer.runTransaction {
+                        lineSeries {
+                            series(listOf(0.0, 0.0))
+                            series(listOf(0.0, 0.0))
+                        }
+                    }
+                    return@launch
+                }
+
+                val weightByTs = weightPts.associate { it.timestampMs to it.value }
+                val bodyFatByTs = bodyFatPts.associate { it.timestampMs to it.value }
+
+                // Use smart fill instead of 0.0 to prevent Y-axis distortion:
+                //  - Single-series case: phantom series mirrors the real series (same values, alpha=0
+                //    in the composable) so the Y-axis range reflects only the visible data.
+                //  - Dual-series case: both-directions fill (forward then backward) so sparse readings
+                //    carry the last known value instead of dropping to 0.
+                val weightSeries: List<Double>
+                val bodyFatSeries: List<Double>
+                when {
+                    weightPts.isEmpty() -> {
+                        // Only body fat — phantom weight = body fat values, no scale distortion.
+                        val bfValues = allTimestamps.map { ts -> bodyFatByTs[ts]!! }
+                        weightSeries = bfValues
+                        bodyFatSeries = bfValues
+                    }
+                    bodyFatPts.isEmpty() -> {
+                        // Only weight — phantom body fat = weight values, no scale distortion.
+                        val wValues = allTimestamps.map { ts -> weightByTs[ts]!! }
+                        weightSeries = wValues
+                        bodyFatSeries = wValues
+                    }
+                    else -> {
+                        // Both have data — fill each series with its own last/first known value.
+                        weightSeries = fillSeries(allTimestamps, weightByTs)
+                        bodyFatSeries = fillSeries(allTimestamps, bodyFatByTs)
                     }
                 }
-                return@launch
-            }
 
-            val weightByTs = weightPts.associate { it.timestampMs to it.value }
-            val bodyFatByTs = bodyFatPts.associate { it.timestampMs to it.value }
-            val weightSeries = allTimestamps.map { ts -> weightByTs[ts] ?: 0.0 }
-            val bodyFatSeries = allTimestamps.map { ts -> bodyFatByTs[ts] ?: 0.0 }
-
-            bodyCompositionModelProducer.runTransaction {
-                lineSeries {
-                    series(weightSeries)
-                    series(bodyFatSeries)
+                bodyCompositionModelProducer.runTransaction {
+                    lineSeries {
+                        series(weightSeries)
+                        series(bodyFatSeries)
+                    }
                 }
+            } catch (_: Exception) {
+                // Producer push is best-effort; empty state overlay handles missing data.
             }
         }
+    }
+
+    /**
+     * Maps [timestamps] to values from [byTs], forward-filling then backward-filling so that
+     * gaps between real readings carry the nearest known value rather than 0.0. This prevents
+     * a sparse series (e.g. monthly body fat amid daily weight) from distorting the Y-axis.
+     *
+     * Assumes [byTs] is non-empty.
+     */
+    private fun fillSeries(timestamps: List<Long>, byTs: Map<Long, Double>): List<Double> {
+        val result = MutableList<Double?>(timestamps.size) { null }
+        timestamps.forEachIndexed { i, ts -> result[i] = byTs[ts] }
+
+        // Forward fill: carry last known value forward
+        var last: Double? = null
+        for (i in result.indices) {
+            if (result[i] != null) last = result[i]
+            else if (last != null) result[i] = last
+        }
+        // Backward fill: propagate first known value back (for timestamps before first reading)
+        var first: Double? = null
+        for (i in result.indices.reversed()) {
+            if (result[i] != null) first = result[i]
+            else if (first != null) result[i] = first
+        }
+
+        return result.map { it ?: 0.0 }
     }
 
     private suspend fun loadChronotypeData() {
         try {
             val data = trendsRepository.getChronotypeData(_timeRange.value)
             _chronotypeData.value = data
+            _hasChronotypeData.value = data.sleepPoints.isNotEmpty() || data.workoutPoints.isNotEmpty()
             pushSleepToProducer(data.sleepPoints)
         } catch (_: Exception) {
             _chronotypeData.value = null
+            _hasChronotypeData.value = false
         }
     }
 
@@ -391,7 +518,8 @@ class TrendsViewModel @Inject constructor(
     }
 
     private fun pushSleepToProducer(points: List<SleepChartPoint>) {
-        viewModelScope.launch {
+        sleepPushJob?.cancel()
+        sleepPushJob = viewModelScope.launch {
             try {
                 val hasSufficientData = points.size >= 7
                 val greenSeries = if (hasSufficientData) {

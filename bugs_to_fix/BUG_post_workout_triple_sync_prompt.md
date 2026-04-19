@@ -18,6 +18,14 @@ The `WorkoutSummaryScreen` (introduced in `HISTORY_SUMMARY_REDESIGN_SPEC.md` as 
 **Secondary issue — false positive diff:**
 In the screenshots the workout contains 0 completed sets / 0 kg volume, yet `RoutineSyncType.STRUCTURE` is detected. The diff engine may be treating an empty/aborted workout as a structural change relative to the routine template.
 
+## Severity
+P1
+
+## Dependencies
+- **Depends on:** —
+- **Blocks:** —
+- **Touches:** `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutSummaryScreen.kt`
+
 ## Steps to Reproduce
 1. Open a routine-based workout.
 2. Immediately tap "Finish Workout" (or do a short session with any completion).

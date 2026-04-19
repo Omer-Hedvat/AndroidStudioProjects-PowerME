@@ -23,7 +23,9 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.util.UUID
 
@@ -137,6 +139,41 @@ class WorkoutDetailViewModelTest {
 
         vm.updatePendingReps(set.id, "8")
         assertTrue(vm.hasUnsavedChanges())
+    }
+
+    @Test
+    fun `deleteSession invokes onDeleted callback after archiving workout`() = runTest(testDispatcher) {
+        val set = makeSet()
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(listOf(set))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        var callbackFired = false
+        vm.deleteSession { callbackFired = true }
+        advanceUntilIdle()
+
+        assertTrue(callbackFired)
+        verify(workoutDao).updateWorkout(any())
+    }
+
+    @Test
+    fun `deleteSession invokes onDeleted when workout not found`() = runTest(testDispatcher) {
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(null)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        // Second call returns null — simulates workout already deleted
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(null)
+
+        var callbackFired = false
+        vm.deleteSession { callbackFired = true }
+        advanceUntilIdle()
+
+        assertTrue(callbackFired)
     }
 
     @Test

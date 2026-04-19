@@ -36,8 +36,10 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.core.cartesian.AutoScrollCondition
 import com.patrykandpatrick.vico.core.cartesian.Scroll
+import com.patrykandpatrick.vico.core.cartesian.Zoom
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
@@ -103,6 +105,11 @@ fun EffectiveSetsCard(
         }
     }
 
+    // Y axis shows integer set counts — no unit suffix needed per tick.
+    val yFormatter = remember {
+        CartesianValueFormatter { _, value, _ -> "%.0f".format(value) }
+    }
+
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
 
     // 8 LineComponents matching VicoChartHelpers.muscleGroupOrder — never changes
@@ -165,7 +172,16 @@ fun EffectiveSetsCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Y axis unit label (shown once at the top of the axis) ─────────
+            Text(
+                text = "SETS",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             // ── Chart area ────────────────────────────────────────────────────
             Box(
@@ -184,7 +200,10 @@ fun EffectiveSetsCard(
                 CartesianChartHost(
                     chart = rememberCartesianChart(
                         stackedBarLayer,
-                        startAxis = VerticalAxis.rememberStart(label = axisLabel),
+                        startAxis = VerticalAxis.rememberStart(
+                            label = axisLabel,
+                            valueFormatter = yFormatter
+                        ),
                         bottomAxis = HorizontalAxis.rememberBottom(
                             label = axisLabel,
                             valueFormatter = xFormatter
@@ -196,7 +215,8 @@ fun EffectiveSetsCard(
                         initialScroll = Scroll.Absolute.End,
                         autoScroll = Scroll.Absolute.End,
                         autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
-                    )
+                    ),
+                    zoomState = rememberVicoZoomState(initialZoom = Zoom.Content)
                 )
 
             }

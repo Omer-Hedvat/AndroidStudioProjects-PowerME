@@ -1,5 +1,78 @@
 # PowerME Database Upgrade Log
 
+## v46 — Exercise Stress Vectors (Body Heatmap P6 foundation)
+
+**Migration:** `MIGRATION_45_46`
+
+### Changes
+
+- **New table:** `exercise_stress_vectors` — maps exercises to body regions with a stress coefficient (0.0–1.0) sourced from exercise science literature (Schoenfeld / NSCA)
+  - `exerciseId INTEGER NOT NULL` — FK to `exercises.id` (CASCADE delete)
+  - `bodyRegion TEXT NOT NULL` — name of `BodyRegion` enum (e.g. `"KNEE_JOINT"`)
+  - `stressCoefficient REAL NOT NULL` — relative mechanical load on the region
+  - Composite PK: `(exerciseId, bodyRegion)`
+- **New index:** `index_exercise_stress_vectors_exerciseId ON exercise_stress_vectors(exerciseId)`
+
+### Related
+
+- New `BodyRegion.kt` enum (16 body regions: ANTERIOR_DELTOID, POSTERIOR_DELTOID, ELBOW_JOINT, WRIST_JOINT, KNEE_JOINT, HIP_JOINT, LOWER_BACK, UPPER_BACK, PECS, LATS, QUADS, HAMSTRINGS, GLUTES, CALVES, CORE, NECK_CERVICAL)
+- New `ExerciseStressVector.kt` Room entity
+- New `ExerciseStressVectorDao.kt`
+- New `ExerciseStressVectorSeedData.kt` — hardcoded coefficients for top 30 exercises
+- New `StressVectorSeeder.kt` — version-gated seeder (`SEED_VERSION = "1.0"`), called from `PowerMeApplication` after `MasterExerciseSeeder`
+- New `analytics/StressAccumulationEngine.kt` — stateless accumulation engine (exponential decay, half-life 4 days)
+- `TrendsDao` — new `getSetsForStressAccumulation(sinceMs)` query
+- `TrendsRepository` — new `getBodyStressMap()` method (21-day lookback, 5 half-lives)
+
+---
+
+## v45 — CSV Import Batch Tracking
+
+**Migration:** `MIGRATION_44_45`
+
+### Changes
+
+- **Table:** `workouts`
+  - Added: `source TEXT DEFAULT NULL` — `"import"` for CSV-imported workouts, `null` for native workouts
+  - Added: `importBatchId TEXT DEFAULT NULL` — UUID shared by all workouts from one import session; enables bulk undo
+- **New index:** `index_workouts_importBatchId ON workouts(importBatchId)` — efficient undo and filter queries
+
+### Related
+- New package `data/csvimport/`: `CsvImportModels`, `CsvFormatDetector`, `CsvRowParser`, `CsvImportManager`
+- New `ui/settings/ImportViewModel.kt` + `ImportWorkoutsScreen.kt`
+- `WorkoutDao`: added `getByImportBatch()`, `softDeleteBatch()`
+- `WorkoutRepository`: added `importWorkouts()`, `undoImport()`
+
+---
+
+## v44 — Exercise Joint Indicators
+
+**Migration:** `MIGRATION_43_44`
+
+### Changes
+
+- **Table:** `exercises`
+  - Added: `primaryJoints TEXT NOT NULL DEFAULT ''` — JSON array of `Joint` enum names under direct load (e.g. `["KNEE","HIP"]`)
+  - Added: `secondaryJoints TEXT NOT NULL DEFAULT ''` — JSON array of `Joint` enum names under stabilising/minor stress
+
+### Related
+- New `Joint.kt` enum (10 values: CERVICAL_SPINE, THORACIC_SPINE, LUMBAR_SPINE, SHOULDER, ELBOW, WRIST, HIP, KNEE, ANKLE, FOOT)
+- `master_exercises.json` v1.9 — all 240 exercises populated with joint data
+- `MasterExerciseSeeder` v1.9 — triggers re-seed to propagate joint data
+
+---
+
+## v43 — HC Extended Reads
+
+**Migration:** `MIGRATION_42_43`
+
+### Changes
+
+- **Table:** `health_connect_sync`
+  - Added 22 new nullable columns for HR zones, active calories, VO₂ Max, distance, SpO₂, sleep stages (deep/REM/light/awake), sleep efficiency/score, and respiratory rate
+
+---
+
 ## v42 — History Query Performance Indexes
 
 **Migration:** `MIGRATION_41_42`

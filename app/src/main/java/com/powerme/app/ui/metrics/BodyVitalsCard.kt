@@ -1,6 +1,8 @@
 package com.powerme.app.ui.metrics
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -39,7 +41,15 @@ data class BodyVitalsState(
     val stepsToday: Int? = null,
     val lastSyncTimestamp: Long? = null,
     val isSyncing: Boolean = false,
-    val syncError: String? = null
+    val syncError: String? = null,
+    // Extended reads (v43+)
+    val sleepScore: Int? = null,
+    val avgHeartRateBpm: Int? = null,
+    val vo2MaxMlKgMin: Double? = null,
+    val spo2Percent: Double? = null,
+    val lowSpO2Flag: Boolean = false,
+    val activeCaloriesKcal: Double? = null,
+    val distanceMetres: Double? = null
 )
 
 @Composable
@@ -199,7 +209,7 @@ private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit, un
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Row 2: Body Fat | Height | Steps
+        // Row 2: Body Fat | Height | Steps (distance sub-label when available)
         Row(modifier = Modifier.fillMaxWidth()) {
             MetricTile(
                 modifier = Modifier.weight(1f),
@@ -215,18 +225,20 @@ private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit, un
             MetricTile(
                 modifier = Modifier.weight(1f),
                 label = "Steps",
-                value = state.stepsToday?.let { String.format(Locale.US, "%,d", it) } ?: "--"
+                value = state.stepsToday?.let { String.format(Locale.US, "%,d", it) } ?: "--",
+                subValue = state.distanceMetres?.let { formatDistance(it, unitSystem) }
             )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Row 3: Sleep | HRV | RHR
+        // Row 3: Sleep (score sub-label) | HRV | RHR
         Row(modifier = Modifier.fillMaxWidth()) {
             MetricTile(
                 modifier = Modifier.weight(1f),
                 label = "Sleep",
-                value = state.sleepMinutes?.let { formatSleep(it) } ?: "--"
+                value = state.sleepMinutes?.let { formatSleep(it) } ?: "--",
+                subValue = state.sleepScore?.let { "Score: $it" }
             )
             MetricTile(
                 modifier = Modifier.weight(1f),
@@ -238,6 +250,46 @@ private fun ConnectedContent(state: BodyVitalsState, onSyncClick: () -> Unit, un
                 label = "RHR",
                 value = state.rhrBpm?.let { "$it bpm" } ?: "--"
             )
+        }
+
+        // Row 5: Avg HR | VO2 Max | SpO2 — shown only when at least one value is present
+        if (state.avgHeartRateBpm != null || state.vo2MaxMlKgMin != null || state.spo2Percent != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MetricTile(
+                    modifier = Modifier.weight(1f),
+                    label = "Avg HR",
+                    value = state.avgHeartRateBpm?.let { "$it bpm" } ?: "--"
+                )
+                MetricTile(
+                    modifier = Modifier.weight(1f),
+                    label = "VO\u2082 Max",
+                    value = state.vo2MaxMlKgMin?.let { "%.1f".format(it) } ?: "--",
+                    subValue = state.vo2MaxMlKgMin?.let { vo2MaxTier(it) }
+                )
+                SpO2Tile(
+                    modifier = Modifier.weight(1f),
+                    spo2Percent = state.spo2Percent,
+                    lowFlag = state.lowSpO2Flag
+                )
+            }
+        }
+
+        // Row 6: Active Calories — shown only when present
+        if (state.activeCaloriesKcal != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MetricTile(
+                    modifier = Modifier.weight(1f),
+                    label = "Active Cal",
+                    value = String.format(Locale.US, "%,.0f kcal", state.activeCaloriesKcal),
+                    subValue = state.stepsToday?.let { steps ->
+                        val neat = state.activeCaloriesKcal + steps * 0.04
+                        "NEAT: ${String.format(Locale.US, "%,.0f", neat)} kcal"
+                    }
+                )
+                Spacer(modifier = Modifier.weight(2f))
+            }
         }
     }
 }
@@ -302,6 +354,46 @@ private fun MetricTile(
         }
     }
 }
+
+@Composable
+private fun SpO2Tile(modifier: Modifier, spo2Percent: Double?, lowFlag: Boolean) {
+    val dotColor = when {
+        spo2Percent == null -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+        spo2Percent < 92.0 -> TimerRed
+        spo2Percent < 95.0 -> MaterialTheme.colorScheme.tertiary
+        else -> TimerGreen
+    }
+    Column(
+        modifier = modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = "SpO\u2082", fontSize = 10.sp, color = ProSubGrey, letterSpacing = 0.5.sp)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = spo2Percent?.let { "${"%.0f".format(it)}%" } ?: "--",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(color = dotColor, shape = CircleShape)
+        )
+    }
+}
+
+private fun vo2MaxTier(value: Double): String = when {
+    value > 62 -> "Superior"
+    value > 52 -> "Excellent"
+    value > 42 -> "Good"
+    value > 33 -> "Fair"
+    value > 25 -> "Poor"
+    else -> "Very Poor"
+}
+
+private fun formatDistance(metres: Double, unitSystem: UnitSystem): String =
+    UnitConverter.formatDistance(metres / 1000.0, unitSystem)
 
 private fun bmiLabel(bmi: Double): String = when {
     bmi < 18.5 -> "underweight"

@@ -34,8 +34,10 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.*
 import com.patrykandpatrick.vico.compose.cartesian.layer.*
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.core.cartesian.AutoScrollCondition
 import com.patrykandpatrick.vico.core.cartesian.Scroll
+import com.patrykandpatrick.vico.core.cartesian.Zoom
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.fill
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
@@ -88,14 +90,14 @@ fun E1RMProgressionCard(
         }
     }
 
-    // The producer holds raw metric (kg) values — convert to display units at render time.
+    // Y axis shows numbers only — unit is displayed once as a label above the axis.
     val yFormatter = remember(unitSystem) {
-        val label = UnitConverter.weightLabel(unitSystem)
         CartesianValueFormatter { _, value, _ ->
             val display = UnitConverter.displayWeight(value, unitSystem)
-            "${"%.0f".format(display)} $label"
+            "%.0f".format(display)
         }
     }
+    val unitLabel = UnitConverter.weightLabel(unitSystem)
 
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
 
@@ -171,7 +173,16 @@ fun E1RMProgressionCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Y axis unit label (shown once at the top of the axis) ─────────
+            Text(
+                text = unitLabel.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             // ── Chart area — CartesianChartHost is always in the composition tree ──
             // The producer lives in TrendsViewModel and is never recreated. When there
@@ -222,7 +233,8 @@ fun E1RMProgressionCard(
                         initialScroll = Scroll.Absolute.End,
                         autoScroll = Scroll.Absolute.End,
                         autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
-                    )
+                    ),
+                    zoomState = rememberVicoZoomState(initialZoom = Zoom.Content)
                 )
 
             }

@@ -115,6 +115,24 @@ class ProfileSetupViewModel @Inject constructor(
         _uiState.update { it.copy(currentStep = 2) }
     }
 
+    /** User tapped "Skip for now" on the profile form. Saves a minimal User so the startup check passes. */
+    fun skipProfileSetup() {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isSaving = true, saveError = null) }
+                val email = firebaseAuth.currentUser?.email ?: run {
+                    _uiState.update { it.copy(isSaving = false, saveError = "Not signed in") }
+                    return@launch
+                }
+                val user = User(email = email)
+                userSessionManager.saveUser(user)
+                _uiState.update { it.copy(isSaving = false, profileSaved = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSaving = false, saveError = e.message) }
+            }
+        }
+    }
+
     fun saveProfile(
         name: String?,
         dateOfBirth: Long?,

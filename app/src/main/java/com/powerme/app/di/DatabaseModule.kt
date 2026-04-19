@@ -584,6 +584,82 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_42_43 = object : Migration(42, 43) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // HC Extended Reads — 22 new nullable columns on health_connect_sync
+            // HR
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN avgHeartRateBpm INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN peakHeartRateBpm INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN hrZone1Pct REAL DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN hrZone2Pct REAL DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN hrZone3Pct REAL DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN hrZone4Pct REAL DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN hrZone5Pct REAL DEFAULT NULL")
+            // Active calories
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN activeCaloriesKcal REAL DEFAULT NULL")
+            // VO2 Max
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN vo2MaxMlKgMin REAL DEFAULT NULL")
+            // Distance
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN distanceMetres REAL DEFAULT NULL")
+            // SpO2
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN spo2Percent REAL DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN lowSpO2Flag INTEGER NOT NULL DEFAULT 0")
+            // Sleep stages
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN deepSleepMinutes INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN remSleepMinutes INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN lightSleepMinutes INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN awakeMinutes INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN sleepEfficiency REAL DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN sleepScore INTEGER DEFAULT NULL")
+            // Respiratory rate
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN sleepRespiratoryRate REAL DEFAULT NULL")
+            db.execSQL("ALTER TABLE health_connect_sync ADD COLUMN elevatedRespiratoryRateFlag INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    private val MIGRATION_44_45 = object : Migration(44, 45) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Tag imported workouts for undo and filtering (CSV Import feature)
+            db.execSQL("ALTER TABLE workouts ADD COLUMN source TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE workouts ADD COLUMN importBatchId TEXT DEFAULT NULL")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workouts_importBatchId ON workouts(importBatchId)")
+        }
+    }
+
+    private val MIGRATION_46_47 = object : Migration(46, 47) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add user-authored per-exercise note field (Exercise Detail Sheet Revision)
+            db.execSQL("ALTER TABLE exercises ADD COLUMN userNote TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val MIGRATION_45_46 = object : Migration(45, 46) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Create exercise_stress_vectors table for Body Heatmap (P6)
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS exercise_stress_vectors (
+                    exerciseId INTEGER NOT NULL,
+                    bodyRegion TEXT NOT NULL,
+                    stressCoefficient REAL NOT NULL,
+                    PRIMARY KEY (exerciseId, bodyRegion),
+                    FOREIGN KEY (exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_exercise_stress_vectors_exerciseId " +
+                    "ON exercise_stress_vectors(exerciseId)"
+            )
+        }
+    }
+
+    private val MIGRATION_43_44 = object : Migration(43, 44) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add joint indicator columns to exercises (Exercise Joint Indicators feature)
+            db.execSQL("ALTER TABLE exercises ADD COLUMN primaryJoints TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE exercises ADD COLUMN secondaryJoints TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
     private val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix index name mismatch on exercise_muscle_groups:
@@ -940,7 +1016,12 @@ object DatabaseModule {
                 MIGRATION_38_39,
                 MIGRATION_39_40,
                 MIGRATION_40_41,
-                MIGRATION_41_42
+                MIGRATION_41_42,
+                MIGRATION_42_43,
+                MIGRATION_43_44,
+                MIGRATION_44_45,
+                MIGRATION_45_46,
+                MIGRATION_46_47
             )
             .fallbackToDestructiveMigration()
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
@@ -1073,6 +1154,20 @@ object DatabaseModule {
     ): MasterExerciseSeeder {
         return MasterExerciseSeeder(context, exerciseDao, exerciseMuscleGroupDao)
     }
+
+    @Provides
+    @Singleton
+    fun provideExerciseStressVectorDao(database: PowerMeDatabase): com.powerme.app.data.database.ExerciseStressVectorDao =
+        database.exerciseStressVectorDao()
+
+    @Provides
+    @Singleton
+    fun provideStressVectorSeeder(
+        @ApplicationContext context: Context,
+        exerciseDao: ExerciseDao,
+        stressVectorDao: com.powerme.app.data.database.ExerciseStressVectorDao
+    ): com.powerme.app.data.database.StressVectorSeeder =
+        com.powerme.app.data.database.StressVectorSeeder(context, exerciseDao, stressVectorDao)
 
     @Provides
     @Singleton

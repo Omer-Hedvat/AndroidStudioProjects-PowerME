@@ -26,8 +26,10 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.*
 import com.patrykandpatrick.vico.compose.cartesian.layer.*
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.core.cartesian.AutoScrollCondition
 import com.patrykandpatrick.vico.core.cartesian.Scroll
+import com.patrykandpatrick.vico.core.cartesian.Zoom
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.fill
@@ -78,15 +80,15 @@ fun VolumeTrendCard(
         }
     }
 
-    // The producer holds raw metric (kg) values — convert to display units at render time.
+    // Y axis shows numbers only — unit is displayed once as a label above the axis.
     val yFormatter = remember(unitSystem) {
-        val label = UnitConverter.weightLabel(unitSystem)
         CartesianValueFormatter { _, value, _ ->
             val display = UnitConverter.displayWeight(value, unitSystem)
-            if (display >= 1_000.0) "${"%.0f".format(display / 1_000)}K $label"
-            else "${"%.0f".format(display)} $label"
+            if (display >= 1_000.0) "${"%.0f".format(display / 1_000)}K"
+            else "%.0f".format(display)
         }
     }
+    val unitLabel = UnitConverter.weightLabel(unitSystem)
 
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
 
@@ -140,7 +142,16 @@ fun VolumeTrendCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Y axis unit label (shown once at the top of the axis) ─────────
+            Text(
+                text = unitLabel.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             // ── Chart area — CartesianChartHost is always in the composition tree ──
             // The producer lives in TrendsViewModel and is never recreated, so the host
@@ -190,7 +201,8 @@ fun VolumeTrendCard(
                         initialScroll = Scroll.Absolute.End,
                         autoScroll = Scroll.Absolute.End,
                         autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
-                    )
+                    ),
+                    zoomState = rememberVicoZoomState(initialZoom = Zoom.Content)
                 )
 
             }

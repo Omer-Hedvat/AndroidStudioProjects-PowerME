@@ -36,8 +36,10 @@ import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.core.cartesian.AutoScrollCondition
 import com.patrykandpatrick.vico.core.cartesian.Scroll
+import com.patrykandpatrick.vico.core.cartesian.Zoom
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.common.fill
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
@@ -103,17 +105,19 @@ fun BodyCompositionCard(
     // Y-axis label is unit-aware: show "%" when only body fat is visible so the axis doesn't
     // display weight units (e.g. "25.0 kg") for body fat percentage values.
     val onlyBodyFatVisible = showBodyFat && bodyFatPoints.isNotEmpty() && !(showWeight && weightPoints.isNotEmpty())
+
+    // Y axis shows numbers only — unit is displayed once as a label above the axis.
     val yFormatter = remember(unitSystem, onlyBodyFatVisible) {
-        val label = UnitConverter.weightLabel(unitSystem)
         CartesianValueFormatter { _, value, _ ->
             if (onlyBodyFatVisible) {
-                "${"%.1f".format(value)} %"
+                "%.1f".format(value)
             } else {
                 val display = UnitConverter.displayWeight(value, unitSystem)
-                "${"%.1f".format(display)} $label"
+                "%.1f".format(display)
             }
         }
     }
+    val yAxisUnit = if (onlyBodyFatVisible) "%" else UnitConverter.weightLabel(unitSystem)
 
     val axisLabel = rememberTextComponent(color = ProSubGrey, textSize = 11.sp)
 
@@ -178,7 +182,16 @@ fun BodyCompositionCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Y axis unit label (shown once at the top of the axis) ─────────
+            Text(
+                text = yAxisUnit.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             // ── Chart area ────────────────────────────────────────────────────
             Box(
@@ -225,7 +238,8 @@ fun BodyCompositionCard(
                         initialScroll = Scroll.Absolute.End,
                         autoScroll = Scroll.Absolute.End,
                         autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
-                    )
+                    ),
+                    zoomState = rememberVicoZoomState(initialZoom = Zoom.Content)
                 )
 
             }

@@ -76,7 +76,8 @@ fun ProfileSetupScreen(
                         gender = gender,
                         trainingTargets = targets
                     )
-                }
+                },
+                onSkip = { viewModel.skipProfileSetup() }
             )
         }
     }
@@ -180,7 +181,8 @@ private fun ProfileFormStep(
         sleep: Float?,
         gender: String?,
         targets: String?
-    ) -> Unit
+    ) -> Unit,
+    onSkip: () -> Unit = {}
 ) {
     val focusManager = LocalFocusManager.current
 
@@ -525,6 +527,15 @@ private fun ProfileFormStep(
             } else {
                 Text("Get Started", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TextButton(
+            onClick = onSkip,
+            enabled = !uiState.isSaving
+        ) {
+            Text("Skip for now", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         Spacer(modifier = Modifier.height(24.dp))

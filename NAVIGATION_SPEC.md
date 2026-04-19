@@ -150,14 +150,17 @@ AuthViewModel.dismissLinkPrompt()
 
 ---
 
-### 2.2 Sign-Out Nuke `[Mandatory Future Refactor — Not Yet Implemented]`
+### 2.2 Sign-Out
 
-Tapping **Log Out** must:
-1. Execute `popUpTo(0) { inclusive = true }` — destroys the **entire** back stack.
-2. Wipe the local Room database immediately to prevent data leaking between accounts.
-3. Navigate to `auth_welcome`.
+Tapping **Log Out** (via `ProfileViewModel.signOut()` → `UserSessionManager.clearUser()`) currently:
+1. Deletes only the `users` table row from Room.
+2. Resets `hasRestoredOnce = false` in `AppSettingsDataStore` — **critical** for re-login restore.
+3. Calls `Firebase.auth.signOut()`.
+4. Navigates to `auth_welcome` with `popUpTo(0) { inclusive = true }` — destroys the entire back stack.
 
-Failure to wipe the DB on sign-out is a data-leak bug. The sign-out handler must call `AppDatabase.clearAllTables()` (or equivalent) before navigating.
+**Re-login restore flow:** On next sign-in, `AuthViewModel.applyNewUserGate()` sees `hasRestoredOnce = false` and calls `pullProfileOnly()` (blocks — restores the User entity before routing) then `launchBackgroundSync()` (background — restores settings, app prefs, workouts, routines). The defensive fallback in `applyNewUserGate()` also handles the edge case where `hasRestoredOnce` was somehow not reset: if `dbUser == null && alreadyRestored`, it calls `pullProfileOnly()` + `launchBackgroundSync()` and re-checks before routing.
+
+**Future refactor `[Not Yet Implemented]`:** Full DB nuke (`AppDatabase.clearAllTables()`) on sign-out to prevent data leaking when a different user signs in on the same device. Currently only the `users` row is deleted; other tables (health history, metric logs, workouts, routines) remain and are associated with no user until the next sign-in overwrites them.
 
 ### 2.3 Process Death & Foreground Service Notification `[Target Architecture — Pending Implementation]`
 

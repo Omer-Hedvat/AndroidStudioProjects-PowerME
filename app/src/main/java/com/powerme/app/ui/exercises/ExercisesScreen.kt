@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -25,15 +26,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.SubcomposeAsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseType
+import com.powerme.app.data.database.Joint
 import com.powerme.app.ui.theme.ExercisePlyometricOrange
 import com.powerme.app.ui.theme.ExerciseStretchTeal
 import com.powerme.app.ui.theme.FormCuesGold
@@ -52,6 +60,7 @@ fun ExercisesScreen(
     val uiState by viewModel.uiState.collectAsState()
     val muscleGroupFilters by viewModel.muscleGroupFilters.collectAsState()
     val equipmentFilters by viewModel.equipmentFilters.collectAsState()
+    val affectedJoints by viewModel.affectedJoints.collectAsState()
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
     var selectedExercise by remember { mutableStateOf<Exercise?>(null) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
@@ -253,7 +262,11 @@ fun ExercisesScreen(
 
     // Exercise detail sheet — shown when user taps an exercise card
     selectedExercise?.let { ex ->
-        ExerciseDetailSheet(exercise = ex, onDismiss = { selectedExercise = null })
+        ExerciseDetailSheet(
+            exercise = ex,
+            affectedJoints = affectedJoints,
+            onDismiss = { selectedExercise = null }
+        )
     }
 
     // Delete confirmation dialog
@@ -441,22 +454,30 @@ private fun ExerciseCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ExerciseDetailSheet(
     exercise: Exercise,
+    affectedJoints: Set<Joint> = emptySet(),
     onDismiss: () -> Unit
 ) {
-    var showFormCues by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
                 .navigationBarsPadding()
+        ) {
+        ExerciseAnimationImage(exercise)
+        Spacer(modifier = Modifier.height(12.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -474,20 +495,70 @@ fun ExerciseDetailSheet(
                 SuggestionChip(onClick = {}, label = {
                     Text(exercise.equipmentType)
                 })
-                if (exercise.setupNotes?.isNotBlank() == true) {
-                    IconButton(onClick = { showFormCues = !showFormCues }) {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = "Toggle Form Cues",
-                            tint = if (showFormCues) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
+            }
+            // Joint indicators — "Joints:" label + primary (filled) and secondary (outlined) chips
+            val primaryJoints = Joint.fromJsonString(exercise.primaryJoints)
+            val secondaryJoints = Joint.fromJsonString(exercise.secondaryJoints)
+            if (primaryJoints.isNotEmpty() || secondaryJoints.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text(
+                        text = "Joints:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp, end = 8.dp)
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        primaryJoints.forEach { joint ->
+                            val isAffected = joint in affectedJoints
+                            AssistChip(
+                                onClick = {},
+                                label = { Text(joint.displayName, fontSize = 11.sp) },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = if (isAffected)
+                                        MaterialTheme.colorScheme.errorContainer
+                                    else
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                    labelColor = if (isAffected)
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                    else
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                border = null
+                            )
+                        }
+                        if (primaryJoints.isNotEmpty() && secondaryJoints.isNotEmpty()) {
+                            Text(
+                                text = "·",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 2.dp, top = 8.dp, end = 2.dp)
+                            )
+                        }
+                        secondaryJoints.forEach { joint ->
+                            val isAffected = joint in affectedJoints
+                            AssistChip(
+                                onClick = {},
+                                label = { Text(joint.displayName, fontSize = 10.sp) },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = if (isAffected)
+                                        MaterialTheme.colorScheme.errorContainer
+                                    else
+                                        Color.Transparent,
+                                    labelColor = if (isAffected)
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
                     }
                 }
             }
-            // Form Cues (setupNotes) — shown only when toggled via Info icon
+            // Form Cues (setupNotes) — always shown when present
             val cues = exercise.setupNotes
-            if (showFormCues && !cues.isNullOrBlank()) {
+            if (!cues.isNullOrBlank()) {
                 Surface(
                     color = FormCuesGold,
                     shape = MaterialTheme.shapes.small,
@@ -502,5 +573,40 @@ fun ExerciseDetailSheet(
                 }
             }
         }
+        } // outer Column
     }
+}
+
+@Composable
+private fun ExerciseAnimationImage(exercise: Exercise) {
+    val context = LocalContext.current
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(context)
+            .data("file:///android_asset/exercise_animations/${exercise.searchName}.webp")
+            .crossfade(true)
+            .build(),
+        contentDescription = "${exercise.name} demonstration",
+        imageLoader = context.imageLoader,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        error = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.FitnessCenter,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    )
 }

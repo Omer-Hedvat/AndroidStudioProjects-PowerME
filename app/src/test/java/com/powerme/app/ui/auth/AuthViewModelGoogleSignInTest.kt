@@ -315,4 +315,49 @@ class AuthViewModelGoogleSignInTest {
         assertFalse(state.needsHcOffer)
         assertTrue(state.isSignedIn)
     }
+
+    // ── Test 14: Re-login after logout — defensive fallback restores profile ──
+    // hasRestoredOnce = true (not reset), Room row was deleted on logout.
+    // Fallback: pullProfileOnly() fires, Room is repopulated, user routed to main app.
+
+    @Test
+    fun `signInWithGoogle - re-login after logout, hasRestoredOnce true, no local user - fallback pulls profile and routes to main app`() = runTest(testDispatcher) {
+        whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
+        // Simulate: Room row deleted on logout; pullProfileOnly restores it on re-login
+        whenever(mockUserSessionManager.getCurrentUser())
+            .thenReturn(null)    // first call: Room is empty (post-logout)
+            .thenReturn(fakeUser) // second call: profile restored by pullProfileOnly
+        whenever(mockFirestoreSyncManager.pullProfileOnly()).thenReturn(true)
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertTrue(state.isSignedIn)
+        assertFalse(state.needsProfileSetup)
+        assertNull(state.error)
+        verify(mockFirestoreSyncManager).pullProfileOnly()
+    }
+
+    // ── Test 15: Re-login — no Firestore profile either (truly new account) ───
+    // hasRestoredOnce = true, Room empty, Firestore has no profile.
+    // Fallback: pullProfileOnly() fires but finds nothing → needsProfileSetup true.
+
+    @Test
+    fun `signInWithGoogle - re-login, hasRestoredOnce true, no local user, no Firestore profile - needsProfileSetup true`() = runTest(testDispatcher) {
+        whenever(mockGoogleSignInHelper.signIn(mockContext)).thenReturn(Unit)
+        whenever(mockUserSessionManager.getCurrentUser()).thenReturn(null)
+        whenever(mockFirestoreSyncManager.pullProfileOnly()).thenReturn(false)
+
+        viewModel.signInWithGoogle(mockContext)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.isSignedIn)
+        assertTrue(state.needsProfileSetup)
+        assertNull(state.error)
+        verify(mockFirestoreSyncManager).pullProfileOnly()
+    }
 }

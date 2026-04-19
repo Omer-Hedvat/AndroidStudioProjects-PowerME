@@ -409,16 +409,17 @@ Sheet visibility driven by `var selectedExercise by remember { mutableStateOf<Ex
 ┌──────────────────────────────────────────────────┐
 │                                                  │
 │          [Looping Animated WebP]                 │
-│          (aspect ratio: 4:3, rounded 12.dp)      │
+│          (aspect ratio: 16:9, top corners 16dp)  │
 │                                                  │
 └──────────────────────────────────────────────────┘
 ```
 
 - **Source:** Local asset at `assets/exercise_animations/{searchName}.webp`. Convention-based path — no DB column needed. See §11 for how assets are produced.
-- **Loader:** Coil `AsyncImage` composable with an `ImageLoader` configured with `coil-gif` decoder (provides Animated WebP support). Zero network calls at runtime.
+- **Loader:** Coil `SubcomposeAsyncImage` with a locally-remembered `ImageLoader` configured with `ImageDecoderDecoder` (API 28+) or `GifDecoder` (API 26–27) for Animated WebP support. Zero network calls at runtime.
 - **Looping:** Coil's GIF/WebP decoder loops by default. No manual replay logic needed.
-- **Fallback:** If the asset file is missing, display a muted placeholder illustration (`Icons.Default.FitnessCenter` centered on a `surfaceVariant` background, 200.dp height).
-- **Size constraint:** `fillMaxWidth()`, fixed height 200.dp, `ContentScale.Fit`, `clip(RoundedCornerShape(12.dp))`.
+- **Fallback:** If the asset file is missing, display `Icons.Default.FitnessCenter` (48dp, `onSurfaceVariant` tint) centered on a `surfaceVariant` background via the `error` slot.
+- **Size constraint:** `fillMaxWidth()`, `aspectRatio(16f / 9f)`, `ContentScale.Crop`, `clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))`.
+- **Placement:** Above the padded `Column` (outside horizontal 20dp padding) so the image fills the full sheet width.
 
 ### 8.3 Title & Tags
 
@@ -521,7 +522,7 @@ Compact list of the last 3–5 completed sessions for this exercise.
 
 ## 11. Exercise Animation Asset Pipeline
 
-**Status:** Not yet executed. Animations are not bundled in the current build. The UI fallback placeholder renders for all exercises until assets are added.
+**Status:** ✅ Complete. 240 animated WebP assets bundled in `app/src/main/assets/exercise_animations/`. UI renders them via Coil in `ExerciseDetailSheet`; fallback placeholder shown for missing files.
 
 ### 11.1 Source
 

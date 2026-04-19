@@ -124,7 +124,14 @@ class MetricsViewModel @Inject constructor(
                 stepsToday = latestSync?.steps,
                 lastSyncTimestamp = latestSync?.syncTimestamp,
                 weightDelta7d = compute7dDelta(_uiState.value.weightEntries),
-                bodyFatDelta7d = compute7dDelta(_uiState.value.bodyFatEntries)
+                bodyFatDelta7d = compute7dDelta(_uiState.value.bodyFatEntries),
+                sleepScore = latestSync?.sleepScore,
+                avgHeartRateBpm = latestSync?.avgHeartRateBpm,
+                vo2MaxMlKgMin = latestSync?.vo2MaxMlKgMin,
+                spo2Percent = latestSync?.spo2Percent,
+                lowSpO2Flag = latestSync?.lowSpO2Flag ?: false,
+                activeCaloriesKcal = latestSync?.activeCaloriesKcal,
+                distanceMetres = latestSync?.distanceMetres
             ))
         }
     }

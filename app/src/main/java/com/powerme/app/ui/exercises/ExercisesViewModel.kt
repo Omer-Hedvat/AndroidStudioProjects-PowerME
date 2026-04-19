@@ -3,14 +3,19 @@ package com.powerme.app.ui.exercises
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.database.Exercise
+import com.powerme.app.data.database.Joint
 import com.powerme.app.data.database.matchesSearchTokens
+import com.powerme.app.data.database.toAffectedJoints
 import com.powerme.app.data.database.toSearchTokens
 import com.powerme.app.data.repository.ExerciseRepository
+import com.powerme.app.data.repository.HealthHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -26,7 +31,8 @@ data class ExercisesUiState(
 
 @HiltViewModel
 class ExercisesViewModel @Inject constructor(
-    private val exerciseRepository: ExerciseRepository
+    private val exerciseRepository: ExerciseRepository,
+    private val healthHistoryRepository: HealthHistoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ExercisesUiState())
@@ -37,6 +43,11 @@ class ExercisesViewModel @Inject constructor(
 
     private val _equipmentFilters = MutableStateFlow<List<String>>(listOf("All"))
     val equipmentFilters: StateFlow<List<String>> = _equipmentFilters.asStateFlow()
+
+    /** Set of joints the user has active MODERATE/SEVERE health history entries for. */
+    val affectedJoints: StateFlow<Set<Joint>> = healthHistoryRepository.getActiveEntries()
+        .map { entries -> entries.flatMap { it.toAffectedJoints() }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private var allExercises: List<Exercise> = emptyList()
 

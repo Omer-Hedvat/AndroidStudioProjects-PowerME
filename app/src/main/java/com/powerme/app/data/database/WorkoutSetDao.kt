@@ -3,6 +3,43 @@ package com.powerme.app.data.database
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
+// ── Per-exercise detail projections ─────────────────────────────────────────
+
+data class ExerciseSessionVolume(
+    val workoutId: String,
+    val timestamp: Long,
+    val totalVolume: Double,
+    val setCount: Int
+)
+
+data class ExerciseSessionMaxWeight(
+    val timestamp: Long,
+    val maxWeight: Double
+)
+
+data class ExerciseSessionBestSet(
+    val timestamp: Long,
+    val weight: Double,
+    val reps: Int,
+    val volume: Double
+)
+
+data class ExercisePRSet(
+    val weight: Double,
+    val reps: Int,
+    val timestamp: Long,
+    val setVolume: Double
+)
+
+data class ExerciseRpeTrendPoint(
+    val timestamp: Long,
+    val avgRpe: Double,
+    val avgWeight: Double,
+    val setCount: Int
+)
+
+// ── Existing projection ─────────────────────────────────────────────────────
+
 data class WorkoutSetWithExercise(
     val id: String,
     val workoutId: String,
@@ -132,4 +169,90 @@ interface WorkoutSetDao {
           AND w.timestamp < :beforeTimestamp
     """)
     suspend fun getHistoricalBestE1RM(exerciseId: Long, beforeTimestamp: Long): Double?
+
+    /** Per-session volume for a specific exercise. Used for the volume trend chart in ExerciseDetailScreen. */
+    @Query("""
+        SELECT w.id AS workoutId, w.timestamp,
+               SUM(ws.weight * ws.reps) AS totalVolume,
+               COUNT(ws.id) AS setCount
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND w.isCompleted = 1 AND w.isArchived = 0
+          AND w.timestamp >= :sinceMs
+        GROUP BY w.id
+        ORDER BY w.timestamp ASC
+    """)
+    suspend fun getExerciseSessionVolume(exerciseId: Long, sinceMs: Long): List<ExerciseSessionVolume>
+
+    /** Per-session max weight for a specific exercise. Used for the max weight trend chart. */
+    @Query("""
+        SELECT w.timestamp, MAX(ws.weight) AS maxWeight
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND w.isCompleted = 1 AND w.isArchived = 0
+          AND ws.weight > 0
+          AND w.timestamp >= :sinceMs
+        GROUP BY w.id
+        ORDER BY w.timestamp ASC
+    """)
+    suspend fun getExerciseSessionMaxWeight(exerciseId: Long, sinceMs: Long): List<ExerciseSessionMaxWeight>
+
+    /** Per-session best set (highest weight × reps product) for an exercise. */
+    @Query("""
+        SELECT w.timestamp, ws.weight, ws.reps, MAX(ws.weight * ws.reps) AS volume
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND w.isCompleted = 1 AND w.isArchived = 0
+          AND ws.weight > 0 AND ws.reps > 0
+          AND w.timestamp >= :sinceMs
+        GROUP BY w.id
+        ORDER BY w.timestamp ASC
+    """)
+    suspend fun getExerciseSessionBestSet(exerciseId: Long, sinceMs: Long): List<ExerciseSessionBestSet>
+
+    /** All completed non-warmup sets for an exercise across all time — used for PR computation in Kotlin. */
+    @Query("""
+        SELECT ws.weight, ws.reps, w.timestamp, ws.weight * ws.reps AS setVolume
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND w.isCompleted = 1 AND w.isArchived = 0
+          AND ws.weight > 0 AND ws.reps > 0
+        ORDER BY w.timestamp ASC
+    """)
+    suspend fun getAllSetsForExercisePRs(exerciseId: Long): List<ExercisePRSet>
+
+    /** Total number of distinct sessions this exercise has appeared in. */
+    @Query("""
+        SELECT COUNT(DISTINCT w.id)
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1
+          AND w.isCompleted = 1 AND w.isArchived = 0
+    """)
+    suspend fun getExerciseSessionCount(exerciseId: Long): Int
+
+    /** Per-session average RPE trend for an exercise. Only returns sessions where RPE was logged. */
+    @Query("""
+        SELECT w.timestamp, AVG(CAST(ws.rpe AS REAL)) AS avgRpe,
+               AVG(ws.weight) AS avgWeight, COUNT(ws.id) AS setCount
+        FROM workout_sets ws
+        JOIN workouts w ON ws.workoutId = w.id
+        WHERE ws.exerciseId = :exerciseId
+          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND ws.rpe IS NOT NULL AND ws.rpe > 0
+          AND w.isCompleted = 1 AND w.isArchived = 0
+          AND w.timestamp >= :sinceMs
+        GROUP BY w.id
+        ORDER BY w.timestamp ASC
+    """)
+    suspend fun getExerciseRpeTrend(exerciseId: Long, sinceMs: Long): List<ExerciseRpeTrendPoint>
 }

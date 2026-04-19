@@ -21,7 +21,9 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 /**
@@ -209,5 +211,44 @@ class ProfileSetupViewModelTest {
 
         assertEquals(2, vm.uiState.value.currentStep)
         assertFalse(vm.uiState.value.hcConnected)
+    }
+
+    // ── skipProfileSetup ─────────────────────────────────────────────────────
+
+    @Test
+    fun `skipProfileSetup saves minimal User with email only and sets profileSaved`() = runTest(testDispatcher) {
+        whenever(mockHcManager.isAvailable()).thenReturn(false)
+        whenever(mockFirebaseAuth.currentUser).thenReturn(mockFirebaseUser)
+        whenever(mockFirebaseUser.email).thenReturn("test@example.com")
+        runBlocking { whenever(mockUserSessionManager.saveUser(org.mockito.kotlin.any())).thenReturn(Unit) }
+
+        val vm = buildViewModel()
+        runCurrent()
+        vm.skipProfileSetup()
+        runCurrent()
+
+        val captor = argumentCaptor<User>()
+        runBlocking { verify(mockUserSessionManager).saveUser(captor.capture()) }
+        assertEquals("test@example.com", captor.firstValue.email)
+        assertNull(captor.firstValue.name)
+        assertNull(captor.firstValue.weightKg)
+        assertNull(captor.firstValue.heightCm)
+        assertTrue(vm.uiState.value.profileSaved)
+        assertFalse(vm.uiState.value.isSaving)
+    }
+
+    @Test
+    fun `skipProfileSetup with no signed-in user sets saveError and does not set profileSaved`() = runTest(testDispatcher) {
+        whenever(mockHcManager.isAvailable()).thenReturn(false)
+        whenever(mockFirebaseAuth.currentUser).thenReturn(null)
+
+        val vm = buildViewModel()
+        runCurrent()
+        vm.skipProfileSetup()
+        runCurrent()
+
+        assertFalse(vm.uiState.value.profileSaved)
+        assertEquals("Not signed in", vm.uiState.value.saveError)
+        assertFalse(vm.uiState.value.isSaving)
     }
 }

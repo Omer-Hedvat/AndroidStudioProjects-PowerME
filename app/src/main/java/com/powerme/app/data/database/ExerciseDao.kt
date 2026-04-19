@@ -84,4 +84,7 @@ interface ExerciseDao {
 
     @Query("SELECT * FROM exercises WHERE syncId = :syncId LIMIT 1")
     suspend fun getBySyncId(syncId: String): Exercise?
+
+    @Query("UPDATE exercises SET userNote = :note, updatedAt = :updatedAt WHERE id = :exerciseId")
+    suspend fun updateUserNote(exerciseId: Long, note: String, updatedAt: Long)
 }

@@ -1,6 +1,6 @@
 {
-  "version": "1.7",
-  "lastUpdated": "2026-04-15",
+  "version": "1.9",
+  "lastUpdated": "2026-04-17",
   "totalExercises": 240,
   "exercises": [
     {
@@ -10,12 +10,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": "ultWZbUMPL8",
-      "setupNotes": "Longer femurs require 30-35\u00b0 torso lean. Bar on upper traps (NOT lower back). Drive through mid-foot. Keep vertical shin angle to reduce knee shear. Maintain neutral spine (L4-L5 protection).",
-      "committeeNotes": "Dr. Brad: 6-12 reps hypertrophy. Noa: L4-L5 risk if torso angle >35\u00b0. Boris: Top set + 2 back-off sets.",
+      "setupNotes": "Longer femurs require 30-35° torso lean. Bar on upper traps (NOT lower back). Drive through mid-foot. Keep vertical shin angle to reduce knee shear. Maintain neutral spine (L4-L5 protection).",
+      "committeeNotes": "Dr. Brad: 6-12 reps hypertrophy. Noa: L4-L5 risk if torso angle >35°. Boris: Top set + 2 back-off sets.",
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Front Squat",
@@ -24,12 +26,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": "zoZWgTrZLd8",
-      "setupNotes": "More upright torso (20-25\u00b0) reduces L4-L5 shear. Bar on front delts. Longer femurs benefit from heeled shoes. Elbows high, core braced.",
+      "setupNotes": "More upright torso (20-25°) reduces L4-L5 shear. Bar on front delts. Longer femurs benefit from heeled shoes. Elbows high, core braced.",
       "committeeNotes": "Dr. Brad: 8-15 reps, quad-dominant. Noa: Safer for lower back vs back squat. Boris: Moderate weight, focus form.",
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"SHOULDER\",\"WRIST\"]"
     },
     {
       "name": "Goblet Squat",
@@ -43,7 +47,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"SHOULDER\"]"
     },
     {
       "name": "Bulgarian Split Squat",
@@ -57,7 +63,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Leg Press",
@@ -71,7 +79,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Hack Squat",
@@ -85,7 +95,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Safety Bar Squat",
@@ -99,7 +111,9 @@
       "restDurationSeconds": 180,
       "barType": "SAFETY_SQUAT",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Box Squat",
@@ -113,7 +127,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Pause Squat",
@@ -127,7 +143,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Sumo Squat",
@@ -136,12 +154,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": "yFKiZz0BrhU",
-      "setupNotes": "Wide stance reduces forward lean. Toes out 30-45\u00b0. Knees track over toes. Reduces hip flexion demand (beneficial for taller lifters).",
+      "setupNotes": "Wide stance reduces forward lean. Toes out 30-45°. Knees track over toes. Reduces hip flexion demand (beneficial for taller lifters).",
       "committeeNotes": "Dr. Brad: 8-12 reps, glute/adductor emphasis. Noa: Alternative if conventional hurts. Boris: Moderate weight, volume.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Conventional Deadlift",
@@ -155,7 +175,9 @@
       "restDurationSeconds": 240,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\",\"SHOULDER\"]"
     },
     {
       "name": "Romanian Deadlift (RDL) - BB",
@@ -169,7 +191,9 @@
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Trap Bar Deadlift",
@@ -183,7 +207,9 @@
       "restDurationSeconds": 180,
       "barType": "TRAP_BAR",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"KNEE\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"SHOULDER\"]"
     },
     {
       "name": "Sumo Deadlift",
@@ -197,7 +223,9 @@
       "restDurationSeconds": 240,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\",\"SHOULDER\"]"
     },
     {
       "name": "Single-Leg RDL",
@@ -211,7 +239,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\",\"ANKLE\"]"
     },
     {
       "name": "Deficit Deadlift",
@@ -225,7 +255,9 @@
       "restDurationSeconds": 240,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\",\"SHOULDER\",\"ANKLE\"]"
     },
     {
       "name": "Rack Pull",
@@ -239,7 +271,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Stiff-Leg Deadlift",
@@ -253,7 +287,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Barbell Flat Bench Press",
@@ -262,12 +298,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": "gRVjAtPip0Y",
-      "setupNotes": "Longer arms = longer ROM (strength disadvantage). Arch back, retract scapulae. Bar to lower chest. Elbows 45\u00b0 (NOT 90\u00b0 - elbow safety).",
-      "committeeNotes": "Dr. Brad: 6-12 reps. Noa: 45\u00b0 elbow angle protects medial epicondyle. Boris: Comp lift, build technique.",
+      "setupNotes": "Longer arms = longer ROM (strength disadvantage). Arch back, retract scapulae. Bar to lower chest. Elbows 45° (NOT 90° - elbow safety).",
+      "committeeNotes": "Dr. Brad: 6-12 reps. Noa: 45° elbow angle protects medial epicondyle. Boris: Comp lift, build technique.",
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Incline Barbell Bench Press",
@@ -276,12 +314,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": "IP4oeKVNy3s",
-      "setupNotes": "30\u00b0 bench angle. Upper chest emphasis. Bar to upper chest/clavicle area. Same 45\u00b0 elbow angle for elbow safety.",
+      "setupNotes": "30° bench angle. Upper chest emphasis. Bar to upper chest/clavicle area. Same 45° elbow angle for elbow safety.",
       "committeeNotes": "Dr. Brad: 8-12 reps, clavicular pec. Noa: Elbow-safe pressing angle. Boris: Moderate weight, volume.",
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Decline Barbell Bench Press",
@@ -290,12 +330,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": "LfyQBUKR8SE",
-      "setupNotes": "15-30\u00b0 decline. Lower chest emphasis. Shorter ROM vs flat (strength advantage). Bar to lower sternum.",
+      "setupNotes": "15-30° decline. Lower chest emphasis. Shorter ROM vs flat (strength advantage). Bar to lower sternum.",
       "committeeNotes": "Dr. Brad: 6-10 reps, lower pec. Noa: Reduced shoulder stress. Boris: Heavy pressing variation.",
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Dumbbell Flat Bench Press",
@@ -304,12 +346,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": "VmB1G1K7v94",
-      "setupNotes": "Greater ROM than barbell (stretch advantage). Natural arc path. Elbows 45\u00b0. Neutral wrist (elbow safety).",
+      "setupNotes": "Greater ROM than barbell (stretch advantage). Natural arc path. Elbows 45°. Neutral wrist (elbow safety).",
       "committeeNotes": "Dr. Brad: 8-15 reps, hypertrophy. Noa: Safer for elbows than barbell. Boris: Drop sets, volume work.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Incline Dumbbell Bench Press",
@@ -318,12 +362,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": "0G2_XV7slIg",
-      "setupNotes": "30-45\u00b0 angle. DBs allow greater stretch. Arc toward midline at top. Shoulder-friendly path.",
+      "setupNotes": "30-45° angle. DBs allow greater stretch. Arc toward midline at top. Shoulder-friendly path.",
       "committeeNotes": "Dr. Brad: 10-15 reps, upper chest. Noa: Excellent for elbow health. Boris: Pyramids, slow eccentric.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Cable Chest Fly",
@@ -337,7 +383,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Machine Chest Press",
@@ -351,7 +399,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Close-Grip Bench Press",
@@ -365,7 +415,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Push-Ups",
@@ -374,12 +426,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": "IODxDxX7oi4",
-      "setupNotes": "Hands slightly wider than shoulders. Elbows 45\u00b0. Torso rigid. Full ROM (chest to floor).",
+      "setupNotes": "Hands slightly wider than shoulders. Elbows 45°. Torso rigid. Full ROM (chest to floor).",
       "committeeNotes": "Dr. Brad: 15-30 reps, endurance. Noa: Safe pressing, scalable. Boris: Warm-up, finisher.",
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Barbell Row",
@@ -388,12 +442,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "row_family",
       "youtubeVideoId": "FWJR5Ve8bnQ",
-      "setupNotes": "Hip hinge position. Torso 30-45\u00b0 angle. Pull to lower sternum. Maintain neutral spine (L4-L5). Supinated grip may stress elbow.",
+      "setupNotes": "Hip hinge position. Torso 30-45° angle. Pull to lower sternum. Maintain neutral spine (L4-L5). Supinated grip may stress elbow.",
       "committeeNotes": "Dr. Brad: 6-12 reps, lat/rhomboid. Noa: L4-L5 risk if form breaks, elbow stress with supination. Boris: Build strength, moderate volume.",
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"WRIST\"]"
     },
     {
       "name": "Dumbbell Row",
@@ -407,7 +463,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Chest-Supported Row",
@@ -421,7 +479,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Cable Row",
@@ -435,7 +495,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\"]"
     },
     {
       "name": "T-Bar Row",
@@ -449,7 +511,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"WRIST\"]"
     },
     {
       "name": "Seal Row",
@@ -463,7 +527,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Pendlay Row",
@@ -477,7 +543,9 @@
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"WRIST\"]"
     },
     {
       "name": "Inverted Row",
@@ -491,7 +559,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Standing Barbell Overhead Press",
@@ -505,7 +575,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"CERVICAL_SPINE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Seated Dumbbell Overhead Press",
@@ -519,7 +591,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Arnold Press",
@@ -533,7 +607,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Machine Shoulder Press",
@@ -547,7 +623,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Landmine Press",
@@ -561,7 +639,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Pike Push-Up",
@@ -575,7 +655,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Pull-Up",
@@ -589,7 +671,9 @@
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Chin-Up",
@@ -603,7 +687,9 @@
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Neutral Grip Pull-Up",
@@ -617,7 +703,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Lat Pulldown",
@@ -631,7 +719,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Close-Grip Lat Pulldown",
@@ -645,7 +735,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Straight-Arm Pulldown",
@@ -659,7 +751,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Assisted Pull-Up",
@@ -673,7 +767,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Lying Leg Curl",
@@ -687,7 +783,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\"]",
+      "secondaryJoints": "[\"HIP\"]"
     },
     {
       "name": "Seated Leg Curl",
@@ -701,7 +799,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\"]",
+      "secondaryJoints": "[\"HIP\"]"
     },
     {
       "name": "Nordic Curl",
@@ -715,7 +815,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\"]",
+      "secondaryJoints": "[\"HIP\"]"
     },
     {
       "name": "Leg Extension",
@@ -729,7 +831,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Standing Calf Raise",
@@ -743,7 +847,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ANKLE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Seated Calf Raise",
@@ -752,12 +858,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "leg_curl_family",
       "youtubeVideoId": "JbyjNymZTE8",
-      "setupNotes": "Knee bent 90\u00b0. Targets soleus (deep calf). Full ROM.",
+      "setupNotes": "Knee bent 90°. Targets soleus (deep calf). Full ROM.",
       "committeeNotes": "Dr. Brad: 15-30 reps. Noa: Safe, seated. Boris: Superset with standing.",
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ANKLE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Barbell Curl",
@@ -771,7 +879,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Dumbbell Curl",
@@ -785,7 +895,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Hammer Curl",
@@ -799,7 +911,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Cable Curl",
@@ -813,7 +927,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Tricep Pushdown",
@@ -827,7 +943,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Overhead Tricep Extension",
@@ -841,7 +959,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"WRIST\"]"
     },
     {
       "name": "Skull Crusher",
@@ -855,7 +975,9 @@
       "restDurationSeconds": 90,
       "barType": "EZ_CURL",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Dips",
@@ -869,7 +991,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Lateral Raise",
@@ -883,7 +1007,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Face Pull",
@@ -897,7 +1023,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Rear Delt Fly",
@@ -911,7 +1039,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Shrugs",
@@ -925,7 +1055,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"CERVICAL_SPINE\",\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Plank",
@@ -939,7 +1071,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"HIP\"]"
     },
     {
       "name": "Ab Wheel Rollout",
@@ -953,7 +1087,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\",\"HIP\"]"
     },
     {
       "name": "Cable Crunch",
@@ -967,7 +1103,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"HIP\"]"
     },
     {
       "name": "Russian Twist",
@@ -981,7 +1119,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"HIP\",\"SHOULDER\"]"
     },
     {
       "name": "Hanging Leg Raise",
@@ -995,7 +1135,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"ELBOW\"]"
     },
     {
       "name": "Farmer's Walk",
@@ -1009,7 +1151,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"WRIST\",\"HIP\",\"KNEE\"]"
     },
     {
       "name": "Sled Push",
@@ -1023,7 +1167,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"KNEE\"]",
+      "secondaryJoints": "[\"ANKLE\",\"SHOULDER\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Sled Pull",
@@ -1037,7 +1183,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"KNEE\"]",
+      "secondaryJoints": "[\"ANKLE\",\"SHOULDER\"]"
     },
     {
       "name": "Battle Ropes",
@@ -1051,7 +1199,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\",\"WRIST\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Box Jump",
@@ -1065,7 +1215,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Medicine Ball Slam",
@@ -1079,7 +1231,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"ELBOW\",\"HIP\"]"
     },
     {
       "name": "Broad Jump",
@@ -1093,7 +1247,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Kettlebell Swing",
@@ -1107,7 +1263,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"KNEE\"]"
     },
     {
       "name": "Turkish Get-Up",
@@ -1121,7 +1279,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"HIP\"]",
+      "secondaryJoints": "[\"KNEE\",\"ELBOW\",\"WRIST\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Glute Bridge",
@@ -1135,7 +1295,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"KNEE\"]"
     },
     {
       "name": "Hip Thrust",
@@ -1149,7 +1311,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"KNEE\"]"
     },
     {
       "name": "Wall Sit",
@@ -1163,7 +1327,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Step-Up",
@@ -1177,7 +1343,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Reverse Lunge",
@@ -1186,12 +1354,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": "xXKVLqx7yKg",
-      "setupNotes": "Step backward into lunge. Front knee 90\u00b0. DBs at sides. Easier on knees than forward lunge.",
+      "setupNotes": "Step backward into lunge. Front knee 90°. DBs at sides. Easier on knees than forward lunge.",
       "committeeNotes": "Dr. Brad: 10-15 reps each leg. Noa: Knee-friendly lunge. Boris: Volume work.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Walking Lunge",
@@ -1205,7 +1375,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Sissy Squat",
@@ -1219,7 +1391,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\"]",
+      "secondaryJoints": "[\"HIP\",\"ANKLE\"]"
     },
     {
       "name": "Good Morning",
@@ -1233,7 +1407,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Preacher Curl",
@@ -1247,7 +1423,9 @@
       "restDurationSeconds": 90,
       "barType": "EZ_CURL",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Concentration Curl",
@@ -1261,7 +1439,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Incline Curl",
@@ -1270,12 +1450,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": "soxrZlIl35U",
-      "setupNotes": "45\u00b0 bench. Arms hang down. Greater bicep stretch. Supinate at top.",
+      "setupNotes": "45° bench. Arms hang down. Greater bicep stretch. Supinate at top.",
       "committeeNotes": "Dr. Brad: 10-15 reps. Noa: Moderate elbow stress. Boris: Long head emphasis.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Tricep Kickback",
@@ -1289,7 +1471,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Diamond Push-Up",
@@ -1303,7 +1487,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Bench Dips",
@@ -1317,7 +1503,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Upright Row",
@@ -1331,7 +1519,9 @@
       "restDurationSeconds": 90,
       "barType": "EZ_CURL",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Front Raise",
@@ -1345,7 +1535,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Cable Lateral Raise",
@@ -1359,7 +1551,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Reverse Pec Deck",
@@ -1373,7 +1567,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Adductor Machine",
@@ -1387,7 +1583,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Abductor Machine",
@@ -1401,7 +1599,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Donkey Calf Raise",
@@ -1415,7 +1615,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ANKLE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Wrist Curl",
@@ -1429,7 +1631,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"WRIST\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Dead Hang",
@@ -1443,7 +1647,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\",\"WRIST\"]"
     },
     {
       "name": "Decline Dumbbell Press",
@@ -1452,12 +1658,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": null,
-      "setupNotes": "Feet anchored, 15-20\u00b0 decline. Lower DBs to lower pec line, elbows 45-60\u00b0 from torso. Squeeze chest at top. Targets lower pec fibres and reduces anterior shoulder stress.",
+      "setupNotes": "Feet anchored, 15-20° decline. Lower DBs to lower pec line, elbows 45-60° from torso. Squeeze chest at top. Targets lower pec fibres and reduces anterior shoulder stress.",
       "committeeNotes": "Dr. Brad: 8-15 reps, excellent lower chest isolation. Noa: Lower spinal load than decline BB press. Boris: 3x10-12, use as secondary chest movement.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Pec Deck Fly",
@@ -1471,7 +1679,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Cable Crossover",
@@ -1485,7 +1695,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Ring Push-Up",
@@ -1499,7 +1711,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Weighted Push-Up",
@@ -1508,12 +1722,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "bench_family",
       "youtubeVideoId": null,
-      "setupNotes": "Partner places weight plate on upper back (not neck). Hands slightly wider than shoulder-width. Elbows 45\u00b0 from torso. Full ROM \u2014 chest touches floor. Brace core throughout.",
+      "setupNotes": "Partner places weight plate on upper back (not neck). Hands slightly wider than shoulder-width. Elbows 45° from torso. Full ROM — chest touches floor. Brace core throughout.",
       "committeeNotes": "Dr. Brad: 8-15 reps, easily progressive via load. Noa: Core must stay rigid to protect lumbar. Boris: Load weekly, treat like bench press progression.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Smith Machine Bench Press",
@@ -1527,7 +1743,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Dumbbell Pullover",
@@ -1541,7 +1759,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Decline Push-Up",
@@ -1555,7 +1775,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Dumbbell Chest Fly",
@@ -1569,7 +1791,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Dead Bug",
@@ -1583,7 +1807,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"HIP\",\"SHOULDER\"]"
     },
     {
       "name": "Pallof Press",
@@ -1597,7 +1823,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"ELBOW\"]"
     },
     {
       "name": "Dragon Flag",
@@ -1611,7 +1839,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"HIP\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Landmine Rotation",
@@ -1625,7 +1855,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"HIP\",\"ELBOW\"]"
     },
     {
       "name": "Hollow Body Hold",
@@ -1639,7 +1871,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"HIP\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Side Plank",
@@ -1653,7 +1887,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"HIP\"]"
     },
     {
       "name": "Bicycle Crunch",
@@ -1667,7 +1903,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"HIP\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "L-Sit",
@@ -1681,7 +1919,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"ELBOW\",\"WRIST\"]"
     },
     {
       "name": "Landmine Anti-Rotation Press",
@@ -1690,12 +1930,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "core_family",
       "youtubeVideoId": null,
-      "setupNotes": "Stand 90\u00b0 to landmine, hold bar end at chest. Press out and rotate toward landmine simultaneously. Resist twisting with core. Excellent oblique and rotator cuff integration.",
+      "setupNotes": "Stand 90° to landmine, hold bar end at chest. Press out and rotate toward landmine simultaneously. Resist twisting with core. Excellent oblique and rotator cuff integration.",
       "committeeNotes": "Dr. Brad: 8-12/side, rotational stability. Noa: Low compressive load on spine. Boris: 3x10/side, pairs well with landmine rotation.",
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Suitcase Carry",
@@ -1709,7 +1951,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"HIP\",\"KNEE\"]"
     },
     {
       "name": "EZ Bar Curl",
@@ -1718,12 +1962,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": null,
-      "setupNotes": "Angled grip (15-30\u00b0) reduces supination, easier on wrists than BB curl. Elbows fixed at sides. Full extension at bottom, full supination at top. Squeeze biceps peak.",
-      "committeeNotes": "Dr. Brad: 8-15 reps, wrist-friendly bicep builder. Noa: Lower wrist stress than straight bar \u2014 great for those with wrist issues. Boris: 3x10, heavy and controlled.",
+      "setupNotes": "Angled grip (15-30°) reduces supination, easier on wrists than BB curl. Elbows fixed at sides. Full extension at bottom, full supination at top. Squeeze biceps peak.",
+      "committeeNotes": "Dr. Brad: 8-15 reps, wrist-friendly bicep builder. Noa: Lower wrist stress than straight bar — great for those with wrist issues. Boris: 3x10, heavy and controlled.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "EZ Bar Skullcrusher",
@@ -1737,7 +1983,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Cable Overhead Tricep Extension",
@@ -1751,7 +1999,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"WRIST\"]"
     },
     {
       "name": "Reverse Curl",
@@ -1765,7 +2015,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\",\"WRIST\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Rope Tricep Pushdown",
@@ -1779,7 +2031,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Zottman Curl",
@@ -1789,11 +2043,13 @@
       "familyId": "accessory_family",
       "youtubeVideoId": null,
       "setupNotes": "Curl up with supinated grip (bicep concentric). At top, pronate to overhand grip. Lower slowly with pronated grip (brachioradialis eccentric). Two exercises in one movement.",
-      "committeeNotes": "Dr. Brad: 10-12 reps, hits all three elbow flexors. Noa: Moderate forearm stress on eccentric. Boris: 3x10, slow eccentric \u2014 3-4s down.",
+      "committeeNotes": "Dr. Brad: 10-12 reps, hits all three elbow flexors. Noa: Moderate forearm stress on eccentric. Boris: 3x10, slow eccentric — 3-4s down.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\",\"WRIST\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Tate Press",
@@ -1807,7 +2063,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Machine Preacher Curl",
@@ -1816,12 +2074,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": null,
-      "setupNotes": "Upper arm on pad, no cheating possible. Full ROM \u2014 complete extension to full flexion. Pause at peak contraction. Pad angle determines where peak tension occurs.",
+      "setupNotes": "Upper arm on pad, no cheating possible. Full ROM — complete extension to full flexion. Pause at peak contraction. Pad angle determines where peak tension occurs.",
       "committeeNotes": "Dr. Brad: 10-15 reps, excellent for peak bicep development. Noa: Safe, fixed path prevents elbow drift. Boris: 3x12, go heavier than free-weight preacher.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Cable Hammer Curl",
@@ -1835,7 +2095,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Spider Curl",
@@ -1849,7 +2111,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "JM Press",
@@ -1859,11 +2123,13 @@
       "familyId": "accessory_family",
       "youtubeVideoId": null,
       "setupNotes": "Hybrid between skullcrusher and close-grip bench. Lower bar toward chin keeping elbows in front. Forearms nearly parallel to floor at bottom. Good for powerlifters building tricep lockout.",
-      "committeeNotes": "Dr. Brad: 6-10 reps, mass builder for tricep. Noa: High elbow stress \u2014 warm up thoroughly. Boris: 3x8, heavy compound tricep work.",
+      "committeeNotes": "Dr. Brad: 6-10 reps, mass builder for tricep. Noa: High elbow stress — warm up thoroughly. Boris: 3x8, heavy compound tricep work.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Romanian Deadlift (RDL) - DB",
@@ -1877,7 +2143,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Weighted Pull-Up",
@@ -1891,7 +2159,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Incline Dumbbell Row",
@@ -1900,12 +2170,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "row_family",
       "youtubeVideoId": null,
-      "setupNotes": "Lie prone on incline bench (30-45\u00b0). DBs hang straight. Retract scapulae and drive elbows up and back. Chest stays on pad \u2014 eliminates momentum. Excellent upper back isolation.",
+      "setupNotes": "Lie prone on incline bench (30-45°). DBs hang straight. Retract scapulae and drive elbows up and back. Chest stays on pad — eliminates momentum. Excellent upper back isolation.",
       "committeeNotes": "Dr. Brad: 10-15 reps, strict form advantage over dumbbell row. Noa: Very safe, no lower back involvement. Boris: 3x12, great for balanced back development.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Single-Arm Cable Row",
@@ -1919,7 +2191,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Meadows Row",
@@ -1929,11 +2203,13 @@
       "familyId": "row_family",
       "youtubeVideoId": null,
       "setupNotes": "Landmine-style: stand perpendicular to end of barbell on floor. Single-arm row with overhand grip. Elbow drives high and outside torso, targeting upper/outer lat and teres major.",
-      "committeeNotes": "Dr. Brad: 8-12/side, unique lat + upper back stimulus. Noa: Moderate lower back demand \u2014 brace core. Boris: 3x10/side, often forgotten exercise.",
+      "committeeNotes": "Dr. Brad: 8-12/side, unique lat + upper back stimulus. Noa: Moderate lower back demand — brace core. Boris: 3x10/side, often forgotten exercise.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Wide-Grip Lat Pulldown",
@@ -1942,12 +2218,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "pullup_family",
       "youtubeVideoId": null,
-      "setupNotes": "Grip 1.5x shoulder-width overhand. Lean back 10-15\u00b0. Elbows drive down and slightly back. Bar to upper chest. Avoid excessive rear-lean or momentum. Slow eccentric 2-3s.",
-      "committeeNotes": "Dr. Brad: 8-15 reps, lat width emphasis. Noa: Avoid behind-the-neck variant \u2014 cervical spine risk. Boris: 3x10-12, classic pulldown.",
+      "setupNotes": "Grip 1.5x shoulder-width overhand. Lean back 10-15°. Elbows drive down and slightly back. Bar to upper chest. Avoid excessive rear-lean or momentum. Slow eccentric 2-3s.",
+      "committeeNotes": "Dr. Brad: 8-15 reps, lat width emphasis. Noa: Avoid behind-the-neck variant — cervical spine risk. Boris: 3x10-12, classic pulldown.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Cable Pullover",
@@ -1961,7 +2239,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Barbell Shrug",
@@ -1970,12 +2250,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": null,
-      "setupNotes": "Overhand or mixed grip. Elevate shoulders straight up \u2014 no rolling. Hold top 1-2s for trap squeeze. Full depression at bottom. Heavier loading possible than DB shrug.",
-      "committeeNotes": "Dr. Brad: 8-15 reps, upper trapezius thickness. Noa: No shoulder rolling \u2014 rotator cuff stress. Boris: 3x10 heavy, add straps for grip.",
+      "setupNotes": "Overhand or mixed grip. Elevate shoulders straight up — no rolling. Hold top 1-2s for trap squeeze. Full depression at bottom. Heavier loading possible than DB shrug.",
+      "committeeNotes": "Dr. Brad: 8-15 reps, upper trapezius thickness. Noa: No shoulder rolling — rotator cuff stress. Boris: 3x10 heavy, add straps for grip.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"CERVICAL_SPINE\",\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Kneeling Single-Arm Lat Pulldown",
@@ -1989,7 +2271,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Seated Barbell Overhead Press",
@@ -1998,12 +2282,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "overhead_press_family",
       "youtubeVideoId": null,
-      "setupNotes": "Seated removes leg drive \u2014 pure shoulder and tricep. Bar slightly in front of head, slight forward lean. Elbows 45-60\u00b0 from torso. Press to lockout. Use lighter load than standing OHP.",
+      "setupNotes": "Seated removes leg drive — pure shoulder and tricep. Bar slightly in front of head, slight forward lean. Elbows 45-60° from torso. Press to lockout. Use lighter load than standing OHP.",
       "committeeNotes": "Dr. Brad: 8-12 reps, strict shoulder overload. Noa: Lower lumbar load vs standing OHP. Boris: 3x10, excellent for shoulder hypertrophy block.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Z-Press",
@@ -2012,12 +2298,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "overhead_press_family",
       "youtubeVideoId": null,
-      "setupNotes": "Seated on floor, legs straight out. Press barbell overhead. No back support \u2014 requires extreme core and hip flexor stability. Eliminates any leg assistance. Very humbling load.",
-      "committeeNotes": "Dr. Brad: 5-10 reps, pure overhead pressing strength. Noa: High mobility demand \u2014 needs hamstring flexibility. Boris: 3x8, excellent OHP movement quality check.",
+      "setupNotes": "Seated on floor, legs straight out. Press barbell overhead. No back support — requires extreme core and hip flexor stability. Eliminates any leg assistance. Very humbling load.",
+      "committeeNotes": "Dr. Brad: 5-10 reps, pure overhead pressing strength. Noa: High mobility demand — needs hamstring flexibility. Boris: 3x8, excellent OHP movement quality check.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"HIP\"]"
     },
     {
       "name": "Cable Front Raise",
@@ -2031,7 +2319,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Machine Lateral Raise",
@@ -2045,7 +2335,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Cable Upright Row",
@@ -2055,11 +2347,13 @@
       "familyId": "accessory_family",
       "youtubeVideoId": null,
       "setupNotes": "Low pulley, straight bar or rope. Pull elbows high and wide, bar to chin. Elbows MUST stay above wrists throughout. Wide grip reduces shoulder impingement risk vs narrow grip.",
-      "committeeNotes": "Dr. Brad: 10-15 reps, lateral delt + upper trap. Noa: Wide grip essential \u2014 narrow grip impingement risk. Boris: 3x12, moderate load.",
+      "committeeNotes": "Dr. Brad: 10-15 reps, lateral delt + upper trap. Noa: Wide grip essential — narrow grip impingement risk. Boris: 3x12, moderate load.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Band Pull-Apart",
@@ -2073,7 +2367,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Pistol Squat",
@@ -2087,7 +2383,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Single-Leg Press",
@@ -2096,12 +2394,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": null,
-      "setupNotes": "One foot on platform, slightly off-center. Lower to 90\u00b0 knee flexion, drive through heel. Other foot on ground for stability. Corrects bilateral strength deficits between legs.",
+      "setupNotes": "One foot on platform, slightly off-center. Lower to 90° knee flexion, drive through heel. Other foot on ground for stability. Corrects bilateral strength deficits between legs.",
       "committeeNotes": "Dr. Brad: 10-15/side, unilateral quad focus. Noa: Safe, no axial loading. Boris: 3x12/side, excellent post-injury rehabilitation.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Belt Squat",
@@ -2110,12 +2410,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "squat_family",
       "youtubeVideoId": null,
-      "setupNotes": "Load attached at hips via belt, not axial spine loading. Upright torso. Squat through full ROM. Eliminates spinal compression \u2014 ideal for back pain recovery or high volume.",
+      "setupNotes": "Load attached at hips via belt, not axial spine loading. Upright torso. Squat through full ROM. Eliminates spinal compression — ideal for back pain recovery or high volume.",
       "committeeNotes": "Dr. Brad: 8-15 reps, quad-dominant without spinal load. Noa: Best alternative when back cannot tolerate barbell. Boris: High-volume blocks, 4x15.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Leg Press Calf Raise",
@@ -2129,7 +2431,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ANKLE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Cable Pull-Through",
@@ -2143,7 +2447,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"KNEE\"]"
     },
     {
       "name": "Landmine Squat",
@@ -2157,7 +2463,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Kettlebell Clean",
@@ -2171,7 +2479,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\",\"WRIST\"]"
     },
     {
       "name": "Kettlebell Press",
@@ -2181,11 +2491,13 @@
       "familyId": "overhead_press_family",
       "youtubeVideoId": null,
       "setupNotes": "From rack position, press KB overhead. Lat engagement throughout. Wrist stays straight (KB rests on forearm). Glutes and core tight. At top, bicep by ear, elbow fully locked.",
-      "committeeNotes": "Dr. Brad: 5-8/side, excellent shoulder stability. Noa: High rotator cuff demand \u2014 beneficial for shoulder health. Boris: 3x6/side, technique focus.",
+      "committeeNotes": "Dr. Brad: 5-8/side, excellent shoulder stability. Noa: High rotator cuff demand — beneficial for shoulder health. Boris: 3x6/side, technique focus.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Kettlebell Snatch",
@@ -2194,12 +2506,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "deadlift_family",
       "youtubeVideoId": null,
-      "setupNotes": "Single arm. Hip hike, explosive hip snap, guide KB overhead in one movement. Insert hand at top to avoid wrist bang. High-skill movement \u2014 requires clean proficiency first.",
+      "setupNotes": "Single arm. Hip hike, explosive hip snap, guide KB overhead in one movement. Insert hand at top to avoid wrist bang. High-skill movement — requires clean proficiency first.",
       "committeeNotes": "Dr. Brad: 5-10/side, total body power and conditioning. Noa: High technique demand, learn with light KB. Boris: 3x5/side, test with 5min/100 rep challenge.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\",\"WRIST\"]"
     },
     {
       "name": "Kettlebell Row",
@@ -2209,11 +2523,13 @@
       "familyId": "row_family",
       "youtubeVideoId": null,
       "setupNotes": "Hinge at hip, neutral spine. KB hangs from shoulder. Initiate with shoulder blade retraction, then elbow drive. Handle grip allows natural wrist rotation through ROM.",
-      "committeeNotes": "Dr. Brad: 10-12/side, good lat + rhomboid. Noa: Lower back demand moderate \u2014 brace core. Boris: 3x10/side, great for home gym or travel.",
+      "committeeNotes": "Dr. Brad: 10-12/side, good lat + rhomboid. Noa: Lower back demand moderate — brace core. Boris: 3x10/side, great for home gym or travel.",
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Kettlebell Romanian Deadlift",
@@ -2227,7 +2543,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Band Bicep Curl",
@@ -2236,12 +2554,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": null,
-      "setupNotes": "Stand on band, handles in hands. Curl to shoulder height maintaining elbow position. Band provides increasing resistance through ROM \u2014 different stimulus to free weights.",
+      "setupNotes": "Stand on band, handles in hands. Curl to shoulder height maintaining elbow position. Band provides increasing resistance through ROM — different stimulus to free weights.",
       "committeeNotes": "Dr. Brad: 15-20 reps, home gym bicep option. Noa: Very safe, low joint stress. Boris: 3x15-20, excellent for travel or deload weeks.",
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Band Tricep Pushdown",
@@ -2250,12 +2570,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "accessory_family",
       "youtubeVideoId": null,
-      "setupNotes": "Anchor band at head height. Push hands down to hips, elbows fixed at sides. Full extension at bottom. Band resistance peaks at lockout \u2014 different to cable. High-rep pump work.",
+      "setupNotes": "Anchor band at head height. Push hands down to hips, elbows fixed at sides. Full extension at bottom. Band resistance peaks at lockout — different to cable. High-rep pump work.",
       "committeeNotes": "Dr. Brad: 20-30 reps, excellent pump. Noa: Very safe for elbows. Boris: 3x25, finisher or home workout.",
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"SHOULDER\"]"
     },
     {
       "name": "Band Hip Thrust",
@@ -2269,7 +2591,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"KNEE\"]"
     },
     {
       "name": "Band Lateral Walk",
@@ -2283,7 +2607,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"KNEE\",\"ANKLE\"]"
     },
     {
       "name": "Band Pull-Apart (Resistance Band)",
@@ -2293,11 +2619,13 @@
       "familyId": "accessory_family",
       "youtubeVideoId": null,
       "setupNotes": "Hold band overhand at shoulder height, shoulder-width apart. Extend arms and pull band apart to chest width, squeezing rear delts. Return slowly. Keep elbows soft throughout.",
-      "committeeNotes": "Dr. Brad: 20-25 reps, posterior chain shoulder health. Noa: Critical for heavy pressers \u2014 prevents AC joint issues. Boris: 3x20 every upper body session.",
+      "committeeNotes": "Dr. Brad: 20-25 reps, posterior chain shoulder health. Noa: Critical for heavy pressers — prevents AC joint issues. Boris: 3x20 every upper body session.",
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Smith Machine Squat",
@@ -2307,11 +2635,13 @@
       "familyId": "squat_family",
       "youtubeVideoId": null,
       "setupNotes": "Feet slightly forward of bar for vertical shin. Fixed bar path requires adjustment vs free squat. Lower to parallel or below. Good for beginners building pattern or heavy singles.",
-      "committeeNotes": "Dr. Brad: 8-12 reps, controlled overload. Noa: Fixed path changes natural biomechanics \u2014 not a free squat replacement. Boris: Use for volume work, not primary strength.",
+      "committeeNotes": "Dr. Brad: 8-12 reps, controlled overload. Noa: Fixed path changes natural biomechanics — not a free squat replacement. Boris: Use for volume work, not primary strength.",
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Smith Machine Overhead Press",
@@ -2320,12 +2650,14 @@
       "exerciseType": "STRENGTH",
       "familyId": "overhead_press_family",
       "youtubeVideoId": null,
-      "setupNotes": "Seated or standing. Bar starts at upper chest. Press straight up on fixed path. Fixed bar eliminates rotator cuff stabilisation \u2014 allows overload focus. Slight forward lean if seated.",
-      "committeeNotes": "Dr. Brad: 8-12 reps, controlled shoulder overload. Noa: Fixed path reduces rotator cuff demand \u2014 consider as secondary press. Boris: 3x10, drop sets effective.",
+      "setupNotes": "Seated or standing. Bar starts at upper chest. Press straight up on fixed path. Fixed bar eliminates rotator cuff stabilisation — allows overload focus. Slight forward lean if seated.",
+      "committeeNotes": "Dr. Brad: 8-12 reps, controlled shoulder overload. Noa: Fixed path reduces rotator cuff demand — consider as secondary press. Boris: 3x10, drop sets effective.",
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Smith Machine Romanian Deadlift",
@@ -2339,7 +2671,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Smith Machine Bulgarian Split Squat",
@@ -2353,7 +2687,9 @@
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Power Clean",
@@ -2367,7 +2703,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"KNEE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ANKLE\",\"ELBOW\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Barbell Snatch",
@@ -2381,7 +2719,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"KNEE\",\"ELBOW\",\"WRIST\",\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Clean and Jerk",
@@ -2395,7 +2735,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"SHOULDER\",\"KNEE\"]",
+      "secondaryJoints": "[\"ELBOW\",\"WRIST\",\"ANKLE\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Muscle-Up (Rings)",
@@ -2409,7 +2751,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Handstand Push-Up",
@@ -2423,7 +2767,9 @@
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\",\"WRIST\"]",
+      "secondaryJoints": "[\"CERVICAL_SPINE\"]"
     },
     {
       "name": "Burpee (Standard)",
@@ -2437,7 +2783,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"KNEE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ANKLE\",\"ELBOW\",\"WRIST\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Toes-to-Bar",
@@ -2451,7 +2799,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"ELBOW\"]"
     },
     {
       "name": "Wall Ball Shot",
@@ -2465,7 +2815,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ANKLE\",\"ELBOW\"]"
     },
     {
       "name": "Kettlebell Thruster",
@@ -2479,7 +2831,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"KNEE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\",\"WRIST\",\"ANKLE\"]"
     },
     {
       "name": "Overhead Squat",
@@ -2493,7 +2847,9 @@
       "restDurationSeconds": 180,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ANKLE\",\"WRIST\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Arch-Body Hold (Superman)",
@@ -2507,7 +2863,9 @@
       "restDurationSeconds": 60,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"HIP\",\"SHOULDER\"]"
     },
     {
       "name": "Chest-to-Bar Pull-Up",
@@ -2521,7 +2879,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Ring Dip",
@@ -2535,7 +2895,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Front-Rack Reverse Lunge",
@@ -2549,7 +2911,9 @@
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\",\"SHOULDER\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Box Step-Over",
@@ -2563,7 +2927,9 @@
       "restDurationSeconds": 120,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "American Kettlebell Swing",
@@ -2577,7 +2943,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"KNEE\",\"ELBOW\"]"
     },
     {
       "name": "Bear Crawl",
@@ -2591,7 +2959,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"HIP\",\"KNEE\"]",
+      "secondaryJoints": "[\"ELBOW\",\"WRIST\",\"ANKLE\"]"
     },
     {
       "name": "Dumbbell Devil Press",
@@ -2605,7 +2975,9 @@
       "restDurationSeconds": 150,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"KNEE\",\"ELBOW\",\"WRIST\"]"
     },
     {
       "name": "Tuck Sit",
@@ -2619,7 +2991,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"WRIST\"]"
     },
     {
       "name": "Handstand Hold",
@@ -2633,7 +3007,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"WRIST\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Pseudo-Planche Hold",
@@ -2647,7 +3023,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\",\"WRIST\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Horse Stance",
@@ -2661,7 +3039,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"KNEE\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Duck Walk",
@@ -2675,7 +3055,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Bird-Dog",
@@ -2689,7 +3071,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"HIP\",\"SHOULDER\"]"
     },
     {
       "name": "Pallof Press (Iso-Band)",
@@ -2703,7 +3087,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"ELBOW\"]"
     },
     {
       "name": "Archer Push-up",
@@ -2717,7 +3103,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Typewriter Push-up",
@@ -2731,7 +3119,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Pseudo-Planche Push-up",
@@ -2745,7 +3135,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\",\"WRIST\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Clap Push-up",
@@ -2759,7 +3151,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Single-Arm Push-up",
@@ -2773,7 +3167,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Staggered-Hand Push-up",
@@ -2787,7 +3183,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Tiger Bend Push-up",
@@ -2801,7 +3199,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Bench Dip (Feet Elevated)",
@@ -2815,7 +3215,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Incline Push-up",
@@ -2829,7 +3231,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Hindu Push-up",
@@ -2843,7 +3247,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "DB Around the World",
@@ -2857,7 +3263,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "Around the World (Pull-up Bar)",
@@ -2871,7 +3279,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\",\"WRIST\"]"
     },
     {
       "name": "Negative Pull-up",
@@ -2885,7 +3295,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Commando Pull-up",
@@ -2899,7 +3311,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Archer Pull-up",
@@ -2913,7 +3327,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Australian Pull-up (Inverted Row)",
@@ -2927,7 +3343,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Face Pull (Resistance Band)",
@@ -2941,7 +3359,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"ELBOW\"]"
     },
     {
       "name": "L-Sit Pull-up",
@@ -2955,7 +3375,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"HIP\"]"
     },
     {
       "name": "Explosive Pull-up (Chest-to-Bar)",
@@ -2969,7 +3391,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Single-Arm Australian Row",
@@ -2983,7 +3407,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\"]"
     },
     {
       "name": "Scapular Pull-up",
@@ -2997,7 +3423,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Shrimp Squat",
@@ -3011,7 +3439,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Skater Lunge",
@@ -3025,7 +3455,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Curtsy Lunge",
@@ -3039,7 +3471,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Sissy Squat (Bodyweight)",
@@ -3053,7 +3487,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\"]",
+      "secondaryJoints": "[\"HIP\",\"ANKLE\"]"
     },
     {
       "name": "Reverse Nordic",
@@ -3067,7 +3503,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\"]",
+      "secondaryJoints": "[\"HIP\"]"
     },
     {
       "name": "Nordic Hamstring Curl",
@@ -3081,7 +3519,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\"]",
+      "secondaryJoints": "[\"HIP\"]"
     },
     {
       "name": "Cossack Squat",
@@ -3095,7 +3535,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Single-Leg Glute Bridge",
@@ -3109,7 +3551,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"KNEE\"]"
     },
     {
       "name": "Hip Thrust (Couch/Bench)",
@@ -3123,7 +3567,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"KNEE\"]"
     },
     {
       "name": "Calf Raise (Single-Leg)",
@@ -3137,7 +3583,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ANKLE\"]",
+      "secondaryJoints": "[\"KNEE\"]"
     },
     {
       "name": "Tibialis Raise (Wall)",
@@ -3151,7 +3599,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ANKLE\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Tuck Jump",
@@ -3165,7 +3615,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"KNEE\",\"HIP\"]",
+      "secondaryJoints": "[\"ANKLE\"]"
     },
     {
       "name": "Hollow Rock",
@@ -3179,7 +3631,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"HIP\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "V-Up",
@@ -3193,7 +3647,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Windshield Wiper (Floor)",
@@ -3207,7 +3663,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"HIP\"]",
+      "secondaryJoints": ""
     },
     {
       "name": "Windshield Wiper (Bar)",
@@ -3221,7 +3679,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Knee-to-Elbow (Bar)",
@@ -3235,7 +3695,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
       "name": "Mountain Climber",
@@ -3249,7 +3711,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"KNEE\"]"
     },
     {
       "name": "Spiderman Plank",
@@ -3263,7 +3727,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"HIP\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"KNEE\"]"
     },
     {
       "name": "Plank Shoulder Tap",
@@ -3277,7 +3743,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"LUMBAR_SPINE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"HIP\"]"
     },
     {
       "name": "Double Under (Jump Rope)",
@@ -3291,7 +3759,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ANKLE\",\"KNEE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"WRIST\"]"
     },
     {
       "name": "Single Under",
@@ -3305,7 +3775,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"ANKLE\",\"KNEE\"]",
+      "secondaryJoints": "[\"SHOULDER\",\"WRIST\"]"
     },
     {
       "name": "Burpee",
@@ -3319,7 +3791,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"HIP\",\"KNEE\",\"SHOULDER\"]",
+      "secondaryJoints": "[\"ANKLE\",\"ELBOW\",\"WRIST\",\"LUMBAR_SPINE\"]"
     },
     {
       "name": "Shadow Boxing",
@@ -3333,7 +3807,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
+      "secondaryJoints": "[\"WRIST\",\"HIP\"]"
     },
     {
       "name": "Farmer's Walk (Heavy Bags)",
@@ -3347,7 +3823,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\"]",
+      "secondaryJoints": "[\"LUMBAR_SPINE\",\"WRIST\",\"HIP\",\"KNEE\"]"
     },
     {
       "name": "Jumping Jacks",
@@ -3361,7 +3839,9 @@
       "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
-      "isCustom": false
+      "isCustom": false,
+      "primaryJoints": "[\"SHOULDER\",\"HIP\"]",
+      "secondaryJoints": "[\"KNEE\",\"ANKLE\"]"
     }
   ]
 }
