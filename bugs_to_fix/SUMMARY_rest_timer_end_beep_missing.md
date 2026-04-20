@@ -19,8 +19,45 @@ Added 3 tests:
 2. `onTimerTick at 1 2 3 plays warning beep but NOT notifyEnd` — verifies `playWarningBeep` × 3, `notifyEnd` × 0
 3. `onTimerFinish clears restTimer state and hides separator without playing beep`
 
-## Rework
+## Rework 1
 QA confirmed the beep now fires but is too short. Duration increased 600ms → 1800ms (3×) in `RestTimerNotifier.notifyEnd()`. Only that call site changed — warning beep (150ms), countdown ticks, and `triggerAudioAlert` paths are all unchanged.
 
+## Rework 2 — Bell/Chime/Click still short
+
+### Root Cause (Rework 2)
+All sound types use `ToneGenerator` — there are no audio files. However, proprietary tone types `TONE_PROP_BEEP2` (BELL), `TONE_PROP_ACK` (CHIME), and `TONE_PROP_BEEP` (CLICK) have fixed OS-defined short segments (~100–200ms) that play once and stop, regardless of the `durationMs` argument passed to `startTone()`. Only `TONE_DTMF_S` (BEEP) is a continuous repeating tone that honours `durationMs`.
+
+### Fix (Rework 2)
+
+| File | Change |
+|---|---|
+| `RestTimerNotifier.kt` | Added private `playBeepEnd(sound)` method. For BEEP: single `startTone(TONE_DTMF_S, 1800)` call (unchanged). For BELL/CHIME/CLICK: 6 plays scheduled via `Handler.postDelayed` at 300ms intervals → ~1800ms total. `notifyEnd()` now calls `playBeepEnd()` instead of `playBeep(1800, sound)`. Public API unchanged. |
+
+### Surfaces Fixed
+- Rest timer end-of-rest audio now lasts ~1800ms for ALL sound types (BEEP, BELL, CHIME, CLICK)
+- Warning beeps, countdown ticks, and `triggerAudioAlert` paths are all unchanged
+
+### How to QA
+1. Open Settings → Timer Sound and select **Bell**
+2. Start a workout, complete a set, let the rest timer count down to 0
+3. Hear: 6 bell tones spaced ~300ms apart over ~1.8 seconds (not a single short ding)
+4. Repeat with **Chime** and **Click** — same ~1.8s periodic pattern
+5. Switch back to **Beep** — hear the continuous 1.8s tone as before
+
+## Rework 3 — Durations shortened
+
+### Fix (Rework 3)
+
+| File | Change |
+|---|---|
+| `RestTimerNotifier.kt` | `playBeepEnd`: BEEP `startTone` duration 1800→1000ms, release delay 1900→1100ms. BELL/CHIME/CLICK `repeat(6)` → `repeat(3)`. KDoc on `notifyEnd()` updated to reflect new durations. |
+
+### How to QA (Rework 3)
+1. Open Settings → Timer Sound and select **Bell**
+2. Start a workout, complete a set, let the rest timer count down to 0
+3. Hear: 3 bell tones spaced ~300ms apart (~900ms total — noticeably shorter than before)
+4. Repeat with **Chime** and **Click** — same 3-tone pattern
+5. Switch to **Beep** — hear a 1-second continuous tone
+
 ## Tests
-BUILD SUCCESSFUL — all tests pass.
+BUILD SUCCESSFUL — all tests pass (clean build, no regressions).

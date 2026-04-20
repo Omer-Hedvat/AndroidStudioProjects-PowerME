@@ -91,11 +91,13 @@ class RestTimerNotifier(private val context: Context) {
 
     /**
      * Play the finish beep sequence plus vibration (used at remaining == 0).
-     * Pattern: 2 short beeps + 1 longer beep.
+     *   BEEP  — continuous TONE_DTMF_S for 700ms (single ToneGenerator call).
+     *   BELL / CHIME / CLICK — short proprietary tone repeated every 300ms × 3 (~900ms total).
+     *   NONE  — no audio.
      */
     fun notifyEnd(audioEnabled: Boolean = true, hapticsEnabled: Boolean = true, sound: TimerSound = TimerSound.BEEP) {
         if (audioEnabled) {
-            playBeep(1800, sound)
+            playBeepEnd(sound)
         }
         if (hapticsEnabled) {
             vibrate()
@@ -140,6 +142,52 @@ class RestTimerNotifier(private val context: Context) {
                 tg.release()
             }, durationMs.toLong() + 100)
         } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    /**
+     * End-of-rest beep strategy:
+     *
+     * BEEP (TONE_DTMF_S) is a continuous repeating tone: a single startTone(1000) call plays
+     * for the full duration.
+     *
+     * BELL / CHIME / CLICK use proprietary tones (TONE_PROP_BEEP2 / TONE_PROP_ACK /
+     * TONE_PROP_BEEP) that have fixed short OS-defined segments (~100–200ms). Passing a long
+     * durationMs to startTone has no effect — they play once and stop. To deliver ~900ms of
+     * audio, we schedule 3 plays at 300ms intervals via Handler.postDelayed.
+     */
+    private fun playBeepEnd(sound: TimerSound, volume: Int = 100) {
+        if (sound == TimerSound.NONE) return
+
+        if (sound == TimerSound.BEEP) {
+            // Continuous tone — plays for the full 700ms with a single call.
+            try {
+                val tg = ToneGenerator(resolveStream(), volume)
+                tg.startTone(ToneGenerator.TONE_DTMF_S, 700)
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                    { tg.release() }, 800
+                )
+            } catch (e: Exception) { e.printStackTrace() }
+            return
+        }
+
+        // Proprietary short tones — repeat every 300ms for 3 plays (~900ms total).
+        val toneType = when (sound) {
+            TimerSound.BELL  -> ToneGenerator.TONE_PROP_BEEP2
+            TimerSound.CHIME -> ToneGenerator.TONE_PROP_ACK
+            TimerSound.CLICK -> ToneGenerator.TONE_PROP_BEEP
+            else -> return  // BEEP and NONE handled above
+        }
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val intervalMs = 200L
+        repeat(3) { i ->
+            handler.postDelayed({
+                try {
+                    val tg = ToneGenerator(resolveStream(), volume)
+                    tg.startTone(toneType, 200)
+                    handler.postDelayed({ tg.release() }, 300)
+                } catch (e: Exception) { e.printStackTrace() }
+            }, i * intervalMs)
+        }
     }
 
 
