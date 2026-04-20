@@ -2083,11 +2083,19 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun skipRestTimer() {
+        if (!_workoutState.value.restTimer.isActive) return
         timerJob?.cancel()
         if (serviceBound && timerService != null) {
             timerService!!.stopTimer()
         }
-        _workoutState.update { it.copy(restTimer = RestTimerState()) }
+        _workoutState.update { state ->
+            val exerciseId = state.restTimer.exerciseId
+            val setOrder = state.restTimer.setOrder
+            val hidden = if (exerciseId != null && setOrder != null) {
+                state.hiddenRestSeparators + "${exerciseId}_${setOrder}"
+            } else state.hiddenRestSeparators
+            state.copy(restTimer = RestTimerState(), hiddenRestSeparators = hidden)
+        }
     }
 
     /** Pair two exercises as a superset by assigning a shared UUID groupId. */

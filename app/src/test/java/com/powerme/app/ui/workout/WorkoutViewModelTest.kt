@@ -3599,6 +3599,95 @@ class WorkoutViewModelTest {
         runCurrent()
     }
 
+    // ── skipRestTimer hides the separator immediately ─────────────────────────
+
+    @Test
+    fun `skipRestTimer hides the active rest separator for working sets`() = vmTest {
+        val exerciseId = 108L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 90, setCount = 2)
+        runCurrent()
+
+        // Complete set 1 → rest timer starts for setOrder=1
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+
+        val timerBefore = viewModel.workoutState.value.restTimer
+        assertTrue("Pre-condition: timer should be active", timerBefore.isActive)
+
+        // Skip the timer → separator key for setOrder=1 should be added to hiddenRestSeparators
+        viewModel.skipRestTimer()
+        runCurrent()
+
+        assertFalse("Timer should be stopped after skip", viewModel.workoutState.value.restTimer.isActive)
+        assertTrue(
+            "skipRestTimer must add separator key to hiddenRestSeparators",
+            "${exerciseId}_1" in viewModel.workoutState.value.hiddenRestSeparators
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `skipRestTimer hides the warmup-to-work rest separator immediately`() = vmTest {
+        val exerciseId = 109L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 90, setCount = 3)
+        runCurrent()
+
+        // Set 1 and 2 as warmup, set 3 stays NORMAL
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        runCurrent()
+
+        // Complete warmup 1 (not last warmup — no collapse yet)
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        // Complete warmup 2 (last warmup) → collapse fires immediately AND timer starts
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+
+        // Collapse must fire BEFORE timer ends (immediately on confirmation)
+        assertTrue(
+            "Warmup collapse must fire on confirmation, not on rest timer end",
+            exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
+        )
+        assertTrue("Rest timer must be active after confirming last warmup before working sets",
+            viewModel.workoutState.value.restTimer.isActive)
+
+        // Skip the warmup→work rest timer → separator key for warmup setOrder=2 should be hidden
+        viewModel.skipRestTimer()
+        runCurrent()
+
+        assertFalse("Timer should be stopped after skip", viewModel.workoutState.value.restTimer.isActive)
+        assertTrue(
+            "skipRestTimer must hide warmup-to-work separator key",
+            "${exerciseId}_2" in viewModel.workoutState.value.hiddenRestSeparators
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `skipRestTimer with no active timer is a no-op for hiddenRestSeparators`() = vmTest {
+        val exerciseId = 110L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 90, setCount = 1)
+        runCurrent()
+
+        val hiddenBefore = viewModel.workoutState.value.hiddenRestSeparators
+
+        // Skip when no timer is active — should not modify hiddenRestSeparators
+        viewModel.skipRestTimer()
+        runCurrent()
+
+        assertEquals("No-op skip must not add phantom keys", hiddenBefore, viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
     // -------------------------------------------------------------------------
     // Phase B′ — Live-Workout Edit Mode tests
     // -------------------------------------------------------------------------
