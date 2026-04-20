@@ -66,7 +66,7 @@ Single source of truth for bug status across sessions.
 | [BUG_timed_exercise_parallel_timers](BUG_timed_exercise_parallel_timers.md) | Timed exercise — rest timer and setup timer run in parallel when set fires | ✅ Completed | P1 | — | — | `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_deleted_rest_timer_returns](BUG_deleted_rest_timer_returns.md) | Deleted rest timers reappear after app reopen or workout restart | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutsScreen.kt`, `WorkoutDao.kt`, `FirestoreSyncManager.kt` |
 | [BUG_prev_results_mixed_set_types](BUG_prev_results_mixed_set_types.md) | PREV column shows wrong data — warmup rows show working set PREV and vice versa | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_prev_rpe_multiplied](BUG_prev_rpe_multiplied.md) | PREV RPE shown as 10× actual value (9 shows as 90) | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt` |
+| [BUG_prev_rpe_multiplied](BUG_prev_rpe_multiplied.md) | PREV RPE shown as 10× actual value (9 shows as 90) | ✅ Wrapped | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_warmup_rest_no_collapse_on_skip](BUG_warmup_rest_no_collapse_on_skip.md) | Warmup rest timer doesn't collapse when set is skipped | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_confirm_set_after_reps](BUG_confirm_set_after_reps.md) | Tapping ✓ after entering reps does not confirm the set | ✅ Completed | P1 | — | — | `ActiveWorkoutScreen.kt` |
 | [BUG_rest_timer_end_beep_missing](BUG_rest_timer_end_beep_missing.md) | Long beep at end of rest timer is missing | ✅ Completed | P2 | — | — | `RestTimerNotifier.kt`, `WorkoutViewModel.kt` |
