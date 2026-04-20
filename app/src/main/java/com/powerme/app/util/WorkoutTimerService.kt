@@ -4,6 +4,11 @@ import android.app.Service
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
+import com.powerme.app.notification.WorkoutNotificationManager
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,13 +28,20 @@ data class TimerServiceState(
 )
 
 /**
- * Bound service that hosts the active countdown timer coroutine.
- * Kept alive by the ViewModel's ServiceConnection (BIND_AUTO_CREATE) for the duration
- * of the workout — no foreground promotion needed.
+ * Bound foreground service that hosts the active countdown timer coroutine.
+ * Promoted to foreground on workout start so the timer survives app backgrounding.
  *
  * Clients bind via [TimerBinder] and subscribe to [timerState] for tick updates.
+ * WorkoutViewModel sets [onSkipRestRequested] and [onFinishWorkoutRequested] after binding
+ * so notification action buttons can invoke ViewModel functions.
  */
 class WorkoutTimerService : Service() {
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface WorkoutTimerServiceEntryPoint {
+        fun workoutNotificationManager(): WorkoutNotificationManager
+    }
 
     inner class TimerBinder : Binder() {
         fun getService(): WorkoutTimerService = this@WorkoutTimerService
@@ -42,7 +54,44 @@ class WorkoutTimerService : Service() {
     private val _timerState = MutableStateFlow(TimerServiceState())
     val timerState: StateFlow<TimerServiceState> = _timerState.asStateFlow()
 
+    /** Set by WorkoutViewModel after binding. Called when user taps "Skip Rest" in notification. */
+    var onSkipRestRequested: (() -> Unit)? = null
+
+    /** Set by WorkoutViewModel after binding. Called when user taps "Finish Workout" in notification. */
+    var onFinishWorkoutRequested: (() -> Unit)? = null
+
+    private lateinit var notificationManager: WorkoutNotificationManager
+
+    override fun onCreate() {
+        super.onCreate()
+        val entryPoint = EntryPointAccessors.fromApplication(
+            applicationContext,
+            WorkoutTimerServiceEntryPoint::class.java
+        )
+        notificationManager = entryPoint.workoutNotificationManager()
+    }
+
     override fun onBind(intent: Intent?): IBinder = binder
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            WorkoutNotificationManager.ACTION_START_FOREGROUND -> {
+                val workoutName = intent.getStringExtra(WorkoutNotificationManager.EXTRA_WORKOUT_NAME) ?: "Workout"
+                val startTime = intent.getLongExtra(EXTRA_START_TIME, System.currentTimeMillis())
+                startForeground(
+                    WorkoutNotificationManager.NOTIFICATION_ID_PERSISTENT,
+                    notificationManager.buildPersistentNotification(workoutName, startTime)
+                )
+            }
+            WorkoutNotificationManager.ACTION_SKIP_REST -> {
+                onSkipRestRequested?.invoke()
+            }
+            WorkoutNotificationManager.ACTION_FINISH_WORKOUT -> {
+                onFinishWorkoutRequested?.invoke()
+            }
+        }
+        return START_NOT_STICKY
+    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -93,5 +142,14 @@ class WorkoutTimerService : Service() {
         timerJob?.cancel()
         _timerState.value = _timerState.value.copy(isRunning = false)
         return remaining
+    }
+
+    /** Remove the foreground notification and demote back to background service. */
+    fun stopForegroundAndRemove() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+    }
+
+    companion object {
+        const val EXTRA_START_TIME = "extra_start_time"
     }
 }

@@ -95,7 +95,7 @@ class RestTimerNotifier(private val context: Context) {
      */
     fun notifyEnd(audioEnabled: Boolean = true, hapticsEnabled: Boolean = true, sound: TimerSound = TimerSound.BEEP) {
         if (audioEnabled) {
-            playBeep(600, sound)
+            playBeep(1800, sound)
         }
         if (hapticsEnabled) {
             vibrate()

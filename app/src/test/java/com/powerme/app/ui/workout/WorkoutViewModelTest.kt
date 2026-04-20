@@ -4,6 +4,7 @@ import android.content.Context
 import com.powerme.app.analytics.BoazPerformanceAnalyzer
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
+import com.powerme.app.notification.WorkoutNotificationManager
 import com.powerme.app.data.database.ExerciseDao
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.Workout
@@ -109,6 +110,7 @@ class WorkoutViewModelTest {
     private lateinit var mockFirestoreSyncManager: FirestoreSyncManager
     private lateinit var mockHealthConnectManager: HealthConnectManager
     private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
+    private lateinit var mockWorkoutNotificationManager: WorkoutNotificationManager
     private lateinit var mockContext: Context
 
     private lateinit var viewModel: WorkoutViewModel
@@ -138,6 +140,8 @@ class WorkoutViewModelTest {
         whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(false))
         whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
         whenever(mockAppSettingsDataStore.timerSound).thenReturn(flowOf(com.powerme.app.util.TimerSound.BEEP))
+        whenever(mockAppSettingsDataStore.notificationsEnabled).thenReturn(flowOf(true))
+        mockWorkoutNotificationManager = mock()
         mockContext = mock()
 
         // Non-suspend property stubs (used at ViewModel construction time)
@@ -193,6 +197,7 @@ class WorkoutViewModelTest {
             firestoreSyncManager = mockFirestoreSyncManager,
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
             context = mockContext
         )
     }
@@ -214,6 +219,32 @@ class WorkoutViewModelTest {
     fun tearDown() {
         viewModel.viewModelScope.cancel() // kill elapsed timer even if test forgot
         Dispatchers.resetMain()
+    }
+
+    /**
+     * Stubs mocks and enqueues startWorkout + addExercise + addSet(s) for a live workout.
+     * Caller must drain with runCurrent() after invoking inside vmTest/runBlocking.
+     */
+    private suspend fun setupLiveWorkoutWithExercise(
+        exerciseId: Long = 10L,
+        setCount: Int = 3,
+        restSeconds: Int = 90
+    ): Long {
+        val exercise = Exercise(
+            id = exerciseId, name = "Squat", muscleGroup = "Legs",
+            equipmentType = "Barbell", restDurationSeconds = restSeconds
+        )
+        whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+        whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+        whenever(mockWorkoutSetDao.updateWeightReps(any(), any(), any())).thenReturn(Unit)
+        whenever(mockWorkoutSetDao.updateRpe(any(), any())).thenReturn(Unit)
+
+        viewModel.startWorkout("")
+        viewModel.addExercise(exercise)
+        repeat(setCount - 1) { viewModel.addSet(exerciseId) }
+        return exerciseId
     }
 
     // -------------------------------------------------------------------------
@@ -910,6 +941,87 @@ class WorkoutViewModelTest {
         runCurrent()
     }
 
+    @Test
+    fun `deleteSet cancels preceding rest timer when deleting a WARMUP set`() = vmTest {
+        val exercise = Exercise(
+            id = 50L, name = "Lat Stretch", muscleGroup = "Back", equipmentType = "Bodyweight",
+            warmupRestSeconds = 30, restDurationSeconds = 90
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.deleteSetById(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        viewModel.addSet(50L)
+        runCurrent()
+
+        viewModel.selectSetType(50L, 1, SetType.WARMUP)
+        viewModel.selectSetType(50L, 2, SetType.WARMUP)
+        runCurrent()
+
+        viewModel.completeSet(50L, 1)
+        runCurrent()
+
+        assertTrue("Pre-condition: rest timer active for set 1", viewModel.workoutState.value.restTimer.isActive)
+        assertEquals(1, viewModel.workoutState.value.restTimer.setOrder)
+
+        viewModel.deleteSet(50L, 2)
+        runCurrent()
+
+        assertFalse(
+            "Deleting subsequent WARMUP set should cancel preceding rest timer",
+            viewModel.workoutState.value.restTimer.isActive
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `deleteSet does not cancel preceding rest timer when deleting a NORMAL set`() = vmTest {
+        val exercise = Exercise(
+            id = 51L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell",
+            restDurationSeconds = 120
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.deleteSetById(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        viewModel.addSet(51L)
+        runCurrent()
+
+        viewModel.completeSet(51L, 1)
+        runCurrent()
+
+        assertTrue(viewModel.workoutState.value.restTimer.isActive)
+        assertEquals(1, viewModel.workoutState.value.restTimer.setOrder)
+
+        viewModel.deleteSet(51L, 2)
+        runCurrent()
+
+        assertTrue(
+            "Timer for set 1 must remain active when deleting a NORMAL set 2",
+            viewModel.workoutState.value.restTimer.isActive
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
     // -------------------------------------------------------------------------
     // deleteRestSeparator tests
     // -------------------------------------------------------------------------
@@ -1024,6 +1136,38 @@ class WorkoutViewModelTest {
         runCurrent()
 
         assertFalse("Rest timer should be cancelled after cancelWorkout", viewModel.workoutState.value.restTimer.isActive)
+    }
+
+    @Test
+    fun `stopRestTimer deactivates running rest timer immediately`() = vmTest {
+        val exercise = Exercise(
+            id = 40L, name = "Pull Down", muscleGroup = "Back", equipmentType = "Cable",
+            restDurationSeconds = 60
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        viewModel.addSet(40L)
+        runCurrent()
+
+        viewModel.completeSet(40L, 1)
+        runCurrent()
+        assertTrue("Pre-condition: rest timer must be active", viewModel.workoutState.value.restTimer.isActive)
+
+        viewModel.stopRestTimer()
+
+        assertFalse("stopRestTimer should deactivate rest timer", viewModel.workoutState.value.restTimer.isActive)
+        assertEquals(0, viewModel.workoutState.value.restTimer.remainingSeconds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
     }
 
     @Test
@@ -2220,6 +2364,7 @@ class WorkoutViewModelTest {
             firestoreSyncManager = mockFirestoreSyncManager,
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
             context = mockContext
         )
 
@@ -2293,6 +2438,7 @@ class WorkoutViewModelTest {
             firestoreSyncManager = mockFirestoreSyncManager,
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
             context = mockContext
         )
 
@@ -2345,6 +2491,7 @@ class WorkoutViewModelTest {
             firestoreSyncManager = mockFirestoreSyncManager,
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
             context = mockContext
         )
 
@@ -2395,6 +2542,7 @@ class WorkoutViewModelTest {
             firestoreSyncManager = mockFirestoreSyncManager,
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
             context = mockContext
         )
 
@@ -2444,6 +2592,7 @@ class WorkoutViewModelTest {
             firestoreSyncManager = mockFirestoreSyncManager,
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
             context = mockContext
         )
 
@@ -2493,6 +2642,7 @@ class WorkoutViewModelTest {
             firestoreSyncManager = mockFirestoreSyncManager,
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
             context = mockContext
         )
 
@@ -2523,9 +2673,9 @@ class WorkoutViewModelTest {
         val exercise = Exercise(id = exerciseId, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
         val routineExercise = RoutineExercise(id = "re-90", routineId = "90", exerciseId = exerciseId, sets = 2, reps = 8)
 
-        // Previous session sets with RPE values
-        val ghostSet1 = WorkoutSet(id = "g1", workoutId = "prev-w", exerciseId = exerciseId, setOrder = 1, weight = 100.0, reps = 8, rpe = 8)
-        val ghostSet2 = WorkoutSet(id = "g2", workoutId = "prev-w", exerciseId = exerciseId, setOrder = 2, weight = 100.0, reps = 8, rpe = 9)
+        // Previous session sets with RPE values (×10 scale: 80 = 8.0, 90 = 9.0)
+        val ghostSet1 = WorkoutSet(id = "g1", workoutId = "prev-w", exerciseId = exerciseId, setOrder = 1, weight = 100.0, reps = 8, rpe = 80)
+        val ghostSet2 = WorkoutSet(id = "g2", workoutId = "prev-w", exerciseId = exerciseId, setOrder = 2, weight = 100.0, reps = 8, rpe = 90)
 
         // Current workout sets (blank — not yet filled in)
         val ws1 = WorkoutSet(id = "ws1", workoutId = "w-90", exerciseId = exerciseId, setOrder = 1, weight = 0.0, reps = 0)
@@ -2755,8 +2905,8 @@ class WorkoutViewModelTest {
                 exerciseType = ExerciseType.TIMED
             )
             val prevSets = listOf(
-                WorkoutSet(id = "ps1", workoutId = "old-w", exerciseId = 44L, setOrder = 1, weight = 0.0, reps = 0, timeSeconds = 30, rpe = 8),
-                WorkoutSet(id = "ps2", workoutId = "old-w", exerciseId = 44L, setOrder = 2, weight = 0.0, reps = 0, timeSeconds = 25, rpe = 9)
+                WorkoutSet(id = "ps1", workoutId = "old-w", exerciseId = 44L, setOrder = 1, weight = 0.0, reps = 0, timeSeconds = 30, rpe = 80),
+                WorkoutSet(id = "ps2", workoutId = "old-w", exerciseId = 44L, setOrder = 2, weight = 0.0, reps = 0, timeSeconds = 25, rpe = 90)
             )
             runBlocking {
                 whenever(mockWorkoutSetDao.getPreviousSessionSets(eq(44L), any())).thenReturn(prevSets)
@@ -2803,4 +2953,1038 @@ class WorkoutViewModelTest {
             viewModel.cancelWorkout()
             runCurrent()
         }
+
+    // -------------------------------------------------------------------------
+    // BUG_deleted_rest_timer_returns — persist rest timer deletion
+    // -------------------------------------------------------------------------
+
+    /** Stubs mocks needed to add a rest-timer exercise to an active workout. */
+    private fun stubRestExercise(exerciseId: Long = 99L, restSeconds: Int = 90): Exercise {
+        val exercise = Exercise(id = exerciseId, name = "Squat", muscleGroup = "Legs",
+            equipmentType = "Barbell", restDurationSeconds = restSeconds)
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(eq(exerciseId), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockExerciseDao.updateRestDuration(any(), any())).thenReturn(Unit)
+        }
+        return exercise
+    }
+
+    @Test
+    fun `deleteRestSeparator on passive separator persists restDuration zero to exercise`() = vmTest {
+        val exercise = stubRestExercise(exerciseId = 99L, restSeconds = 90)
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        // Timer is NOT active — passive rest separator swipe.
+        viewModel.deleteRestSeparator(99L, 1)
+        runCurrent()
+
+        verify(mockExerciseDao).updateRestDuration(99L, 0)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `deleteRestSeparator on passive separator does NOT mirror restDurationSeconds zero into in-memory exercise`() = vmTest {
+        // Bug B fix: only the swiped separator should hide; sibling sets keep their separator.
+        // The DAO write persists the zero for future sessions, but in-memory state is untouched
+        // so that effectiveRest for other sets is still read from the exercise default (90s).
+        val exercise = stubRestExercise(exerciseId = 99L, restSeconds = 90)
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        viewModel.deleteRestSeparator(99L, 1)
+        runCurrent()
+
+        val ex = viewModel.workoutState.value.exercises.find { it.exercise.id == 99L }
+        assertEquals("restDurationSeconds must stay at 90 so sibling separators remain visible",
+            90, ex?.exercise?.restDurationSeconds)
+        assertTrue("swiped set key must be in hiddenRestSeparators",
+            "99_1" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `deleteRestSeparator in edit mode does NOT call exerciseDao`() = vmTest {
+        // Bug A fix: in edit mode, no DAO write must happen so 'X' can fully discard the change.
+        runBlocking { setupEditModeRoutine() }
+        viewModel.startEditMode("99")
+        runCurrent()
+        Thread.sleep(100)
+        runCurrent()
+
+        viewModel.deleteRestSeparator(1L, 1)
+        runCurrent()
+
+        verify(mockExerciseDao, org.mockito.kotlin.never()).updateRestDuration(any(), any())
+        assertTrue("swiped separator key must still appear in hiddenRestSeparators",
+            "1_1" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelEditMode()
+        runCurrent()
+    }
+
+    @Test
+    fun `cancelEditMode after deleteRestSeparator discards the session hide`() = vmTest {
+        // Bug A fix: after cancel, the state is fully reset (hiddenRestSeparators is cleared).
+        runBlocking { setupEditModeRoutine() }
+        viewModel.startEditMode("99")
+        runCurrent()
+        Thread.sleep(100)
+        runCurrent()
+
+        viewModel.deleteRestSeparator(1L, 1)
+        runCurrent()
+        assertTrue("1_1" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelEditMode()
+        runCurrent()
+
+        assertFalse("hiddenRestSeparators must be empty after cancel",
+            "1_1" in viewModel.workoutState.value.hiddenRestSeparators)
+    }
+
+    @Test
+    fun `deleteRestSeparator on passive separator adds key to hiddenRestSeparators`() = vmTest {
+        val exercise = stubRestExercise(exerciseId = 99L)
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        viewModel.deleteRestSeparator(99L, 2)
+        runCurrent()
+
+        assertTrue("99_2" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `deleteRestSeparator on active timer does NOT persist rest duration zero`() = vmTest {
+        val exercise = stubRestExercise(exerciseId = 99L, restSeconds = 90)
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        // Inject an active timer for exercise 99L set 1.
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(restTimer = RestTimerState(isActive = true, remainingSeconds = 30,
+                totalSeconds = 90, exerciseId = 99L, setOrder = 1))
+        }
+
+        viewModel.deleteRestSeparator(99L, 1)
+        runCurrent()
+
+        // Active-timer path: skip persisting.
+        verify(mockExerciseDao, org.mockito.kotlin.never()).updateRestDuration(any(), any())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG_rest_timer_end_beep_missing — end beep via onTimerTick(0)
+    // -------------------------------------------------------------------------
+
+    // settingsState is initialized from mockUserSettingsDao.getSettings() which returns
+    // flowOf(null); the ViewModel falls back to UserSettings() (audioEnabled=true, hapticsEnabled=true).
+
+    @Test
+    fun `onTimerTick at zero calls notifyEnd on restTimerNotifier`() = vmTest {
+        val mockNotifier = mock<com.powerme.app.util.RestTimerNotifier>()
+        viewModel.restTimerNotifier = mockNotifier
+
+        // Invoke the private tick handler directly via reflection (normally called by WorkoutTimerService).
+        val method = WorkoutViewModel::class.java.getDeclaredMethod("onTimerTick", Int::class.java)
+        method.isAccessible = true
+        method.invoke(viewModel, 0)
+        runCurrent()
+
+        // Default UserSettings: audioEnabled=true, hapticsEnabled=true → notifyEnd must fire.
+        verify(mockNotifier).notifyEnd(
+            audioEnabled = true,
+            hapticsEnabled = true,
+            sound = com.powerme.app.util.TimerSound.BEEP
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `onTimerTick at 1 2 3 plays warning beep but NOT notifyEnd`() = vmTest {
+        val mockNotifier = mock<com.powerme.app.util.RestTimerNotifier>()
+        viewModel.restTimerNotifier = mockNotifier
+
+        val method = WorkoutViewModel::class.java.getDeclaredMethod("onTimerTick", Int::class.java)
+        method.isAccessible = true
+        for (remaining in listOf(3, 2, 1)) {
+            method.invoke(viewModel, remaining)
+        }
+        runCurrent()
+
+        verify(mockNotifier, org.mockito.kotlin.never()).notifyEnd(any(), any(), any())
+        verify(mockNotifier, org.mockito.kotlin.times(3)).playWarningBeep(any())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `onTimerFinish clears restTimer state and hides separator without playing beep`() = vmTest {
+        // Prime restTimer with a known exerciseId/setOrder.
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(restTimer = RestTimerState(isActive = true, remainingSeconds = 0,
+                totalSeconds = 60, exerciseId = 42L, setOrder = 2))
+        }
+
+        // Invoke private onTimerFinish via reflection.
+        val method = WorkoutViewModel::class.java.getDeclaredMethod("onTimerFinish")
+        method.isAccessible = true
+        method.invoke(viewModel)
+        runCurrent()
+
+        // Timer must be cleared.
+        assertFalse(viewModel.workoutState.value.restTimer.isActive)
+        assertEquals(0, viewModel.workoutState.value.restTimer.remainingSeconds)
+        // Separator for 42_2 must be hidden.
+        assertTrue("42_2" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG_prev_results_mixed_set_types + BUG_prev_rpe_multiplied — ghost data
+    // -------------------------------------------------------------------------
+
+    /** Stubs mocks for a single-exercise routine with the given [workoutSets] (current) and [ghostSets] (previous). */
+    private fun stubGhostRoutine(
+        exerciseId: Long = 5L,
+        workoutSets: List<WorkoutSet>,
+        ghostSets: List<WorkoutSet>
+    ) {
+        val exercise = Exercise(id = exerciseId, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell")
+        val routineExercise = RoutineExercise(
+            id = "re-ghost", routineId = "ghost-routine", exerciseId = exerciseId,
+            sets = workoutSets.size, reps = 5, defaultWeight = ""
+        )
+        runBlocking {
+            whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("ghost-routine"))
+                .thenReturn(WorkoutBootstrap(
+                    workoutId = "ghost-wid",
+                    ghostMap = mapOf(exerciseId to ghostSets),
+                    workoutSets = workoutSets
+                ))
+            whenever(mockRoutineExerciseDao.getForRoutine("ghost-routine")).thenReturn(listOf(routineExercise))
+            whenever(mockRoutineExerciseDao.getStickyNote("ghost-routine", exerciseId)).thenReturn(null)
+            whenever(mockExerciseRepository.getExerciseById(exerciseId)).thenReturn(exercise)
+            whenever(mockRoutineDao.getRoutineById("ghost-routine"))
+                .thenReturn(Routine(id = "ghost-routine", name = "Ghost Routine"))
+            whenever(mockRoutineDao.updateLastPerformed(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        }
+    }
+
+    private fun makeSet(
+        id: String, order: Int, type: SetType, weight: Double, reps: Int, rpe: Int? = null
+    ) = WorkoutSet(id = id, workoutId = "wid", exerciseId = 5L,
+        setOrder = order, weight = weight, reps = reps, rpe = rpe, setType = type)
+
+    @Test
+    fun `startWorkoutFromRoutine ghost warmup set matches previous warmup not working set`() = vmTest {
+        // Previous session: 2 warmups (20 kg, 25 kg) then 1 working (60 kg)
+        val ghostSets = listOf(
+            makeSet("g1", 1, SetType.WARMUP, weight = 20.0, reps = 5),
+            makeSet("g2", 2, SetType.WARMUP, weight = 25.0, reps = 5),
+            makeSet("g3", 3, SetType.NORMAL, weight = 60.0, reps = 8)
+        )
+        // Current routine: 1 warmup + 1 working
+        val currentSets = listOf(
+            makeSet("c1", 1, SetType.WARMUP, weight = 0.0, reps = 0),
+            makeSet("c2", 2, SetType.NORMAL, weight = 0.0, reps = 0)
+        )
+        stubGhostRoutine(workoutSets = currentSets, ghostSets = ghostSets)
+
+        viewModel.startWorkoutFromRoutine("ghost-routine")
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.first().sets
+        val warmupSet = sets.first { it.setType == SetType.WARMUP }
+        val workingSet = sets.first { it.setType == SetType.NORMAL }
+
+        // Warmup PREV must point to first previous warmup (20 kg), not 25 kg or 60 kg
+        assertEquals("20", warmupSet.ghostWeight)
+        assertEquals("5", warmupSet.ghostReps)
+
+        // Working PREV must point to previous working set (60 kg), not a warmup
+        assertEquals("60", workingSet.ghostWeight)
+        assertEquals("8", workingSet.ghostReps)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startWorkoutFromRoutine ghost working set ignores previous warmup data`() = vmTest {
+        // Previous session: 1 warmup (15 kg) then 2 working (80 kg, 75 kg)
+        val ghostSets = listOf(
+            makeSet("g1", 1, SetType.WARMUP, weight = 15.0, reps = 10),
+            makeSet("g2", 2, SetType.NORMAL, weight = 80.0, reps = 5),
+            makeSet("g3", 3, SetType.NORMAL, weight = 75.0, reps = 5)
+        )
+        // Current routine: 2 working sets only
+        val currentSets = listOf(
+            makeSet("c1", 1, SetType.NORMAL, weight = 0.0, reps = 0),
+            makeSet("c2", 2, SetType.NORMAL, weight = 0.0, reps = 0)
+        )
+        stubGhostRoutine(workoutSets = currentSets, ghostSets = ghostSets)
+
+        viewModel.startWorkoutFromRoutine("ghost-routine")
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.first().sets
+        assertEquals("80", sets[0].ghostWeight)
+        assertEquals("75", sets[1].ghostWeight)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startWorkoutFromRoutine ghost RPE whole number formatted without decimal`() = vmTest {
+        // rpe = 90 (×10 scale) → should display as "9"
+        val ghostSets = listOf(makeSet("g1", 1, SetType.NORMAL, weight = 100.0, reps = 5, rpe = 90))
+        val currentSets = listOf(makeSet("c1", 1, SetType.NORMAL, weight = 0.0, reps = 0))
+        stubGhostRoutine(workoutSets = currentSets, ghostSets = ghostSets)
+
+        viewModel.startWorkoutFromRoutine("ghost-routine")
+        runCurrent()
+
+        val ghostRpe = viewModel.workoutState.value.exercises.first().sets.first().ghostRpe
+        assertEquals("9", ghostRpe)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startWorkoutFromRoutine ghost RPE with decimal formatted with one decimal place`() = vmTest {
+        // rpe = 65 (×10 scale) → should display as "6.5"
+        val ghostSets = listOf(makeSet("g1", 1, SetType.NORMAL, weight = 100.0, reps = 5, rpe = 65))
+        val currentSets = listOf(makeSet("c1", 1, SetType.NORMAL, weight = 0.0, reps = 0))
+        stubGhostRoutine(workoutSets = currentSets, ghostSets = ghostSets)
+
+        viewModel.startWorkoutFromRoutine("ghost-routine")
+        runCurrent()
+
+        val ghostRpe = viewModel.workoutState.value.exercises.first().sets.first().ghostRpe
+        assertEquals("6.5", ghostRpe)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startWorkoutFromRoutine ghost RPE null when no previous RPE`() = vmTest {
+        val ghostSets = listOf(makeSet("g1", 1, SetType.NORMAL, weight = 100.0, reps = 5, rpe = null))
+        val currentSets = listOf(makeSet("c1", 1, SetType.NORMAL, weight = 0.0, reps = 0))
+        stubGhostRoutine(workoutSets = currentSets, ghostSets = ghostSets)
+
+        viewModel.startWorkoutFromRoutine("ghost-routine")
+        runCurrent()
+
+        assertNull(viewModel.workoutState.value.exercises.first().sets.first().ghostRpe)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `addExercise ghost RPE whole number formatted without decimal`() = vmTest {
+        val exerciseId = 77L
+        val exercise = Exercise(id = exerciseId, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
+        val prevSet = WorkoutSet(id = "p1", workoutId = "old", exerciseId = exerciseId,
+            setOrder = 1, weight = 140.0, reps = 3, rpe = 100)  // rpe 100 → "10"
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(eq(exerciseId), any())).thenReturn(listOf(prevSet))
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        val ghostRpe = viewModel.workoutState.value.exercises.first().sets.first().ghostRpe
+        assertEquals("10", ghostRpe)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `addExercise ghost RPE with decimal formatted with one decimal place`() = vmTest {
+        val exerciseId = 78L
+        val exercise = Exercise(id = exerciseId, name = "Row", muscleGroup = "Back", equipmentType = "Barbell")
+        val prevSet = WorkoutSet(id = "p1", workoutId = "old", exerciseId = exerciseId,
+            setOrder = 1, weight = 80.0, reps = 8, rpe = 75)  // rpe 75 → "7.5"
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(eq(exerciseId), any())).thenReturn(listOf(prevSet))
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        val ghostRpe = viewModel.workoutState.value.exercises.first().sets.first().ghostRpe
+        assertEquals("7.5", ghostRpe)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // Warmup sets auto-collapse
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `completeSet auto-collapses warmups when all warmup sets are completed`() = vmTest {
+        val exerciseId = 99L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 90, setCount = 3)
+        runCurrent()
+
+        // Change all 3 sets to WARMUP type
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 3, SetType.WARMUP)
+        runCurrent()
+
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        // Complete first two — not collapsed yet
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        // Complete last warmup → auto-collapse
+        viewModel.completeSet(exerciseId, 3)
+        runCurrent()
+        assertTrue(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `completeSet does not collapse when only some warmup sets are done`() = vmTest {
+        val exerciseId = 100L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 3)
+        runCurrent()
+
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 3, SetType.WARMUP)
+        runCurrent()
+
+        // Complete only 2 of 3 warmup sets
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `completeSet un-collapses warmups when a completed warmup is unchecked`() = vmTest {
+        val exerciseId = 101L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 2)
+        runCurrent()
+
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        runCurrent()
+
+        // Complete both → collapses
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+        assertTrue(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        // Un-complete one → un-collapses
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `toggleWarmupsCollapsed toggles collapsed warmup state for an exercise`() = vmTest {
+        val exerciseId = 102L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 1)
+        runCurrent()
+
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        viewModel.toggleWarmupsCollapsed(exerciseId)
+        assertTrue(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        viewModel.toggleWarmupsCollapsed(exerciseId)
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `completeSet does not collapse warmups when completed set is NORMAL type`() = vmTest {
+        val exerciseId = 103L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 1)
+        runCurrent()
+
+        // Set is NORMAL by default — completing it should not affect collapsedWarmupExerciseIds
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // ── Issue A: deleteSet warmup auto-collapse ───────────────────────────────
+
+    @Test
+    fun `deleteSet auto-collapses warmups when deleting incomplete warmup leaves all remaining completed`() = vmTest {
+        val exerciseId = 104L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 3)
+        runCurrent()
+
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 3, SetType.WARMUP)
+        runCurrent()
+
+        // Complete sets 1 and 2, leave set 3 incomplete
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+
+        // Still not collapsed — set 3 is incomplete
+        assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        // Delete the incomplete set 3 → remaining warmups (1 and 2) are all completed → auto-collapse
+        viewModel.deleteSet(exerciseId, 3)
+        runCurrent()
+
+        assertTrue(
+            "Should collapse after deleting the only incomplete warmup",
+            exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `deleteSet does not auto-collapse when some remaining warmup sets are still incomplete`() = vmTest {
+        val exerciseId = 105L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 3)
+        runCurrent()
+
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 3, SetType.WARMUP)
+        runCurrent()
+
+        // Complete only set 1, leave sets 2 and 3 incomplete
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+
+        // Delete set 3 — sets 1 (done) and 2 (not done) remain → should NOT collapse
+        viewModel.deleteSet(exerciseId, 3)
+        runCurrent()
+
+        assertFalse(
+            "Should not collapse when a remaining warmup set is still incomplete",
+            exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // ── Issue B: deleteSet hides preceding warmup rest separator ─────────────
+
+    @Test
+    fun `deleteSet hides preceding warmup separator when deleting a warmup set`() = vmTest {
+        val exercise = Exercise(
+            id = 106L, name = "Band Pull-Apart", muscleGroup = "Back", equipmentType = "Resistance Band",
+            warmupRestSeconds = 30, restDurationSeconds = 90
+        )
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.deleteSetById(any())).thenReturn(Unit)
+            whenever(mockWorkoutSetDao.insertSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        viewModel.addSet(106L)
+        runCurrent()
+
+        viewModel.selectSetType(106L, 1, SetType.WARMUP)
+        viewModel.selectSetType(106L, 2, SetType.WARMUP)
+        runCurrent()
+
+        // Delete warmup set 2 → preceding set 1's separator key "106_1" should be hidden
+        viewModel.deleteSet(106L, 2)
+        runCurrent()
+
+        assertTrue(
+            "Preceding warmup set's rest separator should be hidden after deleting the next warmup set",
+            "106_1" in viewModel.workoutState.value.hiddenRestSeparators
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `deleteSet does not hide preceding separator when deleting a NORMAL set`() = vmTest {
+        val exerciseId = 107L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 2)
+        runCurrent()
+
+        // Both sets are NORMAL (default) — deleting set 2 should NOT hide set 1's separator
+        viewModel.deleteSet(exerciseId, 2)
+        runCurrent()
+
+        assertFalse(
+            "Normal set deletion must not add preceding separator to hidden set",
+            "${exerciseId}_1" in viewModel.workoutState.value.hiddenRestSeparators
+        )
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase B′ — Live-Workout Edit Mode tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `enterLiveWorkoutEditMode sets isEditMode while preserving isActive, workoutId, elapsedSeconds`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise() }
+        runCurrent()
+        val workoutIdBefore = viewModel.workoutState.value.workoutId
+        assertNotNull("pre-condition: must have a live workout", workoutIdBefore)
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertTrue("isEditMode should be true", state.isEditMode)
+        assertTrue("isActive should still be true", state.isActive)
+        assertEquals("workoutId must be preserved", workoutIdBefore, state.workoutId)
+        assertNotNull("workoutEditSnapshot must be captured", state.workoutEditSnapshot)
+        assertFalse("editModeDirty should start false", state.editModeDirty)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `enterLiveWorkoutEditMode preserves routineSnapshot`() = vmTest {
+        // routineSnapshot is only captured by startWorkoutFromRoutine, not startWorkout.
+        // Inject it directly to verify enterLiveWorkoutEditMode does not clear it.
+        runBlocking { setupLiveWorkoutWithExercise() }
+        runCurrent()
+        val fakeSnapshot = listOf(RoutineExerciseSnapshot(exerciseId = 10L, sets = 3, perSetWeights = listOf("60"), perSetReps = listOf(8)))
+        _workoutState_forTest(viewModel) { it.copy(routineSnapshot = fakeSnapshot) }
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        assertEquals("routineSnapshot must be untouched", fakeSnapshot, viewModel.workoutState.value.routineSnapshot)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `enterLiveWorkoutEditMode is no-op when no live workout`() = vmTest {
+        // No workout started — isActive=false
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        assertFalse("isEditMode should remain false", viewModel.workoutState.value.isEditMode)
+        assertNull("workoutEditSnapshot should remain null", viewModel.workoutState.value.workoutEditSnapshot)
+    }
+
+    @Test
+    fun `enterLiveWorkoutEditMode is no-op when already in edit mode`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise() }
+        runCurrent()
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+        val snapshotFirst = viewModel.workoutState.value.workoutEditSnapshot
+
+        // Second call should not overwrite snapshot
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        assertEquals("snapshot should not change on second call", snapshotFirst, viewModel.workoutState.value.workoutEditSnapshot)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `saveRoutineEdits in live edit does NOT call any routine_exercises DAO`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise() }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        viewModel.saveRoutineEdits()
+        runCurrent()
+
+        verify(mockRoutineExerciseDao, org.mockito.kotlin.never()).updateSets(any(), any(), any())
+        verify(mockRoutineExerciseDao, org.mockito.kotlin.never()).updateRepsAndWeight(any(), any(), any(), any())
+        verify(mockRoutineExerciseDao, org.mockito.kotlin.never()).updateSetTypesJson(any(), any(), any())
+        verify(mockRoutineExerciseDao, org.mockito.kotlin.never()).updateSetWeightsAndReps(any(), any(), any(), any())
+        verify(mockRoutineExerciseDao, org.mockito.kotlin.never()).updateSupersetGroupId(any(), any(), any())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `saveRoutineEdits in live edit does NOT set editModeSaved`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise() }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+        viewModel.saveRoutineEdits()
+        runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertFalse("editModeSaved must not be set (would trigger navigation away)", state.editModeSaved)
+        assertFalse("isEditMode should be false after save", state.isEditMode)
+        assertTrue("isActive should still be true after live-edit save", state.isActive)
+        assertNull("workoutEditSnapshot should be cleared", state.workoutEditSnapshot)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `saveRoutineEdits in live edit promotes synthetic-ID sets to real workout_sets rows`() = vmTest {
+        runBlocking {
+            setupLiveWorkoutWithExercise(setCount = 2)
+        }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        // Add a set during edit — it gets a synthetic ID
+        viewModel.addSet(10L)
+        runCurrent()
+        val synthSet = viewModel.workoutState.value.exercises.first().sets.last()
+        assertTrue("New set should have synthetic ID", synthSet.id.startsWith("edit_"))
+
+        // Save: synthetic set should be promoted
+        viewModel.saveRoutineEdits()
+        runCurrent()
+
+        val promotedSet = viewModel.workoutState.value.exercises.first().sets.last()
+        assertFalse("Promoted set should NOT have synthetic ID", promotedSet.id.startsWith("edit_"))
+        assertFalse("Promoted set ID should not be blank", promotedSet.id.isBlank())
+        verify(mockWorkoutSetDao, org.mockito.kotlin.atLeastOnce()).insertSet(any())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `saveRoutineEdits in live edit deletes workout_sets rows for sets removed during edit`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise(setCount = 3) }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        // The sets currently have real IDs (UUID) because they were added during a live workout
+        val sets = viewModel.workoutState.value.exercises.first().sets
+        val deletedSetId = sets.last().id
+        assertFalse("pre-condition: set should have a real ID", deletedSetId.startsWith("edit_"))
+
+        // Delete last set during edit
+        viewModel.deleteSet(10L, sets.last().setOrder)
+        runCurrent()
+
+        viewModel.saveRoutineEdits()
+        runCurrent()
+
+        verify(mockWorkoutSetDao).deleteSetById(deletedSetId)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `cancelEditMode during live edit restores exercises list and keeps isActive`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise(setCount = 2) }
+        runCurrent()
+
+        val exercisesBefore = viewModel.workoutState.value.exercises
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        // Mutate exercises list during edit
+        viewModel.addSet(10L)
+        runCurrent()
+        assertEquals("should have 3 sets after add", 3, viewModel.workoutState.value.exercises.first().sets.size)
+
+        viewModel.cancelEditMode()
+        runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertFalse("isEditMode should be false", state.isEditMode)
+        assertTrue("isActive should still be true", state.isActive)
+        assertNotNull("workoutId should be preserved", state.workoutId)
+        assertNull("workoutEditSnapshot should be cleared", state.workoutEditSnapshot)
+        assertEquals("exercises should be restored to pre-edit list",
+            exercisesBefore.first().sets.size, state.exercises.first().sets.size)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `cancelEditMode during live edit restores hiddenRestSeparators and restTimeOverrides`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise(setCount = 3) }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        // Mutate rest-separator state during edit
+        viewModel.deleteRestSeparator(10L, 2)
+        runCurrent()
+        assertTrue("10_2 should be hidden after swipe", "10_2" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelEditMode()
+        runCurrent()
+
+        assertFalse("hiddenRestSeparators should be restored (10_2 should be gone)",
+            "10_2" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `cancelEditMode during standalone edit still does full reset`() = vmTest {
+        runBlocking { setupEditModeRoutine() }
+
+        viewModel.startEditMode("99")
+        runCurrent()
+        Thread.sleep(100)
+        runCurrent()
+
+        viewModel.cancelEditMode()
+        runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertFalse("isActive should be false", state.isActive)
+        assertFalse("isEditMode should be false", state.isEditMode)
+        assertNull("workoutId should be null", state.workoutId)
+        assertNull("workoutEditSnapshot should be null", state.workoutEditSnapshot)
+    }
+
+    @Test
+    fun `cancelWorkout during live edit fully resets including workoutEditSnapshot`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise() }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+        assertNotNull("pre-condition: snapshot should be set", viewModel.workoutState.value.workoutEditSnapshot)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        val state = viewModel.workoutState.value
+        assertFalse("isActive should be false", state.isActive)
+        assertFalse("isEditMode should be false", state.isEditMode)
+        assertNull("workoutEditSnapshot should be null", state.workoutEditSnapshot)
+    }
+
+    @Test
+    fun `updateExerciseRestTimers in live edit does NOT call exerciseDao`() = vmTest {
+        runBlocking {
+            setupLiveWorkoutWithExercise()
+            whenever(mockExerciseDao.updateRestTimers(any(), any(), any(), any(), any())).thenReturn(Unit)
+        }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        viewModel.updateExerciseRestTimers(10L, 120, 30, 0, true)
+        runCurrent()
+
+        verify(mockExerciseDao, org.mockito.kotlin.never()).updateRestTimers(any(), any(), any(), any(), any())
+
+        // In-memory state should still reflect the change
+        val ex = viewModel.workoutState.value.exercises.find { it.exercise.id == 10L }
+        assertEquals("In-memory restDurationSeconds should be updated", 120, ex?.exercise?.restDurationSeconds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `updateExerciseStickyNote in live edit does NOT call routineExerciseDao`() = vmTest {
+        runBlocking {
+            setupLiveWorkoutWithExercise()
+            whenever(mockRoutineExerciseDao.updateStickyNote(any(), any(), any())).thenReturn(Unit)
+        }
+        runCurrent()
+        // Inject a routineId so the guard applies
+        _workoutState_forTest(viewModel) { it.copy(routineId = "r1") }
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        viewModel.updateExerciseStickyNote(10L, "Don't arch")
+        runCurrent()
+
+        verify(mockRoutineExerciseDao, org.mockito.kotlin.never()).updateStickyNote(any(), any(), any())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `onWeightChanged in live edit does NOT call workoutSetDao updateWeightReps after debounce`() = vmTest {
+        runBlocking { setupLiveWorkoutWithExercise(setCount = 1) }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        // onWeightChanged checks !isEditMode before scheduling the debounce — so the DAO is never called.
+        viewModel.onWeightChanged(10L, 1, "80")
+        advanceTimeBy(400)
+        runCurrent()
+
+        verify(mockWorkoutSetDao, org.mockito.kotlin.never()).updateWeightReps(any(), any(), any())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startEditMode still shows showEditGuard when live workout is active`() = vmTest {
+        runBlocking {
+            setupLiveWorkoutWithExercise()
+            setupEditModeRoutine()
+        }
+        runCurrent()
+
+        // Try to start standalone edit mode while live workout is active
+        viewModel.startEditMode("99")
+        runCurrent()
+
+        assertTrue("showEditGuard should be set", viewModel.workoutState.value.showEditGuard)
+        assertTrue("isActive should still be true", viewModel.workoutState.value.isActive)
+        assertFalse("isEditMode should NOT have changed", viewModel.workoutState.value.isEditMode)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `deleteRestSeparator in live edit scopes hide to single set, preserves sibling restDurationSeconds`() = vmTest {
+        runBlocking {
+            setupLiveWorkoutWithExercise(exerciseId = 20L, setCount = 3, restSeconds = 90)
+            whenever(mockExerciseDao.updateRestDuration(any(), any())).thenReturn(Unit)
+        }
+        runCurrent()
+
+        viewModel.enterLiveWorkoutEditMode()
+        runCurrent()
+
+        // Swipe set 2
+        viewModel.deleteRestSeparator(20L, 2)
+        runCurrent()
+
+        // Only set 2 is hidden
+        assertTrue("set 2 key should be hidden", "20_2" in viewModel.workoutState.value.hiddenRestSeparators)
+        assertFalse("set 1 key must NOT be hidden", "20_1" in viewModel.workoutState.value.hiddenRestSeparators)
+        assertFalse("set 3 key must NOT be hidden", "20_3" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        // Exercise restDurationSeconds must remain at 90 (no in-memory mirror)
+        val ex = viewModel.workoutState.value.exercises.find { it.exercise.id == 20L }
+        assertEquals("restDurationSeconds must stay 90", 90, ex?.exercise?.restDurationSeconds)
+
+        // DAO must NOT be called (live-edit guard)
+        verify(mockExerciseDao, org.mockito.kotlin.never()).updateRestDuration(any(), any())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+}
+
+// ── Test helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Directly mutates the ViewModel's _workoutState for test setup.
+ * Accesses the private field via reflection — only for use in tests.
+ */
+@Suppress("UNCHECKED_CAST")
+private fun _workoutState_forTest(
+    vm: WorkoutViewModel,
+    transform: (ActiveWorkoutState) -> ActiveWorkoutState
+) {
+    val field = WorkoutViewModel::class.java.getDeclaredField("_workoutState")
+    field.isAccessible = true
+    val flow = field.get(vm) as kotlinx.coroutines.flow.MutableStateFlow<ActiveWorkoutState>
+    flow.value = transform(flow.value)
 }

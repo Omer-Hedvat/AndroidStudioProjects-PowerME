@@ -154,7 +154,11 @@ fun ActiveWorkoutScreen(
 
     val handleEditClose = {
         if (viewModel.editModeHasChanges()) showDiscardEditDialog = true
-        else { viewModel.cancelEditMode(); onWorkoutFinished() }
+        else {
+            val wasLiveEdit = workoutState.workoutId != null
+            viewModel.cancelEditMode()
+            if (!wasLiveEdit) onWorkoutFinished()
+        }
     }
 
     BackHandler(enabled = workoutState.isEditMode) { handleEditClose() }
@@ -218,8 +222,9 @@ fun ActiveWorkoutScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDiscardEditDialog = false
+                    val wasLiveEdit = workoutState.workoutId != null
                     viewModel.cancelEditMode()
-                    onWorkoutFinished()
+                    if (!wasLiveEdit) onWorkoutFinished()
                 }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
@@ -273,7 +278,7 @@ fun ActiveWorkoutScreen(
                                 fontSize = 16.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            if (!workoutState.isEditMode) {
+                            if (!workoutState.isEditMode || workoutState.workoutId != null) {
                                 Text(
                                     text = formatElapsed(workoutState.elapsedSeconds),
                                     fontSize = 13.sp,
@@ -288,6 +293,11 @@ fun ActiveWorkoutScreen(
                                 Icon(Icons.Default.Close, contentDescription = "Cancel edit", tint = MaterialTheme.colorScheme.error)
                             }
                         } else {
+                            if (workoutState.isActive && workoutState.workoutId != null) {
+                                IconButton(onClick = { viewModel.enterLiveWorkoutEditMode() }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit routine", tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
                             IconButton(onClick = { viewModel.minimizeWorkout(); onNavigateToTimer() }) {
                                 Icon(Icons.Default.Timer, contentDescription = "Timer", tint = MaterialTheme.colorScheme.primary)
                             }

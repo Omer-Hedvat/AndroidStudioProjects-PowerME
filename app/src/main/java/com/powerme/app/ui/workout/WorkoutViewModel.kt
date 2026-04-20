@@ -8,6 +8,7 @@ import android.os.IBinder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.notification.WorkoutNotificationManager
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
@@ -66,6 +67,12 @@ private fun String.toEditModeSetTypes(count: Int): List<SetType> {
  */
 private fun formatWeight(valueKg: Double, unit: UnitSystem): String =
     UnitConverter.formatWeightRaw(valueKg, unit)
+
+/** Converts a stored RPE Int (×10 scale: 90 = 9.0, 65 = 6.5) to its display string ("9", "6.5"). */
+private fun formatGhostRpe(rpe: Int): String {
+    val d = rpe / 10.0
+    return if (d == d.toLong().toDouble()) d.toLong().toString() else "%.1f".format(d)
+}
 
 /**
  * Converts a display-unit weight string back to kg for DB storage.
@@ -156,6 +163,22 @@ data class DeletedSetClipboard(
     val setType: SetType
 )
 
+/**
+ * Snapshot of pre-edit state captured on entry to live-workout edit mode.
+ * cancelEditMode() restores all fields from this snapshot. Null outside live edit.
+ */
+data class WorkoutEditSnapshot(
+    val exercises: List<ExerciseWithSets>,
+    val notes: String,
+    val restTimeOverrides: Map<String, Int>,
+    val hiddenRestSeparators: Set<String>,
+    val collapsedExerciseIds: Set<Long>,
+    val collapsedWarmupExerciseIds: Set<Long>,
+    val deletedSetClipboard: Map<Long, DeletedSetClipboard>,
+    val activeSupersetExerciseId: Long?,
+    val workoutName: String
+)
+
 data class ActiveWorkoutState(
     val isActive: Boolean = false,
     val workoutId: String? = null,
@@ -183,7 +206,9 @@ data class ActiveWorkoutState(
     val editModeDirty: Boolean = false,
     val showEditGuard: Boolean = false,
     val deletedSetClipboard: Map<Long, DeletedSetClipboard> = emptyMap(),
-    val collapsedExerciseIds: Set<Long> = emptySet()
+    val collapsedExerciseIds: Set<Long> = emptySet(),
+    val collapsedWarmupExerciseIds: Set<Long> = emptySet(),
+    val workoutEditSnapshot: WorkoutEditSnapshot? = null
 )
 
 private fun ActiveWorkoutState.markDirtyIfEditing(): ActiveWorkoutState =
@@ -207,13 +232,18 @@ class WorkoutViewModel @Inject constructor(
     private val clocksTimerBridge: ClocksTimerBridge,
     private val appSettingsDataStore: AppSettingsDataStore,
     private val healthConnectManager: HealthConnectManager,
+    private val workoutNotificationManager: WorkoutNotificationManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val restTimerNotifier = RestTimerNotifier(context)
+    // internal so tests can substitute a mock (mock-maker-inline required).
+    internal var restTimerNotifier: RestTimerNotifier = RestTimerNotifier(context)
 
     private val timerSoundState: StateFlow<TimerSound> = appSettingsDataStore.timerSound
         .stateIn(viewModelScope, SharingStarted.Eagerly, TimerSound.BEEP)
+
+    private val notificationsEnabledState: StateFlow<Boolean> = appSettingsDataStore.notificationsEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     val unitSystem: StateFlow<UnitSystem> = appSettingsDataStore.unitSystem
         .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
@@ -249,6 +279,9 @@ class WorkoutViewModel @Inject constructor(
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             timerService = (binder as WorkoutTimerService.TimerBinder).getService()
             serviceBound = true
+            // Wire notification action button callbacks so the service can invoke ViewModel logic.
+            timerService!!.onSkipRestRequested = { skipRestTimer() }
+            timerService!!.onFinishWorkoutRequested = { finishWorkout() }
             // Mirror the service's live countdown into ViewModel state so the UI
             // automatically reflects ticks even across Activity recreations.
             serviceCollectionJob?.cancel()
@@ -290,6 +323,10 @@ class WorkoutViewModel @Inject constructor(
 
     private val saveJobs = mutableMapOf<Pair<Long, Int>, Job>()
 
+    /** True only while editing within a live workout (workoutId != null). False during standalone edit. */
+    private fun isLiveEdit(): Boolean =
+        _workoutState.value.isEditMode && _workoutState.value.workoutId != null
+
     init {
         loadAvailableExercises()
         rehydrateIfNeeded()
@@ -309,6 +346,10 @@ class WorkoutViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        timerService?.let {
+            it.onSkipRestRequested = null
+            it.onFinishWorkoutRequested = null
+        }
         serviceCollectionJob?.cancel()
         timerJob?.cancel()
         standaloneTimerJob?.cancel()
@@ -317,6 +358,31 @@ class WorkoutViewModel @Inject constructor(
             context.unbindService(timerConnection)
             serviceBound = false
         }
+    }
+
+    private fun launchWorkoutForegroundService(workoutName: String, startTimeMs: Long) {
+        val intent = Intent(context, WorkoutTimerService::class.java).apply {
+            action = WorkoutNotificationManager.ACTION_START_FOREGROUND
+            putExtra(WorkoutNotificationManager.EXTRA_WORKOUT_NAME, workoutName)
+            putExtra(WorkoutTimerService.EXTRA_START_TIME, startTimeMs)
+        }
+        context.startForegroundService(intent)
+    }
+
+    private fun stopWorkoutForegroundService() {
+        timerService?.stopForegroundAndRemove()
+        context.stopService(Intent(context, WorkoutTimerService::class.java))
+        workoutNotificationManager.cancelAll()
+    }
+
+    private fun updatePersistentNotificationElapsedMode() {
+        val state = _workoutState.value
+        if (!state.isActive) return
+        val notification = workoutNotificationManager.buildPersistentNotification(
+            workoutName = state.workoutName,
+            startTimeMs = state.startTime ?: System.currentTimeMillis()
+        )
+        workoutNotificationManager.updateNotification(notification)
     }
 
     fun minimizeWorkout() {
@@ -477,8 +543,12 @@ class WorkoutViewModel @Inject constructor(
                 val exercise = exerciseRepository.getExerciseById(re.exerciseId) ?: return@mapNotNull null
                 val ghostSets = bootstrap.ghostMap[re.exerciseId] ?: emptyList()
                 val dbSets = dbSetsByExercise[re.exerciseId] ?: emptyList()
-                val activeSets = dbSets.mapIndexed { i, ws ->
-                    val ghost = ghostSets.getOrNull(i)
+                val ghostByType = ghostSets.groupBy { it.setType }
+                val typeCounters = mutableMapOf<SetType, Int>()
+                val activeSets = dbSets.map { ws ->
+                    val typeIndex = typeCounters.getOrDefault(ws.setType, 0)
+                    val ghost = ghostByType[ws.setType]?.getOrNull(typeIndex)
+                    typeCounters[ws.setType] = typeIndex + 1
                     val weightStr = if (ws.weight > 0.0) formatWeight(ws.weight, currentUnit) else "0"
                     ActiveSet(
                         id = ws.id,
@@ -489,7 +559,7 @@ class WorkoutViewModel @Inject constructor(
                         timeSeconds = ghost?.timeSeconds?.let { if (it > 0) it.toString() else "" } ?: "",
                         ghostWeight = ghost?.weight?.let { if (it > 0.0) formatWeight(it, currentUnit) else null },
                         ghostReps = ghost?.reps?.let { if (it > 0) it.toString() else null },
-                        ghostRpe = ghost?.rpe?.toString(),
+                        ghostRpe = ghost?.rpe?.let { formatGhostRpe(it) },
                         ghostTimeSeconds = ghost?.timeSeconds?.let { if (it > 0) it.toString() else null }
                     )
                 }
@@ -511,18 +581,20 @@ class WorkoutViewModel @Inject constructor(
                     perSetReps = reps
                 )
             }
+            val startTime = System.currentTimeMillis()
             _workoutState.update {
                 it.copy(
                     isActive = true,
                     workoutId = bootstrap.workoutId,
                     routineId = routineId,
-                    startTime = System.currentTimeMillis(),
+                    startTime = startTime,
                     exercises = exercises,
                     workoutName = name,
                     routineSnapshot = snapshot
                 )
             }
             startElapsedTimer()
+            launchWorkoutForegroundService(name, startTime)
         }
     }
 
@@ -536,17 +608,19 @@ class WorkoutViewModel @Inject constructor(
         _workoutState.update { ActiveWorkoutState(availableExercises = it.availableExercises) }
         viewModelScope.launch {
             val id = workoutRepository.createEmptyWorkout(routineId.takeIf { it.isNotBlank() })
+            val startTime = System.currentTimeMillis()
             _workoutState.update {
                 it.copy(
                     isActive = true,
                     workoutId = id,
                     routineId = routineId,
-                    startTime = System.currentTimeMillis(),
+                    startTime = startTime,
                     exercises = emptyList(),
                     workoutName = "Empty Workout"
                 )
             }
             startElapsedTimer()
+            launchWorkoutForegroundService("Empty Workout", startTime)
         }
     }
 
@@ -579,17 +653,19 @@ class WorkoutViewModel @Inject constructor(
                 }
                 ExerciseWithSets(exercise = exercise, sets = activeSets)
             }
+            val startTime = System.currentTimeMillis()
             _workoutState.update {
                 it.copy(
                     isActive = true,
                     workoutId = bootstrap.workoutId,
                     routineId = "",
-                    startTime = System.currentTimeMillis(),
+                    startTime = startTime,
                     exercises = exercises,
                     workoutName = "AI Workout"
                 )
             }
             startElapsedTimer()
+            launchWorkoutForegroundService("AI Workout", startTime)
         }
     }
 
@@ -644,9 +720,93 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Phase B′ — entry point for live-workout edit mode. Called from the pencil icon
+     * during an active workout. Captures a pre-edit snapshot for discard, preserves
+     * workoutId / routineSnapshot / elapsedTimerJob so the Diff Engine still has its
+     * baseline and the session clock keeps ticking. No DB writes.
+     */
+    fun enterLiveWorkoutEditMode() {
+        val s = _workoutState.value
+        if (!s.isActive || s.workoutId == null || s.isEditMode) return
+        val snapshot = WorkoutEditSnapshot(
+            exercises = s.exercises,
+            notes = s.notes,
+            restTimeOverrides = s.restTimeOverrides,
+            hiddenRestSeparators = s.hiddenRestSeparators,
+            collapsedExerciseIds = s.collapsedExerciseIds,
+            collapsedWarmupExerciseIds = s.collapsedWarmupExerciseIds,
+            deletedSetClipboard = s.deletedSetClipboard,
+            activeSupersetExerciseId = s.activeSupersetExerciseId,
+            workoutName = s.workoutName
+        )
+        _workoutState.update {
+            it.copy(
+                isEditMode = true,
+                editModeDirty = false,
+                editModeSaved = false,
+                workoutEditSnapshot = snapshot
+            )
+        }
+        // NOT touched: isActive, workoutId, routineId, routineSnapshot,
+        // startTime, elapsedSeconds, restTimer. elapsedTimerJob keeps ticking.
+    }
+
     fun saveRoutineEdits() {
+        val state = _workoutState.value
+        if (state.workoutId != null) {
+            // Live-workout edit: promote any synthetic-ID sets to real workout_sets rows,
+            // delete sets that were removed during edit, then exit edit mode in place.
+            // No write to routine_exercises — the Diff Engine resolves changes post-workout.
+            val snap = state.workoutEditSnapshot
+            val wid = state.workoutId
+            viewModelScope.launch {
+                if (snap != null) {
+                    val oldRealIds = snap.exercises.flatMap { ex ->
+                        ex.sets.mapNotNull { s ->
+                            s.id.takeIf { it.isNotBlank() && !it.startsWith("edit_") }
+                        }
+                    }.toSet()
+                    val newRealIds = state.exercises.flatMap { ex ->
+                        ex.sets.mapNotNull { s ->
+                            s.id.takeIf { it.isNotBlank() && !it.startsWith("edit_") }
+                        }
+                    }.toSet()
+                    (oldRealIds - newRealIds).forEach { workoutSetDao.deleteSetById(it) }
+                }
+                val unit = currentUnit
+                val promoted = state.exercises.map { ex ->
+                    ex.copy(sets = ex.sets.map { s ->
+                        if (s.id.isBlank() || s.id.startsWith("edit_")) {
+                            val newId = UUID.randomUUID().toString()
+                            val ws = WorkoutSet(
+                                id = newId,
+                                workoutId = wid,
+                                exerciseId = ex.exercise.id,
+                                setOrder = s.setOrder,
+                                weight = displayStringToKg(s.weight, unit),
+                                reps = s.reps.toIntOrNull() ?: 0,
+                                setType = s.setType
+                            )
+                            workoutSetDao.insertSet(ws)
+                            s.copy(id = newId)
+                        } else s
+                    })
+                }
+                _workoutState.update {
+                    it.copy(
+                        isEditMode = false,
+                        editModeDirty = false,
+                        editModeSaved = false,
+                        workoutEditSnapshot = null,
+                        exercises = promoted,
+                        snackbarMessage = "Edits staged — will sync after workout"
+                    )
+                }
+            }
+            return
+        }
         viewModelScope.launch {
-            val state = _workoutState.value
             val unit = currentUnit
             val routineId = state.routineId
             val originalIds = routineExerciseDao.getForRoutine(routineId).map { it.exerciseId }.toSet()
@@ -713,6 +873,30 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun cancelEditMode() {
+        val s = _workoutState.value
+        val snap = s.workoutEditSnapshot
+        if (snap != null) {
+            // Live-workout edit: restore pre-edit state; session continues uninterrupted.
+            _workoutState.update {
+                it.copy(
+                    isEditMode = false,
+                    editModeDirty = false,
+                    editModeSaved = false,
+                    workoutEditSnapshot = null,
+                    exercises = snap.exercises,
+                    notes = snap.notes,
+                    restTimeOverrides = snap.restTimeOverrides,
+                    hiddenRestSeparators = snap.hiddenRestSeparators,
+                    collapsedExerciseIds = snap.collapsedExerciseIds,
+                    collapsedWarmupExerciseIds = snap.collapsedWarmupExerciseIds,
+                    deletedSetClipboard = snap.deletedSetClipboard,
+                    activeSupersetExerciseId = snap.activeSupersetExerciseId,
+                    workoutName = snap.workoutName
+                )
+            }
+            return
+        }
+        // Standalone edit: full reset.
         _workoutState.update {
             ActiveWorkoutState(availableExercises = it.availableExercises)
         }
@@ -747,7 +931,7 @@ class WorkoutViewModel @Inject constructor(
                         timeSeconds = prevTimeStr ?: "",
                         ghostWeight = weightStr,
                         ghostReps = prevSet.reps.toString(),
-                        ghostRpe = prevSet.rpe?.toString(),
+                        ghostRpe = prevSet.rpe?.let { formatGhostRpe(it) },
                         ghostTimeSeconds = prevTimeStr
                     )
                 }
@@ -761,9 +945,11 @@ class WorkoutViewModel @Inject constructor(
                 try { routineExerciseDao.getStickyNote(routineId, exercise.id) } catch (_: Exception) { null }
             } else null
 
-            // Persist initial sets to DB if a workout is active (Iron Vault)
+            // Persist initial sets to DB if a live (non-edit) workout is active (Iron Vault).
+            // In edit mode, use synthetic IDs; sets are promoted to real rows on saveRoutineEdits().
             val workoutId = _workoutState.value.workoutId
-            val setsWithIds = if (workoutId != null) {
+            val currentIsEditMode = _workoutState.value.isEditMode
+            val setsWithIds = if (workoutId != null && !currentIsEditMode) {
                 initialSets.map { activeSet ->
                     val setId = UUID.randomUUID().toString()
                     val ws = WorkoutSet(
@@ -777,6 +963,10 @@ class WorkoutViewModel @Inject constructor(
                     )
                     workoutRepository.createWorkoutSet(ws)
                     activeSet.copy(id = setId)
+                }
+            } else if (currentIsEditMode) {
+                initialSets.mapIndexed { i, activeSet ->
+                    activeSet.copy(id = "edit_${System.nanoTime()}_$i")
                 }
             } else {
                 initialSets
@@ -823,7 +1013,9 @@ class WorkoutViewModel @Inject constructor(
             )
 
             val workoutId = state.workoutId
-            if (workoutId != null) {
+            // Insert workout_sets row only for live (non-edit) sessions; in edit mode the
+            // set gets a synthetic ID and is promoted to a real row on saveRoutineEdits().
+            if (workoutId != null && !state.isEditMode) {
                 val ws = WorkoutSet(
                     id = newSetId,
                     workoutId = workoutId,
@@ -1008,7 +1200,7 @@ class WorkoutViewModel @Inject constructor(
             val set = _workoutState.value.exercises
                 .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
                 ?: return@launch
-            if (set.id.isBlank() || set.id.startsWith("edit_")) return@launch
+            if (_workoutState.value.isEditMode || set.id.isBlank() || set.id.startsWith("edit_")) return@launch
             val unit = currentUnit
             val weight = SurgicalValidator.parseDecimal(set.weight)
                 .let { if (it is SurgicalValidator.ValidationResult.Valid) UnitConverter.inputWeightToKg(it.value, unit) else 0.0 }
@@ -1023,7 +1215,7 @@ class WorkoutViewModel @Inject constructor(
             val set = _workoutState.value.exercises
                 .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
                 ?: return@launch
-            if (set.id.isBlank() || set.id.startsWith("edit_")) return@launch
+            if (_workoutState.value.isEditMode || set.id.isBlank() || set.id.startsWith("edit_")) return@launch
             val unit = currentUnit
             val weight = SurgicalValidator.parseDecimal(set.weight)
                 .let { if (it is SurgicalValidator.ValidationResult.Valid) UnitConverter.inputWeightToKg(it.value, unit) else null }
@@ -1039,15 +1231,31 @@ class WorkoutViewModel @Inject constructor(
     fun completeSet(exerciseId: Long, setOrder: Int) {
         val isEditMode = _workoutState.value.isEditMode
         var wasCompleted = false
+        var completedSetType = SetType.NORMAL
         _workoutState.update { state ->
             state.copy(exercises = state.exercises.map { ex ->
                 if (ex.exercise.id != exerciseId) return@map ex
                 ex.copy(sets = ex.sets.map { set ->
                     if (set.setOrder != setOrder) return@map set
                     wasCompleted = set.isCompleted
+                    completedSetType = set.setType
                     set.copy(isCompleted = !set.isCompleted)
                 })
             }).markDirtyIfEditing()
+        }
+        // Auto-collapse warmup sets when all are completed; un-collapse if one is un-completed
+        if (!isEditMode && completedSetType == SetType.WARMUP) {
+            _workoutState.update { state ->
+                val ex = state.exercises.find { it.exercise.id == exerciseId }
+                val warmupSets = ex?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                val allWarmupsDone = warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }
+                val updatedCollapsed = if (allWarmupsDone) {
+                    state.collapsedWarmupExerciseIds + exerciseId
+                } else {
+                    state.collapsedWarmupExerciseIds - exerciseId
+                }
+                state.copy(collapsedWarmupExerciseIds = updatedCollapsed)
+            }
         }
         if (!isEditMode) {
             val updatedSet = _workoutState.value.exercises
@@ -1082,7 +1290,20 @@ class WorkoutViewModel @Inject constructor(
         if (serviceBound && timerService != null) {
             timerService!!.stopTimer()
         }
+        workoutNotificationManager.cancelRestDoneNotification()
         _workoutState.update { it.copy(restTimer = RestTimerState()) }
+        updatePersistentNotificationElapsedMode()
+    }
+
+    fun toggleWarmupsCollapsed(exerciseId: Long) {
+        _workoutState.update { state ->
+            val updated = if (exerciseId in state.collapsedWarmupExerciseIds) {
+                state.collapsedWarmupExerciseIds - exerciseId
+            } else {
+                state.collapsedWarmupExerciseIds + exerciseId
+            }
+            state.copy(collapsedWarmupExerciseIds = updated)
+        }
     }
 
     fun updateRpe(exerciseId: Long, setOrder: Int, rpe: Int?) {
@@ -1097,7 +1318,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
+        if (!_workoutState.value.isEditMode && set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
             viewModelScope.launch { workoutSetDao.updateRpe(set.id, rpe) }
         }
     }
@@ -1128,7 +1349,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
+        if (!_workoutState.value.isEditMode && set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
             viewModelScope.launch {
                 workoutSetDao.updateCardioSet(
                     set.id,
@@ -1167,7 +1388,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val set = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
+        if (!_workoutState.value.isEditMode && set != null && set.id.isNotBlank() && !set.id.startsWith("edit_")) {
             viewModelScope.launch {
                 workoutSetDao.updateTimedSet(
                     set.id,
@@ -1181,14 +1402,21 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun deleteSet(exerciseId: Long, setOrder: Int) {
-        // Cancel rest timer if it belongs to this set
         val timer = _workoutState.value.restTimer
-        if (timer.isActive && timer.exerciseId == exerciseId && timer.setOrder == setOrder) {
-            stopRestTimer()
-        }
+        // Hoist lookup so setType is available for the timer cancellation check below
         val setToDelete = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (setToDelete != null && setToDelete.id.isNotBlank() && !setToDelete.id.startsWith("edit_")) {
+        // Cancel rest timer if:
+        //   (a) timer belongs to the deleted set itself, OR
+        //   (b) the deleted set is WARMUP and the timer is for the immediately preceding set
+        //       (user skipping an unfinished warmup while its predecessor's rest is running)
+        val isPrecedingTimerForWarmup = setToDelete?.setType == SetType.WARMUP &&
+            timer.setOrder == setOrder - 1
+        if (timer.isActive && timer.exerciseId == exerciseId &&
+            (timer.setOrder == setOrder || isPrecedingTimerForWarmup)) {
+            stopRestTimer()
+        }
+        if (!_workoutState.value.isEditMode && setToDelete != null && setToDelete.id.isNotBlank() && !setToDelete.id.startsWith("edit_")) {
             viewModelScope.launch { workoutSetDao.deleteSetById(setToDelete.id) }
         }
         // Save clipboard entry before deletion
@@ -1207,10 +1435,31 @@ class WorkoutViewModel @Inject constructor(
                     exerciseWithSets
                 }
             }
+            // Issue A: re-check warmup collapse state after a warmup set is deleted
+            val updatedCollapsed = if (setToDelete?.setType == SetType.WARMUP) {
+                val updatedEx = updatedExercises.find { it.exercise.id == exerciseId }
+                val remainingWarmups = updatedEx?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                when {
+                    remainingWarmups.isEmpty() -> state.collapsedWarmupExerciseIds - exerciseId
+                    remainingWarmups.all { it.isCompleted } -> state.collapsedWarmupExerciseIds + exerciseId
+                    else -> state.collapsedWarmupExerciseIds - exerciseId
+                }
+            } else {
+                state.collapsedWarmupExerciseIds
+            }
+            // Issue B: when a warmup set is deleted, also hide the preceding set's passive rest
+            // separator — stopRestTimer() already cancelled the active timer above, but the passive
+            // row would otherwise re-appear once the timer state clears.
+            val precedingKey = if (setToDelete?.setType == SetType.WARMUP && setOrder > 1) {
+                "${exerciseId}_${setOrder - 1}"
+            } else null
+            val updatedHidden = (if (precedingKey != null) state.hiddenRestSeparators + precedingKey
+                                 else state.hiddenRestSeparators) - key
             state.copy(
                 exercises = updatedExercises,
                 restTimeOverrides = state.restTimeOverrides - key,
-                hiddenRestSeparators = state.hiddenRestSeparators - key,
+                hiddenRestSeparators = updatedHidden,
+                collapsedWarmupExerciseIds = updatedCollapsed,
                 deletedSetClipboard = if (clipboardEntry != null) {
                     state.deletedSetClipboard + (exerciseId to clipboardEntry)
                 } else state.deletedSetClipboard
@@ -1218,12 +1467,33 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    /** Hide a rest separator for this session (in-memory only). Cancels timer if it belongs to it. */
+    /**
+     * Hide a rest separator.
+     *
+     * Active timer: stops the timer (session-only skip — rest duration stays unchanged).
+     * Passive separator: also persists restDurationSeconds = 0 to the exercise so the separator
+     * does not reappear on the next workout or after an app restart.
+     */
     fun deleteRestSeparator(exerciseId: Long, setOrder: Int) {
         val timer = _workoutState.value.restTimer
-        if (timer.isActive && timer.exerciseId == exerciseId && timer.setOrder == setOrder) {
+        val isThisTimerActive = timer.isActive && timer.exerciseId == exerciseId && timer.setOrder == setOrder
+        if (isThisTimerActive) {
             stopRestTimer()
+        } else if (!_workoutState.value.isEditMode) {
+            // Passive separator swiped in a live workout — persist to DB so it doesn't come back
+            // next session. We intentionally do NOT mirror restDurationSeconds = 0 into the
+            // in-memory exercise, because that would also hide sibling-set separators in the
+            // current session (Bug B). The per-set hide is handled by hiddenRestSeparators below.
+            viewModelScope.launch {
+                try {
+                    exerciseDao.updateRestDuration(exerciseId, 0)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
+        // In edit mode, skip the DAO write entirely so pressing 'X' can fully discard the change
+        // (Bug A). The hiddenRestSeparators entry below provides session-scoped per-set hiding.
         val key = "${exerciseId}_${setOrder}"
         _workoutState.update { it.copy(hiddenRestSeparators = it.hiddenRestSeparators + key) }
     }
@@ -1241,7 +1511,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val updated = _workoutState.value.exercises
             .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
-        if (updated != null && updated.id.isNotBlank() && !updated.id.startsWith("edit_")) {
+        if (!_workoutState.value.isEditMode && updated != null && updated.id.isNotBlank() && !updated.id.startsWith("edit_")) {
             viewModelScope.launch { workoutSetDao.updateSetType(updated.id, setType) }
         }
     }
@@ -1251,6 +1521,10 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun finishWorkout() {
+        timerService?.let {
+            it.onSkipRestRequested = null
+            it.onFinishWorkoutRequested = null
+        }
         stopRestTimer()
         elapsedTimerJob?.cancel()
         viewModelScope.launch {
@@ -1381,6 +1655,7 @@ class WorkoutViewModel @Inject constructor(
                     if (syncType != null) {
                         _lastFinishedWorkoutId = workoutId
                         _lastPendingRoutineSync = syncType
+                        stopWorkoutForegroundService()
                         _workoutState.update {
                             it.copy(
                                 isActive = false,
@@ -1394,9 +1669,20 @@ class WorkoutViewModel @Inject constructor(
 
                 _lastFinishedWorkoutId = workoutId
                 _lastPendingRoutineSync = null
+                val durationText = if (durationSeconds >= 3600) {
+                    "${durationSeconds / 3600}h ${(durationSeconds % 3600) / 60}m"
+                } else "${durationSeconds / 60}m"
+                stopWorkoutForegroundService()
+                workoutNotificationManager.postSummaryNotification(
+                    workoutName = summary.workoutName,
+                    durationText = durationText,
+                    sets = completedSetCount,
+                    notificationsEnabled = notificationsEnabledState.value
+                )
                 _workoutState.update { it.copy(isActive = false, pendingWorkoutSummary = summary) }
             } catch (e: Exception) {
                 android.util.Log.e("WorkoutViewModel", "finishWorkout failed", e)
+                stopWorkoutForegroundService()
                 _workoutState.update {
                     ActiveWorkoutState(availableExercises = it.availableExercises)
                 }
@@ -1549,8 +1835,13 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun cancelWorkout() {
+        timerService?.let {
+            it.onSkipRestRequested = null
+            it.onFinishWorkoutRequested = null
+        }
         stopRestTimer()
         elapsedTimerJob?.cancel()
+        stopWorkoutForegroundService()
         _lastFinishedWorkoutId = null
         _lastPendingRoutineSync = null
         viewModelScope.launch {
@@ -1558,6 +1849,7 @@ class WorkoutViewModel @Inject constructor(
                 workoutSetDao.deleteSetsForWorkout(wid)
                 workoutDao.deleteWorkoutById(wid)
             }
+            // Full reset: also discards any staged live-workout edit snapshot (workoutEditSnapshot → null via default).
             _workoutState.update {
                 ActiveWorkoutState(availableExercises = it.availableExercises)
             }
@@ -1617,17 +1909,37 @@ class WorkoutViewModel @Inject constructor(
         if (remaining in 1..3) {
             if (settings.restTimerAudioEnabled) restTimerNotifier.playWarningBeep(timerSoundState.value)
             if (settings.restTimerHapticsEnabled) restTimerNotifier.hapticShortPulse()
+        } else if (remaining == 0) {
+            // Fire the end beep here (in the tick callback) rather than in onTimerFinish so that
+            // it is immune to the service coroutine being cancelled between the loop end and the
+            // onFinish dispatch — the tick at 0 always fires before any cleanup.
+            restTimerNotifier.notifyEnd(
+                audioEnabled = settings.restTimerAudioEnabled,
+                hapticsEnabled = settings.restTimerHapticsEnabled,
+                sound = timerSoundState.value
+            )
+        }
+        // Keep the persistent notification countdown in sync on every tick.
+        val restTimer = _workoutState.value.restTimer
+        if (restTimer.isActive && remaining > 0) {
+            val exercise = _workoutState.value.exercises.find { it.exercise.id == restTimer.exerciseId }
+            if (exercise != null) {
+                workoutNotificationManager.updateNotification(
+                    workoutNotificationManager.buildRestTimerNotification(
+                        workoutName = _workoutState.value.workoutName,
+                        exerciseName = exercise.exercise.name,
+                        setLabel = "Set ${(restTimer.setOrder ?: 0) + 1}",
+                        remainingSeconds = remaining,
+                        totalSeconds = restTimer.totalSeconds
+                    )
+                )
+            }
         }
     }
 
     // Called by the service on the main thread when the countdown reaches zero naturally.
+    // The end-beep is already fired in onTimerTick(0); this callback handles state cleanup only.
     private fun onTimerFinish() {
-        val settings = settingsState.value ?: com.powerme.app.data.database.UserSettings()
-        restTimerNotifier.notifyEnd(
-            audioEnabled = settings.restTimerAudioEnabled,
-            hapticsEnabled = settings.restTimerHapticsEnabled,
-            sound = timerSoundState.value
-        )
         // Auto-hide the rest separator that just finished so it doesn't linger as a passive row.
         val finishedExerciseId = _workoutState.value.restTimer.exerciseId
         val finishedSetOrder = _workoutState.value.restTimer.setOrder
@@ -1637,6 +1949,18 @@ class WorkoutViewModel @Inject constructor(
                 updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${finishedExerciseId}_${finishedSetOrder}")
             } else updated
         }
+        // Post heads-up / watch notification: "Rest Complete — <exercise> Set N"
+        val exerciseName = _workoutState.value.exercises
+            .find { it.exercise.id == finishedExerciseId }?.exercise?.name
+        if (exerciseName != null) {
+            val setLabel = "Set ${(finishedSetOrder ?: 0) + 1}"
+            workoutNotificationManager.postRestDoneNotification(
+                exerciseName = exerciseName,
+                setInfo = setLabel,
+                notificationsEnabled = notificationsEnabledState.value
+            )
+        }
+        updatePersistentNotificationElapsedMode()
     }
 
     /**
@@ -1681,6 +2005,18 @@ class WorkoutViewModel @Inject constructor(
                 totalSeconds = restDuration,
                 onTick = ::onTimerTick,
                 onFinish = ::onTimerFinish
+            )
+            // Update the persistent notification to show rest countdown.
+            val exerciseName = exercise.name
+            val setLabel = "Set ${(setOrder ?: 0) + 1}"
+            workoutNotificationManager.updateNotification(
+                workoutNotificationManager.buildRestTimerNotification(
+                    workoutName = _workoutState.value.workoutName,
+                    exerciseName = exerciseName,
+                    setLabel = setLabel,
+                    remainingSeconds = restDuration,
+                    totalSeconds = restDuration
+                )
             )
         } else {
             // Fallback: in-process coroutine (service not yet bound).
@@ -1839,7 +2175,8 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val routineId = _workoutState.value.routineId
-                if (routineId.isNotBlank()) {
+                // Skip DAO write during live-workout edit — snapshot restore handles revert.
+                if (routineId.isNotBlank() && !isLiveEdit()) {
                     routineExerciseDao.updateStickyNote(routineId, exerciseId, note)
                 }
                 _workoutState.update { state ->
@@ -1859,7 +2196,8 @@ class WorkoutViewModel @Inject constructor(
     fun updateExerciseRestTimer(exerciseId: Long, seconds: Int) {
         viewModelScope.launch {
             try {
-                exerciseDao.updateRestDuration(exerciseId, seconds)
+                // Skip DAO write during live-workout edit — snapshot restore handles revert.
+                if (!isLiveEdit()) exerciseDao.updateRestDuration(exerciseId, seconds)
                 _workoutState.update { state ->
                     state.copy(
                         exercises = state.exercises.map { ex ->
@@ -1879,7 +2217,8 @@ class WorkoutViewModel @Inject constructor(
     fun updateExerciseRestTimers(exerciseId: Long, workSeconds: Int, warmupSeconds: Int, dropSeconds: Int, restAfterLastSet: Boolean) {
         viewModelScope.launch {
             try {
-                exerciseDao.updateRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds, restAfterLastSet)
+                // Skip DAO write during live-workout edit — snapshot restore handles revert.
+                if (!isLiveEdit()) exerciseDao.updateRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds, restAfterLastSet)
                 val prefix = "${exerciseId}_"
                 _workoutState.update { state ->
                     state.copy(
@@ -2158,12 +2497,12 @@ class WorkoutViewModel @Inject constructor(
 
     fun updateSetupNotes(exerciseId: Long, notes: String) {
         viewModelScope.launch {
-            // Update exercise in database
             val exercise = exerciseRepository.getAllExercises().first()
                 .find { it.id == exerciseId } ?: return@launch
 
             val updatedExercise = exercise.copy(setupNotes = notes.ifBlank { null })
-            exerciseRepository.updateExercise(updatedExercise)
+            // Skip DAO write during live-workout edit — snapshot restore handles revert.
+            if (!isLiveEdit()) exerciseRepository.updateExercise(updatedExercise)
 
             // Update local state
             _workoutState.update { state ->
