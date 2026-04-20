@@ -84,15 +84,18 @@ Key interactions:
 
 Same `ActiveWorkoutScreen` UI, `isEditMode=true`. Differences from Live:
 
-| Behaviour | Live | Edit |
-|---|---|---|
-| Elapsed timer | Shown | Hidden |
-| Rest timers | Start on complete | Skipped |
-| Footer CTA | FINISH WORKOUT | SAVE CHANGES |
-| Iron Vault | Active | Disabled |
-| Top bar left icon | ↓ Minimize | ✕ Cancel (error tint) |
-| Back press | Minimize | Confirmation dialog |
-| Bottom nav bar | Visible | **Hidden / disabled** |
+| Behaviour | Live | Standalone Edit (workoutId=null) | Live-Workout Edit (workoutId≠null) |
+|---|---|---|---|
+| Elapsed timer | Shown | Hidden | **Shown** (workout still running) |
+| Rest timers | Start on complete | Skipped | Skipped |
+| Footer CTA | FINISH WORKOUT | SAVE CHANGES | SAVE CHANGES |
+| Iron Vault | Active | Disabled | Disabled |
+| Top bar left icon | ↓ Minimize | ✕ Cancel (error tint) | ✕ Cancel (error tint) |
+| Back press | Minimize | Confirmation dialog | Confirmation dialog |
+| Bottom nav bar | Visible | **Hidden / disabled** | **Hidden / disabled** |
+| Entry point | — | `startEditMode()` from routine card | `enterLiveWorkoutEditMode()` via pencil icon in live top bar |
+| Discard (✕) does | — | `cancelEditMode()` + `onWorkoutFinished()` | `cancelEditMode()` restores snapshot, stays on workout screen |
+| SAVE does | — | Writes `routine_exercises`, sets `editModeSaved=true`, navigates away | Merges staged changes in-memory, stays on workout screen |
 
 **Two contexts for edit mode — distinguished by `workoutId`:**
 
@@ -1396,7 +1399,7 @@ The **PREV column is replaced by an e1RM column** in this screen. Each set's e1R
 12. **PR formula is type-dependent:** For STRENGTH: `e1RM = weight × (1 + reps/30)` (Epley), NORMAL+FAILURE only. For TIMED: `score = weight × timeSeconds` (or `timeSeconds` alone if weight = 0), NORMAL+FAILURE only. For CARDIO: no PR tracking. DROP and WARMUP sets are never PR candidates regardless of type.
 13. **PREV column is exercise-global:** Query must not be filtered by `routineId`. Always return data from the last completed session containing that exercise, across all routines.
 14. **Warmup-to-working rest is always 2:00:** When `addWarmupSetsToExercise()` is called, the rest separator injected between the last WARMUP set and the first NORMAL set must be hardcoded to 120 seconds, ignoring the exercise's global rest default.
-15. **No concurrent live + edit mode:** `isActive=true` and `isEditMode=true` must never be true at the same time. `startEditMode()` must check for an active workout and abort with the pre-workout edit guard dialog (§11.1) if found.
+15. **Standalone edit mode cannot start during a live workout:** `startEditMode()` (routine-card entry) must check for an active workout and abort with the pre-workout edit guard dialog if found. Exception: `enterLiveWorkoutEditMode()` (pencil icon in the live top bar) is the intended path to have `isActive=true && isEditMode=true` simultaneously — this is Phase B′ live-workout edit mode. The two states may co-exist only when entered via `enterLiveWorkoutEditMode()`; all other entry points must block on the guard.
 16. **`cycleSetType()` is deleted:** The only path for changing a set's type is `selectSetType()` via the anchored `DropdownMenu` (§10.2). Do not reintroduce a tap-to-cycle shortcut, and do not reintroduce `SetTypePickerSheet`.
 17. **`FLAG_KEEP_SCREEN_ON` must be cleared on session end:** When `finishWorkout()` or `cancelWorkout()` resolves, the window flag must be cleared regardless of the `keepScreenOn` user preference.
 18. **Set deletion uses clipboard, not Snackbar:** Swipe-to-delete a set row saves the set's values to `deletedSetClipboard[exerciseId]`. There is no "Undo" snackbar for this action. Recovery is via [Add Set] which pastes clipboard values. Do not add a toast or snackbar for set deletion.

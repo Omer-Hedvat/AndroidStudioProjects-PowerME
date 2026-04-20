@@ -395,7 +395,20 @@ For catalog deep-dives and pre-workout study.
 
 ## 8. Exercise Detail Screen
 
-Full-screen navigable route (`exercise_detail/{exerciseId}`) with a `Scaffold` + back button + `LazyColumn`. Replaced the old `ExerciseDetailSheet` bottom sheet (removed in v47). Implemented in `ui/exercises/detail/ExerciseDetailScreen.kt` backed by `ExerciseDetailViewModel` + `ExerciseDetailRepository`.
+Full-screen navigable route (`exercise_detail/{exerciseId}`) with a `Scaffold` + back button + **4-tab layout** (`HorizontalPager`). Replaced the v1 single-`LazyColumn` layout (which crashed on scroll due to 5 Vico charts + BodyOutlineCanvas composed simultaneously).
+
+**File structure** (split from the original monolithic 1,222-line file):
+
+| File | Contents |
+|---|---|
+| `ExerciseDetailScreen.kt` | Scaffold, pinned hero + header, `SecondaryTabRow`, `HorizontalPager` orchestration |
+| `AboutTab.kt` | ABOUT tab: compact PR row, joints, form cues, training zones, warm-up, muscle activation, alternatives, notes |
+| `HistoryTab.kt` | HISTORY tab: paginated workout history `LazyColumn` |
+| `ChartsTab.kt` | CHARTS tab: time range chips + 5 `MiniTrendChart` composables |
+| `RecordsTab.kt` | RECORDS tab: full PR grid, overload suggestion, lifetime stats |
+| `DetailComponents.kt` | Shared: `SectionHeader`, `SectionDivider`, `EmptySectionPlaceholder`, `TagChip`, `PrStatCard`, `OverloadCard`, `AlternativeExerciseCard`, `WorkoutHistoryRow`, `dateFormat` |
+
+**Crash fix:** `HorizontalPager` with `beyondViewportPageCount = 0` only composes the current page and its immediate neighbor. Charts (tab 2) and muscle activation (tab 0) are never in the composition tree simultaneously.
 
 ### 8.1 Trigger & Navigation
 
@@ -407,130 +420,100 @@ Full-screen navigable route (`exercise_detail/{exerciseId}`) with a `Scaffold` +
 - **Alternative tap:** Navigates to another `exercise_detail/{exerciseId}` — pushes new entry on back stack.
 - **Workout history tap:** Navigates to `workout_summary/{workoutId}`.
 
-### 8.2 Section Order (LazyColumn)
+### 8.2 Screen Layout
 
-All 13 sections rendered top-to-bottom. Each section is separated by a `SectionDivider` (`HorizontalDivider` at 0.3f alpha). Section headers use `labelMedium` typography with 16dp horizontal padding.
+Pinned hero + header above tabs, 4-tab `HorizontalPager` below.
 
-| # | Section | Composable | Empty State |
-|---|---------|-----------|-------------|
-| 1 | **Hero Animation** | `ExerciseAnimationImage` | Icon placeholder |
-| 2 | **Header** | `HeaderSection` | N/A (always rendered) |
-| 3 | **Joint Indicators** | `JointIndicatorsSection` | Hidden if no joints |
-| 4 | **Form Cues** | `FormCuesSection` | Hidden if null |
-| 5 | **Personal Records** | `PersonalRecordsSection` | "No records yet" |
-| 6 | **Progressive Overload** | `ProgressiveOverloadSection` | "No session data yet" |
-| 7 | **Trends** | `TrendsSection` | "No data yet" per chart |
-| 8 | **Set/Rep Zone Guide** | `SetRepZoneGuideSection` | Always rendered |
-| 9 | **Warm-Up Ramp** | `WarmUpRampSection` | Hidden if bodyweight |
-| 10 | **Muscle Activation** | `MuscleActivationSection` | Hidden if no vectors |
-| 11 | **Alternative Exercises** | `AlternativeExercisesSection` | Hidden if < 2 |
-| 12 | **Workout History** | `WorkoutHistorySection` | "No sessions yet" |
-| 13 | **User Notes** | `UserNotesSection` | Placeholder text |
+```
+┌─────────────────────────────────┐
+│  ← Exercise Name                │  TopAppBar
+├─────────────────────────────────┤
+│  [Exercise Animation]           │  Pinned hero (ContentScale.Fit)
+├─────────────────────────────────┤
+│  Tags · Last: date · N sessions │  Pinned header
+├─────────────────────────────────┤
+│  ABOUT  HISTORY  CHARTS  RECORDS│  SecondaryTabRow
+├─────────────────────────────────┤
+│  [Tab content]                  │  HorizontalPager
+└─────────────────────────────────┘
+```
 
-### 8.3 Hero Animation (Section 1)
+**Cross-link:** Compact PR row on ABOUT tab → tap switches to RECORDS tab via `pagerState.animateScrollToPage(3)`.
+
+### 8.3 Pinned: Hero Animation
 
 - **Source:** `assets/exercise_animations/{searchName}.webp`. Convention-based — no DB column.
 - **Loader:** Coil `SubcomposeAsyncImage`, `ImageDecoderDecoder` (API 28+) / `GifDecoder` (API 26–27).
-- **Size:** `fillMaxWidth()`, `aspectRatio(16f / 9f)`, `ContentScale.Crop`.
-- **Fallback:** `Icons.Default.FitnessCenter` (48dp, `onSurfaceVariant`) on `surfaceVariant` background.
+- **Size:** `fillMaxWidth()`, `heightIn(max = 220.dp)`, `ContentScale.Fit`.
+- **Fallback:** `Icons.Default.FitnessCenter` (48dp, `onSurfaceVariant`) on `surfaceVariant` background, 120dp height.
 
-### 8.4 Header (Section 2)
+### 8.4 Pinned: Header
 
-- Exercise name (`headlineMedium`, `primary`), `FlowRow` with muscle/equipment/difficulty tags (`SuggestionChip`).
-- **Last performed:** Date + `setCount × avgReps @ avgWeight` from `TrendsDao.getLastPerformed()`.
+- `FlowRow` with muscle/equipment/type tags (`TagChip` with `Surface`).
+- **Last performed:** Date from `TrendsDao.getLastPerformed()`.
 - **Session count:** "X sessions" from `WorkoutSetDao.getExerciseSessionCount()`.
-- **Injury warning banner:** `errorContainer` background, shown when any of the exercise's `primaryJoints` or `secondaryJoints` overlaps with active `MODERATE`/`SEVERE` health history entries (from `HealthHistoryRepository`).
+- **Injury warning banner:** `error.copy(alpha = 0.12f)` background, shown when any joint overlaps with active `MODERATE`/`SEVERE` health history entries.
 
-### 8.5 Joint Indicators (Section 3)
+### 8.5 Tab 1: ABOUT
 
-- **Primary joints:** Filled `AssistChip`, `primaryContainer` background.
-- **Secondary joints:** Outlined `AssistChip`, transparent background.
-- **Affected joint:** `errorContainer` background, error icon prefix.
-- Data from `exercise.primaryJoints` / `exercise.secondaryJoints` (added v44).
+| # | Section | Composable | Empty State |
+|---|---------|-----------|-------------|
+| 1 | Compact PR summary | `CompactPrRow` | Hidden if no records |
+| 2 | Joint indicators | `JointIndicatorsSection` | Hidden if no joints |
+| 3 | Form cues | `FormCuesSection` | Hidden if null |
+| 4 | Training zones | `SetRepZoneGuideSection` | Always rendered |
+| 5 | Warm-up ramp | `WarmUpRampSection` | Hidden if bodyweight |
+| 6 | Muscle activation | `MuscleActivationSection` | Hidden if no vectors |
+| 7 | Alternatives | `AlternativeExercisesSection` | Hidden if < 2 |
+| 8 | User notes | `UserNotesSection` | Placeholder text |
 
-### 8.6 Form Cues (Section 4)
+**Compact PR row:** Shows Best e1RM + Best Set in a single row with chevron. Tappable → switches to RECORDS tab.
 
-- Gold banner background (`0xFF5A4D1A` — `FormCuesGold`), pin icon, `setupNotes` text.
-- Cues > 120 characters collapsed by default; "Read more" `TextButton` expands via `AnimatedVisibility`.
+**Joint indicators:** Primary → filled `AssistChip` (`primaryContainer`), secondary → outlined (`Color.Transparent`). Affected joints use `errorContainer`.
 
-### 8.7 Personal Records (Section 5)
+**Form cues:** Gold banner (`FormCuesGold`), expandable if > 120 chars.
 
-2×2 grid of `PrStatCard` (`ElevatedCard`):
-- Best Set (weight × reps, date)
-- e1RM PR (Epley formula, date)
-- Volume PR (total session volume, date)
-- Best Total Reps (single session, date)
+**Training zones:** 3 `Surface` boxes (Strength 1–5, Hypertrophy 6–12, Endurance 13+). Active zone highlighted with `BorderStroke`.
 
-**Relative strength subline:** If latest bodyweight is available (from `MetricLogDao`), shows "e1RM = X.Xx bodyweight" below the e1RM PR card.
+**Warm-up ramp:** Table with 50%/70%/85%/100% of working weight. Hidden for bodyweight exercises.
 
-Data source: `WorkoutSetDao.getAllSetsForExercise()` → in-memory computation in `ExerciseDetailRepository.computePersonalRecords()`.
+**Muscle activation:** `BodyOutlineCanvas` with stress coefficient heatmap. Display-only.
 
-### 8.8 Progressive Overload (Section 6)
+**Alternatives:** `LazyRow` of 130dp `ElevatedCard` items, scored by family/muscle/equipment/type. Up to 6 shown.
 
-Sealed class `OverloadSuggestion`:
-- `IncreaseReps(from, to, weight)` — shown when avg reps < 12.
-- `IncreaseWeight(fromWeight, toWeight, reps)` — shown when avg reps ≥ 12, increments +2.5 kg (barbell) / +1.0 kg (dumbbell).
-- `NoData` — section shows `EmptySectionPlaceholder`.
+**User notes:** `OutlinedTextField` (minLines = 3), debounced 500ms save.
 
-Card uses `primaryContainer` background. Display: "Last session: 80 kg × 10. Try 80 kg × 12".
+### 8.6 Tab 2: HISTORY
 
-### 8.9 Trends (Section 7)
+Paginated `LazyColumn` (`PAGE_SIZE = 20`). Each row: date, routine name, set count, total volume. Stable keys (`workoutId_timestamp`). "Load more" button when `hasMoreHistory = true`. Tap → `onNavigateToWorkout(workoutId)`.
 
-5 mini `CartesianChartHost` (Vico) charts, each 110dp height:
-1. **e1RM** — estimated 1RM per session (Epley)
-2. **Max Weight** — heaviest set per session
-3. **Volume** — total session volume (weight × reps)
-4. **Best Set** — best weight × reps per session
-5. **RPE Trend** — avg RPE per session (only rendered if ≥ 2 sessions with RPE data)
+Empty state: centered `History` icon + "No workout history yet." text.
 
-**Time range:** `FilterChip` row — 1M / 3M / 6M / 1Y. Calls `ExerciseDetailViewModel.onTimeRangeChanged()`. Chart producers are ViewModel-owned `CartesianChartModelProducer` instances — survive recompositions.
+### 8.7 Tab 3: CHARTS
 
-Fallback: if fewer than 2 data points, producers receive `listOf(0.0, 0.0)` dummy series and show empty state text.
+Time range filter chips (1M/3M/6M/1Y) pinned above the chart `LazyColumn`. 5 mini `CartesianChartHost` (Vico) charts, each 110dp height:
 
-### 8.10 Set/Rep Zone Guide (Section 8)
+1. **e1RM (kg)** — estimated 1RM per session (Epley)
+2. **Max Weight (kg)** — heaviest set per session
+3. **Session Volume (kg)** — total session volume
+4. **Best Set (kg×reps)** — best weight × reps per session
+5. **RPE Trend** — avg RPE per session
 
-Three `Surface` boxes side by side:
-- **Strength** — 1–5 reps, `tertiaryContainer` background
-- **Hypertrophy** — 6–12 reps, `secondaryContainer` background
-- **Endurance** — 15+ reps, `surfaceVariant` background
+Chart producers are ViewModel-owned `CartesianChartModelProducer` instances. Fallback: "Not enough data" placeholder (60dp `surfaceVariant` box) if < 2 data points.
 
-The zone matching the user's best-set rep count is highlighted with a `BorderStroke(2.dp, primary)`.
+### 8.8 Tab 4: RECORDS
 
-### 8.11 Warm-Up Ramp (Section 9)
+| # | Section | Composable | Empty State |
+|---|---------|-----------|-------------|
+| 1 | Personal Records | `PersonalRecordsSection` (2×2 grid) | "No records yet" |
+| 2 | Progressive Overload | `ProgressiveOverloadSection` | "No session data yet" |
+| 3 | Lifetime stats | `LifetimeStatsSection` | "Not enough data" |
 
-Shown only for loaded exercises (last session weight > 0). Table in `Surface(surfaceVariant)`:
+**Personal Records:** 2×2 grid of `PrStatCard`: Best e1RM (+ bodyweight ratio), Best Set, Best Volume, Most Reps — all with dates.
 
-```
-50% × 8  →  70% × 5  →  85% × 3  →  Working weight
-```
+**Progressive Overload:** Sealed class `OverloadSuggestion` — `IncreaseReps` or `IncreaseWeight` card on `primaryContainer`.
 
-Data computed in `ExerciseDetailRepository.computeWarmUpRamp()` from last session's average working-set weight.
-
-### 8.12 Muscle Activation (Section 10)
-
-`BodyOutlineCanvas` (reused from Trends tab) with `Map<BodyRegion, Color>` derived from `exercise_stress_vectors` table. Color interpolation: `lerp(Color.Transparent, primaryColor.copy(alpha=0.85f), coefficient)`. Display-only (`onRegionTapped = {}`).
-
-### 8.13 Alternative Exercises (Section 11)
-
-`LazyRow` of 130dp wide `ElevatedCard` items. Alternatives ranked by in-memory score:
-- +100 same `familyId`
-- +50 same `muscleGroup`
-- +20 same `equipmentType`
-- +10 same `exerciseType`
-
-Minimum score ≥ 50 required. Up to 6 shown. Each card includes estimated starting weight (equipment transfer ratio applied to user's best e1RM from alternatives). Tap navigates to `exercise_detail/{alternativeId}`.
-
-Hidden if fewer than 2 alternatives meet the threshold.
-
-### 8.14 Workout History (Section 12)
-
-Paginated list (`PAGE_SIZE = 20`). Each row: date, routine name, set count, total volume. Tap → `onNavigateToWorkout(workoutId)`. "Load more" `OutlinedButton` at bottom when `hasMoreHistory = true`.
-
-Data from `TrendsDao.getWorkoutHistoryForExercise(exerciseId, limit, offset)`.
-
-### 8.15 User Notes (Section 13)
-
-`OutlinedTextField` (minLines = 3). Edits debounced 500ms → `ExerciseDao.updateUserNote()`. Persisted in `exercises.userNote` column (added v47, `TEXT NOT NULL DEFAULT ''`).
+**Lifetime stats:** Best Session Reps + Best Session Volume cards.
 
 ---
 

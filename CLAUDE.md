@@ -56,6 +56,8 @@ Read the relevant spec before touching files in that domain.
 | `TRENDS_SPEC.md` | Trends tab — all chart cards, ReadinessEngine, TrendsDao, body heatmap |
 | `PROFILE_SETUP_SPEC.md` | Onboarding, two-step flow, HC offer |
 | `SETTINGS_SPEC.md` | Settings screen, all cards, SettingsViewModel |
+| `AI_SPEC.md` | AI workout generation — text/photo → routine, Gemini + OCR, matching, enhancement roadmap. Single source of truth for AI. |
+| `AI_BACKLOG.md` | Long-horizon AI brainstorm (46 items with scope tags). Companion to `AI_SPEC.md`. |
 | `DB_UPGRADE.md` | Migration history, schema changes |
 | `DB_ARCHITECTURE.md` | Entity relationships, template-to-instance, UUID migration |
 | `future_devs/` | All planned features — see `ROADMAP.md` for phase/status |

@@ -143,6 +143,14 @@ Alerts dispatched via `RestTimerNotifier` (ToneGenerator on `STREAM_ALARM` — b
 | `COUNTDOWN_TICK` | 200ms beep | Short pulse (50ms) | Last 3 seconds of any phase |
 | `FINISH` | 150+150+800ms beeps | Phase pattern | Phase completion |
 
+**Active workout rest timer** uses `RestTimerNotifier.notifyEnd()` (separate from `triggerAudioAlert`):
+
+| Event | Audio | Haptic | Source |
+|-------|-------|--------|--------|
+| Rest timer reaches 0 | 1800ms beep | Double-pulse waveform | `notifyEnd()` in `WorkoutViewModel.onTimerTick(0)` |
+| Warning threshold | 2 × 150ms beeps | — | `playWarningBeep()` |
+| Countdown tick (3s/2s/1s) | 150ms beep | — | COUNTDOWN_TICK via `triggerAudioAlert` |
+
 ---
 
 ## §6 — Wake Lock

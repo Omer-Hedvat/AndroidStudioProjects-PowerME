@@ -145,7 +145,9 @@ Cloud AI that turns free text or a photo into a ready-to-start workout. **Archit
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| AI Workout Generation (text + photo → workout) | `future_devs/AI_WORKOUT_GENERATION_SPEC.md` | XL | `wrapped` | Quick Start Workout ✅ |
+| AI Workout Generation (text + photo → workout) | `AI_SPEC.md` | XL | `wrapped` | Quick Start Workout ✅ |
+
+*Follow-ups: see `AI_SPEC.md §8 Enhancement Roadmap`. Each enhancement becomes its own roadmap row when promoted to real build work.*
 
 ---
 
