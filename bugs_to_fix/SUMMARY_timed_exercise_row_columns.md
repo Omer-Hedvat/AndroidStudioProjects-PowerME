@@ -20,7 +20,7 @@
 1. Open a routine that contains a timed exercise (e.g. Bird-Dog or Plank).
 2. Start an active workout.
 3. Scroll to the timed exercise card.
-4. Verify the header shows: **SET | PREV | WEIGHT | TIME(S)** — four clearly labelled columns, no RPE column.
+4. Verify the header shows: **SET | PREV | WEIGHT | TIME(S) | RPE** — five clearly labelled columns. The RPE column is intentional and desired on timed exercise rows (same as strength rows).
 5. Verify the set row in IDLE state has: set number | ghost hint (or "—" if no prior session) | weight input | time input | Play button | Check button — all aligned under their headers.
 6. Tap the Play button, let the timer run to completion (or tap Check to mark done directly).
 7. In COMPLETED state, verify: set number | ghost hint | weight input | time input | (spacer) | filled-green Check — columns still aligned.

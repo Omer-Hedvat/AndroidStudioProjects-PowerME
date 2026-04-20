@@ -401,6 +401,8 @@ SETUP → (cancel) → IDLE
 
 **Column layout (IDLE / COMPLETED states):** SET(0.08) | PREV(0.22) | WEIGHT(0.22) | TIME(S)(0.20) | RPE(0.10) | Actions(0.18). PREV shows `ghostWeight × ghostTimeSeconds` from the previous session (formatted by `formatGhostTimedLabel`). RPE is shown as an inline tappable cell (same as strength rows) — tapping opens `RpePickerSheet`. RPE value persists via `viewModel.updateRpe()`, which writes `rpeValue` to DB via `workoutSetDao.updateRpe()`. The auto-pop sheet (when `useRpeAutoPop` is ON) also fires via `onUpdateRpe` after set completion.
 
+> **Design intent:** The RPE column is intentionally included on timed exercise rows — RPE feedback is meaningful for any exercise type. Do not remove it.
+
 | State | Columns / Controls |
 |---|---|
 | IDLE | SET \| PREV (ghost) \| WEIGHT(0.22) \| TIME(0.20) \| RPE(0.10, tappable, shows "—" or value) \| ▶ Start button (0.12, primaryContainer) \| ✓ ghost check (0.06, no bg, faded) |
