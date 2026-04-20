@@ -35,3 +35,5 @@ Fix (`WorkoutViewModel.kt`): moved `restTimerNotifier.notifyEnd(...)` into `onTi
 `restTimerNotifier` visibility changed from `private val` to `internal var` to allow mock injection in tests.
 
 Tests added (3): `onTimerTick(0)` calls `notifyEnd` exactly once; `onTimerTick(1/2/3)` plays warning beep and never calls `notifyEnd`; `onTimerFinish` clears state without calling any beep method.
+
+**Rework (QA — beep too short):** `RestTimerNotifier.notifyEnd()` beep duration increased 600ms → 1800ms (3×). Only this call site changed — warning beep (150ms), countdown ticks (150ms/200ms), and `triggerAudioAlert` ROUND_START/FINISH (600ms) are all unchanged.

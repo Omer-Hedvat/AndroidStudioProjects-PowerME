@@ -69,13 +69,13 @@ Single source of truth for bug status across sessions.
 | [BUG_prev_rpe_multiplied](BUG_prev_rpe_multiplied.md) | PREV RPE shown as 10× actual value (9 shows as 90) | ✅ Wrapped | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_warmup_rest_no_collapse_on_skip](BUG_warmup_rest_no_collapse_on_skip.md) | Warmup rest timer doesn't collapse when set is skipped | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_confirm_set_after_reps](BUG_confirm_set_after_reps.md) | Tapping ✓ after entering reps does not confirm the set | ✅ Completed | P1 | — | — | `ActiveWorkoutScreen.kt` |
-| [BUG_rest_timer_end_beep_missing](BUG_rest_timer_end_beep_missing.md) | Long beep at end of rest timer is missing | ✅ Completed | P2 | — | — | `RestTimerNotifier.kt`, `WorkoutViewModel.kt` |
+| [BUG_rest_timer_end_beep_missing](BUG_rest_timer_end_beep_missing.md) | Long beep at end of rest timer is missing | ✅ Completed | P2 | — | — | `RestTimerNotifier.kt` |
 | [BUG_exercise_detail_scroll_crash](BUG_exercise_detail_scroll_crash.md) | Exercise Detail Screen crashes on scroll | ✅ Completed | P1 | — | Exercise Detail Tabs v2 | `ExerciseDetailScreen.kt` |
 | [BUG_summary_avg_rpe_multiplied](BUG_summary_avg_rpe_multiplied.md) | Workout summary avg RPE shown as 10× actual value (86.3 instead of 8.6) | ✅ Completed | P2 | — | — | `WorkoutSummaryViewModel.kt`, `WorkoutSummaryViewModelTest.kt` |
 | [BUG_warmup_ramp_format_crash](BUG_warmup_ramp_format_crash.md) | WarmUpRampSection crashes with UnknownFormatConversionException when percentageLabel contains % | ✅ Completed | P0 | — | — | `AboutTab.kt` |
 | [BUG_about_tab_section_overlaps](BUG_about_tab_section_overlaps.md) | ABOUT tab sections overlap — BodyOutlineCanvas bleeds through Training Zones and Form Cues | ✅ Completed | P1 | — | — | `AboutTab.kt` |
 | [BUG_rest_timer_delete_clears_all](BUG_rest_timer_delete_clears_all.md) | Deleting one rest timer removes all rest timers for that exercise | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_edit_mode_x_saves_changes](BUG_edit_mode_x_saves_changes.md) | Edit mode 'X' (discard) button saves changes instead of discarding | ✅ Completed | P0 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_edit_mode_x_saves_changes](BUG_edit_mode_x_saves_changes.md) | Edit mode 'X' (discard) button saves changes instead of discarding | ✅ Completed | P0 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 
 ---
 
