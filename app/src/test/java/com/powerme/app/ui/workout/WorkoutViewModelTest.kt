@@ -4059,6 +4059,127 @@ class WorkoutViewModelTest {
         viewModel.cancelWorkout()
         runCurrent()
     }
+
+    // -------------------------------------------------------------------------
+    // BUG_update_rest_timers_readds_deleted — restore-via-update-rest-timers
+    // Swiping to delete a separator and then confirming "Update Rest Timers" is
+    // the intentional restore mechanism: separator should come back.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `deleteRestSeparator then updateExerciseRestTimers restores the separator in live workout`() = vmTest {
+        val exercise = stubRestExercise(exerciseId = 99L, restSeconds = 90)
+        runBlocking {
+            whenever(mockExerciseDao.updateRestTimers(any(), any(), any(), any(), any())).thenReturn(Unit)
+        }
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        // Swipe-delete the separator
+        viewModel.deleteRestSeparator(99L, 1)
+        runCurrent()
+        assertTrue("Separator should be hidden after swipe-delete", "99_1" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        // "Update Rest Timers" with original value → restore
+        viewModel.updateExerciseRestTimers(99L, 90, 30, 0, false)
+        runCurrent()
+
+        assertFalse(
+            "Separator should be visible again after updateExerciseRestTimers",
+            "99_1" in viewModel.workoutState.value.hiddenRestSeparators
+        )
+        val ex = viewModel.workoutState.value.exercises.find { it.exercise.id == 99L }
+        assertEquals("In-memory restDurationSeconds should reflect the restored 90", 90, ex?.exercise?.restDurationSeconds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `deleteRestSeparator multiple then updateExerciseRestTimers restores all separators`() = vmTest {
+        val exercise = stubRestExercise(exerciseId = 99L, restSeconds = 90)
+        runBlocking {
+            whenever(mockExerciseDao.updateRestTimers(any(), any(), any(), any(), any())).thenReturn(Unit)
+        }
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        // Delete both separators (3-set exercise: Sep1 between set1-2, Sep2 between set2-3)
+        viewModel.deleteRestSeparator(99L, 1)
+        viewModel.deleteRestSeparator(99L, 2)
+        runCurrent()
+        assertTrue("99_1" in viewModel.workoutState.value.hiddenRestSeparators)
+        assertTrue("99_2" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        // Restore via "Update Rest Timers"
+        viewModel.updateExerciseRestTimers(99L, 90, 30, 0, false)
+        runCurrent()
+
+        val hidden = viewModel.workoutState.value.hiddenRestSeparators
+        assertFalse("Sep1 should be restored", "99_1" in hidden)
+        assertFalse("Sep2 should be restored", "99_2" in hidden)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `updateExerciseRestTimers does not clear separators of other exercises`() = vmTest {
+        val ex5 = stubRestExercise(exerciseId = 5L, restSeconds = 90)
+        val ex7 = stubRestExercise(exerciseId = 7L, restSeconds = 60)
+        runBlocking {
+            whenever(mockExerciseDao.updateRestTimers(any(), any(), any(), any(), any())).thenReturn(Unit)
+            whenever(mockExerciseDao.updateRestDuration(eq(5L), any())).thenReturn(Unit)
+            whenever(mockExerciseDao.updateRestDuration(eq(7L), any())).thenReturn(Unit)
+        }
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(ex5)
+        runCurrent()
+        viewModel.addExercise(ex7)
+        runCurrent()
+
+        // Delete separator on exercise 7
+        viewModel.deleteRestSeparator(7L, 1)
+        runCurrent()
+        assertTrue("7_1" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        // Update exercise 5 only
+        viewModel.updateExerciseRestTimers(5L, 90, 0, 0, false)
+        runCurrent()
+
+        // Exercise 7's hidden separator must be unaffected
+        assertTrue("Exercise 7 separator must still be hidden", "7_1" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startEditMode resets hiddenRestSeparators for a fresh template edit session`() = vmTest {
+        // Populate hiddenRestSeparators with a leftover entry (e.g. from a prior session)
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(hiddenRestSeparators = setOf("99_1", "5_2"))
+        }
+
+        runBlocking { setupEditModeRoutine() }
+        viewModel.startEditMode("99")
+        runCurrent()
+        Thread.sleep(100)
+        runCurrent()
+
+        assertTrue(
+            "hiddenRestSeparators must be empty at the start of a fresh template edit session",
+            viewModel.workoutState.value.hiddenRestSeparators.isEmpty()
+        )
+
+        viewModel.cancelEditMode()
+        runCurrent()
+    }
 }
 
 // ── Test helpers ─────────────────────────────────────────────────────────────

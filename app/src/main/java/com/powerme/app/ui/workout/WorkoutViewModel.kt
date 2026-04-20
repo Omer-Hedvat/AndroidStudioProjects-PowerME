@@ -714,7 +714,8 @@ class WorkoutViewModel @Inject constructor(
                     elapsedSeconds = 0,
                     routineSnapshot = emptyList(),
                     editModeSaved = false,
-                    collapsedExerciseIds = emptySet()
+                    collapsedExerciseIds = emptySet(),
+                    hiddenRestSeparators = emptySet()
                 )
             }
         }
