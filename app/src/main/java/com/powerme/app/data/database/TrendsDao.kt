@@ -240,6 +240,10 @@ interface TrendsDao {
     """)
     suspend fun getExercisesWithHistory(sinceMs: Long): List<ExerciseWithHistory>
 
+    /** Batch exercise name lookup for stress attribution in the heatmap card. */
+    @Query("SELECT id, name FROM exercises WHERE id IN (:ids)")
+    suspend fun getExerciseNamesByIds(ids: List<Long>): List<ExerciseWithHistory>
+
     /**
      * Working sets (excl. WARMUP/DROP) with positive weight and reps in the given window.
      * Used as input for [com.powerme.app.analytics.StressAccumulationEngine].

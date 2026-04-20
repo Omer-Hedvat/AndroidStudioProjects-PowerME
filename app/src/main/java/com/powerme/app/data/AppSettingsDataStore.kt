@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -46,6 +47,10 @@ class AppSettingsDataStore @Inject constructor(
     val timerSound: Flow<TimerSound> = ctx.dataStore.data.map {
         it[TIMER_SOUND_KEY]?.let { name -> TimerSound.entries.firstOrNull { e -> e.name == name } } ?: TimerSound.BEEP
     }
+    /** Whether to post watch/lock-screen notifications for rest timer events. Default: true. */
+    val notificationsEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[NOTIFICATIONS_ENABLED_KEY] ?: true }
+    /** Epoch ms of the last successful body stress map computation. 0 = never computed. */
+    val lastStressComputedAt: Flow<Long> = ctx.dataStore.data.map { it[LAST_STRESS_COMPUTED_AT_KEY] ?: 0L }
 
     suspend fun setThemeMode(value: ThemeMode) = ctx.dataStore.edit { it[THEME_MODE_KEY] = value.name }
     suspend fun setLanguage(value: String) = ctx.dataStore.edit { it[LANGUAGE_KEY] = value }
@@ -60,6 +65,8 @@ class AppSettingsDataStore @Inject constructor(
     suspend fun setTimedSetSetupSeconds(value: Int) = ctx.dataStore.edit { it[TIMED_SET_SETUP_SECONDS_KEY] = value.coerceIn(0, 10) }
     suspend fun setHcOfferDismissed(value: Boolean) = ctx.dataStore.edit { it[HC_OFFER_DISMISSED_KEY] = value }
     suspend fun setTimerSound(value: TimerSound) = ctx.dataStore.edit { it[TIMER_SOUND_KEY] = value.name }
+    suspend fun setNotificationsEnabled(value: Boolean) = ctx.dataStore.edit { it[NOTIFICATIONS_ENABLED_KEY] = value }
+    suspend fun setLastStressComputedAt(value: Long) = ctx.dataStore.edit { it[LAST_STRESS_COMPUTED_AT_KEY] = value }
 
     companion object {
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
@@ -74,5 +81,7 @@ class AppSettingsDataStore @Inject constructor(
         val TIMED_SET_SETUP_SECONDS_KEY = intPreferencesKey("timed_set_setup_seconds")
         val HC_OFFER_DISMISSED_KEY = booleanPreferencesKey("hc_offer_dismissed")
         val TIMER_SOUND_KEY = stringPreferencesKey("timer_sound")
+        val NOTIFICATIONS_ENABLED_KEY = booleanPreferencesKey("notifications_enabled")
+        val LAST_STRESS_COMPUTED_AT_KEY = longPreferencesKey("last_stress_computed_at")
     }
 }

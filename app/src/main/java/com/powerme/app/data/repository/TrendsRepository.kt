@@ -211,18 +211,21 @@ class TrendsRepository @Inject constructor(
      *
      * @return Regions with non-zero stress, sorted by descending stress magnitude.
      */
-    suspend fun getBodyStressMap(): List<StressAccumulationEngine.RegionStress> {
+    suspend fun getBodyStressMap(): List<StressAccumulationEngine.RegionDetail> {
         val lookbackMs = System.currentTimeMillis() - 21L * 86_400_000L
         val sets = trendsDao.getSetsForStressAccumulation(lookbackMs)
         if (sets.isEmpty()) return emptyList()
 
         val exerciseIds = sets.map { it.exerciseId }.distinct()
         val vectors = stressVectorDao.getForExercises(exerciseIds).groupBy { it.exerciseId }
+        val exerciseNames = trendsDao.getExerciseNamesByIds(exerciseIds).associate { it.id to it.name }
 
         val setRecords = sets.map {
             StressAccumulationEngine.SetRecord(it.exerciseId, it.weight, it.reps, it.timestampMs)
         }
-        return StressAccumulationEngine.computeRegionStress(setRecords, vectors, System.currentTimeMillis())
+        return StressAccumulationEngine.computeRegionDetails(
+            setRecords, vectors, exerciseNames, System.currentTimeMillis()
+        )
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

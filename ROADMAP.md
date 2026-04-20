@@ -134,8 +134,8 @@ Flagship feature. Requires all groundwork below before any UI work begins.
 | Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `completed` | — |
 | Stress vectors — Gemini expansion (remaining 120+) | `TRENDS_SPEC.md §10` | M | `completed` | Manual seed ✅ |
 | Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `completed` | — |
-| SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `completed` | — |
-| Full heatmap card (wired end-to-end) | `TRENDS_SPEC.md §10` | XL | `completed` | All above + Trends P4 complete |
+| SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `wrapped` | — |
+| Full heatmap card (wired end-to-end) | `TRENDS_SPEC.md §10` | XL | `wrapped` | All above + Trends P4 complete |
 
 ---
 

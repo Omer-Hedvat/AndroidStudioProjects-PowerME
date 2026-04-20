@@ -31,6 +31,12 @@ val FormCuesGold = Color(0xFF5A4D1A)   // Muted gold — not representable by M3
 val ReadinessAmber = Color(0xFFFFB74D)  // Moderate readiness tier — warm amber
 val GoldenRPE      = Color(0xFFFFD700)  // Gold star for RPE 8–9 sweet spot
 
+// ── Body Heatmap intensity tiers ─────────────────────────────────────────────
+val HeatmapLow      = Color(0xFF34D399)  // Emerald green — low stress (well-recovered)
+val HeatmapModerate = Color(0xFFF59E0B)  // Amber — moderate stress (productive training zone)
+val HeatmapHigh     = Color(0xFFEF4444)  // Red — high stress (approaching threshold)
+val HeatmapVeryHigh = Color(0xFF7C3AED)  // Deep purple — very high stress (needs rest)
+
 // ── Exercise type badge colors ────────────────────────────────────────────────
 val ExercisePlyometricOrange = Color(0xFFFF9800)  // Plyometric / explosive exercises
 val ExerciseStretchTeal      = Color(0xFF4DD0E1)  // Stretch / mobility exercises

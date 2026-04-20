@@ -95,9 +95,12 @@ data class ChronotypeData(
 
 /** Body stress map data — one entry per non-zero region, plus the overall max for normalization. */
 data class BodyStressMapData(
-    val regionStresses: List<StressAccumulationEngine.RegionStress>,
+    val regionDetails: List<StressAccumulationEngine.RegionDetail>,
     val maxStress: Double
-)
+) {
+    val regionStresses: List<StressAccumulationEngine.RegionStress> =
+        regionDetails.map { StressAccumulationEngine.RegionStress(it.region, it.totalStress) }
+}
 
 /** Sub-metric deltas displayed below the readiness gauge arc. */
 data class ReadinessSubMetrics(

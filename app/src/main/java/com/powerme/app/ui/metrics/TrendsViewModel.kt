@@ -7,9 +7,11 @@ import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.database.BodyRegion
 import com.powerme.app.data.database.ExerciseWithHistory
 import com.powerme.app.data.repository.TrendsRepository
+import kotlinx.coroutines.flow.first
 import com.powerme.app.ui.metrics.charts.VicoChartHelpers
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -23,8 +25,13 @@ import javax.inject.Inject
 @HiltViewModel
 class TrendsViewModel @Inject constructor(
     private val trendsRepository: TrendsRepository,
+    private val appSettings: AppSettingsDataStore,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private companion object {
+        const val STRESS_RECOMPUTE_INTERVAL_MS = 24 * 3600 * 1000L
+    }
 
     private val _timeRange = MutableStateFlow(TrendsTimeRange.THREE_MONTHS)
     val timeRange: StateFlow<TrendsTimeRange> = _timeRange.asStateFlow()
@@ -145,9 +152,14 @@ class TrendsViewModel @Inject constructor(
         }
     }
 
-    /** Reload body stress map (call on ON_RESUME so time-decay uses current wall clock). */
+    /**
+     * Reload body stress map on foreground. Only recomputes if more than 24 hours have elapsed
+     * since the last successful computation to avoid unnecessary DB + engine overhead.
+     */
     fun refreshBodyStressMap() {
         viewModelScope.launch {
+            val lastComputed = appSettings.lastStressComputedAt.first()
+            if (System.currentTimeMillis() - lastComputed < STRESS_RECOMPUTE_INTERVAL_MS) return@launch
             loadBodyStressMap()
         }
     }
@@ -509,9 +521,10 @@ class TrendsViewModel @Inject constructor(
 
     private suspend fun loadBodyStressMap() {
         try {
-            val stresses = trendsRepository.getBodyStressMap()
-            val maxStress = stresses.maxOfOrNull { it.totalStress } ?: 0.0
-            _bodyStressMap.value = BodyStressMapData(stresses, maxStress)
+            val details = trendsRepository.getBodyStressMap()
+            val maxStress = details.maxOfOrNull { it.totalStress } ?: 0.0
+            _bodyStressMap.value = BodyStressMapData(details, maxStress)
+            appSettings.setLastStressComputedAt(System.currentTimeMillis())
         } catch (_: Exception) {
             _bodyStressMap.value = null
         }
