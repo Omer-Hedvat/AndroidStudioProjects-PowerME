@@ -276,9 +276,10 @@ class WorkoutSummaryViewModelTest {
 
     @Test
     fun `avgRpe is null when fewer than 50 percent of sets have RPE`() = runTest(testDispatcher) {
-        // 2 sets: 1 with RPE, 1 without → 50% threshold not met (needs >= 50%)
+        // 1 of 3 sets has RPE → 33% → below 50% threshold → avgRpe is null
+        // RPE stored on ×10 scale: 80 = RPE 8.0
         val sets = listOf(
-            makeSetWithExercise(rpe = 8),
+            makeSetWithExercise(rpe = 80),
             makeSetWithExercise(rpe = null),
             makeSetWithExercise(rpe = null)
         )
@@ -295,10 +296,11 @@ class WorkoutSummaryViewModelTest {
 
     @Test
     fun `avgRpe computed when at least 50 percent of sets have RPE`() = runTest(testDispatcher) {
-        // 2 of 3 sets have RPE → 66.7% → shown; avg = (8+9)/2 = 8.5
+        // 2 of 3 sets have RPE → 66.7% → shown
+        // Storage values: 80 (RPE 8.0) + 90 (RPE 9.0) → avg storage = 85 → display = 8.5
         val sets = listOf(
-            makeSetWithExercise(rpe = 8),
-            makeSetWithExercise(rpe = 9),
+            makeSetWithExercise(rpe = 80),
+            makeSetWithExercise(rpe = 90),
             makeSetWithExercise(rpe = null)
         )
         whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
@@ -314,11 +316,36 @@ class WorkoutSummaryViewModelTest {
         assertEquals(8.5, avgRpe!!, 0.01)
     }
 
+    @Test
+    fun `avgRpe divides stored x10 values by 10 for display`() = runTest(testDispatcher) {
+        // Regression test: storage RPE 80 (8.0), 95 (9.5), 70 (7.0), 100 (10.0)
+        // Raw average = (80+95+70+100)/4 = 86.25; display avg = 8.625
+        val sets = listOf(
+            makeSetWithExercise(rpe = 80),
+            makeSetWithExercise(rpe = 95),
+            makeSetWithExercise(rpe = 70),
+            makeSetWithExercise(rpe = 100)
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(sets)
+        whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())
+        whenever(workoutSetDao.getHistoricalBestE1RM(any(), any())).thenReturn(null)
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val avgRpe = vm.uiState.value.exerciseCards.first().avgRpe
+        assertNotNull(avgRpe)
+        // Must be display-scale (8.625), NOT raw storage average (86.25)
+        assertEquals(8.625, avgRpe!!, 0.001)
+    }
+
     // ── Golden zone ───────────────────────────────────────────────────────────
 
     @Test
     fun `isGoldenZone true when avgRpe in 8 to 9 range`() = runTest(testDispatcher) {
-        val sets = listOf(makeSetWithExercise(rpe = 8), makeSetWithExercise(rpe = 9))
+        // Storage: 80 (8.0) + 90 (9.0) → display avg = 8.5 → golden zone
+        val sets = listOf(makeSetWithExercise(rpe = 80), makeSetWithExercise(rpe = 90))
         whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
         whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(sets)
         whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())
@@ -332,7 +359,8 @@ class WorkoutSummaryViewModelTest {
 
     @Test
     fun `isGoldenZone false when avgRpe outside 8 to 9 range`() = runTest(testDispatcher) {
-        val sets = listOf(makeSetWithExercise(rpe = 7), makeSetWithExercise(rpe = 7))
+        // Storage: 70 + 70 → display avg = 7.0 → not golden zone
+        val sets = listOf(makeSetWithExercise(rpe = 70), makeSetWithExercise(rpe = 70))
         whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
         whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(sets)
         whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())

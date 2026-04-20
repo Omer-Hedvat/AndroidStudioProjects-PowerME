@@ -161,10 +161,11 @@ class WorkoutSummaryViewModel @Inject constructor(
             ((currentVolume - prevVolume) / prevVolume) * 100.0
         } else null
 
-        // Avg RPE — only shown if at least 50% of working sets have RPE logged
+        // Avg RPE — only shown if at least 50% of working sets have RPE logged.
+        // RPE is stored on a ×10 scale (80 = RPE 8.0, 95 = RPE 9.5); divide by 10 for display.
         val rpeValues = workingSets.mapNotNull { it.rpe }
         val avgRpe = if (rpeValues.size >= (workingSets.size * 0.5).coerceAtLeast(1.0)) {
-            rpeValues.average()
+            rpeValues.average() / 10.0
         } else null
 
         val isGoldenZone = avgRpe != null && avgRpe >= 8.0 && avgRpe <= 9.0
