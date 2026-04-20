@@ -135,7 +135,8 @@ data class RestTimerState(
     val totalSeconds: Int = 0,
     val exerciseId: Long? = null,
     val setOrder: Int? = null,
-    val isPaused: Boolean = false
+    val isPaused: Boolean = false,
+    val setType: SetType? = null
 )
 
 data class WorkoutSummary(
@@ -1244,20 +1245,6 @@ class WorkoutViewModel @Inject constructor(
                 })
             }).markDirtyIfEditing()
         }
-        // Auto-collapse warmup sets when all are completed; un-collapse if one is un-completed
-        if (!isEditMode && completedSetType == SetType.WARMUP) {
-            _workoutState.update { state ->
-                val ex = state.exercises.find { it.exercise.id == exerciseId }
-                val warmupSets = ex?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
-                val allWarmupsDone = warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }
-                val updatedCollapsed = if (allWarmupsDone) {
-                    state.collapsedWarmupExerciseIds + exerciseId
-                } else {
-                    state.collapsedWarmupExerciseIds - exerciseId
-                }
-                state.copy(collapsedWarmupExerciseIds = updatedCollapsed)
-            }
-        }
         if (!isEditMode) {
             val updatedSet = _workoutState.value.exercises
                 .find { it.exercise.id == exerciseId }?.sets?.find { it.setOrder == setOrder }
@@ -1276,12 +1263,30 @@ class WorkoutViewModel @Inject constructor(
                     ?.filter { !it.isCompleted && it.setOrder > setOrder }
                     ?.minByOrNull { it.setOrder }
                 val isLastSet = nextSet == null
-                if (isLastSet && ex?.exercise?.restAfterLastSet != true) return
+                if (isLastSet && ex?.exercise?.restAfterLastSet != true) {
+                    // No rest timer after last set — collapse warmup rows immediately if this was the last warmup
+                    if (completedSetType == SetType.WARMUP) {
+                        _workoutState.update { state ->
+                            val warmupSets = state.exercises.find { it.exercise.id == exerciseId }
+                                ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                            if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }) {
+                                state.copy(collapsedWarmupExerciseIds = state.collapsedWarmupExerciseIds + exerciseId)
+                            } else state
+                        }
+                    }
+                    return
+                }
                 val override = if (completedSet != null && ex != null) {
                     _workoutState.value.restTimeOverrides["${exerciseId}_${setOrder}"]
                         ?: computeRestDuration(completedSet.setType, nextSet?.setType, ex.exercise)
                 } else null
-                startRestTimer(exerciseId, setOrder, override)
+                startRestTimer(exerciseId, setOrder, override, completedSetType)
+            }
+        }
+        // Un-collapse warmup rows when a warmup set is un-completed
+        if (!isEditMode && wasCompleted && completedSetType == SetType.WARMUP) {
+            _workoutState.update { state ->
+                state.copy(collapsedWarmupExerciseIds = state.collapsedWarmupExerciseIds - exerciseId)
             }
         }
     }
@@ -1944,11 +1949,21 @@ class WorkoutViewModel @Inject constructor(
         // Auto-hide the rest separator that just finished so it doesn't linger as a passive row.
         val finishedExerciseId = _workoutState.value.restTimer.exerciseId
         val finishedSetOrder = _workoutState.value.restTimer.setOrder
+        val finishedSetType = _workoutState.value.restTimer.setType
         _workoutState.update { state ->
-            val updated = state.copy(restTimer = RestTimerState())
+            var updated = state.copy(restTimer = RestTimerState())
             if (finishedExerciseId != null && finishedSetOrder != null) {
-                updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${finishedExerciseId}_${finishedSetOrder}")
-            } else updated
+                updated = updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${finishedExerciseId}_${finishedSetOrder}")
+            }
+            // Warmup collapse: if the finished timer was for the last warmup set, collapse warmup rows.
+            if (finishedSetType == SetType.WARMUP && finishedExerciseId != null) {
+                val warmupSets = updated.exercises.find { it.exercise.id == finishedExerciseId }
+                    ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }) {
+                    updated = updated.copy(collapsedWarmupExerciseIds = updated.collapsedWarmupExerciseIds + finishedExerciseId)
+                }
+            }
+            updated
         }
         // Post heads-up / watch notification: "Rest Complete — <exercise> Set N"
         val exerciseName = _workoutState.value.exercises
@@ -1975,7 +1990,7 @@ class WorkoutViewModel @Inject constructor(
         SetType.NORMAL  -> if (next == SetType.DROP) exercise.dropSetRestSeconds else exercise.restDurationSeconds
     }
 
-    fun startRestTimer(exerciseId: Long, setOrder: Int? = null, overrideSeconds: Int? = null) {
+    fun startRestTimer(exerciseId: Long, setOrder: Int? = null, overrideSeconds: Int? = null, setType: SetType? = null) {
         // Guard: cancel any in-process timer (coroutine or service) to prevent double-beep race conditions.
         timerJob?.cancel()
         if (serviceBound && timerService != null) timerService!!.stopTimer()
@@ -1996,7 +2011,8 @@ class WorkoutViewModel @Inject constructor(
                         remainingSeconds = restDuration,
                         totalSeconds = restDuration,
                         exerciseId = exerciseId,
-                        setOrder = setOrder
+                        setOrder = setOrder,
+                        setType = setType
                     )
                 )
             }
@@ -2028,7 +2044,8 @@ class WorkoutViewModel @Inject constructor(
                         remainingSeconds = restDuration,
                         totalSeconds = restDuration,
                         exerciseId = exerciseId,
-                        setOrder = setOrder
+                        setOrder = setOrder,
+                        setType = setType
                     )
                 )
             }
@@ -2051,10 +2068,19 @@ class WorkoutViewModel @Inject constructor(
                 }
                 // Auto-hide the rest separator that just finished.
                 _workoutState.update { state ->
-                    val updated = state.copy(restTimer = RestTimerState())
+                    var updated = state.copy(restTimer = RestTimerState())
                     if (setOrder != null) {
-                        updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${exerciseId}_${setOrder}")
-                    } else updated
+                        updated = updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${exerciseId}_${setOrder}")
+                    }
+                    // Warmup collapse: if this was the last warmup's rest timer, collapse warmup rows now.
+                    if (setType == SetType.WARMUP) {
+                        val warmupSets = updated.exercises.find { it.exercise.id == exerciseId }
+                            ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                        if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }) {
+                            updated = updated.copy(collapsedWarmupExerciseIds = updated.collapsedWarmupExerciseIds + exerciseId)
+                        }
+                    }
+                    updated
                 }
             }
         }
@@ -2089,13 +2115,23 @@ class WorkoutViewModel @Inject constructor(
         if (serviceBound && timerService != null) {
             timerService!!.stopTimer()
         }
+        val skippedSetType = _workoutState.value.restTimer.setType
         _workoutState.update { state ->
             val exerciseId = state.restTimer.exerciseId
             val setOrder = state.restTimer.setOrder
             val hidden = if (exerciseId != null && setOrder != null) {
                 state.hiddenRestSeparators + "${exerciseId}_${setOrder}"
             } else state.hiddenRestSeparators
-            state.copy(restTimer = RestTimerState(), hiddenRestSeparators = hidden)
+            var updated = state.copy(restTimer = RestTimerState(), hiddenRestSeparators = hidden)
+            // Warmup collapse: if skipping the last warmup's rest timer, collapse warmup rows atomically.
+            if (skippedSetType == SetType.WARMUP && exerciseId != null) {
+                val warmupSets = updated.exercises.find { it.exercise.id == exerciseId }
+                    ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }) {
+                    updated = updated.copy(collapsedWarmupExerciseIds = updated.collapsedWarmupExerciseIds + exerciseId)
+                }
+            }
+            updated
         }
     }
 

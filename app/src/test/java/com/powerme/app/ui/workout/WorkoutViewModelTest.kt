@@ -3629,7 +3629,7 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `skipRestTimer hides the warmup-to-work rest separator immediately`() = vmTest {
+    fun `skipRestTimer on last warmup timer collapses separator and warmup rows atomically`() = vmTest {
         val exerciseId = 109L
         setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 90, setCount = 3)
         runCurrent()
@@ -3639,24 +3639,23 @@ class WorkoutViewModelTest {
         viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
         runCurrent()
 
-        // Complete warmup 1 (not last warmup — no collapse yet)
+        // Complete warmup 1 (not last warmup — no collapse)
         viewModel.completeSet(exerciseId, 1)
         runCurrent()
         assertFalse(exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
 
-        // Complete warmup 2 (last warmup) → collapse fires immediately AND timer starts
+        // Complete warmup 2 (last warmup) → timer starts → warmup rows must NOT collapse yet
         viewModel.completeSet(exerciseId, 2)
         runCurrent()
 
-        // Collapse must fire BEFORE timer ends (immediately on confirmation)
-        assertTrue(
-            "Warmup collapse must fire on confirmation, not on rest timer end",
+        assertFalse(
+            "Warmup collapse must NOT fire on confirmation when rest timer is pending",
             exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
         )
         assertTrue("Rest timer must be active after confirming last warmup before working sets",
             viewModel.workoutState.value.restTimer.isActive)
 
-        // Skip the warmup→work rest timer → separator key for warmup setOrder=2 should be hidden
+        // Skip the last warmup's rest timer → separator AND warmup rows collapse atomically
         viewModel.skipRestTimer()
         runCurrent()
 
@@ -3664,6 +3663,10 @@ class WorkoutViewModelTest {
         assertTrue(
             "skipRestTimer must hide warmup-to-work separator key",
             "${exerciseId}_2" in viewModel.workoutState.value.hiddenRestSeparators
+        )
+        assertTrue(
+            "skipRestTimer on last warmup timer must collapse warmup rows",
+            exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
         )
 
         viewModel.cancelWorkout()
@@ -3686,6 +3689,67 @@ class WorkoutViewModelTest {
 
         viewModel.cancelWorkout()
         runCurrent()
+    }
+
+    @Test
+    fun `completeSet last warmup with rest timer does NOT collapse immediately`() = vmTest {
+        val exerciseId = 111L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 30, setCount = 3)
+        runCurrent()
+
+        // Sets 1 and 2 are WARMUP, set 3 is NORMAL — so completing warmup 2 is the last warmup but not the last set
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        runCurrent()
+
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        assertFalse("No collapse after warmup 1", exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        // Complete last warmup (set 2) — rest timer starts, NO immediate collapse
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+
+        assertFalse(
+            "Warmup rows must NOT collapse on confirmation when a rest timer is pending",
+            exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
+        )
+        assertTrue("Rest timer should be active", viewModel.workoutState.value.restTimer.isActive)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `rest timer finishing for last warmup collapses warmup rows`() = vmTest {
+        val restSeconds = 10
+        val exerciseId = 112L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = restSeconds, setCount = 3)
+        runCurrent()
+
+        // Sets 1 and 2 are WARMUP, set 3 is NORMAL
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        runCurrent()
+
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+
+        // Complete last warmup → timer starts (setType=WARMUP stored in RestTimerState)
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+
+        assertFalse("Not collapsed yet — timer is running", exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+        assertTrue("Timer is active", viewModel.workoutState.value.restTimer.isActive)
+
+        // Advance time past the full rest duration so the timer coroutine completes
+        advanceTimeBy(restSeconds * 1000L + 1)
+
+        val isCollapsed = exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        assertTrue("Warmup rows must collapse after the last warmup's rest timer finishes", isCollapsed)
     }
 
     // -------------------------------------------------------------------------
