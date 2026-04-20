@@ -19,6 +19,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -33,7 +34,47 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.powerme.app.util.SurgicalValidator
 import kotlinx.coroutines.delay
+
+/**
+ * Computes the new field value after applying [delta] to [text].
+ *
+ * @param text    Raw string from the input field.
+ * @param delta   Positive to increment, negative to decrement.
+ * @param isInteger  true for reps (whole numbers only), false for decimal weight.
+ * @return New string value, or null if no change should be applied
+ *         (e.g. decrement on an empty field, or invalid input).
+ */
+internal fun applyAccessoryDelta(text: String, delta: Double, isInteger: Boolean): String? {
+    return if (isInteger) {
+        when (val r = SurgicalValidator.parseReps(text)) {
+            is SurgicalValidator.ValidationResult.Valid -> {
+                val newVal = maxOf(0.0, r.value + delta)
+                newVal.toInt().toString()
+            }
+            is SurgicalValidator.ValidationResult.Empty -> {
+                if (delta > 0) "1" else null
+            }
+            else -> null
+        }
+    } else {
+        when (val r = SurgicalValidator.parseDecimal(text)) {
+            is SurgicalValidator.ValidationResult.Valid -> {
+                val newVal = maxOf(0.0, r.value + delta)
+                if (newVal % 1.0 == 0.0) newVal.toInt().toString()
+                else "%.1f".format(newVal)
+            }
+            is SurgicalValidator.ValidationResult.Empty -> {
+                if (delta > 0) {
+                    if (delta % 1.0 == 0.0) delta.toInt().toString()
+                    else "%.1f".format(delta)
+                } else null
+            }
+            else -> null
+        }
+    }
+}
 
 /**
  * Returns a [TextFieldValue] state and a [Modifier] that selects all text when the field gains focus.
@@ -76,7 +117,11 @@ fun WorkoutInputField(
     imeAction: ImeAction = ImeAction.Next,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     enabled: Boolean = true,
-    focusRequester: FocusRequester? = null
+    focusRequester: FocusRequester? = null,
+    /** When true, registers decrement/decrement lambdas with [LocalKeyboardAccessoryRegistrar] on focus. */
+    accessoryEnabled: Boolean = false,
+    /** Step size used by the accessory bar (ignored for integer/reps fields, which always use 1). */
+    accessoryStep: Double = 1.0
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -84,6 +129,11 @@ fun WorkoutInputField(
     val textFieldValue = remember { mutableStateOf(TextFieldValue(value)) }
     val selectAllTrigger = remember { mutableStateOf(0) }
     val wasFocused = remember { mutableStateOf(false) }
+
+    // Keep a stable reference to the latest onValueChange so accessory lambdas never go stale.
+    val latestOnValueChange = rememberUpdatedState(onValueChange)
+
+    val registrar = if (accessoryEnabled) LocalKeyboardAccessoryRegistrar.current else null
 
     // Keep internal state in sync when external value changes (e.g. cascade fill)
     LaunchedEffect(value) {
@@ -110,6 +160,8 @@ fun WorkoutInputField(
         }
     }
 
+    val isInteger = keyboardType == KeyboardType.Number
+
     BasicTextField(
         value = textFieldValue.value,
         onValueChange = { newValue ->
@@ -126,6 +178,26 @@ fun WorkoutInputField(
             .onFocusChanged { focusState ->
                 if (focusState.isFocused && !wasFocused.value) {
                     selectAllTrigger.value++
+                    // Register accessory bar callbacks when this field gains focus.
+                    if (registrar != null) {
+                        val step = if (isInteger) 1.0 else accessoryStep
+                        registrar.register(
+                            {
+                                val newText = applyAccessoryDelta(textFieldValue.value.text, -step, isInteger)
+                                if (newText != null) {
+                                    textFieldValue.value = TextFieldValue(newText, TextRange(newText.length))
+                                    latestOnValueChange.value(newText)
+                                }
+                            },
+                            {
+                                val newText = applyAccessoryDelta(textFieldValue.value.text, step, isInteger)
+                                if (newText != null) {
+                                    textFieldValue.value = TextFieldValue(newText, TextRange(newText.length))
+                                    latestOnValueChange.value(newText)
+                                }
+                            }
+                        )
+                    }
                 }
                 wasFocused.value = focusState.isFocused
             }

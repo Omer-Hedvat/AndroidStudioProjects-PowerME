@@ -48,6 +48,9 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
+import com.powerme.app.ui.components.KeyboardAccessoryBar
+import com.powerme.app.ui.components.KeyboardAccessoryRegistrar
+import com.powerme.app.ui.components.LocalKeyboardAccessoryRegistrar
 import com.powerme.app.ui.components.WorkoutInputField
 import com.powerme.app.ui.exercises.ExercisesScreen
 import com.powerme.app.util.UnitConverter
@@ -69,6 +72,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -77,6 +81,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import java.util.ArrayList
 
 private enum class TimedSetState { IDLE, SETUP, RUNNING, PAUSED, COMPLETED }
@@ -89,7 +95,7 @@ private const val REPS_COL_WEIGHT   = 0.22f
 private const val RPE_COL_WEIGHT    = 0.13f
 private const val CHECK_COL_WEIGHT  = 0.10f
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ActiveWorkoutScreen(
     onWorkoutFinished: () -> Unit = {},
@@ -114,6 +120,19 @@ fun ActiveWorkoutScreen(
     var isReorderMode by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Keyboard accessory bar (±1 buttons pinned above the IME).
+    var accessoryCallbacks by remember { mutableStateOf<Pair<() -> Unit, () -> Unit>?>(null) }
+    val keyboardAccessoryRegistrar = remember {
+        KeyboardAccessoryRegistrar(
+            register = { dec, inc -> accessoryCallbacks = dec to inc },
+            unregister = { accessoryCallbacks = null }
+        )
+    }
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(imeVisible) {
+        if (!imeVisible) accessoryCallbacks = null
+    }
 
     LaunchedEffect(workoutState.snackbarMessage) {
         val msg = workoutState.snackbarMessage ?: return@LaunchedEffect
@@ -210,6 +229,7 @@ fun ActiveWorkoutScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalKeyboardAccessoryRegistrar provides keyboardAccessoryRegistrar) {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -333,6 +353,18 @@ fun ActiveWorkoutScreen(
             }
         }
     }
+    } // end CompositionLocalProvider
+    if (imeVisible && accessoryCallbacks != null) {
+        val (dec, inc) = accessoryCallbacks!!
+        KeyboardAccessoryBar(
+            onDecrement = dec,
+            onIncrement = inc,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .imePadding()
+                .zIndex(10f)
+        )
+    }
     SnackbarHost(
         hostState = snackbarHostState,
         modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
@@ -440,6 +472,7 @@ private fun LazyListScope.activeWorkoutListItems(
     ) { exerciseWithSets ->
         val isSelected = workoutState.supersetCandidateIds.contains(exerciseWithSets.exercise.id)
         val isCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedExerciseIds
+        val warmupsCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedWarmupExerciseIds
 
         // Superset selection mode: collapsed selectable rows (with drag-to-reorder)
         if (workoutState.isSupersetSelectMode) {
@@ -481,8 +514,10 @@ private fun LazyListScope.activeWorkoutListItems(
                     hiddenRestSeparators = workoutState.hiddenRestSeparators,
                     isEditMode = isEditMode,
                     isCollapsed = isCollapsed,
+                    warmupsCollapsed = warmupsCollapsed,
                     onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
                     onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
+                    onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
                     dragHandleModifier = Modifier.draggableHandle(onDragStarted = { viewModel.collapseAll() }),
                     onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
                     onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
@@ -515,7 +550,8 @@ private fun LazyListScope.activeWorkoutListItems(
                     onConsumeRpeAutoPop = onConsumeRpeAutoPop,
                     setupSeconds = setupSeconds,
                     onSetupCountdownTick = onSetupCountdownTick,
-                    onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() }
+                    onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() },
+                    onStopRestTimer = { viewModel.stopRestTimer() }
                 )
             }
         } else {
@@ -534,8 +570,10 @@ private fun LazyListScope.activeWorkoutListItems(
                 hiddenRestSeparators = workoutState.hiddenRestSeparators,
                 isEditMode = isEditMode,
                 isCollapsed = isCollapsed,
+                warmupsCollapsed = warmupsCollapsed,
                 onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
                 onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
+                onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
                 dragHandleModifier = null,
                 onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
                 onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
@@ -568,7 +606,8 @@ private fun LazyListScope.activeWorkoutListItems(
                 onConsumeRpeAutoPop = onConsumeRpeAutoPop,
                 setupSeconds = setupSeconds,
                 onSetupCountdownTick = onSetupCountdownTick,
-                onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() }
+                onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() },
+                onStopRestTimer = { viewModel.stopRestTimer() }
             )
         }
     }
@@ -665,8 +704,10 @@ private fun ExerciseCard(
     onUpdateTimedSet: (Int, String, String, Boolean) -> Unit = { _, _, _, _ -> },
     onTimeChanged: (Int, String) -> Unit = { _, _ -> },
     isCollapsed: Boolean = false,
+    warmupsCollapsed: Boolean = false,
     onCollapseAllExcept: () -> Unit = {},
     onToggleCollapsed: () -> Unit = {},
+    onToggleWarmupsCollapsed: () -> Unit = {},
     dragHandleModifier: Modifier? = null,
     onTimerFinished: () -> Unit = {},
     onTimerWarningTick: () -> Unit = {},
@@ -674,7 +715,8 @@ private fun ExerciseCard(
     onConsumeRpeAutoPop: () -> Unit = {},
     setupSeconds: Int = 0,
     onSetupCountdownTick: () -> Unit = {},
-    onTimerHalftimeTick: () -> Unit = {}
+    onTimerHalftimeTick: () -> Unit = {},
+    onStopRestTimer: () -> Unit = {}
 ) {
     var showSetupNotesEditor by remember { mutableStateOf(false) }
     var setupNotesText by remember { mutableStateOf(exerciseWithSets.exercise.setupNotes ?: "") }
@@ -819,14 +861,104 @@ private fun ExerciseCard(
                         val weightFrs = remember(setCount) { List(setCount) { FocusRequester() } }
                         val repsFrs = remember(setCount) { List(setCount) { FocusRequester() } }
 
+                        val warmupSets = exerciseWithSets.sets.filter { it.setType == SetType.WARMUP }
+                        val hasWarmups = warmupSets.isNotEmpty()
+
+                        // Collapsed warmup summary row
+                        if (hasWarmups) {
+                            AnimatedVisibility(
+                                visible = warmupsCollapsed,
+                                enter = fadeIn(animationSpec = tween(200)),
+                                exit = fadeOut(animationSpec = tween(150))
+                            ) {
+                                Column {
+                                    CollapsedWarmupRow(count = warmupSets.size, onClick = onToggleWarmupsCollapsed)
+                                    if (exerciseWithSets.sets.any { it.setType != SetType.WARMUP }) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+                                }
+                            }
+                        }
+
+                        // Animated warmup rows
+                        if (hasWarmups) {
+                            AnimatedVisibility(
+                                visible = !warmupsCollapsed,
+                                enter = expandVertically(animationSpec = tween(200)) + fadeIn(animationSpec = tween(200)),
+                                exit = shrinkVertically(animationSpec = tween(150)) + fadeOut(animationSpec = tween(150))
+                            ) {
+                                Column {
+                                    warmupSets.forEach { set ->
+                                        val index = exerciseWithSets.sets.indexOf(set)
+                                        val nextSetType = exerciseWithSets.sets.getOrNull(index + 1)?.setType
+                                        val defaultRestForType = if (nextSetType == SetType.WARMUP)
+                                            exerciseWithSets.exercise.warmupRestSeconds
+                                        else
+                                            exerciseWithSets.exercise.restDurationSeconds
+                                        val effectiveRest = restTimeOverrides["${exerciseId}_${set.setOrder}"] ?: defaultRestForType
+                                        val separatorKey = "${exerciseId}_${set.setOrder}"
+                                        val isThisTimerActive = (activeTimerExerciseId == exerciseId) && (activeTimerSetOrder == set.setOrder)
+                                        val isNotLastSet = index < exerciseWithSets.sets.size - 1
+                                        val isSeparatorHidden = separatorKey in hiddenRestSeparators
+                                        val shouldShowSeparator = (isThisTimerActive || (isNotLastSet && effectiveRest > 0)) && !isSeparatorHidden
+                                        val nextIncompleteIdx = (index + 1 until exerciseWithSets.sets.size)
+                                            .firstOrNull { !exerciseWithSets.sets[it].isCompleted }
+                                        val shouldAutoPopRpe = rpeAutoPopTarget == "${exerciseId}_${set.setOrder}"
+
+                                        key(set.id) {
+                                            SetWithRestRow(
+                                                set = set,
+                                                exerciseType = exerciseWithSets.exercise.exerciseType,
+                                                shouldShowSeparator = shouldShowSeparator,
+                                                isThisTimerActive = isThisTimerActive,
+                                                effectiveRest = effectiveRest,
+                                                activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                                                activeTimerTotalSeconds = activeTimerTotalSeconds,
+                                                onWeightChanged = { onWeightChanged(set.setOrder, it) },
+                                                onRepsChanged = { onRepsChanged(set.setOrder, it) },
+                                                onCompleteSet = { onCompleteSet(set.setOrder) },
+                                                onSelectSetType = { onSelectSetType(set.setOrder, it) },
+                                                onUpdateRpe = { onUpdateRpe(set.setOrder, it) },
+                                                onDeleteSet = { onDeleteSet(set.setOrder) },
+                                                onUpdateCardioSet = { d, t, r, c -> onUpdateCardioSet(set.setOrder, d, t, r, c) },
+                                                onUpdateTimedSet = { t, r, c -> onUpdateTimedSet(set.setOrder, t, r, c) },
+                                                onTimeChanged = { onTimeChanged(set.setOrder, it) },
+                                                onDeleteLocalRestTime = { onDeleteLocalRestTime(set.setOrder) },
+                                                onDeleteRestSeparator = { onDeleteRestSeparator(set.setOrder) },
+                                                onTimerActiveClick = onTimerActiveClick,
+                                                onPassiveRestClick = { showRestTimePickerForSet = set.setOrder },
+                                                weightFocusRequester = weightFrs.getOrNull(index),
+                                                repsFocusRequester = repsFrs.getOrNull(index),
+                                                nextWeightFocusRequester = nextIncompleteIdx?.let { weightFrs.getOrNull(it) },
+                                                onRepsDone = { onCompleteSet(set.setOrder) },
+                                                isEditMode = isEditMode,
+                                                onTimerFinished = onTimerFinished,
+                                                onTimerWarningTick = onTimerWarningTick,
+                                                shouldAutoPopRpe = shouldAutoPopRpe,
+                                                onAutoPopRpeConsumed = onConsumeRpeAutoPop,
+                                                setupSeconds = setupSeconds,
+                                                onSetupCountdownTick = onSetupCountdownTick,
+                                                onTimerHalftimeTick = onTimerHalftimeTick,
+                                                onStopRestTimer = onStopRestTimer
+                                            )
+                                        }
+                                        if (index < exerciseWithSets.sets.lastIndex) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Non-warmup sets (always visible)
                         exerciseWithSets.sets.forEachIndexed { index, set ->
+                            if (set.setType == SetType.WARMUP) return@forEachIndexed
+
                             val nextSetType = exerciseWithSets.sets.getOrNull(index + 1)?.setType
                             val defaultRestForType = when (set.setType) {
                                 SetType.DROP    -> exerciseWithSets.exercise.dropSetRestSeconds
                                 SetType.FAILURE -> exerciseWithSets.exercise.restDurationSeconds
-                                SetType.WARMUP  -> if (nextSetType == SetType.WARMUP) exerciseWithSets.exercise.warmupRestSeconds
-                                                   else exerciseWithSets.exercise.restDurationSeconds
-                                SetType.NORMAL  -> if (nextSetType == SetType.DROP) exerciseWithSets.exercise.dropSetRestSeconds
+                                else            -> if (nextSetType == SetType.DROP) exerciseWithSets.exercise.dropSetRestSeconds
                                                    else exerciseWithSets.exercise.restDurationSeconds
                             }
                             val effectiveRest = restTimeOverrides["${exerciseId}_${set.setOrder}"] ?: defaultRestForType
@@ -872,7 +1004,8 @@ private fun ExerciseCard(
                                     onAutoPopRpeConsumed = onConsumeRpeAutoPop,
                                     setupSeconds = setupSeconds,
                                     onSetupCountdownTick = onSetupCountdownTick,
-                                    onTimerHalftimeTick = onTimerHalftimeTick
+                                    onTimerHalftimeTick = onTimerHalftimeTick,
+                                    onStopRestTimer = onStopRestTimer
                                 )
                             }
                             if (index < exerciseWithSets.sets.lastIndex) {
@@ -1021,6 +1154,32 @@ private fun ExerciseCard(
     }
 }
 
+@Composable
+private fun CollapsedWarmupRow(count: Int, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(35.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "W ×$count ✓",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold
+        )
+        Icon(
+            imageVector = Icons.Default.ExpandMore,
+            contentDescription = "Expand warmup sets",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SetWithRestRow(
@@ -1055,7 +1214,8 @@ private fun SetWithRestRow(
     onAutoPopRpeConsumed: () -> Unit = {},
     setupSeconds: Int = 0,
     onSetupCountdownTick: () -> Unit = {},
-    onTimerHalftimeTick: () -> Unit = {}
+    onTimerHalftimeTick: () -> Unit = {},
+    onStopRestTimer: () -> Unit = {}
 ) {
     val setSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteSet(); true } else false })
     val restSwipeState = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteRestSeparator(); true } else it == SwipeToDismissBoxValue.Settled })
@@ -1086,7 +1246,7 @@ private fun SetWithRestRow(
             Box(modifier = Modifier.fillMaxWidth().background(rowBg)) {
                 when (exerciseType) {
                     ExerciseType.CARDIO -> CardioSetRow(set, onUpdateCardioSet, onCompleteSet, shouldAutoPopRpe, onAutoPopRpeConsumed)
-                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged, onTimerFinished, onTimerWarningTick, shouldAutoPopRpe, onAutoPopRpeConsumed, onUpdateRpe, setupSeconds, onSetupCountdownTick, onTimerHalftimeTick)
+                    ExerciseType.TIMED -> TimedSetRow(set, onWeightChanged, onUpdateTimedSet, onCompleteSet, onTimeChanged, onTimerFinished, onTimerWarningTick, shouldAutoPopRpe, onAutoPopRpeConsumed, onUpdateRpe, setupSeconds, onSetupCountdownTick, onStopRestTimer, onTimerHalftimeTick)
                     else -> WorkoutSetRow(
                         set = set,
                         onWeightChanged = onWeightChanged,
@@ -1667,7 +1827,8 @@ fun WorkoutSetRow(
                 keyboardType = KeyboardType.Decimal,
                 imeAction = ImeAction.Next,
                 keyboardActions = KeyboardActions(onNext = { repsFocusRequester?.requestFocus() }),
-                focusRequester = weightFocusRequester
+                focusRequester = weightFocusRequester,
+                accessoryEnabled = true
             )
             WorkoutInputField(
                 value = set.reps,
@@ -1684,7 +1845,8 @@ fun WorkoutSetRow(
                         focusManager.clearFocus()
                     }
                 }),
-                focusRequester = repsFocusRequester
+                focusRequester = repsFocusRequester,
+                accessoryEnabled = true
             )
             if (!isEditMode) {
                 Box(
@@ -1717,7 +1879,7 @@ fun WorkoutSetRow(
                         .weight(CHECK_COL_WEIGHT)
                         .fillMaxHeight()
                         .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
-                        .clickable(onClick = onCompleteSet),
+                        .pointerInput(onCompleteSet) { detectTapGestures { onCompleteSet() } },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
@@ -1891,6 +2053,7 @@ fun TimedSetRow(
     onUpdateRpe: (Int?) -> Unit = {},
     setupSeconds: Int = 0,
     onSetupCountdownTick: () -> Unit = {},
+    onStopRestTimer: () -> Unit = {},
     onTimerHalftimeTick: () -> Unit = {}
 ) {
     val totalSeconds = set.timeSeconds.toIntOrNull() ?: 0
@@ -2026,6 +2189,7 @@ fun TimedSetRow(
                         .clickable {
                             val secs = time.toIntOrNull() ?: 0
                             if (secs > 0) {
+                                onStopRestTimer()
                                 if (setupSeconds > 0) {
                                     timerState = TimedSetState.SETUP
                                 } else {
