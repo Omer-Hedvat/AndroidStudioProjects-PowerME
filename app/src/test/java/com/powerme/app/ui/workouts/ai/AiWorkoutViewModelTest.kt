@@ -263,6 +263,37 @@ class AiWorkoutViewModelTest {
         )
     }
 
+    // ── API_KEY_MISSING sentinel ──────────────────────────────────────────────
+
+    @Test
+    fun `processTextInput shows settings CTA when API key is missing`() = runTest(testDispatcher) {
+        advanceUntilIdle()
+
+        whenever(geminiParser.parseWorkoutText(any(), any()))
+            .thenReturn(ParseResult(emptyList(), "API_KEY_MISSING"))
+
+        viewModel.updateInputText("bench press")
+        viewModel.processTextInput()
+        advanceUntilIdle()
+
+        assertEquals(AiWorkoutStep.INPUT, viewModel.uiState.value.step)
+        assertTrue(viewModel.uiState.value.error?.contains("Settings") == true)
+    }
+
+    @Test
+    fun `processTextInput with generic error shows raw error message`() = runTest(testDispatcher) {
+        advanceUntilIdle()
+
+        whenever(geminiParser.parseWorkoutText(any(), any()))
+            .thenReturn(ParseResult(emptyList(), "Network timeout"))
+
+        viewModel.updateInputText("bench press")
+        viewModel.processTextInput()
+        advanceUntilIdle()
+
+        assertEquals("Network timeout", viewModel.uiState.value.error)
+    }
+
     @Test
     fun `startWorkout emits WorkoutStarted event`() = runTest(testDispatcher) {
         advanceUntilIdle()

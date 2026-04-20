@@ -6,11 +6,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -480,6 +486,16 @@ fun SettingsScreen(
                 }
             }
 
+            // ── AI ──────────────────────────────────────────────────
+            item {
+                AiSettingsCard(
+                    uiState = uiState,
+                    onApiKeyInputChange = viewModel::updateApiKeyInput,
+                    onSaveApiKey = viewModel::saveUserApiKey,
+                    onClearApiKey = viewModel::clearUserApiKey
+                )
+            }
+
             // ── Data & Backup ────────────────────────────────────────
             item {
                 SettingsCard(title = "Data & Backup") {
@@ -702,6 +718,63 @@ private fun formatRelativeTime(timestampMs: Long): String {
         else -> {
             val formatter = DateTimeFormatter.ofPattern("MMM d").withZone(ZoneId.systemDefault())
             formatter.format(then)
+        }
+    }
+}
+
+@Composable
+private fun AiSettingsCard(
+    uiState: SettingsUiState,
+    onApiKeyInputChange: (String) -> Unit,
+    onSaveApiKey: () -> Unit,
+    onClearApiKey: () -> Unit
+) {
+    SettingsCard(title = "AI") {
+        val statusText = when (uiState.apiKeyStatus) {
+            ApiKeyStatus.UsingUser -> "Using: Your key"
+            ApiKeyStatus.UsingDefault -> "Using: Default"
+            ApiKeyStatus.NoKey -> "No key set"
+        }
+        Text(
+            text = statusText,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        var keyVisible by remember { mutableStateOf(false) }
+        OutlinedTextField(
+            value = uiState.userApiKeyInput,
+            onValueChange = onApiKeyInputChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Your Gemini API key") },
+            singleLine = true,
+            visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                IconButton(onClick = { keyVisible = !keyVisible }) {
+                    Icon(
+                        imageVector = if (keyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        contentDescription = if (keyVisible) "Hide key" else "Show key"
+                    )
+                }
+            }
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Stored only on this device.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onSaveApiKey,
+                enabled = uiState.userApiKeyInput.isNotBlank()
+            ) { Text("Save") }
+            OutlinedButton(
+                onClick = onClearApiKey,
+                enabled = uiState.hasUserApiKey
+            ) { Text("Clear") }
         }
     }
 }

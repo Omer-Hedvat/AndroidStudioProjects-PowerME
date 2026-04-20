@@ -21,9 +21,10 @@ The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` compos
 | 3 | Health Connect | HC permissions + sync |
 | 4 | Rest Timer | Audio / haptics toggles + Get Ready countdown (0–10s) |
 | 5 | Display & Workout | Keep screen on, Use RPE (auto-pop picker) |
-| 6 | Data Export | Export DB to JSON |
-| 7 | Cloud Sync | Restore from Firestore |
-| 8 | Privacy | Delete account |
+| 6 | AI | Gemini API key management (user override + status) |
+| 7 | Data Export | Export DB to JSON |
+| 8 | Cloud Sync | Restore from Firestore |
+| 9 | Privacy | Delete account |
 
 **Moved to ProfileScreen:** Personal Info (card 4) and Body Metrics (card 5) were removed from Settings and now live in `ProfileScreen`.
 
@@ -64,20 +65,34 @@ Two `Switch` rows: "Audio" and "Haptics". Changes persisted to `userSettingsDao.
 
 "Use RPE" `Switch` → `viewModel.toggleUseRpeAutoPop()` → `AppSettingsDataStore.setUseRpeAutoPop()`. When enabled, `WorkoutViewModel` emits a one-shot `rpeAutoPopTarget` signal after each set completion, which `ActiveWorkoutScreen` consumes to auto-open `RpePickerSheet` for that set.
 
-### 2.6 Data Export
+### 2.6 AI
+
+Status line showing one of: "Using: Your key" / "Using: Default" / "No key set" (driven by `apiKeyStatus: ApiKeyStatus`).
+
+`OutlinedTextField` for the user's Gemini API key: `PasswordVisualTransformation` with eye-toggle icon, single-line, Password keyboard type. Draft held in `userApiKeyInput: String` (never persisted until Save).
+
+Row: "Save" button (enabled when draft non-blank), "Clear" button (enabled when `hasUserApiKey`).
+
+Helper text: "Stored only on this device."
+
+Key stored in `EncryptedSharedPreferences` file `"secure_ai_prefs"` via `SecurePreferencesStore`. **Never synced to Firestore** — device-local only.
+
+ViewModel: `updateApiKeyInput(String)`, `saveUserApiKey()`, `clearUserApiKey()`.
+
+### 2.7 Data Export
 
 "Export Database to JSON" button → `viewModel.exportDatabase()` → `DatabaseExporter` writes a JSON file. Shows success path (file path) or error text. `isExporting` shows a spinner.
 
-### 2.7 Cloud Sync
+### 2.8 Cloud Sync
 
 If not signed in: informational text. If signed in: "Restore from Cloud" button → `viewModel.restoreFromCloud()` → `FirestoreSyncManager.pullFromCloud()`. Result shown via `Toast`.
 
-### 2.8 Privacy
+### 2.9 Privacy
 
 "Delete Account" button → confirmation `AlertDialog` → `viewModel.deleteAccount()`:
 1. `database.clearAllTables()`
-2. `Firebase.auth.currentUser?.delete()`
-3. `securePreferencesManager.clearApiKey()`
+2. `securePreferencesStore.clearUserGeminiApiKey()` — clears user Gemini key from EncryptedSharedPreferences
+3. `Firebase.auth.currentUser?.delete()`
 4. `appSettingsDataStore.setLanguage("Hebrew")`
 
 ---
@@ -93,6 +108,13 @@ If not signed in: informational text. If signed in: "Restore from Cloud" button 
 | `useRpeAutoPop` | `Boolean` | Auto-open RPE picker after set completion |
 
 **Note:** Personal Info and Body Metrics state have been moved to `ProfileUiState` in `ProfileViewModel`. See `ui/profile/ProfileViewModel.kt`.
+
+### AI Key
+| Field | Type | Purpose |
+|---|---|---|
+| `hasUserApiKey` | `Boolean` | Whether a user key is stored in EncryptedSharedPreferences |
+| `userApiKeyInput` | `String` | Transient draft — never persisted until `saveUserApiKey()` |
+| `apiKeyStatus` | `ApiKeyStatus` | `UsingUser` / `UsingDefault` / `NoKey` |
 
 ### Health Connect
 | Field | Type | Purpose |

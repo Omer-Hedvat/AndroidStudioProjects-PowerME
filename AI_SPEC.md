@@ -27,7 +27,8 @@ names to its library; the user previews, edits, and then chooses
 | Core photo → OCR → workout | Shipped |
 | Preview + edit + Start / Save as Routine | Shipped |
 | Exercise matching (4-tier cascade, 0.85 threshold) | Shipped |
-| Enhancement roadmap (§8) | Not started |
+| Hybrid API key + Settings → AI section | Shipped (§8.1 first item) |
+| Remaining enhancement roadmap (§8) | Not started |
 
 **In scope of this spec:** the entire AI feature — what exists today
 (§3–§7) and the prioritized gaps (§8).
@@ -43,17 +44,18 @@ Cloud + on-device hybrid, as it actually is:
 
 | Layer | What | Where |
 |---|---|---|
-| LLM | **Gemini 2.0 Flash** via `google.ai.client.generativeai` | `ai/GeminiWorkoutParser.kt:32` |
-| API key | `BuildConfig.GEMINI_API_KEY` from `local.properties` | `ai/GeminiWorkoutParser.kt:33`, `app/build.gradle.kts` |
+| LLM | **Gemini 2.0 Flash** via `google.ai.client.generativeai` | `ai/GeminiWorkoutParser.kt` |
+| API key | **`GeminiKeyResolver`**: user key (EncryptedSharedPreferences) → `BuildConfig.GEMINI_API_KEY` → `NoKey` error | `ai/GeminiKeyResolver.kt`, `data/secure/EncryptedSecurePreferencesStore.kt`, `app/build.gradle.kts` |
 | OCR | **ML Kit Text Recognition** (on-device, no model download) | `ai/TextRecognitionService.kt` |
 | Matching | 4-tier cascade (EXACT / SYNONYM / FUZZY ≥ 0.85 / UNMATCHED) | `util/ExerciseMatcher.kt:11`, `util/JaroWinkler.kt` |
 | State | `AiWorkoutViewModel` orchestrates input, parse, match, edit | `ui/workouts/ai/AiWorkoutViewModel.kt` |
-| UI | Two-step Compose screen (INPUT → PREVIEW) | `ui/workouts/ai/AiWorkoutGenerationScreen.kt` |
+| UI | Two-step Compose screen (INPUT → PREVIEW) + Settings → AI card | `ui/workouts/ai/AiWorkoutGenerationScreen.kt`, `ui/settings/SettingsScreen.kt` |
 | Persistence | `PlanExercise` → `WorkoutBootstrap` or `Routine` + `RoutineExercise` rows | `data/repository/WorkoutRepository.kt:162`, `data/repository/RoutineRepository.kt:25` |
 
 No retry, quota, cache, response validation beyond JSON-array shape, or
 Firebase App Check. No Room changes — drafts live in ViewModel state
-only. No Firestore sync for AI state.
+only. No Firestore sync for AI state. API key is device-local only
+(`secure_ai_prefs` EncryptedSharedPreferences file, never pushed to Firestore).
 
 ---
 
@@ -144,7 +146,11 @@ and is in §8.
 ## 7. Files and tests
 
 ### 7.1 Code
-- `app/src/main/java/com/powerme/app/ai/GeminiWorkoutParser.kt` — Gemini 2.0 Flash client + JSON parser
+- `app/src/main/java/com/powerme/app/ai/GeminiWorkoutParser.kt` — Gemini 2.0 Flash client + JSON parser (uses `GeminiKeyResolver` for per-call key resolution)
+- `app/src/main/java/com/powerme/app/ai/GeminiKeyResolver.kt` — resolves `KeyResolution`: user key → shipped key → `NoKey`
+- `app/src/main/java/com/powerme/app/data/secure/SecurePreferencesStore.kt` — interface for secure key storage
+- `app/src/main/java/com/powerme/app/data/secure/EncryptedSecurePreferencesStore.kt` — prod impl (`secure_ai_prefs`, `MasterKey.Builder`, AES256_GCM/SIV). Falls back to no-op on Keystore failure.
+- `app/src/main/java/com/powerme/app/di/SecurePreferencesModule.kt` — Hilt `@Binds` + `@Named("shippedGeminiKey")` provider
 - `app/src/main/java/com/powerme/app/ai/TextRecognitionService.kt` — ML Kit OCR wrapper
 - `app/src/main/java/com/powerme/app/ui/workouts/ai/AiWorkoutViewModel.kt` — state machine (INPUT ↔ PREVIEW), orchestration
 - `app/src/main/java/com/powerme/app/ui/workouts/ai/AiWorkoutGenerationScreen.kt` — two-step Compose UI + `PreviewExerciseCard` + `SaveRoutineDialog`
@@ -157,10 +163,14 @@ and is in §8.
 - `app/src/main/java/com/powerme/app/ui/workout/WorkoutViewModel.kt` (lines 632–670) — `startWorkoutFromPlan`
 
 ### 7.2 Tests (unit)
-- `app/src/test/java/com/powerme/app/ai/GeminiWorkoutParserTest.kt` — 14 cases: valid JSON, markdown fences, prose wrapping, malformed, filtering
-- `app/src/test/java/com/powerme/app/ui/workouts/ai/AiWorkoutViewModelTest.kt` — 14 cases: initial state, text flow, error paths, edits, start/save
-- `app/src/test/java/com/powerme/app/util/JaroWinklerTest.kt` — 12 cases: identity, boundary, academic pairs, symmetry
-- `app/src/test/java/com/powerme/app/util/ExerciseMatcherTest.kt` — exact / synonym / fuzzy / unmatched tiers on a small library
+- `app/src/test/java/com/powerme/app/ai/GeminiKeyResolverTest.kt` — 4 cases: user key, shipped fallback, no key, whitespace-only user key
+- `app/src/test/java/com/powerme/app/ai/GeminiWorkoutParserTest.kt` — 16 cases: valid JSON, markdown fences, prose wrapping, malformed, filtering, `NoKey` path, user-key preference
+- `app/src/test/java/com/powerme/app/ui/workouts/ai/AiWorkoutViewModelTest.kt` — 16 cases: initial state, text flow, error paths, edits, start/save, `API_KEY_MISSING` CTA, generic error routing
+- `app/src/test/java/com/powerme/app/ui/settings/SettingsViewModelApiKeyTest.kt` — 7 cases: init with/without key, save valid, save blank rejected, clear, no Firestore push (×2)
+- `app/src/test/java/com/powerme/app/util/JaroWinklerTest.kt` — 12 cases
+- `app/src/test/java/com/powerme/app/util/ExerciseMatcherTest.kt` — exact / synonym / fuzzy / unmatched tiers
+
+Note: `EncryptedSecurePreferencesStore` requires Android Keystore — not covered by unit tests. Verify via manual QA on device (instrumented tests disabled on API 36 emulator per CLAUDE.md).
 
 ---
 
@@ -171,10 +181,10 @@ ordered roughly by (value × readiness). Nothing here is committed until
 it becomes a real roadmap item.
 
 ### 8.1 Key handling & reliability
-- **Hybrid API key** — allow user to set their own Gemini key in
-  Settings → AI, stored in `EncryptedSharedPreferences`. Resolution
-  order: user key → `BuildConfig` shipped key → typed error. User key
-  bypasses any shared-quota accounting.
+- **Hybrid API key** — ✅ **Shipped.** User key in `EncryptedSharedPreferences`
+  (`secure_ai_prefs`) via `GeminiKeyResolver`. Resolution: user key →
+  shipped `BuildConfig` key → `ParseResult.error = "API_KEY_MISSING"`.
+  Settings → AI card for key management. See §3 and §7.
 - **Firebase App Check** — attach tokens to all shipped-key requests;
   retry-once-without on App Check failure, then surface generic error.
 - **Retry policy** — transient 5xx / network timeout: 2 attempts with
@@ -210,8 +220,8 @@ it becomes a real roadmap item.
 - **First-use consent sheet** — one-time modal: "AI sends your text (or
   OCR'd photo text) to Google Gemini. Images are never sent."
   Persisted in DataStore (`ai_consent_granted`).
-- **Settings → AI section** — consent toggle, user API key input,
-  clear-key action.
+- **Settings → AI section** — ✅ **Shipped** (key management). Consent
+  toggle and telemetry toggle remain as follow-up items.
 - **Routine-first entry point** — on `+ New Routine`, offer
   `Build with AI` vs `Build manually`. Open question: add alongside
   the existing Quick Start "Generate with AI", or make the routine-first

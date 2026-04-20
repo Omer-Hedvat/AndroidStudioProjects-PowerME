@@ -117,7 +117,12 @@ class AiWorkoutViewModel @Inject constructor(
 
             val parseResult = geminiParser.parseWorkoutText(input, exerciseNames)
             if (parseResult.error != null && parseResult.exercises.isEmpty()) {
-                _uiState.update { it.copy(isProcessing = false, error = parseResult.error) }
+                val userError = if (parseResult.error == "API_KEY_MISSING") {
+                    "No Gemini API key configured. Add your own key in Settings → AI."
+                } else {
+                    parseResult.error
+                }
+                _uiState.update { it.copy(isProcessing = false, error = userError) }
                 return@launch
             }
 

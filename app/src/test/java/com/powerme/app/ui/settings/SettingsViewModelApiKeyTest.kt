@@ -24,14 +24,17 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class SettingsViewModelTimerSoundTest {
+class SettingsViewModelApiKeyTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -60,9 +63,6 @@ class SettingsViewModelTimerSoundTest {
         mockWorkoutSetDao = mock()
         mockSecurePreferencesStore = mock()
         mockKeyResolver = mock()
-        whenever(mockSecurePreferencesStore.hasUserGeminiApiKey()).thenReturn(false)
-        whenever(mockSecurePreferencesStore.getUserGeminiApiKey()).thenReturn(null)
-        whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.ShippedKey("test-key"))
 
         whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
         whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(false))
@@ -74,6 +74,10 @@ class SettingsViewModelTimerSoundTest {
         whenever(mockAppSettingsDataStore.timerSound).thenReturn(flowOf(TimerSound.BEEP))
         whenever(mockAppSettingsDataStore.notificationsEnabled).thenReturn(flowOf(true))
         whenever(mockAuth.currentUser).thenReturn(null)
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
+        whenever(mockSecurePreferencesStore.hasUserGeminiApiKey()).thenReturn(false)
+        whenever(mockSecurePreferencesStore.getUserGeminiApiKey()).thenReturn(null)
+        whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.ShippedKey("shipped-key"))
     }
 
     @After
@@ -96,64 +100,101 @@ class SettingsViewModelTimerSoundTest {
     )
 
     @Test
-    fun `initial timerSound is BEEP`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-
+    fun `init with no user key - hasUserApiKey is false and status is UsingDefault`() = runTest(testDispatcher) {
         val viewModel = buildViewModel()
         runCurrent()
 
-        assertEquals(TimerSound.BEEP, viewModel.uiState.value.timerSound)
+        assertFalse(viewModel.uiState.value.hasUserApiKey)
+        assertEquals(ApiKeyStatus.UsingDefault, viewModel.uiState.value.apiKeyStatus)
     }
 
     @Test
-    fun `setTimerSound updates uiState to BELL`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
+    fun `init with existing user key - hasUserApiKey is true and status is UsingUser`() = runTest(testDispatcher) {
+        whenever(mockSecurePreferencesStore.hasUserGeminiApiKey()).thenReturn(true)
+        whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.UserKey("user-key"))
 
         val viewModel = buildViewModel()
         runCurrent()
 
-        viewModel.setTimerSound(TimerSound.BELL)
-        runCurrent()
-
-        assertEquals(TimerSound.BELL, viewModel.uiState.value.timerSound)
+        assertTrue(viewModel.uiState.value.hasUserApiKey)
+        assertEquals(ApiKeyStatus.UsingUser, viewModel.uiState.value.apiKeyStatus)
     }
 
     @Test
-    fun `setTimerSound persists to DataStore`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-
+    fun `saveUserApiKey with valid key - writes to store and updates state`() = runTest(testDispatcher) {
         val viewModel = buildViewModel()
         runCurrent()
 
-        viewModel.setTimerSound(TimerSound.CHIME)
+        viewModel.updateApiKeyInput("my-gemini-key")
+        viewModel.saveUserApiKey()
         runCurrent()
 
-        verify(mockAppSettingsDataStore).setTimerSound(TimerSound.CHIME)
+        verify(mockSecurePreferencesStore).setUserGeminiApiKey("my-gemini-key")
+        assertTrue(viewModel.uiState.value.hasUserApiKey)
+        assertEquals("", viewModel.uiState.value.userApiKeyInput)
+        assertEquals(ApiKeyStatus.UsingUser, viewModel.uiState.value.apiKeyStatus)
     }
 
     @Test
-    fun `setTimerSound pushes to Firestore`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-
+    fun `saveUserApiKey with blank input - does nothing`() = runTest(testDispatcher) {
         val viewModel = buildViewModel()
         runCurrent()
 
-        viewModel.setTimerSound(TimerSound.NONE)
+        viewModel.updateApiKeyInput("   ")
+        viewModel.saveUserApiKey()
         runCurrent()
 
-        verify(mockFirestoreSyncManager).pushAppPreferences()
+        verify(mockSecurePreferencesStore, never()).setUserGeminiApiKey(org.mockito.kotlin.any())
     }
 
     @Test
-    fun `setTimerSound to NONE updates uiState`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
+    fun `clearUserApiKey - clears store and updates state`() = runTest(testDispatcher) {
+        whenever(mockSecurePreferencesStore.hasUserGeminiApiKey()).thenReturn(true)
+        whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.UserKey("user-key"))
 
         val viewModel = buildViewModel()
         runCurrent()
 
-        viewModel.setTimerSound(TimerSound.NONE)
+        viewModel.clearUserApiKey()
         runCurrent()
 
-        assertEquals(TimerSound.NONE, viewModel.uiState.value.timerSound)
+        verify(mockSecurePreferencesStore).clearUserGeminiApiKey()
+        assertFalse(viewModel.uiState.value.hasUserApiKey)
+        assertEquals(ApiKeyStatus.UsingDefault, viewModel.uiState.value.apiKeyStatus)
+    }
+
+    @Test
+    fun `saveUserApiKey trims whitespace`() = runTest(testDispatcher) {
+        val viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.updateApiKeyInput("  trimmed-key  ")
+        viewModel.saveUserApiKey()
+        runCurrent()
+
+        verify(mockSecurePreferencesStore).setUserGeminiApiKey("trimmed-key")
+    }
+
+    @Test
+    fun `saveUserApiKey does NOT push to Firestore`() = runTest(testDispatcher) {
+        val viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.updateApiKeyInput("key")
+        viewModel.saveUserApiKey()
+        runCurrent()
+
+        verify(mockFirestoreSyncManager, never()).pushAppPreferences()
+    }
+
+    @Test
+    fun `clearUserApiKey does NOT push to Firestore`() = runTest(testDispatcher) {
+        val viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.clearUserApiKey()
+        runCurrent()
+
+        verify(mockFirestoreSyncManager, never()).pushAppPreferences()
     }
 }

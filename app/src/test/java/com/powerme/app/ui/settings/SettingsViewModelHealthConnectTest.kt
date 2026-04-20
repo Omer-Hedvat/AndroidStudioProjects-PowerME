@@ -1,6 +1,8 @@
 package com.powerme.app.ui.settings
 
 import com.google.firebase.auth.FirebaseAuth
+import com.powerme.app.ai.GeminiKeyResolver
+import com.powerme.app.ai.KeyResolution
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
@@ -8,6 +10,7 @@ import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettingsDao
 import com.powerme.app.data.database.WorkoutDao
 import com.powerme.app.data.database.WorkoutSetDao
+import com.powerme.app.data.secure.SecurePreferencesStore
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
@@ -51,6 +54,8 @@ class SettingsViewModelHealthConnectTest {
     private lateinit var mockHealthConnectManager: HealthConnectManager
     private lateinit var mockWorkoutDao: WorkoutDao
     private lateinit var mockWorkoutSetDao: WorkoutSetDao
+    private lateinit var mockSecurePreferencesStore: SecurePreferencesStore
+    private lateinit var mockKeyResolver: GeminiKeyResolver
 
     private lateinit var viewModel: SettingsViewModel
 
@@ -77,6 +82,11 @@ class SettingsViewModelHealthConnectTest {
         mockHealthConnectManager = mock()
         mockWorkoutDao = mock()
         mockWorkoutSetDao = mock()
+        mockSecurePreferencesStore = mock()
+        mockKeyResolver = mock()
+        whenever(mockSecurePreferencesStore.hasUserGeminiApiKey()).thenReturn(false)
+        whenever(mockSecurePreferencesStore.getUserGeminiApiKey()).thenReturn(null)
+        whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.ShippedKey("test-key"))
 
         // Minimal stubs for non-HC init paths
         whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
@@ -105,7 +115,9 @@ class SettingsViewModelHealthConnectTest {
         context = mock(),
         healthConnectManager = mockHealthConnectManager,
         workoutDao = mockWorkoutDao,
-        workoutSetDao = mockWorkoutSetDao
+        workoutSetDao = mockWorkoutSetDao,
+        securePreferencesStore = mockSecurePreferencesStore,
+        keyResolver = mockKeyResolver
     )
 
     // ── Test 1: HC not available ─────────────────────────────────────────────

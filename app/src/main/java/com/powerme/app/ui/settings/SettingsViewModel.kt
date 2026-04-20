@@ -7,6 +7,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.secure.SecurePreferencesStore
+import com.powerme.app.ai.GeminiKeyResolver
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
@@ -31,6 +33,8 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 data class PlateState(val weight: Double, val isEnabled: Boolean)
+
+enum class ApiKeyStatus { UsingUser, UsingDefault, NoKey }
 
 data class SettingsUiState(
     val availablePlates: List<PlateState> = listOf(
@@ -66,6 +70,10 @@ data class SettingsUiState(
     val cloudRestoreMessage: String? = null,
     val isBackingUpToCloud: Boolean = false,
     val backupMessage: String? = null,
+    // AI — API key (device-local, never synced to Firestore)
+    val hasUserApiKey: Boolean = false,
+    val userApiKeyInput: String = "",
+    val apiKeyStatus: ApiKeyStatus = ApiKeyStatus.UsingDefault,
     // Health Connect
     val healthConnectChecking: Boolean = true,
     val healthConnectAvailable: Boolean = false,
@@ -86,7 +94,9 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val healthConnectManager: HealthConnectManager,
     private val workoutDao: WorkoutDao,
-    private val workoutSetDao: WorkoutSetDao
+    private val workoutSetDao: WorkoutSetDao,
+    private val securePreferencesStore: SecurePreferencesStore,
+    private val keyResolver: GeminiKeyResolver
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -95,6 +105,7 @@ class SettingsViewModel @Inject constructor(
     init {
         loadUserSettings()
         loadAppSettings()
+        loadApiKeyStatus()
         _uiState.update { it.copy(isSignedIn = auth.currentUser != null) }
         checkHealthConnectStatus()
     }
@@ -135,6 +146,45 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(notificationsEnabled = value) }
             }
         }
+    }
+
+    private fun loadApiKeyStatus() {
+        val hasKey = securePreferencesStore.hasUserGeminiApiKey()
+        val status = when {
+            hasKey -> ApiKeyStatus.UsingUser
+            keyResolver.resolve() is com.powerme.app.ai.KeyResolution.NoKey -> ApiKeyStatus.NoKey
+            else -> ApiKeyStatus.UsingDefault
+        }
+        _uiState.update { it.copy(hasUserApiKey = hasKey, apiKeyStatus = status) }
+    }
+
+    fun updateApiKeyInput(text: String) {
+        _uiState.update { it.copy(userApiKeyInput = text) }
+    }
+
+    fun saveUserApiKey() {
+        val trimmed = _uiState.value.userApiKeyInput.trim()
+        if (trimmed.isBlank()) return
+        securePreferencesStore.setUserGeminiApiKey(trimmed)
+        // Do NOT call firestoreSyncManager.pushAppPreferences() — API key is device-local
+        _uiState.update {
+            it.copy(
+                userApiKeyInput = "",
+                hasUserApiKey = true,
+                apiKeyStatus = ApiKeyStatus.UsingUser
+            )
+        }
+    }
+
+    fun clearUserApiKey() {
+        securePreferencesStore.clearUserGeminiApiKey()
+        // Do NOT call firestoreSyncManager.pushAppPreferences() — API key is device-local
+        val newStatus = if (keyResolver.resolve() is com.powerme.app.ai.KeyResolution.NoKey) {
+            ApiKeyStatus.NoKey
+        } else {
+            ApiKeyStatus.UsingDefault
+        }
+        _uiState.update { it.copy(hasUserApiKey = false, apiKeyStatus = newStatus) }
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -420,6 +470,7 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(isDeletingAccount = true, showDeleteAccountDialog = false) }
             try {
                 database.clearAllTables()
+                securePreferencesStore.clearUserGeminiApiKey()
                 Firebase.auth.currentUser?.delete()?.await()
                 appSettingsDataStore.setLanguage("Hebrew")
             } catch (e: Exception) {

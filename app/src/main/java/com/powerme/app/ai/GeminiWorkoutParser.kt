@@ -1,7 +1,6 @@
 package com.powerme.app.ai
 
 import com.google.ai.client.generativeai.GenerativeModel
-import com.powerme.app.BuildConfig
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -25,18 +24,24 @@ data class ParseResult(
 private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
 @Singleton
-class GeminiWorkoutParser @Inject constructor() {
-
-    private val model by lazy {
-        GenerativeModel(
-            modelName = "gemini-2.0-flash",
-            apiKey = BuildConfig.GEMINI_API_KEY
-        )
-    }
+class GeminiWorkoutParser @Inject constructor(
+    private val keyResolver: GeminiKeyResolver
+) {
 
     suspend fun parseWorkoutText(userInput: String, exerciseNames: List<String>): ParseResult {
         if (userInput.isBlank()) return ParseResult(emptyList(), "No input provided")
 
+        val resolution = keyResolver.resolve()
+        if (resolution is KeyResolution.NoKey) {
+            return ParseResult(emptyList(), "API_KEY_MISSING")
+        }
+        val apiKey = when (resolution) {
+            is KeyResolution.UserKey -> resolution.value
+            is KeyResolution.ShippedKey -> resolution.value
+            is KeyResolution.NoKey -> return ParseResult(emptyList(), "API_KEY_MISSING")
+        }
+
+        val model = GenerativeModel(modelName = "gemini-2.0-flash", apiKey = apiKey)
         val namesContext = exerciseNames.joinToString(", ")
         val prompt = buildPrompt(userInput, namesContext)
 

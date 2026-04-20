@@ -1,25 +1,28 @@
 package com.powerme.app.ai
 
+import com.powerme.app.data.secure.SecurePreferencesStore
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
-/**
- * Tests the JSON parsing logic in GeminiWorkoutParser.
- * Does NOT make network calls — uses the internal parseJsonResponse() method directly.
- */
 class GeminiWorkoutParserTest {
 
     private lateinit var parser: GeminiWorkoutParser
+    private lateinit var mockStore: SecurePreferencesStore
+    private lateinit var resolver: GeminiKeyResolver
 
     @Before
     fun setup() {
-        // GeminiWorkoutParser has no-arg Hilt constructor; instantiate directly.
-        // The `model` lazy property is never touched by parseJsonResponse.
-        parser = GeminiWorkoutParser()
+        mockStore = mock()
+        whenever(mockStore.getUserGeminiApiKey()).thenReturn(null)
+        resolver = GeminiKeyResolver(store = mockStore, shippedKey = "test-shipped-key")
+        parser = GeminiWorkoutParser(keyResolver = resolver)
     }
 
     // ── Valid JSON ────────────────────────────────────────────────────────────
@@ -140,5 +143,24 @@ class GeminiWorkoutParserTest {
         val result = parser.parseJsonResponse(json)
         assertNull(result.error)
         assertTrue(result.exercises.isEmpty())
+    }
+
+    // ── Key resolution ────────────────────────────────────────────────────────
+
+    @Test
+    fun `parseWorkoutText returns API_KEY_MISSING when no key available`() = runTest {
+        whenever(mockStore.getUserGeminiApiKey()).thenReturn(null)
+        val noKeyResolver = GeminiKeyResolver(store = mockStore, shippedKey = "")
+        val noKeyParser = GeminiWorkoutParser(keyResolver = noKeyResolver)
+        val result = noKeyParser.parseWorkoutText("3x8 bench press", emptyList())
+        assertEquals("API_KEY_MISSING", result.error)
+        assertTrue(result.exercises.isEmpty())
+    }
+
+    @Test
+    fun `parseWorkoutText prefers user key over shipped key`() = runTest {
+        whenever(mockStore.getUserGeminiApiKey()).thenReturn("user-key-abc")
+        val userKeyResolver = GeminiKeyResolver(store = mockStore, shippedKey = "shipped-key")
+        assertEquals(KeyResolution.UserKey("user-key-abc"), userKeyResolver.resolve())
     }
 }
