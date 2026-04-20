@@ -61,7 +61,7 @@ Replace the manual "Warn before finish (sec)" input in all Clocks modes with an 
 
 - `app/src/main/java/com/powerme/app/ui/tools/ClocksScreen.kt` — UI changes to all four mode panels
 - `app/src/main/java/com/powerme/app/ui/tools/ClocksViewModel.kt` — computed auto-warn logic per mode; state for manual override flag
-- `TOOLS_SPEC.md` — update §4 (state fields) and §5 (alert logic) to reflect auto-warn behaviour
+- `CLOCKS_SPEC.md` — update §4 (state fields) and §5 (alert logic) to reflect auto-warn behaviour
 
 ---
 

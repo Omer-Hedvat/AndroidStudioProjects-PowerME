@@ -51,7 +51,7 @@ Read the relevant spec before touching files in that domain.
 | `HISTORY_ANALYTICS_SPEC.md` | History screen, StatisticalEngine (1RM, Volume, PRs), WorkoutDetailScreen |
 | `NAVIGATION_SPEC.md` | Route map, auth decision tree, WorkoutViewModel scope, transitions |
 | `THEME_SPEC.md` | Color palette, typography, shapes, dark/light scheme |
-| `TOOLS_SPEC.md` | Clocks tab — Stopwatch, Countdown, Tabata, EMOM |
+| `CLOCKS_SPEC.md` | Clocks tab — Stopwatch, Countdown, Tabata, EMOM |
 | `HEALTH_CONNECT_SPEC.md` | HC permissions, sync logic, Phase B writes, backfill |
 | `TRENDS_SPEC.md` | Trends tab — all chart cards, ReadinessEngine, TrendsDao, body heatmap |
 | `PROFILE_SETUP_SPEC.md` | Onboarding, two-step flow, HC offer |

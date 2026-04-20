@@ -94,7 +94,16 @@ Same `ActiveWorkoutScreen` UI, `isEditMode=true`. Differences from Live:
 | Back press | Minimize | Confirmation dialog |
 | Bottom nav bar | Visible | **Hidden / disabled** |
 
-**Per-Set Data in Edit Mode:** Individual set values are fully supported in edit mode and persist across save/reload:
+**Two contexts for edit mode — distinguished by `workoutId`:**
+
+| Context | `workoutId` | SAVE CHANGES writes to | Discard (✕) does |
+|---|---|---|---|
+| **Standalone Edit** (`startEditMode`) | `null` | `routine_exercises` immediately (atomic `withTransaction`) | Revert all in-memory changes, no DB write |
+| **Live Workout Edit** (pencil during active workout) | non-null | In-memory state only — staged as `workoutEditSnapshot` | Discard staged snapshot, resume live workout state |
+
+**Critical invariant: Edit mode during a live workout (`workoutId != null`) MUST NOT write to `routine_exercises` directly.** All structural changes made via the pencil during a live session are staged in memory. The Diff Engine resolves them post-workout when the user taps "Update Routine" / "Update Values". Cancelling the workout discards all staged changes. There is no path from live-workout edit mode to `routine_exercises` that bypasses the Diff Engine.
+
+**Per-Set Data in Edit Mode:** Individual set values are fully supported in edit mode and persist across save/reload (standalone context only):
 
 | Data | Column | Default when empty |
 |---|---|---|
@@ -111,9 +120,13 @@ All three are stored as comma-separated ordered strings (e.g. `"80,85,90"`). `st
 - System back and the TopAppBar Cancel (✕) both trigger a confirmation dialog: **[Discard Edits]** · **[Keep Editing]**. Navigation is only permitted after the user explicitly saves or discards.
 - There is no silent exit from edit mode.
 
-Save flow: SAVE CHANGES → `saveRoutineEdits()` → atomic `withTransaction` → `editModeSaved=true` → `LaunchedEffect` → `onWorkoutFinished()`.
+**Standalone Save flow:** SAVE CHANGES → `saveRoutineEdits()` → atomic `withTransaction` → `editModeSaved=true` → `LaunchedEffect` → `onWorkoutFinished()`.
 
-Discard flow: Confirmation dialog → [Discard Edits] → `cancelEditMode()` → resets `ActiveWorkoutState` → `onWorkoutFinished()`. Must also be called via `DisposableEffect` on screen disposal to prevent stale state leaking into the next session.
+**Standalone Discard flow:** Confirmation dialog → [Discard Edits] → `cancelEditMode()` → resets `ActiveWorkoutState` → `onWorkoutFinished()`. Must also be called via `DisposableEffect` on screen disposal to prevent stale state leaking into the next session.
+
+**Live Workout Edit Save flow:** SAVE CHANGES → merge staged changes into `ActiveWorkoutState` in-memory → exit edit mode → resume live workout (no navigation, no DB write to `routine_exercises`).
+
+**Live Workout Edit Discard flow:** ✕ → discard staged snapshot → exit edit mode → resume live workout unchanged.
 
 ### Phase C — Post-Workout: The Diff Engine
 
@@ -133,13 +146,12 @@ See Section 7 for full detail. Summary:
 | Weight/reps (live) | `workout_sets` (Iron Vault, debounced 300ms) |
 | Set completion | `workout_sets.isCompleted = 1` (immediate) |
 | Finish workout | `workouts.isCompleted = 1` + deletes incomplete sets |
-| Cancel workout | Deletes all orphaned `workout_sets` rows |
-| Save routine edits | `routine_exercises` (atomic `withTransaction`) — includes `setTypesJson` |
-| Set type (edit mode) | `routine_exercises.setTypesJson` (serialized on SAVE CHANGES) |
-| Weight per set (edit mode) | `routine_exercises.setWeightsJson` (serialized on SAVE CHANGES) |
-| Reps per set (edit mode) | `routine_exercises.setRepsJson` (serialized on SAVE CHANGES) |
+| Cancel workout | Deletes all orphaned `workout_sets` rows + discards any staged live-workout edit snapshot |
+| Save routine edits (standalone, `workoutId=null`) | `routine_exercises` (atomic `withTransaction`) — includes `setTypesJson` |
+| Discard routine edits (standalone) | No DB write — resets `ActiveWorkoutState` only |
+| Save routine edits (live workout, `workoutId!=null`) | In-memory `ActiveWorkoutState` only — NOT `routine_exercises` |
 | Set type (live workout) | `workout_sets.setType` (immediate, via Iron Vault) |
-| Routine sync confirm | `routine_exercises` (values and/or structure) |
+| Routine sync confirm (post-workout) | `routine_exercises` (values and/or structure) — **sole path** from live session → template |
 
 ---
 
@@ -159,7 +171,7 @@ See Section 7 for full detail. Summary:
 
 #### StandaloneTimerSheet
 
-The sheet mirrors the Countdown UI from the Clocks tab (TOOLS_SPEC.md §7):
+The sheet mirrors the Countdown UI from the Clocks tab (CLOCKS_SPEC.md §7):
 
 ```
 ┌──────────────────────────────┐
@@ -173,7 +185,7 @@ The sheet mirrors the Countdown UI from the Clocks tab (TOOLS_SPEC.md §7):
 └──────────────────────────────┘
 ```
 
-- **Interactive Circular Dial:** Identical spec to TOOLS_SPEC.md §7. One full 360° rotation equals 6 minutes (360 seconds). Drag handle around the circle to set duration. Value snaps to 5-second intervals.
+- **Interactive Circular Dial:** Identical spec to CLOCKS_SPEC.md §7. One full 360° rotation equals 6 minutes (360 seconds). Drag handle around the circle to set duration. Value snaps to 5-second intervals.
 - **Dial Center:** Displays the configured time in `mm:ss` format using monospace font.
 - **Presets:** Same 4 `SuggestionChip`s (`0:30`, `1:00`, `1:30`, `2:00`). Snap & Wait — tapping a preset instantly snaps the dial to the corresponding value but does **NOT** auto-start the timer.
 - **Controls:**
@@ -559,14 +571,18 @@ On `finishWorkout()`, the ViewModel diffs the completed session against the `rou
 
 ### 7.1 Change Detection
 
+**Definitions:**
+- **Values** — weights, reps, and RPE logged during the session (compared against `routine_exercises.defaultWeight` / `reps`)
+- **Structure** — rest timer durations, exercise list, set count, set types (warmup/working/drop/failure), superset groupings, exercise order
+
 | Scenario | `RoutineSyncType` | What changed |
 |---|---|---|
 | No difference | `null` | **Skip post-workout sync bar entirely.** Go straight to summary. |
-| Weight or reps differ from `routine_exercises.defaultWeight`/`reps` | `VALUES` | User lifted more/less than the template default; detected by comparing the session's completed-set average weight/reps vs stored defaults |
-| Exercise set, order, or rest changed | `STRUCTURE` | User added/removed a set, swapped exercise, changed rest duration |
+| Values only (weights/reps/RPE differ from template defaults) | `VALUES` | User lifted more/less or logged different RPE than template defaults |
+| Structure only (rest timers, sets, exercises, set types, order, supersets changed) | `STRUCTURE` | User added/removed sets or exercises, changed rest durations, reordered, changed set types, or modified supersets |
 | Both | `BOTH` | Structure and values both differ |
 
-Detection runs in `finishWorkout()` by comparing `ActiveExercise` state against `RoutineExerciseSnapshot`.
+Detection runs in `finishWorkout()` by comparing `ActiveExercise` state against `RoutineExerciseSnapshot`. Also includes any staged structural changes from live-workout edit mode (pencil).
 
 ### 7.2 Dialog Decisions
 

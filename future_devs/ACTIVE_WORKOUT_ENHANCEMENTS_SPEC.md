@@ -8,7 +8,7 @@
 | **Depends on** | — |
 | **Roadmap** | `ROADMAP.md §P0` and `§P1` |
 
-**Related specs:** `WORKOUT_SPEC.md`, `TOOLS_SPEC.md`
+**Related specs:** `WORKOUT_SPEC.md`, `CLOCKS_SPEC.md`
 
 ---
 
@@ -121,7 +121,7 @@ IDLE (editable duration) → RUNNING → PAUSED → RUNNING
 
 ### Implementation Notes
 - Add `TimedSetTimerState` to `ActiveWorkoutState` (or as local Compose state in `TimedSetRow` — prefer local state since it doesn't need to survive navigation)
-- Reuse the `CountdownBeepPlayer` / audio utility already used by the Clocks tab (`TOOLS_SPEC.md`)
+- Reuse the `CountdownBeepPlayer` / audio utility already used by the Clocks tab (`CLOCKS_SPEC.md`)
 - Target duration comes from `set.time` (stored as seconds `Int`)
 - Use `LaunchedEffect(timerRunning)` + `delay(1000L)` loop (same pattern as `WorkoutViewModel.startRestTimer()`)
 - Wake lock: not required for per-set timers (rest timer already handles this)

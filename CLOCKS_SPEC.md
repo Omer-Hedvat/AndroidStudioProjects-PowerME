@@ -1,4 +1,4 @@
-# TOOLS_SPEC.md — Clocks Tab (Stopwatch · Countdown · Tabata · EMOM)
+# CLOCKS_SPEC.md — Clocks Tab (Stopwatch · Countdown · Tabata · EMOM)
 
 > **Status:** ✅ Complete — reflects current implementation.
 > **Route:** `tools` · Bottom tab #4 · UI label **"Clocks"**

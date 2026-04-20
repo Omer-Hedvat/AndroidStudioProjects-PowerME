@@ -30,7 +30,7 @@ Single source of truth for bug status across sessions.
 | [BUG_hc_offer_skipped_on_login](BUG_hc_offer_skipped_on_login.md) | Existing users skip HC connect screen on login — navigates directly to Workouts | ✅ Wrapped | P1 | — | — | `AppSettingsDataStore.kt`, `AuthViewModel.kt`, `WelcomeScreen.kt`, `PowerMeNavigation.kt`, `HcOfferScreen.kt` (new), `HcOfferViewModel.kt` (new) |
 | [BUG_trends_scroll_crash](BUG_trends_scroll_crash.md) | Trends tab crashes when scrolling to VolumeTrendCard — likely MuscleGroupVolumeCard producer race | ✅ Wrapped | P0 | — | — | `VolumeTrendCard.kt`, `E1RMProgressionCard.kt`, `MuscleGroupVolumeCard.kt`, `EffectiveSetsCard.kt`, `MetricsScreen.kt` |
 | [BUG_timed_exercise_row_columns](BUG_timed_exercise_row_columns.md) | Timed exercise row: missing PREV column, spurious RPE column, orphaned '-' box with no header | ✅ Wrapped | P1 | — | — | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
-| [BUG_warning_beep_gap_too_wide](BUG_warning_beep_gap_too_wide.md) | WARNING double-beep has 300ms gap — too wide, sounds like two separate events | ✅ Wrapped | P3 | — | — | `RestTimerNotifier.kt`, `TOOLS_SPEC.md` |
+| [BUG_warning_beep_gap_too_wide](BUG_warning_beep_gap_too_wide.md) | WARNING double-beep has 300ms gap — too wide, sounds like two separate events | ✅ Wrapped | P3 | — | — | `RestTimerNotifier.kt`, `CLOCKS_SPEC.md` |
 | [BUG_toggle_colors_inconsistent](BUG_toggle_colors_inconsistent.md) | Switch/Toggle colors inconsistent across screens | ✅ Wrapped | P3 | — | — | `SettingsScreen.kt`, `ActiveWorkoutScreen.kt` |
 | [BUG_trends_card_crash_on_open](BUG_trends_card_crash_on_open.md) | Trends card crashes when opened | ✅ Wrapped | P0 | — | — | `VolumeTrendCard.kt`, `E1RMProgressionCard.kt`, `MuscleGroupVolumeCard.kt`, `EffectiveSetsCard.kt` |
 | [BUG_next_field_not_selected_on_confirm](BUG_next_field_not_selected_on_confirm.md) | Next input field not auto-selected when confirming with checkmark | ✅ Wrapped | P2 | — | — | `WorkoutInputField.kt` |
@@ -67,10 +67,15 @@ Single source of truth for bug status across sessions.
 | [BUG_deleted_rest_timer_returns](BUG_deleted_rest_timer_returns.md) | Deleted rest timers reappear after app reopen or workout restart | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutsScreen.kt`, `WorkoutDao.kt`, `FirestoreSyncManager.kt` |
 | [BUG_prev_results_mixed_set_types](BUG_prev_results_mixed_set_types.md) | PREV column shows wrong data — warmup rows show working set PREV and vice versa | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_prev_rpe_multiplied](BUG_prev_rpe_multiplied.md) | PREV RPE shown as 10× actual value (9 shows as 90) | ✅ Wrapped | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_warmup_rest_no_collapse_on_skip](BUG_warmup_rest_no_collapse_on_skip.md) | Warmup rest timer doesn't collapse when set is skipped | 🔵 Open | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_warmup_rest_no_collapse_on_skip](BUG_warmup_rest_no_collapse_on_skip.md) | Warmup rest timer doesn't collapse when set is skipped | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_confirm_set_after_reps](BUG_confirm_set_after_reps.md) | Tapping ✓ after entering reps does not confirm the set | ✅ Completed | P1 | — | — | `ActiveWorkoutScreen.kt` |
 | [BUG_rest_timer_end_beep_missing](BUG_rest_timer_end_beep_missing.md) | Long beep at end of rest timer is missing | ✅ Completed | P2 | — | — | `RestTimerNotifier.kt`, `WorkoutViewModel.kt` |
 | [BUG_exercise_detail_scroll_crash](BUG_exercise_detail_scroll_crash.md) | Exercise Detail Screen crashes on scroll | ✅ Completed | P1 | — | Exercise Detail Tabs v2 | `ExerciseDetailScreen.kt` |
+| [BUG_summary_avg_rpe_multiplied](BUG_summary_avg_rpe_multiplied.md) | Workout summary avg RPE shown as 10× actual value (86.3 instead of 8.6) | ✅ Completed | P2 | — | — | `WorkoutSummaryViewModel.kt`, `WorkoutSummaryViewModelTest.kt` |
+| [BUG_warmup_ramp_format_crash](BUG_warmup_ramp_format_crash.md) | WarmUpRampSection crashes with UnknownFormatConversionException when percentageLabel contains % | ✅ Completed | P0 | — | — | `AboutTab.kt` |
+| [BUG_about_tab_section_overlaps](BUG_about_tab_section_overlaps.md) | ABOUT tab sections overlap — BodyOutlineCanvas bleeds through Training Zones and Form Cues | ✅ Completed | P1 | — | — | `AboutTab.kt` |
+| [BUG_rest_timer_delete_clears_all](BUG_rest_timer_delete_clears_all.md) | Deleting one rest timer removes all rest timers for that exercise | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_edit_mode_x_saves_changes](BUG_edit_mode_x_saves_changes.md) | Edit mode 'X' (discard) button saves changes instead of discarding | ✅ Completed | P0 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 
 ---
 

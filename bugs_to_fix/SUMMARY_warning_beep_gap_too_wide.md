@@ -7,7 +7,7 @@
 | File | Change |
 |---|---|
 | `app/src/main/java/com/powerme/app/util/RestTimerNotifier.kt` | `postDelayed` gap in `AlertType.WARNING` branch: 300ms → 275ms |
-| `TOOLS_SPEC.md` | §6 alert table: updated WARNING gap from 300ms to 100ms |
+| `CLOCKS_SPEC.md` | §6 alert table: updated WARNING gap from 300ms to 100ms |
 
 ## Surfaces Fixed
 - Tools → Countdown warning alert (when timer hits the user-configured warn threshold)
