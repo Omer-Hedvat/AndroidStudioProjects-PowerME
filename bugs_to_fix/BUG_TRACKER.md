@@ -74,9 +74,10 @@ Single source of truth for bug status across sessions.
 | [BUG_summary_avg_rpe_multiplied](BUG_summary_avg_rpe_multiplied.md) | Workout summary avg RPE shown as 10× actual value (86.3 instead of 8.6) | ✅ Completed | P2 | — | — | `WorkoutSummaryViewModel.kt`, `WorkoutSummaryViewModelTest.kt` |
 | [BUG_warmup_ramp_format_crash](BUG_warmup_ramp_format_crash.md) | WarmUpRampSection crashes with UnknownFormatConversionException when percentageLabel contains % | ✅ Completed | P0 | — | — | `AboutTab.kt` |
 | [BUG_about_tab_section_overlaps](BUG_about_tab_section_overlaps.md) | ABOUT tab sections overlap — BodyOutlineCanvas bleeds through Training Zones and Form Cues | ✅ Completed | P1 | — | — | `AboutTab.kt` |
-| [BUG_rest_timer_delete_clears_all](BUG_rest_timer_delete_clears_all.md) | Deleting one rest timer removes all rest timers for that exercise | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_edit_mode_x_saves_changes](BUG_edit_mode_x_saves_changes.md) | Edit mode 'X' (discard) button saves changes instead of discarding | ✅ Completed | P0 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_rest_timer_delete_clears_all](BUG_rest_timer_delete_clears_all.md) | Deleting one rest timer removes all rest timers for that exercise | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_edit_mode_x_saves_changes](BUG_edit_mode_x_saves_changes.md) | Edit mode 'X' (discard) button saves changes instead of discarding | ✅ Wrapped | P0 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_exercise_card_heatmap_cropped](BUG_exercise_card_heatmap_cropped.md) | Exercise card muscle activation heatmap cropped — missing upper and lower body | 🔵 Open | P2 | — | — | — |
+| [BUG_update_rest_timers_readds_deleted](BUG_update_rest_timers_readds_deleted.md) | "Update Rest Timers" re-adds previously deleted rest timers | 🟡 In Progress | P1 | — | — | — |
 
 ---
 
