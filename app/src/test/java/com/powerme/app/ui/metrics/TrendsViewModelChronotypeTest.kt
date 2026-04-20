@@ -2,6 +2,7 @@ package com.powerme.app.ui.metrics
 
 import androidx.lifecycle.SavedStateHandle
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.repository.TrendsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,6 +17,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import kotlinx.coroutines.flow.flowOf
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
@@ -26,12 +28,15 @@ class TrendsViewModelChronotypeTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var trendsRepository: TrendsRepository
+    private lateinit var appSettings: AppSettingsDataStore
     private lateinit var viewModel: TrendsViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         trendsRepository = mock()
+        appSettings = mock()
+        whenever(appSettings.lastStressComputedAt).thenReturn(flowOf(0L))
     }
 
     @After
@@ -85,7 +90,7 @@ class TrendsViewModelChronotypeTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getChronotypeData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         assertEquals(data, viewModel.chronotypeData.value)
@@ -97,7 +102,7 @@ class TrendsViewModelChronotypeTest {
         whenever(trendsRepository.getChronotypeData(org.mockito.kotlin.any()))
             .thenThrow(RuntimeException("DB error"))
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         assertNull(viewModel.chronotypeData.value)
@@ -114,7 +119,7 @@ class TrendsViewModelChronotypeTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getChronotypeData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         val result = viewModel.chronotypeData.value
@@ -133,7 +138,7 @@ class TrendsViewModelChronotypeTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getChronotypeData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         assertEquals(7, viewModel.chronotypeData.value!!.sleepPoints.size)
@@ -149,7 +154,7 @@ class TrendsViewModelChronotypeTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getChronotypeData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         val result = viewModel.chronotypeData.value!!
@@ -165,7 +170,7 @@ class TrendsViewModelChronotypeTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getChronotypeData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         val result = viewModel.chronotypeData.value!!
@@ -182,7 +187,7 @@ class TrendsViewModelChronotypeTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getChronotypeData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         val result = viewModel.chronotypeData.value

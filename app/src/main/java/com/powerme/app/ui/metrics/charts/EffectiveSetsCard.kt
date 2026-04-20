@@ -21,6 +21,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -197,27 +198,38 @@ fun EffectiveSetsCard(
                     mergeMode = { ColumnCartesianLayer.MergeMode.Stacked }
                 )
 
-                CartesianChartHost(
-                    chart = rememberCartesianChart(
-                        stackedBarLayer,
-                        startAxis = VerticalAxis.rememberStart(
-                            label = axisLabel,
-                            valueFormatter = yFormatter
+                // key(timeRange) forces the CartesianChartHost — and its scroll/zoom
+                // states — to be re-created whenever the selected time range changes.
+                // Without this, `initialZoom = Zoom.Content` only fires once at chart
+                // creation (with empty producer data), so the zoom never adjusts for a
+                // shorter or longer range. Re-creating the host guarantees a fresh
+                // Zoom.Content calculation for the incoming data.
+                key(timeRange) {
+                    CartesianChartHost(
+                        chart = rememberCartesianChart(
+                            stackedBarLayer,
+                            startAxis = VerticalAxis.rememberStart(
+                                label = axisLabel,
+                                valueFormatter = yFormatter
+                            ),
+                            bottomAxis = HorizontalAxis.rememberBottom(
+                                label = axisLabel,
+                                valueFormatter = xFormatter
+                            )
                         ),
-                        bottomAxis = HorizontalAxis.rememberBottom(
-                            label = axisLabel,
-                            valueFormatter = xFormatter
-                        )
-                    ),
-                    modelProducer = modelProducer,
-                    modifier = Modifier.matchParentSize(),
-                    scrollState = rememberVicoScrollState(
-                        initialScroll = Scroll.Absolute.End,
-                        autoScroll = Scroll.Absolute.End,
-                        autoScrollCondition = AutoScrollCondition.OnModelSizeIncreased
-                    ),
-                    zoomState = rememberVicoZoomState(initialZoom = Zoom.Content)
-                )
+                        modelProducer = modelProducer,
+                        modifier = Modifier.matchParentSize(),
+                        scrollState = rememberVicoScrollState(
+                            initialScroll = Scroll.Absolute.End,
+                            autoScroll = Scroll.Absolute.End,
+                            // Fire on every model update (not just size increase) so the
+                            // chart scrolls to the most-recent bar even when switching to
+                            // a shorter range (where the model shrinks).
+                            autoScrollCondition = AutoScrollCondition { _, _ -> true }
+                        ),
+                        zoomState = rememberVicoZoomState(initialZoom = Zoom.Content)
+                    )
+                }
 
             }
 

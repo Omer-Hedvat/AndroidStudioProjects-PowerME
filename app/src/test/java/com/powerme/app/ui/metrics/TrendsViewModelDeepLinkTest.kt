@@ -2,6 +2,7 @@ package com.powerme.app.ui.metrics
 
 import androidx.lifecycle.SavedStateHandle
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.database.ExerciseWithHistory
 import com.powerme.app.data.repository.TrendsRepository
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlinx.coroutines.flow.flowOf
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -40,11 +42,14 @@ class TrendsViewModelDeepLinkTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var trendsRepository: TrendsRepository
+    private lateinit var appSettings: AppSettingsDataStore
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         trendsRepository = mock()
+        appSettings = mock()
+        whenever(appSettings.lastStressComputedAt).thenReturn(flowOf(0L))
     }
 
     @After
@@ -89,6 +94,7 @@ class TrendsViewModelDeepLinkTest {
 
         val vm = TrendsViewModel(
             trendsRepository,
+            appSettings,
             SavedStateHandle(mapOf("exerciseId" to 42L))
         )
 
@@ -111,6 +117,7 @@ class TrendsViewModelDeepLinkTest {
 
         val vm = TrendsViewModel(
             trendsRepository,
+            appSettings,
             SavedStateHandle(mapOf("exerciseId" to 42L))
         )
         runCurrent()
@@ -130,6 +137,7 @@ class TrendsViewModelDeepLinkTest {
 
         val vm = TrendsViewModel(
             trendsRepository,
+            appSettings,
             SavedStateHandle(mapOf("exerciseId" to 42L))
         )
         runCurrent()
@@ -145,6 +153,7 @@ class TrendsViewModelDeepLinkTest {
 
         val vm = TrendsViewModel(
             trendsRepository,
+            appSettings,
             SavedStateHandle(mapOf("exerciseId" to 42L))
         )
         runCurrent()
@@ -163,6 +172,7 @@ class TrendsViewModelDeepLinkTest {
 
         val vm = TrendsViewModel(
             trendsRepository,
+            appSettings,
             SavedStateHandle(mapOf("exerciseId" to 42L))
         )
         assertTrue(vm.deepLinkPending.value)
@@ -181,6 +191,7 @@ class TrendsViewModelDeepLinkTest {
 
         val vm = TrendsViewModel(
             trendsRepository,
+            appSettings,
             SavedStateHandle(mapOf("exerciseId" to 42L))
         )
         runCurrent()
@@ -202,7 +213,7 @@ class TrendsViewModelDeepLinkTest {
         )
         stubDefaults(pickerItems)
 
-        val vm = TrendsViewModel(trendsRepository, SavedStateHandle())
+        val vm = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         assertEquals(7L, vm.selectedExerciseId.value)
@@ -216,6 +227,7 @@ class TrendsViewModelDeepLinkTest {
 
         val vm = TrendsViewModel(
             trendsRepository,
+            appSettings,
             SavedStateHandle(mapOf("exerciseId" to -1L))
         )
         runCurrent()
@@ -229,7 +241,7 @@ class TrendsViewModelDeepLinkTest {
     fun `no deep-link with empty picker — selectedExerciseId stays null`() = runTest(testDispatcher) {
         stubDefaults(emptyList())
 
-        val vm = TrendsViewModel(trendsRepository, SavedStateHandle())
+        val vm = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         assertNull(vm.selectedExerciseId.value)

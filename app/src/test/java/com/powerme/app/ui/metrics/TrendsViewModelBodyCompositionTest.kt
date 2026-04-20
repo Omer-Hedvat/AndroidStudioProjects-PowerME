@@ -1,6 +1,7 @@
 package com.powerme.app.ui.metrics
 
 import androidx.lifecycle.SavedStateHandle
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.repository.TrendsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,6 +16,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import kotlinx.coroutines.flow.flowOf
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
@@ -24,12 +26,15 @@ class TrendsViewModelBodyCompositionTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var trendsRepository: TrendsRepository
+    private lateinit var appSettings: AppSettingsDataStore
     private lateinit var viewModel: TrendsViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         trendsRepository = mock()
+        appSettings = mock()
+        whenever(appSettings.lastStressComputedAt).thenReturn(flowOf(0L))
     }
 
     @After
@@ -89,7 +94,7 @@ class TrendsViewModelBodyCompositionTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getBodyCompositionData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         assertEquals(data, viewModel.bodyComposition.value)
@@ -101,7 +106,7 @@ class TrendsViewModelBodyCompositionTest {
         whenever(trendsRepository.getBodyCompositionData(org.mockito.kotlin.any()))
             .thenThrow(RuntimeException("DB error"))
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         assertNull(viewModel.bodyComposition.value)
@@ -119,7 +124,7 @@ class TrendsViewModelBodyCompositionTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getBodyCompositionData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         val result = viewModel.bodyComposition.value
@@ -135,7 +140,7 @@ class TrendsViewModelBodyCompositionTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getBodyCompositionData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         val result = viewModel.bodyComposition.value
@@ -155,7 +160,7 @@ class TrendsViewModelBodyCompositionTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getBodyCompositionData(org.mockito.kotlin.any())).thenReturn(data)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         val result = viewModel.bodyComposition.value

@@ -3,6 +3,7 @@ package com.powerme.app.ui.metrics
 import androidx.lifecycle.SavedStateHandle
 import com.powerme.app.analytics.ReadinessEngine
 import com.powerme.app.analytics.StressAccumulationEngine
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.database.BodyRegion
 import com.powerme.app.data.repository.TrendsRepository
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
+import kotlinx.coroutines.flow.flowOf
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -28,12 +30,15 @@ class TrendsViewModelBodyStressRefreshTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var trendsRepository: TrendsRepository
+    private lateinit var appSettings: AppSettingsDataStore
     private lateinit var viewModel: TrendsViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         trendsRepository = mock()
+        appSettings = mock()
+        whenever(appSettings.lastStressComputedAt).thenReturn(flowOf(0L))
     }
 
     @After
@@ -45,7 +50,7 @@ class TrendsViewModelBodyStressRefreshTest {
     }
 
     private suspend fun stubRepositoryDefaults(
-        stressResult: List<StressAccumulationEngine.RegionStress> = emptyList()
+        stressResult: List<StressAccumulationEngine.RegionDetail> = emptyList()
     ) {
         whenever(trendsRepository.getReadinessScore()).thenReturn(
             ReadinessEngine.ReadinessScore.NoData
@@ -79,7 +84,7 @@ class TrendsViewModelBodyStressRefreshTest {
     fun `refreshBodyStressMap triggers additional getBodyStressMap call`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         // init's loadAll() already called getBodyStressMap once — call refreshBodyStressMap() now
@@ -93,14 +98,14 @@ class TrendsViewModelBodyStressRefreshTest {
     @Test
     fun `refreshBodyStressMap updates bodyStressMap state with latest data`() = runTest(testDispatcher) {
         val initialStress = listOf(
-            StressAccumulationEngine.RegionStress(BodyRegion.PECS, 100.0)
+            StressAccumulationEngine.RegionDetail(BodyRegion.PECS, 100.0, emptyList(), StressAccumulationEngine.RecoveryStatus.RECOVERING)
         )
         val refreshedStress = listOf(
-            StressAccumulationEngine.RegionStress(BodyRegion.PECS, 70.0) // decayed
+            StressAccumulationEngine.RegionDetail(BodyRegion.PECS, 70.0, emptyList(), StressAccumulationEngine.RecoveryStatus.RECOVERING) // decayed
         )
 
         stubRepositoryDefaults(initialStress)
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         // Verify initial state from loadAll()
@@ -122,10 +127,10 @@ class TrendsViewModelBodyStressRefreshTest {
     @Test
     fun `refreshBodyStressMap handles repository exception gracefully`() = runTest(testDispatcher) {
         val initialStress = listOf(
-            StressAccumulationEngine.RegionStress(BodyRegion.UPPER_BACK, 50.0)
+            StressAccumulationEngine.RegionDetail(BodyRegion.UPPER_BACK, 50.0, emptyList(), StressAccumulationEngine.RecoveryStatus.RECOVERING)
         )
         stubRepositoryDefaults(initialStress)
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         // Repository throws on the refresh call
@@ -142,13 +147,13 @@ class TrendsViewModelBodyStressRefreshTest {
     @Test
     fun `refreshBodyStressMap updates maxStress derived field`() = runTest(testDispatcher) {
         stubRepositoryDefaults(emptyList())
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         val multiRegionStress = listOf(
-            StressAccumulationEngine.RegionStress(BodyRegion.PECS, 80.0),
-            StressAccumulationEngine.RegionStress(BodyRegion.ANTERIOR_DELTOID, 120.0),
-            StressAccumulationEngine.RegionStress(BodyRegion.UPPER_BACK, 60.0)
+            StressAccumulationEngine.RegionDetail(BodyRegion.PECS, 80.0, emptyList(), StressAccumulationEngine.RecoveryStatus.RECOVERING),
+            StressAccumulationEngine.RegionDetail(BodyRegion.ANTERIOR_DELTOID, 120.0, emptyList(), StressAccumulationEngine.RecoveryStatus.FATIGUED),
+            StressAccumulationEngine.RegionDetail(BodyRegion.UPPER_BACK, 60.0, emptyList(), StressAccumulationEngine.RecoveryStatus.RECOVERING)
         )
         whenever(trendsRepository.getBodyStressMap()).thenReturn(multiRegionStress)
 

@@ -98,7 +98,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Trends Step 2 — VolumeTrendCard | `TRENDS_CHARTS_SPEC.md §Step 2` | M | `done` | — |
 | Trends Step 3 — E1RMProgressionCard | `TRENDS_CHARTS_SPEC.md §Step 3` | M | `done` | — |
 | Trends Step 4 — MuscleGroupVolumeCard | `TRENDS_CHARTS_SPEC.md §Step 4` | M | `wrapped` | — |
-| Trends Step 5 — EffectiveSetsCard | `TRENDS_CHARTS_SPEC.md §Step 5` | M | `in-progress` | — |
+| Trends Step 5 — EffectiveSetsCard | `TRENDS_CHARTS_SPEC.md §Step 5` | M | `wrapped` | — |
 | HC Extended Reads (HR, Calories, VO₂ Max, Distance, SpO₂) | `HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | M | `completed` | — |
 | HC Phase B — Write workouts to Health Connect | `HEALTH_CONNECT_SPEC.md §8` | S | `wrapped` | — |
 | HC Backfill — Push last 90 days to Health Connect on permission grant | `future_devs/HC_BACKFILL_SPEC.md` | S | `wrapped` | HC Phase B ✅ |
@@ -134,8 +134,8 @@ Flagship feature. Requires all groundwork below before any UI work begins.
 | Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `completed` | — |
 | Stress vectors — Gemini expansion (remaining 120+) | `TRENDS_SPEC.md §10` | M | `completed` | Manual seed ✅ |
 | Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `completed` | — |
-| SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `rework` | — |
-| Full heatmap card (wired end-to-end) | `TRENDS_SPEC.md §10` | XL | `blocked` | All above + Trends P4 complete |
+| SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `completed` | — |
+| Full heatmap card (wired end-to-end) | `TRENDS_SPEC.md §10` | XL | `completed` | All above + Trends P4 complete |
 
 ---
 

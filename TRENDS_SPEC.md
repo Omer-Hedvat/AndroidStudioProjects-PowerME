@@ -532,18 +532,27 @@ data class EffectiveSetsRow(
 #### Data Flow
 
 ```
-TrendsDao.getWeeklyEffectiveSets(sinceMs)
-  → TrendsRepository.getEffectiveSetsData(windowDays)
-    → TrendsViewModel.effectiveSetsState: StateFlow<EffectiveSetsState>
+TrendsDao.getWeeklyEffectiveSets(sinceMs)          // sinceMs = TrendsTimeRange.sinceMs()
+  → TrendsRepository.getWeeklyEffectiveSets(range)
+    → TrendsViewModel._effectiveSets: StateFlow<List<EffectiveSetsChartPoint>>
       → EffectiveSetsCard composable
 ```
 
+#### Chart / Scroll / Zoom Implementation Notes
+
+- **Producer:** `TrendsViewModel.effectiveSetsModelProducer` — shared, ViewModel-scoped.
+- **Scroll:** `rememberVicoScrollState(initialScroll = Scroll.Absolute.End, autoScroll = Scroll.Absolute.End, autoScrollCondition = { _, _ -> true })` — always scrolls to the most-recent bar on any model update (including when switching to a shorter range where the model shrinks, which `OnModelSizeIncreased` would miss).
+- **Zoom:** `rememberVicoZoomState(initialZoom = Zoom.Content)` — fits all bars in the viewport. Wrapped in `key(timeRange)` to force re-creation on range change; this resets `initialZoom` so the zoom is recalculated for the incoming data, making the bar-count difference between 1M and 1Y visually obvious.
+- **Race fix:** `effectiveSetsPushJob?.cancel()` before each `viewModelScope.launch { runTransaction { … } }` prevents a stale larger-range push from overwriting the producer after a shorter-range push completes.
+- **SQL grouping:** `weekStartMs = (w.timestamp / 604800000 * 604800000)` — epoch-aligned, not `MIN(w.timestamp)`, so all muscle groups trained in the same ISO week share the same X-axis bucket.
+
 #### Acceptance Criteria
 
-- [ ] Only RPE ≥ 7.0 sets counted
-- [ ] WARMUP and DROP sets excluded
-- [ ] Primary muscle group only (no 50% secondary credit for set counts)
-- [ ] RPE coverage percentage displayed in card
+- [x] Only RPE ≥ 7.0 sets counted
+- [x] WARMUP and DROP sets excluded
+- [x] Primary muscle group only (no 50% secondary credit for set counts)
+- [x] RPE coverage percentage displayed in card
+- [x] Time-range chips (1M / 3M / 6M / 1Y) correctly scope data; chart visually differs across ranges
 - [ ] Empty state and sparse-data warning render correctly
 
 ---
@@ -1078,65 +1087,110 @@ CartesianChartHost(
 
 ## 10. Body Heatmap
 
-**Status:** 🚧 In Progress (Canvas rendering + placeholder card shipped; full drill-down card is next)
-
-### Concept
-
-A stylized human body outline rendered in Compose Canvas. Each of the 16 body regions is a tappable zone colored by cumulative stress intensity. Color intensity reflects cumulative "stress" from the past 21 days (half-life decay).
+**Status:** ✅ Completed (full redesign — April 2026)
 
 ### What Is Implemented
 
-1. **`ExerciseStressVector` entity** ✅ — Maps each exercise to the joints/tendons it stresses with a stress coefficient (0.0–1.0). DB table `exercise_stress_vectors`.
-2. **Stress accumulation algorithm** ✅ — `StressAccumulationEngine.computeRegionStress()` — sum of (volume × coefficient × exp(-λ × daysSince)), half-life 4 days.
-3. **Canvas body outline** ✅ — `BodyOutlineCanvas.kt` + `BodyRegionPaths.kt` — pure Compose Canvas, no SVG library needed. Two silhouettes side by side (anterior/posterior), 16 tappable regions using normalized-coordinate geometry.
-4. **Color mapping** ✅ — `StressColorMapper.kt` — 3-stop gradient: `surfaceVariant` → `ProMagenta` → `error`.
-5. **Placeholder card** ✅ — `BodyStressHeatmapCard.kt` — wired into `MetricsScreen` between Effective Sets and Body Composition. 21-day lookback via `TrendsRepository.getBodyStressMap()`.
-6. **Data model** ✅ — `BodyStressMapData` in `TrendsModels.kt`. Loaded via `TrendsViewModel.loadBodyStressMap()`.
+#### Data Model
 
-### What Remains
+1. **`ExerciseStressVector` entity** ✅ — DB table `exercise_stress_vectors(exerciseId, bodyRegion, stressCoefficient)`.
+2. **`StressAccumulationEngine`** ✅ — 21-day lookback, half-life 4 days decay formula `stress = Σ(volume × coeff × e^(-λ × daysSince))`. Exposes:
+   - `computeRegionStress()` — legacy method, returns `List<RegionStress>`
+   - `computeRegionDetails(sets, vectors, exerciseNames, nowMs)` — full detail output (see below)
+   - `classifyIntensity(stress, maxStress)` — 4-tier classification
+3. **`RegionDetail`** ✅ — Rich per-region output including `topExercises: List<ExerciseContribution>` (top 3 by contribution) and `recoveryStatus: RecoveryStatus`
+4. **`IntensityTier`** ✅ — `LOW / MODERATE / HIGH / VERY_HIGH` enum (quartile-based, relative to user's max stress)
+5. **`RecoveryStatus`** ✅ — `READY / RECOVERING / FATIGUED` (FATIGUED when >40% of stress is from last 48h)
+6. **`BodyStressMapData`** ✅ — `data class BodyStressMapData(regionDetails, maxStress)` with computed `regionStresses` property for backward compat
+7. **`TrendsRepository.getBodyStressMap()`** ✅ — Returns `List<RegionDetail>` including exercise name lookup via `getExerciseNamesByIds()`
 
-1. **Stress vectors — Gemini expansion** — Expand from top 30 exercises to all 120+ (Phase 3 in original plan).
-2. **Drill-down detail** — Tap a region → sheet showing contributing exercises, load breakdown, deload recommendation ("Your elbows are at 78% of safe load — consider scheduling a deload").
-3. **Full heatmap card (P6 final)** — Wire drill-down, weekly summary text, complete UX.
+#### Color System
 
-### What Is Needed (original, for reference)
+4-tier opacity-based color system (tokens in `ui/theme/Color.kt`):
 
-1. **`ExerciseStressVector` entity** ✅
-2. **Stress accumulation algorithm** ✅
-3. **Canvas paths** ✅ — 16 body regions, pure Compose Canvas (no external library needed)
-4. **New DB table** ✅ — `exercise_stress_vectors(exerciseId, bodyRegion, stressCoefficient)`
+| Tier | Token | Hex | Ratio Range | Alpha Range |
+|---|---|---|---|---|
+| No stress | `surfaceVariant` | — | < 0.01 | — |
+| LOW | `HeatmapLow` | `#34D399` (emerald green) | [0.01, 0.25) | 0.30 → 0.80 |
+| MODERATE | `HeatmapModerate` | `#F59E0B` (amber) | [0.25, 0.50) | 0.40 → 0.90 |
+| HIGH | `HeatmapHigh` | `#EF4444` (red) | [0.50, 0.75) | 0.50 → 1.00 |
+| VERY_HIGH | `HeatmapVeryHigh` | `#7C3AED` (deep purple) | [0.75, 1.00] | 0.60 → 1.00 |
+
+Ratio = `regionStress / maxStress`. Alpha interpolated linearly within each tier. Implemented in `StressColorMapper.mapRatioToTierColor()`.
+
+#### Canvas Body Outline
+
+- **`BodyRegionPaths.kt`** ✅ — Redesigned with continuous bezier silhouette paths (`cubicTo()` traced clockwise per body side). Each region uses organic muscle-shaped paths (bilateral PECS, spindle QUADS/HAMSTRINGS/CALVES as ovals, wing-shaped LATS, etc.). Normalized [0,1] coordinate system.
+- **`BodyOutlineCanvas.kt`** ✅ — `aspectRatio(0.65f)` (height ≈ 1.54× width, more compact). Stroke 2.5dp. Radial gradient depth effect per region (`Color.White.copy(alpha = 0.12f)` highlight from top-center). FRONT/BACK labels.
+
+#### Card Layout
+
+`BodyStressHeatmapCard.kt` — fits on one screen without internal scrolling:
+```
+Card {
+  Column(16dp padding) {
+    "BODY STRESS MAP" header + "21-day cumulative load · tap a region for detail" subtitle
+    BodyOutlineCanvas (aspectRatio 0.65)
+    [Inline RegionDetailPanel — shown when region tapped, hidden on re-tap]
+    Top-3 region chips row (RegionChip: name + tier label + tier-colored border)
+    4-dot legend row (Low · Moderate · High · Very High)
+  }
+}
+```
+
+`RegionDetailPanel` (inline, toggled on tap):
+- Region name + intensity tier badge (tier.label in colored box)
+- Recovery status dot (READY=green, RECOVERING=amber, FATIGUED=red)
+- Top contributing exercises (up to 3)
+
+#### 24h Recompute Gate
+
+- `AppSettingsDataStore` stores `lastStressComputedAt: Long` (epoch ms) under key `last_stress_computed_at`
+- `TrendsViewModel.refreshBodyStressMap()` — called on ON_RESUME — skips if `now - lastStressComputedAt < 24h`
+- `TrendsViewModel.loadAll()` in `init` always calls `loadBodyStressMap()` unconditionally (startup path)
+- Timestamp stamped in `loadBodyStressMap()` after successful DB fetch
+
+### Intensity Classification
+
+```kotlin
+fun classifyIntensity(stress: Double, maxStress: Double): IntensityTier {
+    if (maxStress <= 0) return IntensityTier.LOW
+    return when (stress / maxStress) {
+        in 0.0..<0.25 -> LOW
+        in 0.25..<0.50 -> MODERATE
+        in 0.50..<0.75 -> HIGH
+        else -> VERY_HIGH
+    }
+}
+```
+
+### Recovery Status Logic
+
+```kotlin
+// Inside computeRegionDetails():
+val recent48h = // stress from sets within last 48h (daysSince < 2.0)
+val recoveryStatus = when {
+    totalStress <= 0.0 -> RecoveryStatus.READY
+    recent48h / totalStress > FATIGUE_THRESHOLD -> RecoveryStatus.FATIGUED  // THRESHOLD = 0.40
+    else -> RecoveryStatus.RECOVERING
+}
+```
 
 ### Stress Vector Data Strategy
 
 **Phase 1 — Manual science-sourced seed (~30 most common exercises):**
-Hand-define stress vectors for the top 30 exercises (squat, deadlift, bench press, OHP, barbell row, pull-up, chin-up, Romanian deadlift, leg press, lunge, incline press, dip, curl, tricep pushdown, lateral raise, face pull, hip thrust, cable row, leg curl, leg extension, plank, push-up, Arnold press, front squat, sumo deadlift, good morning, Bulgarian split squat, Nordic curl, shrug, farmers carry). Use published exercise science literature (Schoenfeld, NSCA guidelines) as the source.
+Seed data in `ExerciseStressVectorSeedData.kt` covering: squat, deadlift, bench press, OHP, barbell row, pull-up, chin-up, Romanian deadlift, leg press, lunge, incline press, dip, curl, tricep pushdown, lateral raise, face pull, hip thrust, cable row, leg curl, leg extension, plank, push-up, Arnold press, front squat, sumo deadlift, good morning, Bulgarian split squat, Nordic curl, shrug, farmers carry.
 
 **Phase 2 — Gemini-generated expansion (remaining 120+ exercises):**
-Use Gemini API to generate stress vectors for all remaining exercises in `master_exercises.json`. Prompt template:
-```
-Given the exercise "{exerciseName}" (primary muscle: {primaryMuscle}, equipment: {equipmentType}),
-provide stress coefficients (0.0–1.0) for each body region it loads:
-[anterior_deltoid, posterior_deltoid, elbow_joint, wrist_joint, knee_joint,
- hip_joint, lower_back, upper_back, pecs, lats, quads, hamstrings, glutes,
- calves, core, neck_cervical]
-Base your answer on biomechanical and exercise science literature.
-Return as JSON: {"region": coefficient, ...}
-```
-Review Gemini output before committing — flag any coefficient > 0.8 for manual verification.
+Use Gemini API to generate stress vectors for all remaining exercises. See `StressVectorSeeder.kt` for the prompt template. Review Gemini output before committing — flag any coefficient > 0.8 for manual verification.
 
 **Phase 3 — Ongoing correction:**
 As users log workouts, surface a "Does this feel right?" feedback mechanism. Aggregate corrections to refine coefficients over time.
 
-### Blocking Issues (remaining)
+### Remaining Work
 
 - Stress vectors only cover top 30 exercises — Gemini expansion needed for full coverage
 - Algorithm validation: flag coefficients > 0.8 for biomechanics review before shipping
-
-### Interaction Design (when built)
-
-- Color scale: `ProSurfaceVar` (no stress) → `ProMagenta` (moderate) → `ProError` (approaching threshold)
-- Tap any region to see which exercises contributed load and the deload recommendation
-- Weekly stress summary: "Your elbows are at 78% of safe load — consider scheduling a deload"
 
 ---
 

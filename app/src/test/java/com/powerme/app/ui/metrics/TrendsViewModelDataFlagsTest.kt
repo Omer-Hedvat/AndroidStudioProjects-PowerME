@@ -2,6 +2,7 @@ package com.powerme.app.ui.metrics
 
 import androidx.lifecycle.SavedStateHandle
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.database.ExerciseWithHistory
 import com.powerme.app.data.repository.TrendsRepository
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlinx.coroutines.flow.flowOf
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
@@ -32,12 +34,15 @@ class TrendsViewModelDataFlagsTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var trendsRepository: TrendsRepository
+    private lateinit var appSettings: AppSettingsDataStore
     private lateinit var viewModel: TrendsViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         trendsRepository = mock()
+        appSettings = mock()
+        whenever(appSettings.lastStressComputedAt).thenReturn(flowOf(0L))
     }
 
     @After
@@ -83,7 +88,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getWeeklyVolume(any())).thenReturn(
             WeeklyVolumeData(emptyList(), 0.0)
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasVolumeData.value)
     }
@@ -95,7 +100,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getWeeklyVolume(any())).thenReturn(
             WeeklyVolumeData(pts, 1.0)
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasVolumeData.value)
     }
@@ -104,7 +109,7 @@ class TrendsViewModelDataFlagsTest {
     fun `hasVolumeData is false when getWeeklyVolume throws`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
         whenever(trendsRepository.getWeeklyVolume(any())).thenThrow(RuntimeException("DB error"))
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasVolumeData.value)
     }
@@ -115,7 +120,7 @@ class TrendsViewModelDataFlagsTest {
     fun `hasE1rmData is false when exercisePickerItems is empty`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
         whenever(trendsRepository.getExercisePicker(any())).thenReturn(emptyList())
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasE1rmData.value)
     }
@@ -128,7 +133,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getE1RMProgression(any(), any(), any())).thenReturn(
             E1RMProgressionData(1L, "Bench Press", emptyList(), emptyList(), null)
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasE1rmData.value)
     }
@@ -137,7 +142,7 @@ class TrendsViewModelDataFlagsTest {
     fun `hasE1rmData is false when getExercisePicker throws`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
         whenever(trendsRepository.getExercisePicker(any())).thenThrow(RuntimeException("DB error"))
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasE1rmData.value)
     }
@@ -148,7 +153,7 @@ class TrendsViewModelDataFlagsTest {
     fun `hasMuscleGroupData is false when muscleGroupVolume is empty`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
         whenever(trendsRepository.getWeeklyMuscleGroupVolume(any())).thenReturn(emptyList())
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasMuscleGroupData.value)
     }
@@ -158,7 +163,7 @@ class TrendsViewModelDataFlagsTest {
         stubRepositoryDefaults()
         val pts = listOf(MuscleGroupVolumePoint(weekStartMs = 1_000L, majorGroup = "Legs", volume = 200.0))
         whenever(trendsRepository.getWeeklyMuscleGroupVolume(any())).thenReturn(pts)
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasMuscleGroupData.value)
     }
@@ -168,7 +173,7 @@ class TrendsViewModelDataFlagsTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getWeeklyMuscleGroupVolume(any()))
             .thenThrow(RuntimeException("DB error"))
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasMuscleGroupData.value)
     }
@@ -179,7 +184,7 @@ class TrendsViewModelDataFlagsTest {
     fun `hasEffectiveSetsData is false when effectiveSets is empty`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
         whenever(trendsRepository.getWeeklyEffectiveSets(any())).thenReturn(emptyList())
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasEffectiveSetsData.value)
     }
@@ -189,7 +194,7 @@ class TrendsViewModelDataFlagsTest {
         stubRepositoryDefaults()
         val pts = listOf(EffectiveSetsChartPoint(weekStartMs = 1_000L, majorGroup = "Back", setCount = 3))
         whenever(trendsRepository.getWeeklyEffectiveSets(any())).thenReturn(pts)
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasEffectiveSetsData.value)
     }
@@ -199,7 +204,7 @@ class TrendsViewModelDataFlagsTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getWeeklyEffectiveSets(any()))
             .thenThrow(RuntimeException("DB error"))
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasEffectiveSetsData.value)
     }
@@ -212,7 +217,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getBodyCompositionData(any())).thenReturn(
             BodyCompositionData(emptyList(), emptyList(), emptyList())
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasBodyCompositionData.value)
     }
@@ -224,7 +229,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getBodyCompositionData(any())).thenReturn(
             BodyCompositionData(weightPts, emptyList(), emptyList())
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasBodyCompositionData.value)
     }
@@ -236,7 +241,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getBodyCompositionData(any())).thenReturn(
             BodyCompositionData(emptyList(), bodyFatPts, emptyList())
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasBodyCompositionData.value)
     }
@@ -246,7 +251,7 @@ class TrendsViewModelDataFlagsTest {
         stubRepositoryDefaults()
         whenever(trendsRepository.getBodyCompositionData(any()))
             .thenThrow(RuntimeException("DB error"))
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasBodyCompositionData.value)
     }
@@ -259,7 +264,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getChronotypeData(any())).thenReturn(
             ChronotypeData(emptyList(), emptyList(), null, null)
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasChronotypeData.value)
     }
@@ -271,7 +276,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getChronotypeData(any())).thenReturn(
             ChronotypeData(sleepPts, emptyList(), null, null)
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasChronotypeData.value)
     }
@@ -283,7 +288,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getChronotypeData(any())).thenReturn(
             ChronotypeData(emptyList(), workoutPts, null, null)
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasChronotypeData.value)
     }
@@ -296,7 +301,7 @@ class TrendsViewModelDataFlagsTest {
         whenever(trendsRepository.getChronotypeData(any())).thenReturn(
             ChronotypeData(sleepPts, workoutPts, peakHour = 9, peakHourLabel = "9am")
         )
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertTrue(viewModel.hasChronotypeData.value)
     }
@@ -305,7 +310,7 @@ class TrendsViewModelDataFlagsTest {
     fun `hasChronotypeData is false when getChronotypeData throws`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
         whenever(trendsRepository.getChronotypeData(any())).thenThrow(RuntimeException("DB error"))
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
         assertFalse(viewModel.hasChronotypeData.value)
     }

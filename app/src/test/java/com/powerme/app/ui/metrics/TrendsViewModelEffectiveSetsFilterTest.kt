@@ -2,9 +2,11 @@ package com.powerme.app.ui.metrics
 
 import androidx.lifecycle.SavedStateHandle
 import com.powerme.app.analytics.ReadinessEngine
+import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.repository.TrendsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -31,6 +33,7 @@ class TrendsViewModelEffectiveSetsFilterTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var trendsRepository: TrendsRepository
+    private lateinit var appSettings: AppSettingsDataStore
     private lateinit var viewModel: TrendsViewModel
 
     // A fixed epoch-aligned week start used in DAO rows
@@ -41,6 +44,8 @@ class TrendsViewModelEffectiveSetsFilterTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         trendsRepository = mock()
+        appSettings = mock()
+        whenever(appSettings.lastStressComputedAt).thenReturn(flowOf(0L))
     }
 
     @After
@@ -82,7 +87,7 @@ class TrendsViewModelEffectiveSetsFilterTest {
     @Test
     fun `setTimeRange ONE_MONTH re-fetches effective sets with new range`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         // Change from default THREE_MONTHS to ONE_MONTH
@@ -101,7 +106,7 @@ class TrendsViewModelEffectiveSetsFilterTest {
     @Test
     fun `setTimeRange ONE_YEAR re-fetches muscle group volume with new range`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         viewModel.setTimeRange(TrendsTimeRange.ONE_YEAR)
@@ -116,7 +121,7 @@ class TrendsViewModelEffectiveSetsFilterTest {
     @Test
     fun `setTimeRange with same range does not trigger additional re-fetch`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         // Default is THREE_MONTHS; calling setTimeRange with THREE_MONTHS should be a no-op
@@ -137,7 +142,7 @@ class TrendsViewModelEffectiveSetsFilterTest {
     @Test
     fun `setTimeRange updates timeRange StateFlow`() = runTest(testDispatcher) {
         stubRepositoryDefaults()
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         assertEquals(TrendsTimeRange.THREE_MONTHS, viewModel.timeRange.value)
@@ -159,7 +164,7 @@ class TrendsViewModelEffectiveSetsFilterTest {
         whenever(trendsRepository.getWeeklyEffectiveSets(TrendsTimeRange.ONE_MONTH))
             .thenReturn(oneMonthData)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         viewModel.setTimeRange(TrendsTimeRange.ONE_MONTH)
@@ -179,12 +184,108 @@ class TrendsViewModelEffectiveSetsFilterTest {
         whenever(trendsRepository.getWeeklyMuscleGroupVolume(TrendsTimeRange.SIX_MONTHS))
             .thenReturn(sixMonthData)
 
-        viewModel = TrendsViewModel(trendsRepository, SavedStateHandle())
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
         runCurrent()
 
         viewModel.setTimeRange(TrendsTimeRange.SIX_MONTHS)
         runCurrent()
 
         assertEquals(sixMonthData, viewModel.muscleGroupVolume.value)
+    }
+
+    // ── All 4 time ranges re-fetch effective sets correctly ───────────────────
+
+    @Test
+    fun `setTimeRange THREE_MONTHS re-fetches effective sets with THREE_MONTHS range`() = runTest(testDispatcher) {
+        stubRepositoryDefaults()
+
+        val threeMonthData = listOf(
+            EffectiveSetsChartPoint(weekStartMs, "Legs", 8),
+            EffectiveSetsChartPoint(weekStartMs, "Back", 5)
+        )
+        whenever(trendsRepository.getWeeklyEffectiveSets(TrendsTimeRange.THREE_MONTHS))
+            .thenReturn(threeMonthData)
+
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
+        runCurrent()
+
+        // THREE_MONTHS is the default — change away then back to re-trigger
+        viewModel.setTimeRange(TrendsTimeRange.ONE_MONTH)
+        runCurrent()
+        viewModel.setTimeRange(TrendsTimeRange.THREE_MONTHS)
+        runCurrent()
+
+        assertEquals(threeMonthData, viewModel.effectiveSets.value)
+    }
+
+    @Test
+    fun `setTimeRange SIX_MONTHS re-fetches effective sets with SIX_MONTHS range`() = runTest(testDispatcher) {
+        stubRepositoryDefaults()
+
+        val sixMonthData = listOf(
+            EffectiveSetsChartPoint(weekStartMs, "Chest", 12),
+            EffectiveSetsChartPoint(weekStartMs, "Shoulders", 9)
+        )
+        whenever(trendsRepository.getWeeklyEffectiveSets(TrendsTimeRange.SIX_MONTHS))
+            .thenReturn(sixMonthData)
+
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
+        runCurrent()
+
+        viewModel.setTimeRange(TrendsTimeRange.SIX_MONTHS)
+        runCurrent()
+
+        assertEquals(sixMonthData, viewModel.effectiveSets.value)
+    }
+
+    @Test
+    fun `setTimeRange ONE_YEAR re-fetches effective sets with ONE_YEAR range`() = runTest(testDispatcher) {
+        stubRepositoryDefaults()
+
+        val oneYearData = listOf(
+            EffectiveSetsChartPoint(weekStartMs, "Arms", 20),
+            EffectiveSetsChartPoint(weekStartMs, "Core", 15)
+        )
+        whenever(trendsRepository.getWeeklyEffectiveSets(TrendsTimeRange.ONE_YEAR))
+            .thenReturn(oneYearData)
+
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
+        runCurrent()
+
+        viewModel.setTimeRange(TrendsTimeRange.ONE_YEAR)
+        runCurrent()
+
+        assertEquals(oneYearData, viewModel.effectiveSets.value)
+    }
+
+    @Test
+    fun `all 4 ranges call getWeeklyEffectiveSets with their respective range`() = runTest(testDispatcher) {
+        stubRepositoryDefaults()
+        viewModel = TrendsViewModel(trendsRepository, appSettings, SavedStateHandle())
+        runCurrent()
+
+        // Cycle through all 4 ranges (start from default THREE_MONTHS)
+        viewModel.setTimeRange(TrendsTimeRange.ONE_MONTH)
+        runCurrent()
+        viewModel.setTimeRange(TrendsTimeRange.SIX_MONTHS)
+        runCurrent()
+        viewModel.setTimeRange(TrendsTimeRange.ONE_YEAR)
+        runCurrent()
+        viewModel.setTimeRange(TrendsTimeRange.THREE_MONTHS)
+        runCurrent()
+
+        val captor = argumentCaptor<TrendsTimeRange>()
+        verify(trendsRepository, atLeast(5)).getWeeklyEffectiveSets(captor.capture())
+
+        val rangesSeen = captor.allValues.toSet()
+        assertEquals(
+            setOf(
+                TrendsTimeRange.ONE_MONTH,
+                TrendsTimeRange.THREE_MONTHS,
+                TrendsTimeRange.SIX_MONTHS,
+                TrendsTimeRange.ONE_YEAR
+            ),
+            rangesSeen
+        )
     }
 }
