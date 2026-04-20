@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- Health Connect permissions -->
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
@@ -48,6 +50,15 @@
         android:theme="@style/Theme.PowerME">
         <service
             android:name=".util.WorkoutTimerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="workout_timer" />
+        </service>
+
+        <receiver
+            android:name=".notification.NotificationActionReceiver"
             android:exported="false" />
 
         <activity

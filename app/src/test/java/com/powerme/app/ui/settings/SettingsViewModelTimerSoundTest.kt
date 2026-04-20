@@ -62,6 +62,7 @@ class SettingsViewModelTimerSoundTest {
         whenever(mockAppSettingsDataStore.hcWorkoutBackfillDone).thenReturn(flowOf(true))
         whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
         whenever(mockAppSettingsDataStore.timerSound).thenReturn(flowOf(TimerSound.BEEP))
+        whenever(mockAppSettingsDataStore.notificationsEnabled).thenReturn(flowOf(true))
         whenever(mockAuth.currentUser).thenReturn(null)
     }
 

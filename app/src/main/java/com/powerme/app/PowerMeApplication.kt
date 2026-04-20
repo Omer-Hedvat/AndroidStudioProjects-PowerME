@@ -10,6 +10,7 @@ import com.powerme.app.data.csvimport.StrongCsvImporter
 import com.powerme.app.data.database.DatabaseSeeder
 import com.powerme.app.data.database.MasterExerciseSeeder
 import com.powerme.app.data.database.StressVectorSeeder
+import com.powerme.app.notification.WorkoutNotificationManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,9 @@ class PowerMeApplication : Application(), ImageLoaderFactory {
     @Inject
     lateinit var stressVectorSeeder: StressVectorSeeder
 
+    @Inject
+    lateinit var workoutNotificationManager: WorkoutNotificationManager
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun newImageLoader(): ImageLoader {
@@ -48,6 +52,7 @@ class PowerMeApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        workoutNotificationManager.createChannels()
         seedDatabase()
     }
 

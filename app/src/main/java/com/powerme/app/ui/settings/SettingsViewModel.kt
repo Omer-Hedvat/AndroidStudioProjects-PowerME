@@ -54,6 +54,8 @@ data class SettingsUiState(
     val timedSetSetupSeconds: Int = 3,
     // Timer sound
     val timerSound: TimerSound = TimerSound.BEEP,
+    // Notifications (watch & lock screen)
+    val notificationsEnabled: Boolean = true,
     // Appearance
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Units
@@ -126,6 +128,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appSettingsDataStore.timerSound.collect { value ->
                 _uiState.update { it.copy(timerSound = value) }
+            }
+        }
+        viewModelScope.launch {
+            appSettingsDataStore.notificationsEnabled.collect { value ->
+                _uiState.update { it.copy(notificationsEnabled = value) }
             }
         }
     }
@@ -252,6 +259,14 @@ class SettingsViewModel @Inject constructor(
             appSettingsDataStore.setTimerSound(sound)
             _uiState.update { it.copy(timerSound = sound) }
             firestoreSyncManager.pushAppPreferences()
+        }
+    }
+
+    fun toggleNotificationsEnabled() {
+        viewModelScope.launch {
+            val newValue = !_uiState.value.notificationsEnabled
+            appSettingsDataStore.setNotificationsEnabled(newValue)
+            _uiState.update { it.copy(notificationsEnabled = newValue) }
         }
     }
 
