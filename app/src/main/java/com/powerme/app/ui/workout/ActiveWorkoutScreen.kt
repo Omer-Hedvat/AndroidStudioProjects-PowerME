@@ -81,8 +81,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import java.util.ArrayList
 
 private enum class TimedSetState { IDLE, SETUP, RUNNING, PAUSED, COMPLETED }
@@ -940,7 +938,6 @@ private fun ExerciseCard(
                                                 weightFocusRequester = weightFrs.getOrNull(index),
                                                 repsFocusRequester = repsFrs.getOrNull(index),
                                                 nextWeightFocusRequester = nextIncompleteIdx?.let { weightFrs.getOrNull(it) },
-                                                onRepsDone = { onCompleteSet(set.setOrder) },
                                                 isEditMode = isEditMode,
                                                 onTimerFinished = onTimerFinished,
                                                 onTimerWarningTick = onTimerWarningTick,
@@ -1006,7 +1003,6 @@ private fun ExerciseCard(
                                     weightFocusRequester = weightFrs.getOrNull(index),
                                     repsFocusRequester = repsFrs.getOrNull(index),
                                     nextWeightFocusRequester = nextIncompleteIdx?.let { weightFrs.getOrNull(it) },
-                                    onRepsDone = { onCompleteSet(set.setOrder) },
                                     isEditMode = isEditMode,
                                     onTimerFinished = onTimerFinished,
                                     onTimerWarningTick = onTimerWarningTick,
@@ -1216,7 +1212,6 @@ private fun SetWithRestRow(
     weightFocusRequester: FocusRequester? = null,
     repsFocusRequester: FocusRequester? = null,
     nextWeightFocusRequester: FocusRequester? = null,
-    onRepsDone: () -> Unit = {},
     isEditMode: Boolean = false,
     onTimerFinished: () -> Unit = {},
     onTimerWarningTick: () -> Unit = {},
@@ -1268,7 +1263,6 @@ private fun SetWithRestRow(
                         weightFocusRequester = weightFocusRequester,
                         repsFocusRequester = repsFocusRequester,
                         nextWeightFocusRequester = nextWeightFocusRequester,
-                        onRepsDone = onRepsDone,
                         isEditMode = isEditMode,
                         shouldAutoPopRpe = shouldAutoPopRpe,
                         onAutoPopRpeConsumed = onAutoPopRpeConsumed
@@ -1729,7 +1723,6 @@ fun WorkoutSetRow(
     weightFocusRequester: FocusRequester? = null,
     repsFocusRequester: FocusRequester? = null,
     nextWeightFocusRequester: FocusRequester? = null,
-    onRepsDone: () -> Unit = {},
     isEditMode: Boolean = false,
     shouldAutoPopRpe: Boolean = false,
     onAutoPopRpeConsumed: () -> Unit = {}
@@ -1848,7 +1841,6 @@ fun WorkoutSetRow(
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Done,
                 keyboardActions = KeyboardActions(onDone = {
-                    onRepsDone()
                     if (nextWeightFocusRequester != null) {
                         nextWeightFocusRequester.requestFocus()
                     } else {
@@ -1889,7 +1881,7 @@ fun WorkoutSetRow(
                         .weight(CHECK_COL_WEIGHT)
                         .fillMaxHeight()
                         .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
-                        .pointerInput(onCompleteSet) { detectTapGestures { onCompleteSet() } },
+                        .clickable(onClick = onCompleteSet),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
