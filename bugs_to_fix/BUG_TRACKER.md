@@ -82,11 +82,12 @@ Single source of truth for bug status across sessions.
 | [BUG_alternatives_done_false_positive](BUG_alternatives_done_false_positive.md) | Exercise alternatives all show "You've done this" incorrectly | ✅ Wrapped | P2 | — | — | `ExerciseDetailModels.kt`, `ExerciseDetailRepository.kt`, `DetailComponents.kt`, `ExerciseDetailRepositoryTest.kt` |
 | [BUG_exercise_history_rpe_decimal](BUG_exercise_history_rpe_decimal.md) | Exercise history detail shows RPE as raw decimal (0–1) instead of scaled (1–10) | ✅ Wrapped | P2 | — | — | `StrongCsvImporter.kt`, `CsvImportManager.kt`, `DatabaseModule.kt`, `PowerMeDatabase.kt`, `ExerciseDetailRepositoryTest.kt` |
 | [BUG_post_workout_loop_regression](BUG_post_workout_loop_regression.md) | Post-workout resume loop regression — cannot escape summary state after finishing workout | ✅ Completed | P0 | — | — | `WorkoutViewModel.kt`, `PowerMeNavigation.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_warmup_sets_staggered_collapse](BUG_warmup_sets_staggered_collapse.md) | Warmup sets collapse simultaneously with rest separator instead of staggered | 🟡 In Progress | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_warmup_sets_staggered_collapse](BUG_warmup_sets_staggered_collapse.md) | Warmup sets collapse simultaneously with rest separator instead of staggered | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_checked_set_keyboard_dismiss](BUG_checked_set_keyboard_dismiss.md) | Keyboard does not dismiss when a set is checked off | ✅ Completed | P2 | — | — | `ActiveWorkoutScreen.kt` |
 | [BUG_rest_timer_skip_label](BUG_rest_timer_skip_label.md) | Rest timer TimerControlsSheet skip button shows checkmark icon instead of "Next" label | ✅ Completed | P3 | — | — | `ActiveWorkoutScreen.kt` |
-| [BUG_rest_timer_reset_ignores_skipped](BUG_rest_timer_reset_ignores_skipped.md) | "Update Rest Timers" restores separators that were already skipped or finished | 🟡 In Progress | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_rest_timer_reset_ignores_skipped](BUG_rest_timer_reset_ignores_skipped.md) | "Update Rest Timers" restores separators that were already skipped or finished | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_rest_timer_overlap_skip](BUG_rest_timer_overlap_skip.md) | Firing a rest timer while another is running starts both instead of skipping the current | 🟡 In Progress | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_exercise_history_missing_sessions](BUG_exercise_history_missing_sessions.md) | Exercise History tab missing sessions — some logged workouts don't appear | 🔵 Open | P1 | — | — | — |
 
 ---
 

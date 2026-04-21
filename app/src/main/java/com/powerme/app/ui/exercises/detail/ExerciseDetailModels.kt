@@ -74,7 +74,8 @@ data class WarmUpSet(
 data class AlternativeExercise(
     val exercise: Exercise,
     val score: Int,
-    val estimatedStartingWeight: Double? = null // null = user already has history
+    val userHasDone: Boolean = false,
+    val estimatedStartingWeight: Double? = null
 )
 
 // ── Trend data ──────────────────────────────────────────────────────────────

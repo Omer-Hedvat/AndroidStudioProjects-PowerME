@@ -7,8 +7,10 @@ import com.powerme.app.data.database.ExerciseStressVectorDao
 import com.powerme.app.data.database.ExerciseWorkoutHistoryRow
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.database.TrendsDao
+import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.WorkoutSetDao
 import com.powerme.app.ui.exercises.detail.AlternativeExercise
+import com.powerme.app.util.WarmupCalculator
 import com.powerme.app.ui.exercises.detail.ExerciseTrendData
 import com.powerme.app.ui.exercises.detail.LastPerformedSummary
 import com.powerme.app.ui.exercises.detail.OverloadSuggestion
@@ -135,17 +137,21 @@ class ExerciseDetailRepository @Inject constructor(
 
     // ── Warm-Up Ramp ─────────────────────────────────────────────────────────
 
-    suspend fun computeWarmUpRamp(exerciseId: Long): List<WarmUpSet> {
+    suspend fun computeWarmUpRamp(
+        exerciseId: Long,
+        equipmentType: String = "Barbell",
+        unitSystem: UnitSystem = UnitSystem.METRIC
+    ): List<WarmUpSet> {
         val sets = workoutSetDao.getPreviousSessionCompletedSets(exerciseId, Long.MAX_VALUE)
         val workingWeight = sets.map { it.weight }.average().takeIf { !it.isNaN() && it > 0 }
             ?: return emptyList()
 
-        return listOf(
-            WarmUpSet(weight = roundToNearest(workingWeight * 0.50, 2.5), reps = 8,  percentageLabel = "50%"),
-            WarmUpSet(weight = roundToNearest(workingWeight * 0.70, 2.5), reps = 5,  percentageLabel = "70%"),
-            WarmUpSet(weight = roundToNearest(workingWeight * 0.85, 2.5), reps = 3,  percentageLabel = "85%"),
-            WarmUpSet(weight = roundToNearest(workingWeight,        2.5), reps = -1, percentageLabel = "100%") // -1 = working weight
-        )
+        val params = if (equipmentType == "Bodyweight") {
+            if (workingWeight > 0) WarmupCalculator.bodyweightLoadedParams(unitSystem) else return emptyList()
+        } else {
+            WarmupCalculator.equipmentToWarmupParams(equipmentType, unitSystem) ?: return emptyList()
+        }
+        return WarmupCalculator.computeWarmupSets(workingWeight, params)
     }
 
     // ── Trend data ────────────────────────────────────────────────────────────
@@ -205,7 +211,7 @@ class ExerciseDetailRepository @Inject constructor(
             // Only shown when user has no history on the candidate but may have history on the main exercise.
             val estimatedWeight = if (userHasHistory) null
             else estimateStartingWeight(target = candidate, sourceExercise = exercise, now)
-            AlternativeExercise(exercise = candidate, score = score, estimatedStartingWeight = estimatedWeight)
+            AlternativeExercise(exercise = candidate, score = score, userHasDone = userHasHistory, estimatedStartingWeight = estimatedWeight)
         }
     }
 

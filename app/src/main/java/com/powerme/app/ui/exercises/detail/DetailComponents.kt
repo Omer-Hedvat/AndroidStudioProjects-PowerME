@@ -195,17 +195,16 @@ internal fun AlternativeExerciseCard(alternative: AlternativeExercise, onClick: 
                 maxLines = 2,
                 lineHeight = 16.sp
             )
-            if (alternative.estimatedStartingWeight != null) {
-                Text(
-                    text = "Start: ~%.1f kg".format(alternative.estimatedStartingWeight),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            } else {
-                Text(
+            when {
+                alternative.userHasDone -> Text(
                     text = "You've done this",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+                alternative.estimatedStartingWeight != null -> Text(
+                    text = "Start: ~%.1f kg".format(alternative.estimatedStartingWeight),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary
                 )
             }
         }
