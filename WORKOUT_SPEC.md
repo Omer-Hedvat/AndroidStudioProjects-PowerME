@@ -341,7 +341,8 @@ Column {
 
 - Swipe the **set row** → deletes the set AND automatically removes the rest separator immediately below it (the `deleteSet()` callback adds the key to `hiddenRestSeparators`). The two `SwipeToDismissBox` instances remain independent at the Compose level — the coupling is in the `deleteSet()` callback, not by merging the boxes.
 - Swipe the **rest separator** → deletes only the separator (`deleteRestSeparator()`), set remains.
-- **Rest timer naturally expires** → the separator auto-hides: both `onTimerFinish()` (service path) and the in-process fallback coroutine add `"${exerciseId}_${setOrder}"` to `hiddenRestSeparators` after resetting `restTimer` to `RestTimerState()`. The user does not need to manually swipe or tap to dismiss it.
+- **Rest timer naturally expires** → the separator auto-hides: both `onTimerFinish()` (service path) and the in-process fallback coroutine add `"${exerciseId}_${setOrder}"` to `finishedRestSeparators` (not `hiddenRestSeparators`) after resetting `restTimer` to `RestTimerState()`. The user does not need to manually swipe or tap to dismiss it.
+- **Explicit skip (`skipRestTimer()`)** → same as natural expiry: key goes to `finishedRestSeparators`.
 - These must remain **independent** at the Compose level. Do not re-group them into a single `SwipeToDismissBox`.
 
 **Partial swipe snap-back:** A `LaunchedEffect(swipeState.currentValue)` must call `swipeState.snapTo(Default)` if the row is still in composition after `confirmValueChange` returns `true`. This prevents the red delete background from persisting as a ghost after deletion.
@@ -527,6 +528,12 @@ There are 3 types of rest periods:
 A sequence of `W > W > R > R > R > D > D` results in:
 `W > WUR > W > WR > R > WR > R > WR > R > DR > D > DR > D`
 
+**Warmup auto-collapse (staggered):**
+When the last warmup-to-work rest timer ends (naturally or via skip), the collapse is staggered:
+1. The rest separator is hidden immediately (key added to `finishedRestSeparators`).
+2. 500ms later, `collapsedWarmupExerciseIds` gains the `exerciseId`, triggering the `shrinkVertically` exit animation on the warmup rows.
+This applies to all three warmup-collapse code paths: `onTimerFinish()` (service), in-process coroutine, and `skipRestTimer()`.
+
 ### 5.2 RestTimePickerDialog
 
 Triggered by tapping the **passive** (TimerGreen divider) rest separator. It is an `AlertDialog` with the following layout:
@@ -697,7 +704,9 @@ Opened via the `⋮` (`MoreVert`) `IconButton` in the top-right corner of the `E
 - Title: "Update rest timers". Subtitle: "Completed timers will not be affected.\nDurations will be saved for next time."
 - Confirm button: **UPDATE REST TIMERS** → `updateExerciseRestTimers(exerciseId, workSeconds, warmupSeconds, dropSeconds)`.
 - Persists all three values to `exercises` table (v32 DB fields: `restDurationSeconds`, `warmupRestSeconds`, `dropSetRestSeconds`).
-- **Restores hidden separators:** Confirming the dialog also clears all `hiddenRestSeparators` entries for this exercise, so any rest separators previously swiped away reappear with the new duration.
+- **Restores manually-swiped separators only:** Confirming the dialog clears `hiddenRestSeparators` entries for this exercise (manually swiped-away separators), so they reappear with the new duration. It does **not** clear `finishedRestSeparators` (timer-expired or explicitly-skipped separators), so those remain hidden.
+  - `hiddenRestSeparators` — populated by manual swipe-to-delete on a rest separator or set row. Cleared per-exercise on `updateExerciseRestTimers`.
+  - `finishedRestSeparators` — populated when a timer expires naturally (`onTimerFinish`) or is explicitly skipped (`skipRestTimer`). Never cleared by `updateExerciseRestTimers`. Persists through live-workout edit mode.
 - Per-set overrides (via tapping the passive separator) take precedence over these defaults.
 
 **Replace Exercise**
