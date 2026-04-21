@@ -45,6 +45,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Timer sound options (bell, chime, click, silent) | `future_devs/TIMER_SOUND_OPTIONS_SPEC.md` | S | `wrapped` | — |
 | Logout button on Profile page | `future_devs/PROFILE_LOGOUT_BUTTON_SPEC.md` | XS | `wrapped` | Profile/Settings split ✅ |
 | Quick Start Workout (blank workout, no routine) | `future_devs/QUICK_START_WORKOUT_SPEC.md` | XS | `wrapped` | — |
+| Observability layer — Crashlytics + Analytics + Timber (beta) | `future_devs/OBSERVABILITY_BETA_SPEC.md` | M | `in-progress` | — |
 
 ---
 
@@ -60,6 +61,7 @@ Core workout loop improvements. Independent of all other phases.
 | Warmup sets — auto-collapse after completion | `future_devs/WARMUP_SETS_AUTO_COLLAPSE_SPEC.md` | S | `wrapped` | — |
 | Numeric keyboard ±1 increment/decrement buttons | `future_devs/NUMERIC_KEYBOARD_PLUS_MINUS_SPEC.md` | S | `wrapped` | — |
 | Watch & phone workout notifications | `future_devs/WATCH_WORKOUT_NOTIFICATIONS_SPEC.md` | L | `completed` | — |
+| Smart "Add Warmups" — equipment-aware warmup generator | `future_devs/SMART_ADD_WARMUPS_SPEC.md` | M | `in-progress` | Warmup sets — auto-collapse ✅ |
 
 ---
 
@@ -99,7 +101,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Trends Step 3 — E1RMProgressionCard | `TRENDS_CHARTS_SPEC.md §Step 3` | M | `done` | — |
 | Trends Step 4 — MuscleGroupVolumeCard | `TRENDS_CHARTS_SPEC.md §Step 4` | M | `wrapped` | — |
 | Trends Step 5 — EffectiveSetsCard | `TRENDS_CHARTS_SPEC.md §Step 5` | M | `wrapped` | — |
-| HC Extended Reads (HR, Calories, VO₂ Max, Distance, SpO₂) | `HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | M | `completed` | — |
+| HC Extended Reads (HR, Calories, VO₂ Max, Distance, SpO₂) | `HEALTH_CONNECT_EXTENDED_READS_SPEC.md` | M | `blocked` | External HC issue (out of PowerME scope) |
 | HC Phase B — Write workouts to Health Connect | `HEALTH_CONNECT_SPEC.md §8` | S | `wrapped` | — |
 | HC Backfill — Push last 90 days to Health Connect on permission grant | `future_devs/HC_BACKFILL_SPEC.md` | S | `wrapped` | HC Phase B ✅ |
 | History → Trends deep-link (Step B) | `HISTORY_SUMMARY_REDESIGN_SPEC.md §Trends Integration` | S | `wrapped` | Trends Step 3 (E1RM) ✅ + History Summary Step A ✅ |
@@ -122,7 +124,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Exercise joint indicators in ExerciseDetailSheet | `future_devs/EXERCISE_JOINTS_SPEC.md` | M | `superseded` | Superseded by Exercise Detail Sheet Revision |
 | Exercise Detail Sheet — Full Revision | `future_devs/EXERCISE_DETAIL_SHEET_REVISION_SPEC.md` | L | `wrapped` | — |
 | Exercise Detail Screen — Tab-Based Redesign (v2) | `future_devs/EXERCISE_DETAIL_TABS_V2_SPEC.md` | L | `completed` | Exercise Detail Sheet Revision v1 ✅ |
-| Exercise "How to Perform" descriptions | `future_devs/EXERCISE_HOW_TO_PERFORM_SPEC.md` | L | `in-progress` | Exercise Detail Tabs v2 ✅ |
+| Exercise "How to Perform" descriptions | `future_devs/EXERCISE_HOW_TO_PERFORM_SPEC.md` | L | `wrapped` | Exercise Detail Tabs v2 ✅ |
 
 ---
 

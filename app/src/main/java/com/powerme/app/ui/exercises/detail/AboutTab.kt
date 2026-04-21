@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.sp
 import com.powerme.app.data.database.BodyRegion
 import com.powerme.app.data.database.Joint
 import com.powerme.app.ui.metrics.charts.BodyOutlineCanvas
-import com.powerme.app.ui.theme.FormCuesGold
 import com.powerme.app.ui.theme.PowerMeDefaults
 import java.util.Date
 
@@ -49,6 +48,12 @@ internal fun AboutTabContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
+        // How to perform (always first — most important content)
+        if (!exercise.setupNotes.isNullOrBlank()) {
+            item(key = "how_to_perform") { HowToPerformSection(description = exercise.setupNotes!!) }
+            item(key = "about_div_how_to") { SectionDivider() }
+        }
+
         // Compact PR summary (tappable → RECORDS tab)
         val prs = uiState.personalRecords
         if (prs != null && (prs.bestE1RM != null || prs.bestSetWeight != null)) {
@@ -68,12 +73,6 @@ internal fun AboutTabContent(
                 )
             }
             item(key = "about_div_joints") { SectionDivider() }
-        }
-
-        // Form cues
-        if (!exercise.setupNotes.isNullOrBlank()) {
-            item(key = "form_cues") { FormCuesSection(cues = exercise.setupNotes!!) }
-            item(key = "about_div_cues") { SectionDivider() }
         }
 
         // Training zones
@@ -239,47 +238,45 @@ private fun JointIndicatorsSection(
     }
 }
 
-// ── Form Cues ───────────────────────────────────────────────────────────────
+// ── How to Perform ──────────────────────────────────────────────────────────
 
 @Composable
-private fun FormCuesSection(cues: String) {
+private fun HowToPerformSection(description: String) {
     var expanded by remember { mutableStateOf(false) }
-    val preview = remember(cues) {
-        if (cues.length > 120) cues.take(120) + "…" else cues
+    val isLong = description.length > 200
+    val preview = remember(description) {
+        if (isLong) description.take(200) + "…" else description
     }
 
     // No outer horizontal padding — SectionHeader handles its own 16dp inset
     Column {
-        SectionHeader(title = "FORM CUES")
-        Surface(
-            color = FormCuesGold,
-            shape = MaterialTheme.shapes.small,
+        SectionHeader(title = "HOW TO PERFORM")
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
         ) {
-            Column(modifier = Modifier.padding(10.dp)) {
                 AnimatedVisibility(
                     visible = expanded,
                     enter = expandVertically(),
                     exit = shrinkVertically()
                 ) {
                     Text(
-                        text = cues,
-                        fontSize = 12.sp,
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 18.sp
+                        lineHeight = 22.sp
                     )
                 }
                 if (!expanded) {
                     Text(
                         text = preview,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 18.sp
+                        lineHeight = 22.sp
                     )
                 }
-                if (cues.length > 120) {
+                if (isLong) {
                     TextButton(
                         onClick = { expanded = !expanded },
                         modifier = Modifier.align(Alignment.End).height(28.dp),
@@ -291,7 +288,6 @@ private fun FormCuesSection(cues: String) {
                         )
                     }
                 }
-            }
         }
     }
 }
@@ -439,14 +435,15 @@ private fun MuscleActivationSection(stressColors: Map<String, Float>) {
             }.toMap()
         }
 
-        // Surface provides: (1) opaque background that isolates the canvas from sections
-        // above/below, (2) shape-based clipping that constrains nativeCanvas drawing to
-        // the 280dp height — fixes the visual bleed-through reported in BUG_about_tab_section_overlaps.
+        // Surface provides an opaque background that isolates the canvas from sections
+        // above/below, and clips nativeCanvas drawing to the composable bounds —
+        // fixes the visual bleed-through reported in BUG_about_tab_section_overlaps.
+        // No fixed height: the canvas sizes itself via aspectRatio(0.65f) to show
+        // the full figure (head to feet). The LazyColumn parent handles scrolling.
         Surface(
             color = MaterialTheme.colorScheme.surface,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(280.dp)
                 .padding(bottom = 12.dp)
         ) {
             BodyOutlineCanvas(

@@ -1,7 +1,7 @@
 package com.powerme.app.data.database
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
 import com.powerme.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,7 +40,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "1.9"  // bumped: add primaryJoints/secondaryJoints to all 240 exercises
+        private const val CURRENT_VERSION = "2.0"  // bumped: rewrite all 240 setupNotes with plain-language "How to Perform" descriptions
     }
 
     private val json = Json {
@@ -59,11 +59,11 @@ class MasterExerciseSeeder @Inject constructor(
             val seededVersion = prefs.getString(KEY_SEEDED_VERSION, null)
 
             if (seededVersion == CURRENT_VERSION) {
-                Log.d(TAG, "Exercises already seeded (version $CURRENT_VERSION)")
+                Timber.d("Exercises already seeded (version $CURRENT_VERSION)")
                 return@withContext false
             }
 
-            Log.i(TAG, "Seeding exercises (previous version: $seededVersion, current: $CURRENT_VERSION)")
+            Timber.i("Seeding exercises (previous version: $seededVersion, current: $CURRENT_VERSION)")
             performSeed()
 
             // Mark as seeded
@@ -84,7 +84,7 @@ class MasterExerciseSeeder @Inject constructor(
      */
     suspend fun forceSeed(): Int {
         return withContext(Dispatchers.IO) {
-            Log.i(TAG, "Force reseeding exercises...")
+            Timber.i("Force reseeding exercises...")
             performSeed()
         }
     }
@@ -108,14 +108,14 @@ class MasterExerciseSeeder @Inject constructor(
             val jsonString = inputStream.bufferedReader().use { it.readText() }
             val masterData = json.decodeFromString<MasterExerciseData>(jsonString)
 
-            Log.d(TAG, "Loaded ${masterData.exercises.size} exercises from JSON (version ${masterData.version})")
+            Timber.d("Loaded ${masterData.exercises.size} exercises from JSON (version ${masterData.version})")
 
             // Step 2: Get existing exercises
             val existingExercises = exerciseDao.getAllExercisesSync()
             val existingByName = existingExercises.associateBy { it.name }
             val customExercises = existingExercises.filter { it.isCustom }
 
-            Log.d(TAG, "Found ${existingExercises.size} existing exercises (${customExercises.size} custom)")
+            Timber.d("Found ${existingExercises.size} existing exercises (${customExercises.size} custom)")
 
             // Step 3: Process master exercises
             var insertedCount = 0
@@ -143,7 +143,7 @@ class MasterExerciseSeeder @Inject constructor(
                     existing.isCustom -> {
                         // User's custom exercise with same name - skip to preserve user data
                         skippedCount++
-                        Log.d(TAG, "Skipping custom exercise: ${existing.name}")
+                        Timber.d("Skipping custom exercise: ${existing.name}")
                     }
                     else -> {
                         // Existing master exercise - update with new data, preserve user-modified fields
@@ -170,7 +170,7 @@ class MasterExerciseSeeder @Inject constructor(
             val staleExercises = existingExercises.filter { !it.isCustom && it.name !in masterNames }
             if (staleExercises.isNotEmpty()) {
                 exerciseDao.deleteExercises(staleExercises)
-                staleExercises.forEach { Log.d(TAG, "Deleted stale exercise: ${it.name}") }
+                staleExercises.forEach { Timber.d("Deleted stale exercise: ${it.name}") }
             }
             val deletedCount = staleExercises.size
 
@@ -182,11 +182,11 @@ class MasterExerciseSeeder @Inject constructor(
                 .map { ExerciseMuscleGroup(exerciseId = it.id, majorGroup = it.muscleGroup, isPrimary = true) }
             if (backfillEntries.isNotEmpty()) {
                 exerciseMuscleGroupDao.insertAll(backfillEntries)
-                Log.i(TAG, "Backfilled ${backfillEntries.size} missing exercise_muscle_groups rows")
+                Timber.i("Backfilled ${backfillEntries.size} missing exercise_muscle_groups rows")
             }
 
             val totalSeeded = insertedCount + updatedCount
-            Log.i(TAG, """
+            Timber.i("""
                 Seeding complete:
                 - Inserted: $insertedCount new exercises
                 - Updated: $updatedCount existing exercises
@@ -199,7 +199,7 @@ class MasterExerciseSeeder @Inject constructor(
             return totalSeeded
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to seed exercises", e)
+            Timber.e(e, "Failed to seed exercises")
             throw e
         }
     }
@@ -238,7 +238,7 @@ class MasterExerciseSeeder @Inject constructor(
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().remove(KEY_SEEDED_VERSION).apply()
 
-            Log.i(TAG, "Cleared all non-custom exercises, preserved ${customExercises.size} custom exercises")
+            Timber.i("Cleared all non-custom exercises, preserved ${customExercises.size} custom exercises")
         }
     }
 }

@@ -343,7 +343,7 @@ When `isCustom == true`, **long-pressing** an `ExerciseCard` in browse mode (ins
 | `muscleGroup` | `String` | Primary muscle group (canonical value from `MuscleGroups.kt`) |
 | `equipmentType` | `String` | Equipment required |
 | `exerciseType` | `ExerciseType` | STRENGTH, CARDIO, etc. |
-| `setupNotes` | `String?` | Form cues (displayed in Form Cues banner) |
+| `setupNotes` | `String?` | How to Perform description (plain-language, displayed first in About tab) |
 | `youtubeVideoId` | `String?` | **Deprecated.** Superseded by offline Animated WebP assets. Retained for schema stability only — not rendered in UI. |
 | `restDurationSeconds` | `Int` | Default rest duration (90s) |
 | `barType` | `BarType` | STANDARD, EZ, etc. |
@@ -458,9 +458,9 @@ Pinned hero + header above tabs, 4-tab `HorizontalPager` below.
 
 | # | Section | Composable | Empty State |
 |---|---------|-----------|-------------|
-| 1 | Compact PR summary | `CompactPrRow` | Hidden if no records |
-| 2 | Joint indicators | `JointIndicatorsSection` | Hidden if no joints |
-| 3 | Form cues | `FormCuesSection` | Hidden if null |
+| 1 | How to Perform | `HowToPerformSection` | Hidden if null |
+| 2 | Compact PR summary | `CompactPrRow` | Hidden if no records |
+| 3 | Joint indicators | `JointIndicatorsSection` | Hidden if no joints |
 | 4 | Training zones | `SetRepZoneGuideSection` | Always rendered |
 | 5 | Warm-up ramp | `WarmUpRampSection` | Hidden if bodyweight |
 | 6 | Muscle activation | `MuscleActivationSection` | Hidden if no vectors |
@@ -471,7 +471,7 @@ Pinned hero + header above tabs, 4-tab `HorizontalPager` below.
 
 **Joint indicators:** Primary → filled `AssistChip` (`primaryContainer`), secondary → outlined (`Color.Transparent`). Affected joints use `errorContainer`.
 
-**Form cues:** Gold banner (`FormCuesGold`), expandable if > 120 chars.
+**How to Perform:** Plain-language movement description from `setupNotes`. No background/card — transparent Column matching app background. `bodyMedium` (14sp), lineHeight 22sp. Expandable if > 200 chars (Read more / Read less). All 240 exercises seeded at v2.0.
 
 **Training zones:** 3 `Surface` boxes (Strength 1–5, Hypertrophy 6–12, Endurance 13+). Active zone highlighted with `BorderStroke`.
 
