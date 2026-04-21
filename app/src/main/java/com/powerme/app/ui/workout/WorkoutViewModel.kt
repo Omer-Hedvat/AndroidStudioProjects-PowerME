@@ -24,6 +24,7 @@ import com.powerme.app.data.database.Workout
 import com.powerme.app.data.database.WorkoutDao
 import com.powerme.app.data.database.WorkoutSet
 import com.powerme.app.data.database.WarmupLog
+import com.powerme.app.analytics.AnalyticsTracker
 import com.powerme.app.analytics.BoazPerformanceAnalyzer
 import com.powerme.app.data.database.StateHistoryEntry
 import com.powerme.app.data.repository.ExerciseRepository
@@ -33,6 +34,7 @@ import com.powerme.app.data.repository.StateHistoryRepository
 import com.powerme.app.data.repository.WarmupRepository
 import com.powerme.app.data.repository.WorkoutRepository
 import com.powerme.app.util.ClocksTimerBridge
+import com.powerme.app.util.WarmupCalculator
 import com.powerme.app.util.RestTimerNotifier
 import com.powerme.app.util.TimerSound
 import com.powerme.app.util.SurgicalValidator
@@ -45,6 +47,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 
@@ -202,6 +205,7 @@ data class ActiveWorkoutState(
     val routineSnapshot: List<RoutineExerciseSnapshot> = emptyList(),
     val pendingRoutineSync: RoutineSyncType? = null,
     val hiddenRestSeparators: Set<String> = emptySet(),
+    val finishedRestSeparators: Set<String> = emptySet(),
     val isEditMode: Boolean = false,
     val editModeSaved: Boolean = false,  // one-shot navigation trigger (like pendingWorkoutSummary)
     val editModeDirty: Boolean = false,
@@ -228,6 +232,7 @@ class WorkoutViewModel @Inject constructor(
     private val userSettingsDao: UserSettingsDao,
     private val medicalLedgerRepository: MedicalLedgerRepository,
     private val boazPerformanceAnalyzer: BoazPerformanceAnalyzer,
+    private val analyticsTracker: AnalyticsTracker,
     private val stateHistoryRepository: StateHistoryRepository,
     private val firestoreSyncManager: FirestoreSyncManager,
     private val clocksTimerBridge: ClocksTimerBridge,
@@ -387,10 +392,13 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun minimizeWorkout() {
+        Timber.d("WVM MINIMIZE wId=${_workoutState.value.workoutId?.take(8)}")
         _workoutState.update { it.copy(isMinimized = true) }
     }
 
     fun maximizeWorkout() {
+        val s = _workoutState.value
+        Timber.d("WVM MAXIMIZE wId=${s.workoutId?.take(8)} isActive=${s.isActive}")
         _workoutState.update { it.copy(isMinimized = false) }
     }
 
@@ -479,6 +487,7 @@ class WorkoutViewModel @Inject constructor(
             val ageMs = System.currentTimeMillis() - activeWorkout.startTimeMs
             val isStale = activeWorkout.startTimeMs == 0L || ageMs > 24 * 60 * 60 * 1000L
             if (isStale) {
+                Timber.d("WVM REHYDRATE_STALE purging wId=${activeWorkout.id.take(8)} ageH=${ageMs / 3_600_000}")
                 workoutSetDao.deleteSetsForWorkout(activeWorkout.id)
                 workoutDao.deleteWorkoutById(activeWorkout.id)
                 return@launch
@@ -489,6 +498,7 @@ class WorkoutViewModel @Inject constructor(
             // Purge ghost workouts: no sets were ever completed → user opened and closed
             // without doing any real work. Do not restore.
             if (dbSets.none { it.isCompleted }) {
+                Timber.d("WVM REHYDRATE_GHOST purging wId=${activeWorkout.id.take(8)}")
                 workoutSetDao.deleteSetsForWorkout(activeWorkout.id)
                 workoutDao.deleteWorkoutById(activeWorkout.id)
                 return@launch
@@ -513,6 +523,7 @@ class WorkoutViewModel @Inject constructor(
             val name = activeWorkout.routineName
                 ?: activeWorkout.routineId?.let { routineDao.getRoutineById(it)?.name }
                 ?: "Workout"
+            Timber.d("WVM REHYDRATE_OK wId=${activeWorkout.id.take(8)} exercises=${exercises.size}")
             _workoutState.update {
                 it.copy(
                     isActive = true,
@@ -530,6 +541,7 @@ class WorkoutViewModel @Inject constructor(
 
     fun startWorkoutFromRoutine(routineId: String) {
         if (_workoutState.value.isMinimized || _workoutState.value.isActive) {
+            Timber.d("WVM START_BLOCKED_ROUTINE isActive=${_workoutState.value.isActive} isMin=${_workoutState.value.isMinimized} — maximizing")
             maximizeWorkout()
             return
         }
@@ -594,6 +606,8 @@ class WorkoutViewModel @Inject constructor(
                     routineSnapshot = snapshot
                 )
             }
+            Timber.d("WVM STARTED_ROUTINE wId=${bootstrap.workoutId.take(8)} exercises=${exercises.size}")
+            analyticsTracker.logWorkoutStarted(routineId = routineId, exerciseCount = exercises.size)
             startElapsedTimer()
             launchWorkoutForegroundService(name, startTime)
         }
@@ -601,6 +615,7 @@ class WorkoutViewModel @Inject constructor(
 
     fun startWorkout(routineId: String = "") {
         if (_workoutState.value.isMinimized || _workoutState.value.isActive) {
+            Timber.d("WVM START_BLOCKED isActive=${_workoutState.value.isActive} isMin=${_workoutState.value.isMinimized} — maximizing")
             maximizeWorkout()
             return
         }
@@ -620,6 +635,8 @@ class WorkoutViewModel @Inject constructor(
                     workoutName = "Empty Workout"
                 )
             }
+            Timber.d("WVM STARTED wId=${id.take(8)}")
+            analyticsTracker.logWorkoutStarted(routineId = routineId, exerciseCount = 0)
             startElapsedTimer()
             launchWorkoutForegroundService("Empty Workout", startTime)
         }
@@ -632,6 +649,7 @@ class WorkoutViewModel @Inject constructor(
      */
     fun startWorkoutFromPlan(bootstrap: WorkoutBootstrap) {
         if (_workoutState.value.isMinimized || _workoutState.value.isActive) {
+            Timber.d("WVM START_BLOCKED_PLAN isActive=${_workoutState.value.isActive} isMin=${_workoutState.value.isMinimized} — maximizing")
             maximizeWorkout()
             return
         }
@@ -665,6 +683,8 @@ class WorkoutViewModel @Inject constructor(
                     workoutName = "AI Workout"
                 )
             }
+            Timber.d("WVM STARTED_PLAN wId=${bootstrap.workoutId.take(8)} exercises=${exercises.size}")
+            analyticsTracker.logWorkoutStarted(routineId = "ai", exerciseCount = exercises.size)
             startElapsedTimer()
             launchWorkoutForegroundService("AI Workout", startTime)
         }
@@ -672,9 +692,16 @@ class WorkoutViewModel @Inject constructor(
 
     fun startEditMode(routineId: String) {
         if (_workoutState.value.isActive && !_workoutState.value.isEditMode) {
+            Timber.d("WVM EDIT_BLOCKED isActive=${_workoutState.value.isActive}")
             _workoutState.update { it.copy(showEditGuard = true) }
             return
         }
+        // Synchronously clear any stale post-workout state before navigation occurs.
+        // startWorkoutFromRoutine() does the same thing — without this, ActiveWorkoutScreen
+        // mounts with pendingWorkoutSummary != null and immediately redirects to the old summary.
+        _lastFinishedWorkoutId = null
+        _lastPendingRoutineSync = null
+        _workoutState.update { it.copy(pendingWorkoutSummary = null, pendingRoutineSync = null) }
         viewModelScope.launch {
             _workoutState.update { it.copy(editModeSaved = false) }
             val unit = currentUnit
@@ -703,6 +730,7 @@ class WorkoutViewModel @Inject constructor(
                 val routineName = routineDao.getRoutineById(routineId)?.name ?: "Routine"
                 Pair(exList, routineName)
             }
+            Timber.d("WVM EDIT_START routineId=${routineId.take(8)}")
             _workoutState.update {
                 it.copy(
                     isActive = true,
@@ -716,7 +744,8 @@ class WorkoutViewModel @Inject constructor(
                     routineSnapshot = emptyList(),
                     editModeSaved = false,
                     collapsedExerciseIds = emptySet(),
-                    hiddenRestSeparators = emptySet()
+                    hiddenRestSeparators = emptySet(),
+                    finishedRestSeparators = emptySet()
                 )
             }
         }
@@ -1536,6 +1565,7 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val state = _workoutState.value
+                Timber.d("WVM FINISH_BEGIN wId=${state.workoutId?.take(8)} isActive=${state.isActive}")
                 if (!state.isActive || state.startTime == null) return@launch
 
                 val endTime = System.currentTimeMillis()
@@ -1575,6 +1605,7 @@ class WorkoutViewModel @Inject constructor(
                     updatedAt = endTime
                 )
                 workoutDao.updateWorkout(finishedWorkout)
+                Timber.d("WVM FINISH_DB_DONE wId=${workoutId.take(8)}")
                 // Clean up skeleton rows the user never filled in
                 workoutSetDao.deleteIncompleteSetsByWorkout(workoutId)
                 // Push to Firestore (fire-and-forget; SDK queues when offline)
@@ -1591,7 +1622,7 @@ class WorkoutViewModel @Inject constructor(
                     val results = boazPerformanceAnalyzer.compare(workoutId, routineId = state.routineId)
                     boazPerformanceAnalyzer.formatPerformanceReport(results)
                 } catch (e: Exception) {
-                    android.util.Log.w("WorkoutViewModel", "Boaz analysis failed", e)
+                    Timber.w(e, "Boaz analysis failed")
                     null
                 }
 
@@ -1610,6 +1641,11 @@ class WorkoutViewModel @Inject constructor(
                 val completedSetCount = state.exercises.sumOf { ex ->
                     ex.sets.count { it.isCompleted }
                 }
+                analyticsTracker.logWorkoutFinished(
+                    durationMinutes = durationSeconds / 60,
+                    totalSets = completedSetCount,
+                    exerciseCount = state.exercises.size
+                )
                 val exerciseNames = state.exercises
                     .filter { ex -> ex.sets.any { it.isCompleted } }
                     .map { it.exercise.name }
@@ -1659,6 +1695,7 @@ class WorkoutViewModel @Inject constructor(
                         else                           -> null
                     }
                     if (syncType != null) {
+                        Timber.d("WVM FINISH_SYNC wId=${workoutId.take(8)} syncType=$syncType")
                         _lastFinishedWorkoutId = workoutId
                         _lastPendingRoutineSync = syncType
                         stopWorkoutForegroundService()
@@ -1673,6 +1710,7 @@ class WorkoutViewModel @Inject constructor(
                     }
                 }
 
+                Timber.d("WVM FINISH_OK wId=${workoutId.take(8)}")
                 _lastFinishedWorkoutId = workoutId
                 _lastPendingRoutineSync = null
                 val durationText = if (durationSeconds >= 3600) {
@@ -1687,7 +1725,7 @@ class WorkoutViewModel @Inject constructor(
                 )
                 _workoutState.update { it.copy(isActive = false, pendingWorkoutSummary = summary) }
             } catch (e: Exception) {
-                android.util.Log.e("WorkoutViewModel", "finishWorkout failed", e)
+                Timber.e(e, "finishWorkout failed")
                 stopWorkoutForegroundService()
                 _workoutState.update {
                     ActiveWorkoutState(availableExercises = it.availableExercises)
@@ -1697,10 +1735,16 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun dismissWorkoutSummary() {
+        Timber.d("WVM DISMISS_SUMMARY lastId=${_lastFinishedWorkoutId?.take(8)}")
         _lastFinishedWorkoutId = null
         _lastPendingRoutineSync = null
-        _workoutState.update {
-            ActiveWorkoutState(availableExercises = it.availableExercises)
+        _workoutState.update { state ->
+            // Guard: if a new workout started before this dispose fires, don't destroy it.
+            if (state.isActive) {
+                state.copy(pendingWorkoutSummary = null, pendingRoutineSync = null)
+            } else {
+                ActiveWorkoutState(availableExercises = state.availableExercises)
+            }
         }
     }
 
@@ -1794,6 +1838,7 @@ class WorkoutViewModel @Inject constructor(
     fun dismissRoutineSync() = resolveRoutineSync()
 
     private fun resolveRoutineSync() {
+        Timber.d("WVM RESOLVE_SYNC")
         _workoutState.update { state ->
             state.copy(
                 pendingRoutineSync = null,
@@ -1841,6 +1886,9 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun cancelWorkout() {
+        val setsLogged = _workoutState.value.exercises.sumOf { ex -> ex.sets.count { it.isCompleted } }
+        Timber.d("WVM CANCEL wId=${_workoutState.value.workoutId?.take(8)} setsLogged=$setsLogged")
+        analyticsTracker.logWorkoutCancelled(setsLogged = setsLogged)
         timerService?.let {
             it.onSkipRestRequested = null
             it.onFinishWorkoutRequested = null
@@ -1953,17 +2001,22 @@ class WorkoutViewModel @Inject constructor(
         _workoutState.update { state ->
             var updated = state.copy(restTimer = RestTimerState())
             if (finishedExerciseId != null && finishedSetOrder != null) {
-                updated = updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${finishedExerciseId}_${finishedSetOrder}")
-            }
-            // Warmup collapse: if the finished timer was for the last warmup set, collapse warmup rows.
-            if (finishedSetType == SetType.WARMUP && finishedExerciseId != null) {
-                val warmupSets = updated.exercises.find { it.exercise.id == finishedExerciseId }
-                    ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
-                if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }) {
-                    updated = updated.copy(collapsedWarmupExerciseIds = updated.collapsedWarmupExerciseIds + finishedExerciseId)
-                }
+                updated = updated.copy(finishedRestSeparators = updated.finishedRestSeparators + "${finishedExerciseId}_${finishedSetOrder}")
             }
             updated
+        }
+        // Staggered: collapse warmup rows 500ms after the rest separator is hidden.
+        if (finishedSetType == SetType.WARMUP && finishedExerciseId != null) {
+            viewModelScope.launch {
+                delay(500)
+                _workoutState.update { state ->
+                    val warmupSets = state.exercises.find { it.exercise.id == finishedExerciseId }
+                        ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                    if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted })
+                        state.copy(collapsedWarmupExerciseIds = state.collapsedWarmupExerciseIds + finishedExerciseId)
+                    else state
+                }
+            }
         }
         // Post heads-up / watch notification: "Rest Complete — <exercise> Set N"
         val exerciseName = _workoutState.value.exercises
@@ -1991,7 +2044,23 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun startRestTimer(exerciseId: Long, setOrder: Int? = null, overrideSeconds: Int? = null, setType: SetType? = null) {
-        // Guard: cancel any in-process timer (coroutine or service) to prevent double-beep race conditions.
+        // If a timer is already running, dismiss it (cancel job + mark separator finished) before
+        // starting the new one. Warmup collapse is intentionally not triggered here — the new timer
+        // may itself be a warmup timer and will handle collapse when it finishes or is skipped.
+        if (_workoutState.value.restTimer.isActive) {
+            val prevId = _workoutState.value.restTimer.exerciseId
+            val prevOrder = _workoutState.value.restTimer.setOrder
+            timerJob?.cancel()
+            if (serviceBound && timerService != null) timerService!!.stopTimer()
+            _workoutState.update { state ->
+                var updated = state.copy(restTimer = RestTimerState())
+                if (prevId != null && prevOrder != null) {
+                    updated = updated.copy(finishedRestSeparators = updated.finishedRestSeparators + "${prevId}_${prevOrder}")
+                }
+                updated
+            }
+        }
+        // Cancel any in-process timer (coroutine or service) to prevent double-beep race conditions.
         timerJob?.cancel()
         if (serviceBound && timerService != null) timerService!!.stopTimer()
 
@@ -2070,17 +2139,20 @@ class WorkoutViewModel @Inject constructor(
                 _workoutState.update { state ->
                     var updated = state.copy(restTimer = RestTimerState())
                     if (setOrder != null) {
-                        updated = updated.copy(hiddenRestSeparators = updated.hiddenRestSeparators + "${exerciseId}_${setOrder}")
-                    }
-                    // Warmup collapse: if this was the last warmup's rest timer, collapse warmup rows now.
-                    if (setType == SetType.WARMUP) {
-                        val warmupSets = updated.exercises.find { it.exercise.id == exerciseId }
-                            ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
-                        if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }) {
-                            updated = updated.copy(collapsedWarmupExerciseIds = updated.collapsedWarmupExerciseIds + exerciseId)
-                        }
+                        updated = updated.copy(finishedRestSeparators = updated.finishedRestSeparators + "${exerciseId}_${setOrder}")
                     }
                     updated
+                }
+                // Staggered: collapse warmup rows 500ms after the rest separator is hidden.
+                if (setType == SetType.WARMUP) {
+                    delay(500)
+                    _workoutState.update { state ->
+                        val warmupSets = state.exercises.find { it.exercise.id == exerciseId }
+                            ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                        if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted })
+                            state.copy(collapsedWarmupExerciseIds = state.collapsedWarmupExerciseIds + exerciseId)
+                        else state
+                    }
                 }
             }
         }
@@ -2116,22 +2188,27 @@ class WorkoutViewModel @Inject constructor(
             timerService!!.stopTimer()
         }
         val skippedSetType = _workoutState.value.restTimer.setType
+        val skippedExerciseId = _workoutState.value.restTimer.exerciseId
+        val skippedSetOrder = _workoutState.value.restTimer.setOrder
         _workoutState.update { state ->
-            val exerciseId = state.restTimer.exerciseId
-            val setOrder = state.restTimer.setOrder
-            val hidden = if (exerciseId != null && setOrder != null) {
-                state.hiddenRestSeparators + "${exerciseId}_${setOrder}"
-            } else state.hiddenRestSeparators
-            var updated = state.copy(restTimer = RestTimerState(), hiddenRestSeparators = hidden)
-            // Warmup collapse: if skipping the last warmup's rest timer, collapse warmup rows atomically.
-            if (skippedSetType == SetType.WARMUP && exerciseId != null) {
-                val warmupSets = updated.exercises.find { it.exercise.id == exerciseId }
-                    ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
-                if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted }) {
-                    updated = updated.copy(collapsedWarmupExerciseIds = updated.collapsedWarmupExerciseIds + exerciseId)
-                }
+            var updated = state.copy(restTimer = RestTimerState())
+            if (skippedExerciseId != null && skippedSetOrder != null) {
+                updated = updated.copy(finishedRestSeparators = updated.finishedRestSeparators + "${skippedExerciseId}_${skippedSetOrder}")
             }
             updated
+        }
+        // Staggered: collapse warmup rows 500ms after the rest separator is hidden.
+        if (skippedSetType == SetType.WARMUP && skippedExerciseId != null) {
+            viewModelScope.launch {
+                delay(500)
+                _workoutState.update { state ->
+                    val warmupSets = state.exercises.find { it.exercise.id == skippedExerciseId }
+                        ?.sets?.filter { it.setType == SetType.WARMUP } ?: emptyList()
+                    if (warmupSets.isNotEmpty() && warmupSets.all { it.isCompleted })
+                        state.copy(collapsedWarmupExerciseIds = state.collapsedWarmupExerciseIds + skippedExerciseId)
+                    else state
+                }
+            }
         }
     }
 
@@ -2380,24 +2457,119 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    /** Add 3 WARMUP-type sets to the exercise (prepended before working sets). */
-    fun addWarmupSetsToExercise(exerciseId: Long) {
+    /** Returns true if the exercise already has any WARMUP-type sets. */
+    fun hasWarmupSets(exerciseId: Long): Boolean =
+        _workoutState.value.exercises
+            .find { it.exercise.id == exerciseId }
+            ?.sets?.any { it.setType == SetType.WARMUP } == true
+
+    /**
+     * Returns the average weight of non-empty NORMAL sets for the exercise,
+     * or null if all work sets are empty.
+     */
+    fun getWorkSetWeight(exerciseId: Long): Double? {
+        val sets = _workoutState.value.exercises
+            .find { it.exercise.id == exerciseId }
+            ?.sets?.filter { it.setType == SetType.NORMAL } ?: return null
+        val weights = sets.mapNotNull { it.weight.toDoubleOrNull()?.takeIf { w -> w > 0 } }
+        return if (weights.isEmpty()) null else weights.average()
+    }
+
+    /**
+     * Returns true when the exercise qualifies for smart warmup generation:
+     * must be STRENGTH type and have a valid equipment type (or be Bodyweight with loaded sets).
+     */
+    fun canAddSmartWarmups(exerciseId: Long): Boolean {
+        val entry = _workoutState.value.exercises.find { it.exercise.id == exerciseId } ?: return false
+        if (entry.exercise.exerciseType.name != "STRENGTH") return false
+        val equip = entry.exercise.equipmentType
+        if (equip == "Bodyweight") {
+            // Only available if at least one set has a non-zero weight
+            return entry.sets.any { it.weight.toDoubleOrNull()?.let { w -> w > 0 } == true }
+        }
+        return WarmupCalculator.equipmentToWarmupParams(equip, currentUnit) != null
+    }
+
+    /**
+     * Computes and prepends smart warmup sets for the given exercise.
+     *
+     * @param workingWeight explicit working weight (used when work sets are empty and user entered it)
+     * @param workingReps   explicit working reps (used together with [workingWeight])
+     * @param fillWorkSets  if true, fills empty NORMAL sets with [workingWeight]/[workingReps]
+     */
+    fun addSmartWarmups(
+        exerciseId: Long,
+        workingWeight: Double? = null,
+        workingReps: Int? = null,
+        fillWorkSets: Boolean = false
+    ) {
         viewModelScope.launch {
             try {
                 val exerciseEntry = _workoutState.value.exercises
                     .find { it.exercise.id == exerciseId } ?: return@launch
-                val warmupSets = (1..3).map { i ->
-                    ActiveSet(setOrder = i, setType = SetType.WARMUP)
+
+                val equip = exerciseEntry.exercise.equipmentType
+                val params = if (equip == "Bodyweight") {
+                    WarmupCalculator.bodyweightLoadedParams(currentUnit)
+                } else {
+                    WarmupCalculator.equipmentToWarmupParams(equip, currentUnit) ?: return@launch
                 }
-                // Shift existing sets up by 3
-                val shifted = exerciseEntry.sets.mapIndexed { idx, set ->
-                    set.copy(setOrder = idx + 4)
+
+                // Resolve working weight: explicit arg → average of existing work sets
+                val resolvedWeight = workingWeight
+                    ?: exerciseEntry.sets
+                        .filter { it.setType == SetType.NORMAL }
+                        .mapNotNull { it.weight.toDoubleOrNull()?.takeIf { w -> w > 0 } }
+                        .average().takeIf { !it.isNaN() }
+
+                if (resolvedWeight == null || resolvedWeight <= 0) {
+                    _workoutState.update { it.copy(snackbarMessage = "Set working weight first") }
+                    return@launch
                 }
+
+                val warmupData = WarmupCalculator.computeWarmupSets(resolvedWeight, params)
+                if (warmupData.isEmpty()) {
+                    _workoutState.update { it.copy(snackbarMessage = "Working weight too light for warmup sets") }
+                    return@launch
+                }
+
                 _workoutState.update { state ->
+                    val currentSets = state.exercises.find { it.exercise.id == exerciseId }?.sets ?: return@update state
+
+                    // Optionally fill empty NORMAL sets
+                    val updatedNormalSets = if (fillWorkSets && workingWeight != null) {
+                        currentSets.map { set ->
+                            if (set.setType == SetType.NORMAL && set.weight.isBlank()) {
+                                set.copy(
+                                    weight = formatWeight(workingWeight, currentUnit),
+                                    reps = workingReps?.toString() ?: set.reps
+                                )
+                            } else set
+                        }
+                    } else currentSets
+
+                    // Remove existing warmup sets, keep everything else
+                    val nonWarmupSets = updatedNormalSets.filter { it.setType != SetType.WARMUP }
+
+                    // Build new warmup ActiveSets
+                    val newWarmupSets = warmupData.mapIndexed { idx, warmup ->
+                        ActiveSet(
+                            setOrder = idx + 1,
+                            setType = SetType.WARMUP,
+                            weight = formatWeight(warmup.weight, currentUnit),
+                            reps = warmup.reps.toString()
+                        )
+                    }
+
+                    // Shift non-warmup sets
+                    val shiftedSets = nonWarmupSets.mapIndexed { idx, set ->
+                        set.copy(setOrder = newWarmupSets.size + idx + 1)
+                    }
+
                     state.copy(
                         exercises = state.exercises.map { ex ->
                             if (ex.exercise.id == exerciseId) {
-                                ex.copy(sets = warmupSets + shifted)
+                                ex.copy(sets = newWarmupSets + shiftedSets)
                             } else ex
                         }
                     ).markDirtyIfEditing()

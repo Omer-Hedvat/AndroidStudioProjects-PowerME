@@ -64,6 +64,7 @@ import com.powerme.app.ui.workouts.ai.AiWorkoutGenerationScreen
 import com.powerme.app.ui.workout.WorkoutViewModel
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import timber.log.Timber
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -145,9 +146,15 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
     val currentRoute = navBackStackEntry?.destination?.route
 
     LaunchedEffect(workoutState.isMinimized) {
+        Timber.d("WVM NAV_MAXIMIZE isActive=${workoutState.isActive} isMin=${workoutState.isMinimized} route=$currentRoute")
         if (!workoutState.isMinimized && workoutState.isActive && currentRoute != Routes.WORKOUT) {
             navController.navigate(Routes.WORKOUT)
         }
+    }
+
+    LaunchedEffect(workoutState.isActive, workoutState.isMinimized, workoutState.isEditMode) {
+        val visible = (workoutState.isActive || workoutState.isEditMode) && workoutState.isMinimized
+        Timber.d("WVM MIN_BAR visible=$visible isActive=${workoutState.isActive} isMin=${workoutState.isMinimized} isEdit=${workoutState.isEditMode}")
     }
 
     // Edit guard dialog — shown when user tries to edit a routine while a workout is active
@@ -263,6 +270,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onWorkoutFinished = {
                     val finishedId = workoutViewModel.lastFinishedWorkoutId
                     val syncType = workoutViewModel.lastPendingRoutineSync?.name ?: "NONE"
+                    Timber.d("WVM NAV_FINISH finishedId=${finishedId?.take(8)} syncType=$syncType")
                     if (finishedId != null) {
                         navController.navigate("workout_summary/$finishedId?isPostWorkout=true&syncType=$syncType") {
                             popUpTo(Routes.WORKOUT) { inclusive = true }
@@ -556,6 +564,12 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
+            val isPostWorkout = it.arguments?.getBoolean("isPostWorkout") ?: false
+            // Clear post-workout ViewModel state whenever this screen leaves the composition,
+            // covering toolbar back, Done button, and system back gesture.
+            androidx.compose.runtime.DisposableEffect(Unit) {
+                onDispose { if (isPostWorkout) workoutViewModel.dismissWorkoutSummary() }
+            }
             WorkoutSummaryScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEdit = { workoutId ->
@@ -682,6 +696,7 @@ fun MainAppScaffold(
                                 it.route?.startsWith(screen.route) == true
                             } == true,
                             onClick = {
+                                Timber.i("nav_tab_selected tab=${screen.title}")
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
                                         saveState = true

@@ -1,6 +1,7 @@
 package com.powerme.app.ui.workout
 
 import android.content.Context
+import com.powerme.app.analytics.AnalyticsTracker
 import com.powerme.app.analytics.BoazPerformanceAnalyzer
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
@@ -104,6 +105,7 @@ class WorkoutViewModelTest {
     private lateinit var mockWorkoutRepository: WorkoutRepository
     private lateinit var mockWarmupRepository: WarmupRepository
     private lateinit var mockMedicalLedgerRepository: MedicalLedgerRepository
+    private lateinit var mockAnalyticsTracker: AnalyticsTracker
     private lateinit var mockBoazPerformanceAnalyzer: BoazPerformanceAnalyzer
     private lateinit var mockStateHistoryRepository: StateHistoryRepository
     private lateinit var mockClocksTimerBridge: ClocksTimerBridge
@@ -130,6 +132,7 @@ class WorkoutViewModelTest {
         mockWarmupRepository = mock()
 
         mockMedicalLedgerRepository = mock()
+        mockAnalyticsTracker = mock()
         mockBoazPerformanceAnalyzer = mock()
         mockStateHistoryRepository = mock()
         mockClocksTimerBridge = mock()
@@ -192,6 +195,7 @@ class WorkoutViewModelTest {
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
@@ -1194,6 +1198,30 @@ class WorkoutViewModelTest {
         assertFalse("Exercise 5 separator 1 should be restored", updated.contains("5_1"))
         assertFalse("Exercise 5 separator 2 should be restored", updated.contains("5_2"))
         assertTrue("Exercise 7 separator should remain hidden", updated.contains("7_1"))
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `updateExerciseRestTimers does NOT restore finishedRestSeparators entries`() = vmTest {
+        // BUG_rest_timer_reset_ignores_skipped: finished/skipped separators must stay hidden
+        // after updateExerciseRestTimers; only manually-swiped ones (hiddenRestSeparators) are restored.
+        viewModel.startWorkout("")
+        runCurrent()
+
+        // Simulate two finished-timer separators for exercise 5 via direct state mutation
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(finishedRestSeparators = setOf("5_1", "5_2"))
+        }
+
+        // Set Rest Timers for exercise 5
+        viewModel.updateExerciseRestTimers(5L, 90, 30, 0, false)
+        runCurrent()
+
+        val finished = viewModel.workoutState.value.finishedRestSeparators
+        assertTrue("finishedRestSeparators must survive updateExerciseRestTimers", finished.contains("5_1"))
+        assertTrue("finishedRestSeparators must survive updateExerciseRestTimers", finished.contains("5_2"))
 
         viewModel.cancelWorkout()
         runCurrent()
@@ -2359,6 +2387,7 @@ class WorkoutViewModelTest {
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
@@ -2433,6 +2462,7 @@ class WorkoutViewModelTest {
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
@@ -2486,6 +2516,7 @@ class WorkoutViewModelTest {
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
@@ -2537,6 +2568,7 @@ class WorkoutViewModelTest {
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
@@ -2587,6 +2619,7 @@ class WorkoutViewModelTest {
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
@@ -2637,6 +2670,7 @@ class WorkoutViewModelTest {
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
             stateHistoryRepository = mockStateHistoryRepository,
             clocksTimerBridge = mockClocksTimerBridge,
             firestoreSyncManager = mockFirestoreSyncManager,
@@ -2804,6 +2838,7 @@ class WorkoutViewModelTest {
 
             val state = viewModel.workoutState.value
             assertTrue(state.hiddenRestSeparators.isEmpty())
+            assertTrue(state.finishedRestSeparators.isEmpty())
             assertTrue(state.restTimeOverrides.isEmpty())
             assertTrue(state.collapsedExerciseIds.isEmpty())
             assertTrue(state.deletedSetClipboard.isEmpty())
@@ -2828,6 +2863,77 @@ class WorkoutViewModelTest {
 
             assertNull(viewModel.lastFinishedWorkoutId)
             assertNull(viewModel.lastPendingRoutineSync)
+        }
+
+    // -------------------------------------------------------------------------
+    // BUG_post_workout_loop_regression — startEditMode must clear stale post-workout state
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `startEditMode clears pendingWorkoutSummary synchronously before coroutine`() =
+        vmTest {
+            runBlocking { setupEditModeRoutine() }
+
+            // Finish a workout so pendingWorkoutSummary is populated
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.finishWorkout()
+            runCurrent()
+            assertNotNull(
+                "pre-condition: pendingWorkoutSummary should be set after finishWorkout",
+                viewModel.workoutState.value.pendingWorkoutSummary
+            )
+
+            // Call startEditMode WITHOUT running the coroutine — navigation happens before it runs
+            viewModel.startEditMode("99")
+
+            // pendingWorkoutSummary must be null immediately so that ActiveWorkoutScreen's
+            // LaunchedEffect does not fire and redirect to the old workout's summary.
+            assertNull(
+                "pendingWorkoutSummary must be cleared synchronously by startEditMode",
+                viewModel.workoutState.value.pendingWorkoutSummary
+            )
+
+            // Drain and clean up
+            runCurrent()
+            Thread.sleep(100)
+            runCurrent()
+            viewModel.cancelEditMode()
+            runCurrent()
+        }
+
+    @Test
+    fun `startEditMode clears lastFinishedWorkoutId synchronously before coroutine`() =
+        vmTest {
+            runBlocking { setupEditModeRoutine() }
+
+            // Finish a workout so _lastFinishedWorkoutId is captured
+            viewModel.startWorkout("")
+            runCurrent()
+            viewModel.finishWorkout()
+            runCurrent()
+            assertNotNull(
+                "pre-condition: lastFinishedWorkoutId should be set after finishWorkout",
+                viewModel.lastFinishedWorkoutId
+            )
+
+            // Call startEditMode WITHOUT running the coroutine
+            viewModel.startEditMode("99")
+
+            // lastFinishedWorkoutId must be null immediately — without this, onWorkoutFinished
+            // triggered by editModeSaved would navigate to the stale workout's summary.
+            assertNull(
+                "lastFinishedWorkoutId must be cleared synchronously by startEditMode",
+                viewModel.lastFinishedWorkoutId
+            )
+            assertNull(viewModel.lastPendingRoutineSync)
+
+            // Drain and clean up
+            runCurrent()
+            Thread.sleep(100)
+            runCurrent()
+            viewModel.cancelEditMode()
+            runCurrent()
         }
 
     // -------------------------------------------------------------------------
@@ -3158,8 +3264,52 @@ class WorkoutViewModelTest {
         // Timer must be cleared.
         assertFalse(viewModel.workoutState.value.restTimer.isActive)
         assertEquals(0, viewModel.workoutState.value.restTimer.remainingSeconds)
-        // Separator for 42_2 must be hidden.
-        assertTrue("42_2" in viewModel.workoutState.value.hiddenRestSeparators)
+        // Separator for 42_2 must be in finishedRestSeparators (timer-expired, not swiped).
+        assertTrue("42_2" in viewModel.workoutState.value.finishedRestSeparators)
+        assertFalse("42_2" in viewModel.workoutState.value.hiddenRestSeparators)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `onTimerFinish on last warmup timer hides separator immediately then collapses rows after 500ms stagger`() = vmTest {
+        // BUG_warmup_sets_staggered_collapse: service path (onTimerFinish)
+        val exerciseId = 200L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 3)
+        runCurrent()
+
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        runCurrent()
+
+        // Complete both warmup sets (so they're all done)
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+
+        // Manually prime restTimer as if service started it for setOrder=2 (last warmup)
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(restTimer = RestTimerState(
+                isActive = true, remainingSeconds = 0, totalSeconds = 60,
+                exerciseId = exerciseId, setOrder = 2, setType = SetType.WARMUP
+            ))
+        }
+
+        val method = WorkoutViewModel::class.java.getDeclaredMethod("onTimerFinish")
+        method.isAccessible = true
+        method.invoke(viewModel)
+        runCurrent()
+
+        // Separator hidden immediately
+        assertTrue("Separator must be in finishedRestSeparators immediately", "${exerciseId}_2" in viewModel.workoutState.value.finishedRestSeparators)
+        // Warmup rows NOT collapsed yet
+        assertFalse("Warmup rows must not collapse before 500ms stagger", exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
+
+        // Advance past the 500ms stagger
+        advanceTimeBy(501)
+        assertTrue("Warmup rows must collapse 500ms after separator is hidden", exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
 
         viewModel.cancelWorkout()
         runCurrent()
@@ -3620,7 +3770,11 @@ class WorkoutViewModelTest {
 
         assertFalse("Timer should be stopped after skip", viewModel.workoutState.value.restTimer.isActive)
         assertTrue(
-            "skipRestTimer must add separator key to hiddenRestSeparators",
+            "skipRestTimer must add separator key to finishedRestSeparators",
+            "${exerciseId}_1" in viewModel.workoutState.value.finishedRestSeparators
+        )
+        assertFalse(
+            "skipRestTimer must NOT add key to hiddenRestSeparators (manual-swipe only)",
             "${exerciseId}_1" in viewModel.workoutState.value.hiddenRestSeparators
         )
 
@@ -3629,7 +3783,7 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `skipRestTimer on last warmup timer collapses separator and warmup rows atomically`() = vmTest {
+    fun `skipRestTimer on last warmup timer collapses separator then warmup rows after 500ms stagger`() = vmTest {
         val exerciseId = 109L
         setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 90, setCount = 3)
         runCurrent()
@@ -3655,17 +3809,26 @@ class WorkoutViewModelTest {
         assertTrue("Rest timer must be active after confirming last warmup before working sets",
             viewModel.workoutState.value.restTimer.isActive)
 
-        // Skip the last warmup's rest timer → separator AND warmup rows collapse atomically
+        // Skip the last warmup's rest timer → separator hides immediately
         viewModel.skipRestTimer()
         runCurrent()
 
         assertFalse("Timer should be stopped after skip", viewModel.workoutState.value.restTimer.isActive)
         assertTrue(
-            "skipRestTimer must hide warmup-to-work separator key",
-            "${exerciseId}_2" in viewModel.workoutState.value.hiddenRestSeparators
+            "skipRestTimer must add warmup-to-work separator key to finishedRestSeparators",
+            "${exerciseId}_2" in viewModel.workoutState.value.finishedRestSeparators
         )
+        // Warmup rows must NOT collapse yet — stagger delay is pending
+        assertFalse(
+            "Warmup rows must not collapse immediately on skip — stagger delay required",
+            exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
+        )
+
+        // Advance past the 500ms stagger → warmup rows collapse
+        advanceTimeBy(501)
+        runCurrent()
         assertTrue(
-            "skipRestTimer on last warmup timer must collapse warmup rows",
+            "Warmup rows must collapse 500ms after the rest separator is hidden",
             exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
         )
 
@@ -3674,18 +3837,90 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `skipRestTimer with no active timer is a no-op for hiddenRestSeparators`() = vmTest {
+    fun `skipRestTimer with no active timer is a no-op for rest separator sets`() = vmTest {
         val exerciseId = 110L
         setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 90, setCount = 1)
         runCurrent()
 
         val hiddenBefore = viewModel.workoutState.value.hiddenRestSeparators
+        val finishedBefore = viewModel.workoutState.value.finishedRestSeparators
 
-        // Skip when no timer is active — should not modify hiddenRestSeparators
+        // Skip when no timer is active — should not modify either separator set
         viewModel.skipRestTimer()
         runCurrent()
 
-        assertEquals("No-op skip must not add phantom keys", hiddenBefore, viewModel.workoutState.value.hiddenRestSeparators)
+        assertEquals("No-op skip must not add phantom keys to hiddenRestSeparators", hiddenBefore, viewModel.workoutState.value.hiddenRestSeparators)
+        assertEquals("No-op skip must not add phantom keys to finishedRestSeparators", finishedBefore, viewModel.workoutState.value.finishedRestSeparators)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startRestTimer while timer active skips first timer before starting new one`() = vmTest {
+        val exerciseId = 120L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 3)
+        runCurrent()
+
+        // Complete set 1 — first rest timer starts for setOrder=1
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+
+        val firstTimer = viewModel.workoutState.value.restTimer
+        assertTrue("Pre-condition: first timer must be active", firstTimer.isActive)
+        assertEquals(1, firstTimer.setOrder)
+
+        // Complete set 2 while first timer is still running — triggers startRestTimer for setOrder=2
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+
+        val newTimer = viewModel.workoutState.value.restTimer
+        assertTrue("New timer must be active after completing set 2", newTimer.isActive)
+        assertEquals("New timer must be for setOrder=2", 2, newTimer.setOrder)
+        assertTrue(
+            "First timer's separator must be in finishedRestSeparators (implicit skip)",
+            "${exerciseId}_1" in viewModel.workoutState.value.finishedRestSeparators
+        )
+        assertEquals("New timer duration must equal exercise rest duration", 60, newTimer.totalSeconds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startRestTimer while warmup timer active skips warmup and collapses after stagger`() = vmTest {
+        val exerciseId = 121L
+        setupExerciseWithSets(exerciseId = exerciseId, restSeconds = 60, setCount = 3)
+        runCurrent()
+
+        // Sets 1 and 2 are WARMUP, set 3 is NORMAL
+        viewModel.selectSetType(exerciseId, 1, SetType.WARMUP)
+        viewModel.selectSetType(exerciseId, 2, SetType.WARMUP)
+        runCurrent()
+
+        // Complete warmup 1 — rest timer starts for setOrder=1
+        viewModel.completeSet(exerciseId, 1)
+        runCurrent()
+        assertTrue("Pre-condition: warmup 1 timer active", viewModel.workoutState.value.restTimer.isActive)
+
+        // Complete warmup 2 (last warmup) while warmup-1 timer is running — implicit skip
+        viewModel.completeSet(exerciseId, 2)
+        runCurrent()
+
+        // Warmup-1 separator should be implicitly skipped
+        assertTrue(
+            "Warmup-1 separator must be in finishedRestSeparators after implicit skip",
+            "${exerciseId}_1" in viewModel.workoutState.value.finishedRestSeparators
+        )
+        // New timer should be active for the last warmup (setOrder=2, SetType=WARMUP)
+        assertTrue("New timer must be active", viewModel.workoutState.value.restTimer.isActive)
+        assertEquals(2, viewModel.workoutState.value.restTimer.setOrder)
+
+        // Warmup collapse must NOT happen before the new timer finishes
+        assertFalse(
+            "Warmup rows must not collapse while new timer is running",
+            exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
+        )
 
         viewModel.cancelWorkout()
         runCurrent()
@@ -3721,7 +3956,7 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `rest timer finishing for last warmup collapses warmup rows`() = vmTest {
+    fun `rest timer finishing for last warmup hides separator immediately then collapses warmup rows after 500ms stagger`() = vmTest {
         val restSeconds = 10
         val exerciseId = 112L
         setupExerciseWithSets(exerciseId = exerciseId, restSeconds = restSeconds, setCount = 3)
@@ -3742,14 +3977,24 @@ class WorkoutViewModelTest {
         assertFalse("Not collapsed yet — timer is running", exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds)
         assertTrue("Timer is active", viewModel.workoutState.value.restTimer.isActive)
 
-        // Advance time past the full rest duration so the timer coroutine completes
+        // Advance past the rest timer but not past the 500ms stagger
         advanceTimeBy(restSeconds * 1000L + 1)
+        assertTrue(
+            "Separator must be in finishedRestSeparators immediately after timer ends",
+            "${exerciseId}_2" in viewModel.workoutState.value.finishedRestSeparators
+        )
+        assertFalse(
+            "Warmup rows must NOT collapse before the 500ms stagger elapses",
+            exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
+        )
 
+        // Advance past the 500ms stagger
+        advanceTimeBy(500)
         val isCollapsed = exerciseId in viewModel.workoutState.value.collapsedWarmupExerciseIds
         viewModel.cancelWorkout()
         runCurrent()
 
-        assertTrue("Warmup rows must collapse after the last warmup's rest timer finishes", isCollapsed)
+        assertTrue("Warmup rows must collapse 500ms after the rest separator is hidden", isCollapsed)
     }
 
     // -------------------------------------------------------------------------
