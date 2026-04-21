@@ -1,6 +1,6 @@
 package com.powerme.app.data.csvimport
 
-import android.util.Log
+import timber.log.Timber
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseDao
 import com.powerme.app.data.database.ExerciseMuscleGroup
@@ -102,7 +102,7 @@ class CsvImportManager @Inject constructor(
                 nameToId[key] = newId
                 exerciseIdMap[rawName] = newId
                 exercisesCreated++
-                Log.i(TAG, "Created custom exercise: $rawName (id=$newId)")
+                Timber.i("Created custom exercise: $rawName (id=$newId)")
             }
             // If createNewExercises is false and no match, exerciseIdMap will not contain rawName
             // → those rows are skipped in step 2.
@@ -196,7 +196,7 @@ class CsvImportManager @Inject constructor(
                     setOrderByExercise[exerciseKey] = seqOrder
 
                     val weightKg = if (needsLbsConversion(row, options)) row.weight / 2.20462 else row.weight
-                    val rpeInt = row.rpe?.toInt()?.coerceIn(1, 10)
+                    val rpeInt = row.rpe?.let { (it * 10).toInt().coerceIn(10, 100) }
 
                     sets.add(
                         WorkoutSet(
@@ -235,7 +235,7 @@ class CsvImportManager @Inject constructor(
             )
         }
 
-        Log.i(TAG, "Import complete: $processedWorkouts workouts, $setsImported sets, $exercisesCreated new exercises")
+        Timber.i("Import complete: $processedWorkouts workouts, $setsImported sets, $exercisesCreated new exercises")
         ImportResult(
             batchId = batchId,
             workoutsImported = processedWorkouts,

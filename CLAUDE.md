@@ -22,8 +22,8 @@
 
 **Color System:** Pro Tracker v6.0. See THEME_SPEC.md for all tokens, DarkColorScheme, LightColorScheme, semantic colors, and usage rules.
 
-**Database:** Room v47 — 18 entities, 20 DAOs (`TrendsDao` and `ExerciseDetailRepository` are query-only aggregators, no corresponding entities). Migrations v6→v47 covered. See `DB_UPGRADE.md` for full history.
-Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38), `experienceLevel`/`trainingAgeYears` on users (v39), `health_history_entries` table (v40), `sessionRating` on workouts (v41), HC extended reads columns on `health_connect_sync` (v43), `primaryJoints`/`secondaryJoints` on `exercises` (v44), `source`/`importBatchId` on `workouts` (v45), `exercise_stress_vectors` table with `BodyRegion` enum (16 values) + `StressAccumulationEngine` (v46), `userNote TEXT NOT NULL DEFAULT ''` on `exercises` (v47).
+**Database:** Room v48 — 18 entities, 20 DAOs (`TrendsDao` and `ExerciseDetailRepository` are query-only aggregators, no corresponding entities). Migrations v6→v48 covered. See `DB_UPGRADE.md` for full history.
+Key facts: UUID String PKs (v31+), Firestore sync columns (v35), soft deletes via `isArchived`, `routineName` denormalized on `workouts` (v36), per-type rest timers on exercises (v32), per-set weight/reps/setTypes in `routine_exercises` (v28–v29), `restAfterLastSet` flag on exercises (v38), `experienceLevel`/`trainingAgeYears` on users (v39), `health_history_entries` table (v40), `sessionRating` on workouts (v41), HC extended reads columns on `health_connect_sync` (v43), `primaryJoints`/`secondaryJoints` on `exercises` (v44), `source`/`importBatchId` on `workouts` (v45), `exercise_stress_vectors` table with `BodyRegion` enum (16 values) + `StressAccumulationEngine` (v46), `userNote TEXT NOT NULL DEFAULT ''` on `exercises` (v47), CSV-imported RPE data-fix (v48).
 
 **SurgicalValidator.kt** (`util/SurgicalValidator.kt`): All real-time numeric input (Weight, Reps, Height) passes through this validator. Provides `parseDecimal()`, `parseReps()`, `isLeakedMetric()`, `MIGRATION_SQL`, `MIGRATION_SQL_V19`. No inline try-catch in ViewModels or Composables.
 
@@ -63,6 +63,7 @@ Read the relevant spec before touching files in that domain.
 | `DB_UPGRADE.md` | Migration history, schema changes |
 | `DB_ARCHITECTURE.md` | Entity relationships, template-to-instance, UUID migration |
 | `future_devs/` | All planned features — see `ROADMAP.md` for phase/status |
+| `future_devs/OBSERVABILITY_BETA_SPEC.md` | Crashlytics crash reporting + Firebase Analytics action trail + Timber logging facade |
 
 ---
 

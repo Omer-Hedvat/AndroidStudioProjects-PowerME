@@ -1,7 +1,7 @@
 package com.powerme.app.data.csvimport
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
 import com.powerme.app.R
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseDao
@@ -105,11 +105,11 @@ class StrongCsvImporter @Inject constructor(
         return withContext(Dispatchers.IO) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             if (prefs.getBoolean(KEY_IMPORTED, false)) {
-                Log.d(TAG, "Strong CSV already imported — skipping")
+                Timber.d("Strong CSV already imported — skipping")
                 return@withContext false
             }
 
-            Log.i(TAG, "Starting Strong CSV import...")
+            Timber.i("Starting Strong CSV import...")
 
             try {
                 val csvText = context.resources.openRawResource(R.raw.strong_export)
@@ -117,15 +117,15 @@ class StrongCsvImporter @Inject constructor(
                     .use { it.readText() }
 
                 val rows = StrongCsvParser.parse(csvText)
-                Log.i(TAG, "Parsed ${rows.size} set rows from CSV")
+                Timber.i("Parsed ${rows.size} set rows from CSV")
 
                 performImport(rows)
 
                 prefs.edit().putBoolean(KEY_IMPORTED, true).apply()
-                Log.i(TAG, "Strong CSV import complete")
+                Timber.i("Strong CSV import complete")
                 true
             } catch (e: Exception) {
-                Log.e(TAG, "Strong CSV import failed", e)
+                Timber.e(e, "Strong CSV import failed")
                 false
             }
         }
@@ -166,13 +166,13 @@ class StrongCsvImporter @Inject constructor(
                 )
                 exerciseIdByName[powerMeName] = newId
                 strongNameToId[strongName] = newId
-                Log.i(TAG, "Created custom exercise: $powerMeName (id=$newId)")
+                Timber.i("Created custom exercise: $powerMeName (id=$newId)")
             }
         }
 
         // Group rows by workout number
         val rowsByWorkout = rows.groupBy { it.workoutNumber }
-        Log.i(TAG, "Inserting ${rowsByWorkout.size} workouts...")
+        Timber.i("Inserting ${rowsByWorkout.size} workouts...")
 
         var totalSetsInserted = 0
 
@@ -224,8 +224,8 @@ class StrongCsvImporter @Inject constructor(
                     setOrderByExercise[orderKey] = seqOrder
 
                     val rpeInt = row.rpe?.let {
-                        // Strong exports RPE as Double (e.g. 6.0); store as Int
-                        it.toInt().coerceIn(1, 10)
+                        // Strong exports RPE as Double (e.g. 6.0, 8.5); convert to ×10 scale
+                        (it * 10).toInt().coerceIn(10, 100)
                     }
 
                     sets.add(
@@ -251,7 +251,7 @@ class StrongCsvImporter @Inject constructor(
             }
         }
 
-        Log.i(TAG, "Import complete: ${rowsByWorkout.size} workouts, $totalSetsInserted sets")
+        Timber.i("Import complete: ${rowsByWorkout.size} workouts, $totalSetsInserted sets")
     }
 
     /**

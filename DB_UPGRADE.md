@@ -1,5 +1,25 @@
 # PowerME Database Upgrade Log
 
+## v48 — Fix CSV-imported RPE scale
+
+**Migration:** `MIGRATION_47_48`
+
+### Changes
+
+- **`workout_sets` table (data fix):** Any row with `rpe BETWEEN 1 AND 10` is multiplied by 10.
+  - Root cause: both CSV importers (`StrongCsvImporter`, `CsvImportManager`) stored RPE as raw 1-10
+    integers instead of the ×10 scale (60-100) used everywhere else in the app.
+  - Native workouts were unaffected (their RPE values are already ≥ 60).
+  - After migration, all rows use the uniform ×10 scale.
+
+### Related
+
+- `StrongCsvImporter.kt` — RPE conversion changed from `it.toInt().coerceIn(1,10)` to `(it * 10).toInt().coerceIn(10,100)`
+- `CsvImportManager.kt` — same fix
+- `ExerciseDetailRepositoryTest.kt` — new test for RPE trend scaling (avgRpe 80 → value 8.0)
+
+---
+
 ## v47 — Exercise User Notes
 
 **Migration:** `MIGRATION_46_47`

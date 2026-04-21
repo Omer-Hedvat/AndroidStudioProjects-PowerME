@@ -1,5 +1,6 @@
 package com.powerme.app.di
 
+import timber.log.Timber
 import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
@@ -54,15 +55,15 @@ object DatabaseModule {
                     val isValid = validator.validatePostMigration(db, snapshot, toVersion)
 
                     if (!isValid) {
-                        android.util.Log.e("DatabaseModule", "❌ Migration validation failed!")
-                        android.util.Log.e("DatabaseModule", validator.generateMigrationReport(snapshot, db, toVersion))
+                        Timber.e("❌ Migration validation failed!")
+                        Timber.e(validator.generateMigrationReport(snapshot, db, toVersion))
                         throw IllegalStateException("Migration validation failed: Data loss detected")
                     } else {
-                        android.util.Log.i("DatabaseModule", "✅ Migration validated successfully")
-                        android.util.Log.i("DatabaseModule", validator.generateMigrationReport(snapshot, db, toVersion))
+                        Timber.i("✅ Migration validated successfully")
+                        Timber.i(validator.generateMigrationReport(snapshot, db, toVersion))
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("DatabaseModule", "Migration error", e)
+                    Timber.e(e, "Migration error")
                     throw e
                 }
             }
@@ -626,6 +627,14 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_47_48 = object : Migration(47, 48) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Fix RPE values imported via CSV: they were stored as raw 1-10 instead of ×10 (60-100).
+            // Natively logged RPE values are always ≥ 60; any value ≤ 10 is an imported raw value.
+            db.execSQL("UPDATE workout_sets SET rpe = rpe * 10 WHERE rpe IS NOT NULL AND rpe BETWEEN 1 AND 10")
+        }
+    }
+
     private val MIGRATION_46_47 = object : Migration(46, 47) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Add user-authored per-exercise note field (Exercise Detail Sheet Revision)
@@ -1021,7 +1030,8 @@ object DatabaseModule {
                 MIGRATION_43_44,
                 MIGRATION_44_45,
                 MIGRATION_45_46,
-                MIGRATION_46_47
+                MIGRATION_46_47,
+                MIGRATION_47_48
             )
             .fallbackToDestructiveMigration()
             .addCallback(object : androidx.room.RoomDatabase.Callback() {

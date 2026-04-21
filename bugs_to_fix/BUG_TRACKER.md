@@ -76,10 +76,17 @@ Single source of truth for bug status across sessions.
 | [BUG_about_tab_section_overlaps](BUG_about_tab_section_overlaps.md) | ABOUT tab sections overlap — BodyOutlineCanvas bleeds through Training Zones and Form Cues | ✅ Wrapped | P1 | — | — | `AboutTab.kt` |
 | [BUG_rest_timer_delete_clears_all](BUG_rest_timer_delete_clears_all.md) | Deleting one rest timer removes all rest timers for that exercise | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_edit_mode_x_saves_changes](BUG_edit_mode_x_saves_changes.md) | Edit mode 'X' (discard) button saves changes instead of discarding | ✅ Wrapped | P0 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_exercise_card_heatmap_cropped](BUG_exercise_card_heatmap_cropped.md) | Exercise card muscle activation heatmap cropped — missing upper and lower body | 🔵 Open | P2 | — | — | — |
+| [BUG_exercise_card_heatmap_cropped](BUG_exercise_card_heatmap_cropped.md) | Exercise card muscle activation heatmap cropped — missing upper and lower body | ✅ Completed | P2 | — | — | `AboutTab.kt` |
 | [BUG_update_rest_timers_readds_deleted](BUG_update_rest_timers_readds_deleted.md) | "Update Rest Timers" re-adds previously deleted rest timers | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_warmup_ramp_minus1_reps](BUG_warmup_ramp_minus1_reps.md) | Warmup ramp shows -1 reps for last warmup set in About tab | 🟡 In Progress | P2 | — | — | — |
-| [BUG_alternatives_done_false_positive](BUG_alternatives_done_false_positive.md) | Exercise alternatives all show "You've done this" incorrectly | 🔵 Open | P2 | — | — | — |
+| [BUG_warmup_ramp_minus1_reps](BUG_warmup_ramp_minus1_reps.md) | Warmup ramp shows -1 reps for last warmup set in About tab | ✅ Completed | P2 | — | — | `ExerciseDetailRepository.kt`, `ExerciseDetailRepositoryTest.kt` |
+| [BUG_alternatives_done_false_positive](BUG_alternatives_done_false_positive.md) | Exercise alternatives all show "You've done this" incorrectly | ✅ Wrapped | P2 | — | — | `ExerciseDetailModels.kt`, `ExerciseDetailRepository.kt`, `DetailComponents.kt`, `ExerciseDetailRepositoryTest.kt` |
+| [BUG_exercise_history_rpe_decimal](BUG_exercise_history_rpe_decimal.md) | Exercise history detail shows RPE as raw decimal (0–1) instead of scaled (1–10) | ✅ Wrapped | P2 | — | — | `StrongCsvImporter.kt`, `CsvImportManager.kt`, `DatabaseModule.kt`, `PowerMeDatabase.kt`, `ExerciseDetailRepositoryTest.kt` |
+| [BUG_post_workout_loop_regression](BUG_post_workout_loop_regression.md) | Post-workout resume loop regression — cannot escape summary state after finishing workout | ✅ Completed | P0 | — | — | `WorkoutViewModel.kt`, `PowerMeNavigation.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_warmup_sets_staggered_collapse](BUG_warmup_sets_staggered_collapse.md) | Warmup sets collapse simultaneously with rest separator instead of staggered | 🟡 In Progress | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_checked_set_keyboard_dismiss](BUG_checked_set_keyboard_dismiss.md) | Keyboard does not dismiss when a set is checked off | ✅ Completed | P2 | — | — | `ActiveWorkoutScreen.kt` |
+| [BUG_rest_timer_skip_label](BUG_rest_timer_skip_label.md) | Rest timer TimerControlsSheet skip button shows checkmark icon instead of "Next" label | ✅ Completed | P3 | — | — | `ActiveWorkoutScreen.kt` |
+| [BUG_rest_timer_reset_ignores_skipped](BUG_rest_timer_reset_ignores_skipped.md) | "Update Rest Timers" restores separators that were already skipped or finished | 🟡 In Progress | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_rest_timer_overlap_skip](BUG_rest_timer_overlap_skip.md) | Firing a rest timer while another is running starts both instead of skipping the current | 🟡 In Progress | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 
 ---
 
