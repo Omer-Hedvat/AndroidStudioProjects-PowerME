@@ -331,6 +331,38 @@ class ExerciseDetailRepositoryTest {
         assertEquals(8.5, result.rpePoints[1].value, 0.001)   // 85 / 10 = 8.5
     }
 
+    // ── getWorkoutHistory (pagination) ───────────────────────────────────────
+
+    @Test
+    fun `getWorkoutHistory - returns rows from dao including warmup-only sessions`() = runTest {
+        val ts = 1_700_000_000_000L
+        val rows = listOf(
+            ExerciseWorkoutHistoryRow(workoutId = "w1", timestamp = ts, routineName = "Push A", setCount = 3, totalVolume = 300.0),
+            ExerciseWorkoutHistoryRow(workoutId = "w2", timestamp = ts - 86400000L, routineName = "", setCount = 2, totalVolume = 0.0)
+        )
+        whenever(mockTrendsDao.getExerciseWorkoutHistory(eq(1L), any(), eq(0))).thenReturn(rows)
+
+        val result = repository.getWorkoutHistory(1L, page = 0)
+
+        assertEquals(2, result.size)
+        assertEquals("w1", result[0].workoutId)
+        assertEquals("w2", result[1].workoutId)
+    }
+
+    @Test
+    fun `getWorkoutHistory - hasMore is true when dao returns pageSize+1 rows`() = runTest {
+        val ts = 1_700_000_000_000L
+        // Return PAGE_SIZE + 1 rows to signal more pages exist
+        val rows = (0..ExerciseDetailRepository.PAGE_SIZE).map { i ->
+            ExerciseWorkoutHistoryRow(workoutId = "w$i", timestamp = ts - i * 86400000L, routineName = "", setCount = 1, totalVolume = 100.0)
+        }
+        whenever(mockTrendsDao.getExerciseWorkoutHistory(eq(1L), eq(ExerciseDetailRepository.PAGE_SIZE + 1), eq(0))).thenReturn(rows)
+
+        val result = repository.getWorkoutHistory(1L, page = 0)
+
+        assertEquals(ExerciseDetailRepository.PAGE_SIZE + 1, result.size)
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun makeWorkoutSet(weight: Double, reps: Int) =

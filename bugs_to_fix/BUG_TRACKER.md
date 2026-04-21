@@ -86,8 +86,8 @@ Single source of truth for bug status across sessions.
 | [BUG_checked_set_keyboard_dismiss](BUG_checked_set_keyboard_dismiss.md) | Keyboard does not dismiss when a set is checked off | ✅ Completed | P2 | — | — | `ActiveWorkoutScreen.kt` |
 | [BUG_rest_timer_skip_label](BUG_rest_timer_skip_label.md) | Rest timer TimerControlsSheet skip button shows checkmark icon instead of "Next" label | ✅ Completed | P3 | — | — | `ActiveWorkoutScreen.kt` |
 | [BUG_rest_timer_reset_ignores_skipped](BUG_rest_timer_reset_ignores_skipped.md) | "Update Rest Timers" restores separators that were already skipped or finished | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_rest_timer_overlap_skip](BUG_rest_timer_overlap_skip.md) | Firing a rest timer while another is running starts both instead of skipping the current | 🟡 In Progress | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_exercise_history_missing_sessions](BUG_exercise_history_missing_sessions.md) | Exercise History tab missing sessions — some logged workouts don't appear | 🔵 Open | P1 | — | — | — |
+| [BUG_rest_timer_overlap_skip](BUG_rest_timer_overlap_skip.md) | Firing a rest timer while another is running starts both instead of skipping the current | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
+| [BUG_exercise_history_missing_sessions](BUG_exercise_history_missing_sessions.md) | Exercise History tab missing sessions — some logged workouts don't appear | ✅ Wrapped | P1 | — | — | `TrendsDao.kt`, `ExerciseDetailRepositoryTest.kt` |
 
 ---
 

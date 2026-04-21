@@ -276,7 +276,7 @@ interface TrendsDao {
         FROM workout_sets ws
         JOIN workouts w ON ws.workoutId = w.id
         WHERE ws.exerciseId = :exerciseId
-          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND ws.isCompleted = 1
           AND w.isCompleted = 1 AND w.isArchived = 0
         GROUP BY w.id
         ORDER BY w.timestamp DESC
@@ -290,7 +290,7 @@ interface TrendsDao {
         FROM workout_sets ws
         JOIN workouts w ON ws.workoutId = w.id
         WHERE ws.exerciseId = :exerciseId
-          AND ws.isCompleted = 1 AND ws.setType != 'WARMUP'
+          AND ws.isCompleted = 1
           AND w.isCompleted = 1 AND w.isArchived = 0
         GROUP BY w.id
         ORDER BY w.timestamp DESC
