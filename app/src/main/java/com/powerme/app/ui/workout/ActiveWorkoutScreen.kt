@@ -54,6 +54,7 @@ import com.powerme.app.ui.components.LocalKeyboardAccessoryRegistrar
 import com.powerme.app.ui.components.WorkoutInputField
 import com.powerme.app.ui.exercises.ExercisesScreen
 import com.powerme.app.util.UnitConverter
+import com.powerme.app.util.WarmupCalculator
 import com.powerme.app.util.RpeCategory
 import com.powerme.app.util.RpeInfo
 import com.powerme.app.util.RPE_SCALE
@@ -519,7 +520,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     unitSystem = unitSystem,
                     availableExercises = workoutState.availableExercises,
                     restTimeOverrides = workoutState.restTimeOverrides,
-                    hiddenRestSeparators = workoutState.hiddenRestSeparators,
+                    hiddenRestSeparators = workoutState.hiddenRestSeparators + workoutState.finishedRestSeparators,
                     isEditMode = isEditMode,
                     isCollapsed = isCollapsed,
                     warmupsCollapsed = warmupsCollapsed,
@@ -542,7 +543,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
                     onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
                     onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
-                    onAddWarmupSets = { viewModel.addWarmupSetsToExercise(exerciseWithSets.exercise.id) },
+                    onAddWarmupSets = { w, r, fill -> viewModel.addSmartWarmups(exerciseWithSets.exercise.id, w, r, fill) },
                     onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
                     onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
                     onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
@@ -575,7 +576,7 @@ private fun LazyListScope.activeWorkoutListItems(
                 unitSystem = unitSystem,
                 availableExercises = workoutState.availableExercises,
                 restTimeOverrides = workoutState.restTimeOverrides,
-                hiddenRestSeparators = workoutState.hiddenRestSeparators,
+                hiddenRestSeparators = workoutState.hiddenRestSeparators + workoutState.finishedRestSeparators,
                 isEditMode = isEditMode,
                 isCollapsed = isCollapsed,
                 warmupsCollapsed = warmupsCollapsed,
@@ -598,7 +599,7 @@ private fun LazyListScope.activeWorkoutListItems(
                 onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
                 onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
                 onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
-                onAddWarmupSets = { viewModel.addWarmupSetsToExercise(exerciseWithSets.exercise.id) },
+                onAddWarmupSets = { w, r, fill -> viewModel.addSmartWarmups(exerciseWithSets.exercise.id, w, r, fill) },
                 onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
                 onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
                 onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
@@ -705,7 +706,7 @@ private fun ExerciseCard(
     onUpdateSessionNote: (String) -> Unit,
     onUpdateStickyNote: (String) -> Unit,
     onUpdateExerciseRestTimers: (workSeconds: Int, warmupSeconds: Int, dropSeconds: Int, restAfterLastSet: Boolean) -> Unit,
-    onAddWarmupSets: () -> Unit,
+    onAddWarmupSets: (workingWeight: Double?, workingReps: Int?, fillWorkSets: Boolean) -> Unit,
     onEnterSupersetMode: () -> Unit,
     onRemoveFromSuperset: () -> Unit,
     onUpdateCardioSet: (Int, String, String, String, Boolean) -> Unit = { _, _, _, _, _ -> },
@@ -737,8 +738,24 @@ private fun ExerciseCard(
     var showRestTimerSheet by remember { mutableStateOf(false) }
     var showUpdateRestTimersFor by remember { mutableStateOf(false) }
     var showReplaceDialog by remember { mutableStateOf(false) }
+    var showWarmupPrompt by remember { mutableStateOf(false) }
+    var showReplaceWarmupsDialog by remember { mutableStateOf(false) }
 
     val isInSuperset = exerciseWithSets.supersetGroupId != null
+
+    // Warmup eligibility checks
+    val equip = exerciseWithSets.exercise.equipmentType
+    val isStrengthExercise = exerciseWithSets.exercise.exerciseType == ExerciseType.STRENGTH
+    val warmupParamsAvailable = if (equip == "Bodyweight") {
+        exerciseWithSets.sets.any { it.weight.toDoubleOrNull()?.let { w -> w > 0 } == true }
+    } else {
+        WarmupCalculator.equipmentToWarmupParams(equip, unitSystem) != null
+    }
+    val canAddWarmups = isStrengthExercise && warmupParamsAvailable
+    val alreadyHasWarmups = exerciseWithSets.sets.any { it.setType == SetType.WARMUP }
+    val workSetHasWeight = exerciseWithSets.sets
+        .filter { it.setType == SetType.NORMAL }
+        .any { it.weight.toDoubleOrNull()?.let { w -> w > 0 } == true }
     val borderModifier = when {
         isSelectMode && isSelected -> Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
         else -> Modifier
@@ -893,7 +910,7 @@ private fun ExerciseCard(
                             AnimatedVisibility(
                                 visible = !warmupsCollapsed,
                                 enter = expandVertically(animationSpec = tween(200)) + fadeIn(animationSpec = tween(200)),
-                                exit = shrinkVertically(animationSpec = tween(150)) + fadeOut(animationSpec = tween(150))
+                                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
                             ) {
                                 Column {
                                     warmupSets.forEach { set ->
@@ -1067,7 +1084,43 @@ private fun ExerciseCard(
             onStickyNote = { showStickyNoteDialog = true; showManagementHub = false },
             onRestTimer = { showRestTimerSheet = true; showManagementHub = false },
             onSuperset = { if (isInSuperset) onRemoveFromSuperset() else onEnterSupersetMode(); showManagementHub = false },
-            isInSuperset = isInSuperset
+            isInSuperset = isInSuperset,
+            showAddWarmups = canAddWarmups,
+            onAddWarmups = {
+                showManagementHub = false
+                if (alreadyHasWarmups) {
+                    showReplaceWarmupsDialog = true
+                } else if (workSetHasWeight) {
+                    onAddWarmupSets(null, null, false)
+                } else {
+                    showWarmupPrompt = true
+                }
+            }
+        )
+    }
+
+    if (showReplaceWarmupsDialog) {
+        ReplaceWarmupsDialog(
+            onDismiss = { showReplaceWarmupsDialog = false },
+            onConfirm = {
+                showReplaceWarmupsDialog = false
+                if (workSetHasWeight) {
+                    onAddWarmupSets(null, null, false)
+                } else {
+                    showWarmupPrompt = true
+                }
+            }
+        )
+    }
+
+    if (showWarmupPrompt) {
+        WarmupPromptDialog(
+            unitSystem = unitSystem,
+            onDismiss = { showWarmupPrompt = false },
+            onConfirm = { weight, reps, fillWorkSets ->
+                showWarmupPrompt = false
+                onAddWarmupSets(weight, reps, fillWorkSets)
+            }
         )
     }
 
@@ -1687,17 +1740,29 @@ private fun formatElapsed(seconds: Int): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ManagementHubSheet(onDismiss: () -> Unit, onReplace: () -> Unit, onRemove: () -> Unit, onSessionNote: () -> Unit, onStickyNote: () -> Unit, onRestTimer: () -> Unit, onSuperset: () -> Unit, isInSuperset: Boolean) {
+private fun ManagementHubSheet(
+    onDismiss: () -> Unit,
+    onReplace: () -> Unit,
+    onRemove: () -> Unit,
+    onSessionNote: () -> Unit,
+    onStickyNote: () -> Unit,
+    onRestTimer: () -> Unit,
+    onSuperset: () -> Unit,
+    isInSuperset: Boolean,
+    showAddWarmups: Boolean = false,
+    onAddWarmups: () -> Unit = {}
+) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 24.dp)) {
-            val items = listOf(
-                Triple("Session Note", Icons.Default.Notes, onSessionNote),
-                Triple("Sticky Note", Icons.Default.PushPin, onStickyNote),
-                Triple("Set Rest Timers", Icons.Default.Timer, onRestTimer),
-                Triple("Replace Exercise", Icons.Default.Refresh, onReplace),
-                Triple(if (isInSuperset) "Remove from Superset" else "Organize Exercises", Icons.Default.Sync, onSuperset),
-                Triple("Remove Exercise", Icons.Default.Delete, onRemove)
-            )
+            val items = buildList {
+                add(Triple("Session Note", Icons.Default.Notes, onSessionNote))
+                add(Triple("Sticky Note", Icons.Default.PushPin, onStickyNote))
+                add(Triple("Set Rest Timers", Icons.Default.Timer, onRestTimer))
+                if (showAddWarmups) add(Triple("Add Warmups", Icons.Default.FitnessCenter, onAddWarmups))
+                add(Triple("Replace Exercise", Icons.Default.Refresh, onReplace))
+                add(Triple(if (isInSuperset) "Remove from Superset" else "Organize Exercises", Icons.Default.Sync, onSuperset))
+                add(Triple("Remove Exercise", Icons.Default.Delete, onRemove))
+            }
             items.forEach { (label, icon, action) ->
                 ListItem(
                     headlineContent = { Text(label) },
@@ -1708,6 +1773,75 @@ private fun ManagementHubSheet(onDismiss: () -> Unit, onReplace: () -> Unit, onR
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
+
+@Composable
+private fun ReplaceWarmupsDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Replace warmup sets?") },
+        text = { Text("This will remove your current warmup sets and generate new ones.") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Replace") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun WarmupPromptDialog(
+    unitSystem: UnitSystem,
+    onDismiss: () -> Unit,
+    onConfirm: (weight: Double, reps: Int, fillWorkSets: Boolean) -> Unit
+) {
+    val unitLabel = if (unitSystem == UnitSystem.METRIC) "kg" else "lb"
+    var weightText by remember { mutableStateOf("") }
+    var repsText by remember { mutableStateOf("") }
+    var fillWorkSets by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set Working Weight") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { weightText = it },
+                    label = { Text("Working weight ($unitLabel)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = repsText,
+                    onValueChange = { repsText = it },
+                    label = { Text("Working reps") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Fill work sets", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = fillWorkSets, onCheckedChange = { fillWorkSets = it })
+                }
+            }
+        },
+        confirmButton = {
+            val weight = weightText.toDoubleOrNull()
+            val reps = repsText.toIntOrNull()
+            TextButton(
+                onClick = {
+                    if (weight != null && weight > 0) {
+                        onConfirm(weight, reps ?: 0, fillWorkSets)
+                    }
+                },
+                enabled = weightText.toDoubleOrNull()?.let { it > 0 } == true
+            ) { Text("Add Warmups") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1881,7 +2015,7 @@ fun WorkoutSetRow(
                         .weight(CHECK_COL_WEIGHT)
                         .fillMaxHeight()
                         .background(if (set.isCompleted) TimerGreen else MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
-                        .clickable(onClick = onCompleteSet),
+                        .clickable { focusManager.clearFocus(); onCompleteSet() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Check, contentDescription = "Complete", tint = if (set.isCompleted) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
@@ -2729,7 +2863,7 @@ fun TimerControlsSheet(remainingSeconds: Int, isPaused: Boolean, onDismiss: () -
             }
             Spacer(modifier = Modifier.height(16.dp))
             TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-                Text("Skip", color = MaterialTheme.colorScheme.secondary)
+                Text("Next", color = MaterialTheme.colorScheme.secondary)
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
