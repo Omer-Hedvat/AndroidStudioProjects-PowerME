@@ -1,5 +1,6 @@
 package com.powerme.app.data.sync
 
+import timber.log.Timber
 import androidx.room.withTransaction
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -334,7 +335,7 @@ class FirestoreSyncManager @Inject constructor(
                         }
                         routinesImported++
                     } catch (e: Exception) {
-                        android.util.Log.w("PowerME_Sync", "Skipping routine ${doc.id}: ${e.message}")
+                        Timber.w("Skipping routine ${doc.id}: ${e.message}")
                     }
                 }
             }
@@ -361,7 +362,7 @@ class FirestoreSyncManager @Inject constructor(
                         }
                         workoutsImported++
                     } catch (e: Exception) {
-                        android.util.Log.w("PowerME_Sync", "Skipping workout ${doc.id}: ${e.message}")
+                        Timber.w("Skipping workout ${doc.id}: ${e.message}")
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package com.powerme.app.data.repository
 
+import timber.log.Timber
 import com.powerme.app.data.database.MedicalLedger
 import com.powerme.app.data.database.MedicalLedgerDao
 import com.powerme.app.ui.chat.MedicalRestrictionsDoc
@@ -29,7 +30,7 @@ class MedicalLedgerRepository @Inject constructor(
                 lastUpdated = ledger.lastUpdated
             )
         } catch (e: Exception) {
-            android.util.Log.w("MedicalLedgerRepository", "Failed to deserialize medical ledger", e)
+            Timber.w(e, "Failed to deserialize medical ledger")
             null
         }
     }

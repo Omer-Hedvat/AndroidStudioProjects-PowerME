@@ -1,7 +1,7 @@
 package com.powerme.app.data.database
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -29,12 +29,12 @@ class StressVectorSeeder @Inject constructor(
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val seededVersion = prefs.getString(KEY_SEEDED_VERSION, null)
         if (seededVersion == ExerciseStressVectorSeedData.SEED_VERSION) {
-            Log.d(TAG, "Stress vectors already seeded at version $seededVersion — skipping.")
+            Timber.d("Stress vectors already seeded at version $seededVersion — skipping.")
             return
         }
         performSeed()
         prefs.edit { putString(KEY_SEEDED_VERSION, ExerciseStressVectorSeedData.SEED_VERSION) }
-        Log.i(TAG, "Stress vectors seeded successfully (version ${ExerciseStressVectorSeedData.SEED_VERSION}).")
+        Timber.i("Stress vectors seeded successfully (version ${ExerciseStressVectorSeedData.SEED_VERSION}).")
     }
 
     private suspend fun performSeed() {
@@ -46,7 +46,7 @@ class StressVectorSeeder @Inject constructor(
         for ((exerciseName, regions) in ExerciseStressVectorSeedData.vectors) {
             val exerciseId = nameToId[exerciseName]
             if (exerciseId == null) {
-                Log.w(TAG, "Exercise not found in DB, skipping stress vectors: '$exerciseName'")
+                Timber.w("Exercise not found in DB, skipping stress vectors: '$exerciseName'")
                 skipped++
                 continue
             }
@@ -61,6 +61,6 @@ class StressVectorSeeder @Inject constructor(
 
         stressVectorDao.deleteAll()
         stressVectorDao.insertAll(vectors)
-        Log.i(TAG, "Inserted ${vectors.size} stress vectors ($skipped exercises skipped).")
+        Timber.i("Inserted ${vectors.size} stress vectors ($skipped exercises skipped).")
     }
 }

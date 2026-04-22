@@ -1,7 +1,7 @@
 package com.powerme.app.health
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -145,7 +145,7 @@ class HealthConnectManager @Inject constructor(
             val granted = client.permissionController.getGrantedPermissions()
             CORE_PERMISSIONS.all { it in granted }
         } catch (e: Exception) {
-            android.util.Log.w("PowerME_HC", "checkPermissionsGranted failed", e)
+            Timber.w(e, "checkPermissionsGranted failed")
             false
         }
     }
@@ -274,7 +274,7 @@ class HealthConnectManager @Inject constructor(
             distanceMetres = distance.await(),
             spo2Percent = spo2Result,
             lowSpO2Flag = spo2Result != null && spo2Result < 92.0
-        ).also { Log.d(TAG, "readAllData: $it") }
+        ).also { Timber.d("readAllData: $it") }
     }
 
     suspend fun syncAndRead(): HealthConnectReadResult {
@@ -313,9 +313,9 @@ class HealthConnectManager @Inject constructor(
                 userSessionManager.updateBodyMetricsFromHc(
                     weightKg = result.weight, bodyFatPercent = result.bodyFat, heightCm = result.height?.toDouble()
                 )
-                Log.d(TAG, "syncAndRead: DB write succeeded for ${LocalDate.now()}")
+                Timber.d("syncAndRead: DB write succeeded for ${LocalDate.now()}")
             } catch (e: Exception) {
-                Log.e(TAG, "syncAndRead: DB write FAILED — Metrics screen will use live HC values as fallback", e)
+                Timber.e(e, "syncAndRead: DB write FAILED — Metrics screen will use live HC values as fallback")
             }
         }
         return result
@@ -512,7 +512,7 @@ class HealthConnectManager @Inject constructor(
             )
             client.insertRecords(listOf(record))
         } catch (e: Exception) {
-            android.util.Log.w("PowerME_HC", "writeWorkoutSession failed", e)
+            Timber.w(e, "writeWorkoutSession failed")
         }
     }
 
@@ -555,7 +555,7 @@ class HealthConnectManager @Inject constructor(
             )
             client.insertRecords(listOf(record))
         } catch (e: Exception) {
-            android.util.Log.w("PowerME_HC", "writeWorkoutSession (backfill) failed for ${workout.id}", e)
+            Timber.w(e, "writeWorkoutSession (backfill) failed for ${workout.id}")
         }
     }
 

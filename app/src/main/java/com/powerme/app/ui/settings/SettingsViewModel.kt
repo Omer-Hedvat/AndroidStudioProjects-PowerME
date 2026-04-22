@@ -1,5 +1,6 @@
 package com.powerme.app.ui.settings
 
+import timber.log.Timber
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -364,7 +365,7 @@ class SettingsViewModel @Inject constructor(
         if (!_uiState.value.healthConnectAvailable) return
         viewModelScope.launch {
             val granted = healthConnectManager.checkPermissionsGranted()
-            android.util.Log.d("PowerME_HC", "recheckOnResume: granted=$granted")
+            Timber.d("recheckOnResume: granted=$granted")
             if (granted) {
                 _uiState.update {
                     it.copy(
@@ -381,13 +382,13 @@ class SettingsViewModel @Inject constructor(
     private fun checkHealthConnectStatus() {
         viewModelScope.launch {
             val available = healthConnectManager.isAvailable()
-            android.util.Log.d("PowerME_HC", "checkHealthConnectStatus: available=$available")
+            Timber.d("checkHealthConnectStatus: available=$available")
             if (!available) {
                 _uiState.update { it.copy(healthConnectChecking = false, healthConnectAvailable = false) }
                 return@launch
             }
             val granted = healthConnectManager.checkPermissionsGranted()
-            android.util.Log.d("PowerME_HC", "checkHealthConnectStatus: permissionsGranted=$granted")
+            Timber.d("checkHealthConnectStatus: permissionsGranted=$granted")
             _uiState.update {
                 it.copy(
                     healthConnectChecking = false,
@@ -400,11 +401,11 @@ class SettingsViewModel @Inject constructor(
 
     fun syncHealthConnect() {
         viewModelScope.launch {
-            android.util.Log.d("PowerME_HC", "syncHealthConnect: starting")
+            Timber.d("syncHealthConnect: starting")
             _uiState.update { it.copy(healthConnectSyncing = true, healthConnectError = null) }
             try {
                 val data = healthConnectManager.syncAndRead()
-                android.util.Log.d("PowerME_HC", "syncHealthConnect: success, data=$data")
+                Timber.d("syncHealthConnect: success, data=$data")
                 _uiState.update {
                     it.copy(
                         healthConnectSyncing = false,
@@ -413,7 +414,7 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                android.util.Log.e("PowerME_HC", "syncHealthConnect: error", e)
+                Timber.e(e, "syncHealthConnect: error")
                 _uiState.update {
                     it.copy(
                         healthConnectSyncing = false,
@@ -435,9 +436,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onHealthConnectPermissionResult(granted: Set<String>) {
-        android.util.Log.d("PowerME_HC", "onPermissionResult: granted=${granted.size} perms, expected=${HealthConnectManager.CORE_PERMISSIONS.size}, set=$granted")
+        Timber.d("onPermissionResult: granted=${granted.size} perms, expected=${HealthConnectManager.CORE_PERMISSIONS.size}, set=$granted")
         if (granted.containsAll(HealthConnectManager.CORE_PERMISSIONS)) {
-            android.util.Log.d("PowerME_HC", "onPermissionResult: allGranted=true")
+            Timber.d("onPermissionResult: allGranted=true")
             _uiState.update {
                 it.copy(healthConnectPermissionsGranted = true, healthConnectPermissionsDenied = false)
             }
@@ -450,7 +451,7 @@ class SettingsViewModel @Inject constructor(
             //     (getSynchronousResult path). Re-query to distinguish the two cases.
             viewModelScope.launch {
                 val actuallyGranted = healthConnectManager.checkPermissionsGranted()
-                android.util.Log.d("PowerME_HC", "onPermissionResult: re-query granted=$actuallyGranted")
+                Timber.d("onPermissionResult: re-query granted=$actuallyGranted")
                 _uiState.update {
                     it.copy(
                         healthConnectPermissionsGranted = actuallyGranted,
@@ -474,7 +475,7 @@ class SettingsViewModel @Inject constructor(
                 Firebase.auth.currentUser?.delete()?.await()
                 appSettingsDataStore.setLanguage("Hebrew")
             } catch (e: Exception) {
-                android.util.Log.e("SettingsViewModel", "Delete account error", e)
+                Timber.e(e, "Delete account error")
             } finally {
                 _uiState.update { it.copy(isDeletingAccount = false) }
                 onComplete()

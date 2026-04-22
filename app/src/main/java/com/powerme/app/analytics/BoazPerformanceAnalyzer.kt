@@ -1,6 +1,6 @@
 package com.powerme.app.analytics
 
-import android.util.Log
+import timber.log.Timber
 import com.powerme.app.data.repository.WorkoutRepository
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -70,7 +70,7 @@ class BoazPerformanceAnalyzer @Inject constructor(
                 )
             }
         } catch (e: Exception) {
-            Log.w("BoazPerformanceAnalyzer", "Failed to compare performance", e)
+            Timber.w(e, "Failed to compare performance")
             emptyList()
         }
     }

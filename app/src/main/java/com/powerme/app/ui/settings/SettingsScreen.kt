@@ -1,5 +1,9 @@
 package com.powerme.app.ui.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import timber.log.Timber
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.powerme.app.BuildConfig
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
@@ -203,12 +208,12 @@ fun SettingsScreen(
                                 Button(
                                     onClick = {
                                         healthConnectLaunchError = null
-                                        android.util.Log.d("PowerME_HC", "Connect tapped, launching permissions: ${HealthConnectManager.ALL_PERMISSIONS}")
+                                        Timber.d("Connect tapped, launching permissions: ${HealthConnectManager.ALL_PERMISSIONS}")
                                         try {
                                             healthConnectPermissionLauncher.launch(HealthConnectManager.ALL_PERMISSIONS)
-                                            android.util.Log.d("PowerME_HC", "launch() returned without exception")
+                                            Timber.d("launch() returned without exception")
                                         } catch (e: Exception) {
-                                            android.util.Log.e("PowerME_HC", "launch() threw: ${e.message}", e)
+                                            Timber.e(e, "launch() threw: ${e.message}")
                                             healthConnectLaunchError = "Could not open Health Connect permissions: ${e.message}"
                                         }
                                     },
@@ -593,6 +598,50 @@ fun SettingsScreen(
                 }
             }
 
+            // ── Feedback ─────────────────────────────────────────────
+            item {
+                SettingsCard(title = "Feedback") {
+                    Text(
+                        text = "Found a bug or have a suggestion? Tap below to send an email with your device info pre-filled.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            val subject = "PowerME Feedback — v${BuildConfig.VERSION_NAME}"
+                            val body = buildString {
+                                appendLine("Hi,")
+                                appendLine()
+                                appendLine("[Describe your bug or suggestion here]")
+                                appendLine()
+                                appendLine("---")
+                                appendLine("App: PowerME v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
+                                appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+                                appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+                            }
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:")
+                                putExtra(Intent.EXTRA_EMAIL, arrayOf("powerme.support@gmail.com"))
+                                putExtra(Intent.EXTRA_SUBJECT, subject)
+                                putExtra(Intent.EXTRA_TEXT, body)
+                            }
+                            try {
+                                context.startActivity(Intent.createChooser(intent, "Send feedback"))
+                            } catch (e: Exception) {
+                                Timber.e(e, "Could not open email client")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Text("Send Feedback")
+                    }
+                }
+            }
+
             // ── Privacy / Delete Account ─────────────────────────────
             item {
                 SettingsCard(title = "Privacy") {
@@ -619,6 +668,17 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            // ── Version ───────────────────────────────────────────────
+            item {
+                Text(
+                    text = "PowerME v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

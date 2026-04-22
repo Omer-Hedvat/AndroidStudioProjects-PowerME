@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Phase** | P1 |
-| **Status** | `in-progress` |
+| **Status** | `completed` |
 | **Effort** | L |
 | **Depends on** | — |
 | **Blocks** | — |

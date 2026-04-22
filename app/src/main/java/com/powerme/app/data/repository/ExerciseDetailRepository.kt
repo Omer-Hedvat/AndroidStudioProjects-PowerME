@@ -143,8 +143,8 @@ class ExerciseDetailRepository @Inject constructor(
         unitSystem: UnitSystem = UnitSystem.METRIC
     ): List<WarmUpSet> {
         val sets = workoutSetDao.getPreviousSessionCompletedSets(exerciseId, Long.MAX_VALUE)
-        val workingWeight = sets.map { it.weight }.average().takeIf { !it.isNaN() && it > 0 }
-            ?: return emptyList()
+        val workingWeight = sets.filter { it.weight > 0 }.maxOfOrNull { it.weight }
+            ?.takeIf { it > 0 } ?: return emptyList()
 
         val params = if (equipmentType == "Bodyweight") {
             if (workingWeight > 0) WarmupCalculator.bodyweightLoadedParams(unitSystem) else return emptyList()

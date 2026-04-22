@@ -305,6 +305,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 WorkoutsScreen(
@@ -344,6 +345,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 ExercisesScreen(
@@ -369,6 +371,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 ToolsScreen(
@@ -396,6 +399,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 MetricsScreen(
@@ -418,6 +422,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
                 HistoryScreen(
@@ -625,6 +630,7 @@ fun MainAppScaffold(
     onMaximizeWorkout: () -> Unit,
     onSettingsClick: () -> Unit,
     onProfileClick: () -> Unit = {},
+    onTabSelected: (String) -> Unit = {},
     clocksTimerProgress: Float? = null,
     content: @Composable () -> Unit
 ) {
@@ -696,7 +702,7 @@ fun MainAppScaffold(
                                 it.route?.startsWith(screen.route) == true
                             } == true,
                             onClick = {
-                                Timber.i("nav_tab_selected tab=${screen.title}")
+                                onTabSelected(screen.title)
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
                                         saveState = true

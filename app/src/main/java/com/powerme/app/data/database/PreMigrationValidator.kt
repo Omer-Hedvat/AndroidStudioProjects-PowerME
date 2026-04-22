@@ -2,7 +2,7 @@ package com.powerme.app.data.database
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
+import timber.log.Timber
 import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.serialization.Serializable
@@ -55,7 +55,7 @@ class PreMigrationValidator(private val context: Context) {
      * @return MigrationSnapshot containing row counts for all tables
      */
     fun captureSnapshot(database: SupportSQLiteDatabase, fromVersion: Int): MigrationSnapshot {
-        Log.d(TAG, "Capturing snapshot for version $fromVersion")
+        Timber.d("Capturing snapshot for version $fromVersion")
 
         val snapshot = MigrationSnapshot(
             version = fromVersion,
@@ -72,7 +72,7 @@ class PreMigrationValidator(private val context: Context) {
         // Save snapshot to SharedPreferences for recovery
         saveSnapshot(snapshot)
 
-        Log.d(TAG, "Snapshot captured: $snapshot")
+        Timber.d("Snapshot captured: $snapshot")
         return snapshot
     }
 
@@ -91,7 +91,7 @@ class PreMigrationValidator(private val context: Context) {
         toVersion: Int,
         allowNewTables: Boolean = true
     ): Boolean {
-        Log.d(TAG, "Validating migration from v${snapshot.version} to v$toVersion")
+        Timber.d("Validating migration from v${snapshot.version} to v$toVersion")
 
         val postSnapshot = MigrationSnapshot(
             version = toVersion,
@@ -126,12 +126,12 @@ class PreMigrationValidator(private val context: Context) {
         val allValid = validationResults.all { it.isValid }
 
         if (allValid) {
-            Log.i(TAG, "✅ Migration validation PASSED (v${snapshot.version} → v$toVersion)")
+            Timber.i("✅ Migration validation PASSED (v${snapshot.version} → v$toVersion)")
             clearSnapshot() // Clear old snapshot on success
         } else {
-            Log.e(TAG, "❌ Migration validation FAILED (v${snapshot.version} → v$toVersion)")
+            Timber.e("❌ Migration validation FAILED (v${snapshot.version} → v$toVersion)")
             validationResults.filter { !it.isValid }.forEach { result ->
-                Log.e(TAG, "  - ${result.tableName}: Expected ${result.expectedCount}, Found ${result.actualCount}")
+                Timber.e("  - ${result.tableName}: Expected ${result.expectedCount}, Found ${result.actualCount}")
             }
         }
 
@@ -150,12 +150,12 @@ class PreMigrationValidator(private val context: Context) {
         val lastSnapshot = getLastSnapshot()
 
         if (lastSnapshot == null) {
-            Log.w(TAG, "No snapshot found for rollback")
+            Timber.w("No snapshot found for rollback")
             return false
         }
 
-        Log.w(TAG, "⚠️ ROLLBACK INITIATED - Deleting database to force recreation from backup")
-        Log.w(TAG, "Last valid snapshot: $lastSnapshot")
+        Timber.w("⚠️ ROLLBACK INITIATED - Deleting database to force recreation from backup")
+        Timber.w("Last valid snapshot: $lastSnapshot")
 
         try {
             // Close all database connections
@@ -165,7 +165,7 @@ class PreMigrationValidator(private val context: Context) {
             if (dbFile.exists()) {
                 val deleted = dbFile.delete()
                 if (deleted) {
-                    Log.i(TAG, "Database file deleted successfully")
+                    Timber.i("Database file deleted successfully")
 
                     // Also delete journal files
                     val shmFile = context.getDatabasePath("powerme_database-shm")
@@ -175,15 +175,15 @@ class PreMigrationValidator(private val context: Context) {
 
                     return true
                 } else {
-                    Log.e(TAG, "Failed to delete database file")
+                    Timber.e("Failed to delete database file")
                     return false
                 }
             } else {
-                Log.w(TAG, "Database file not found")
+                Timber.w("Database file not found")
                 return false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error during rollback", e)
+            Timber.e(e, "Error during rollback")
             return false
         }
     }
@@ -207,7 +207,7 @@ class PreMigrationValidator(private val context: Context) {
             }
         } catch (e: Exception) {
             // Table might not exist yet
-            Log.d(TAG, "Table '$tableName' not found (might be new): ${e.message}")
+            Timber.d("Table '$tableName' not found (might be new): ${e.message}")
             0
         }
     }
@@ -246,7 +246,7 @@ class PreMigrationValidator(private val context: Context) {
                 .putInt(KEY_LAST_SNAPSHOT_VERSION, snapshot.version)
                 .apply()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to save snapshot", e)
+            Timber.e(e, "Failed to save snapshot")
         }
     }
 
@@ -262,7 +262,7 @@ class PreMigrationValidator(private val context: Context) {
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to retrieve snapshot", e)
+            Timber.e(e, "Failed to retrieve snapshot")
             null
         }
     }

@@ -6,16 +6,22 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.crashlytics.ktx.crashlytics
+import com.google.firebase.ktx.Firebase
+import com.powerme.app.BuildConfig
 import com.powerme.app.data.csvimport.StrongCsvImporter
 import com.powerme.app.data.database.DatabaseSeeder
 import com.powerme.app.data.database.MasterExerciseSeeder
 import com.powerme.app.data.database.StressVectorSeeder
 import com.powerme.app.notification.WorkoutNotificationManager
+import com.powerme.app.util.CrashlyticsTree
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -52,8 +58,29 @@ class PowerMeApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        } else {
+            Timber.plant(CrashlyticsTree())
+        }
+        setupCrashlyticsKeys()
         workoutNotificationManager.createChannels()
         seedDatabase()
+    }
+
+    private fun setupCrashlyticsKeys() {
+        val crashlytics = Firebase.crashlytics
+        crashlytics.setCustomKey("app_version", BuildConfig.VERSION_NAME)
+        crashlytics.setCustomKey("db_version", 48)
+        // Track the signed-in user so crash reports are attributable
+        Firebase.auth.addAuthStateListener { auth ->
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                crashlytics.setUserId(uid)
+            } else {
+                crashlytics.setUserId("")
+            }
+        }
     }
 
     private fun seedDatabase() {

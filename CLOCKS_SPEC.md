@@ -147,9 +147,21 @@ Alerts dispatched via `RestTimerNotifier` (ToneGenerator on `STREAM_ALARM` — b
 
 | Event | Audio | Haptic | Source |
 |-------|-------|--------|--------|
-| Rest timer reaches 0 | 1800ms beep | Double-pulse waveform | `notifyEnd()` in `WorkoutViewModel.onTimerTick(0)` |
+| Rest timer reaches 0 | ~1000ms audio (see below) | Double-pulse waveform | `notifyEnd()` in `WorkoutViewModel.onTimerTick(0)` |
 | Warning threshold | 2 × 150ms beeps | — | `playWarningBeep()` |
 | Countdown tick (3s/2s/1s) | 150ms beep | — | COUNTDOWN_TICK via `triggerAudioAlert` |
+
+**End-of-rest audio by sound type** (`playBeepEnd()` in `RestTimerNotifier`):
+
+| Sound type | ToneGenerator constant | Strategy | Result |
+|---|---|---|---|
+| BEEP | `TONE_DTMF_S` | Single `startTone(800)` — continuous repeating tone | 800ms solid tone |
+| BELL | `TONE_PROP_BEEP2` | 3 plays × 300ms interval via `Handler.postDelayed` | ~900ms periodic tones |
+| CHIME | `TONE_PROP_ACK` | 3 plays × 300ms interval via `Handler.postDelayed` | ~900ms periodic tones |
+| CLICK | `TONE_PROP_BEEP` | 3 plays × 300ms interval via `Handler.postDelayed` | ~900ms periodic tones |
+| NONE | — | No-op | Silent |
+
+Note: `TONE_PROP_*` tones have fixed OS-defined segments (~100–200ms) that play once and ignore `durationMs`. Repeating them every 300ms is the only way to fill the target duration. Warning beeps, countdown ticks, and `triggerAudioAlert` all use `playBeep()` (unchanged).
 
 ---
 

@@ -14,6 +14,7 @@
 - Charts: Vico (Material 3)
 - Drag-and-drop: `sh.calvin.reorderable:reorderable-compose`
 - AI: Gemini Flash API (`com.google.ai.client.generativeai:generativeai:0.9.0`) + ML Kit Text Recognition (`com.google.mlkit:text-recognition:16.0.1`)
+- Observability: Timber logging facade (DebugTree in debug, CrashlyticsTree in release) + Firebase Crashlytics + Firebase Analytics custom events
 - Build: Gradle Kotlin DSL, KSP, min SDK 26, target SDK 35
 
 **Package:** `com.powerme.app`
@@ -62,8 +63,8 @@ Read the relevant spec before touching files in that domain.
 | `AI_BACKLOG.md` | Long-horizon AI brainstorm (46 items with scope tags). Companion to `AI_SPEC.md`. |
 | `DB_UPGRADE.md` | Migration history, schema changes |
 | `DB_ARCHITECTURE.md` | Entity relationships, template-to-instance, UUID migration |
+| `future_devs/OBSERVABILITY_BETA_SPEC.md` | Observability — Crashlytics crash reporting + Firebase Analytics action trail + Timber logging facade |
 | `future_devs/` | All planned features — see `ROADMAP.md` for phase/status |
-| `future_devs/OBSERVABILITY_BETA_SPEC.md` | Crashlytics crash reporting + Firebase Analytics action trail + Timber logging facade |
 
 ---
 

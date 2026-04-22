@@ -1,7 +1,7 @@
 package com.powerme.app.data.secure
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -29,7 +29,7 @@ class EncryptedSecurePreferencesStore @Inject constructor(
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (e: Exception) {
-            Log.e("SecurePrefs", "Keystore init failed — falling back to no-op", e)
+            Timber.e(e, "Keystore init failed — falling back to no-op")
             null
         }
     }

@@ -399,7 +399,13 @@ class WorkoutViewModel @Inject constructor(
     fun maximizeWorkout() {
         val s = _workoutState.value
         Timber.d("WVM MAXIMIZE wId=${s.workoutId?.take(8)} isActive=${s.isActive}")
+        if (s.isActive) analyticsTracker.logWorkoutResumed(s.workoutId)
         _workoutState.update { it.copy(isMinimized = false) }
+    }
+
+    fun logNavTabSelected(tabName: String) {
+        analyticsTracker.logNavTabSelected(tabName)
+        analyticsTracker.logScreenViewed(tabName)
     }
 
     fun startStandaloneTimer(seconds: Int) {
@@ -1280,6 +1286,9 @@ class WorkoutViewModel @Inject constructor(
             if (updatedSet != null && updatedSet.id.isNotBlank() && !updatedSet.id.startsWith("edit_")) {
                 viewModelScope.launch { workoutSetDao.updateSetCompleted(updatedSet.id, updatedSet.isCompleted) }
             }
+            if (!wasCompleted) {
+                analyticsTracker.logWorkoutSetConfirmed(exerciseId, completedSetType.name, setOrder)
+            }
             if (wasCompleted) {
                 stopRestTimer()
             } else {
@@ -2071,6 +2080,8 @@ class WorkoutViewModel @Inject constructor(
         val restDuration = overrideSeconds ?: exercise.restDurationSeconds
         if (restDuration <= 0) return
 
+        analyticsTracker.logRestTimerStarted(restDuration)
+
         if (serviceBound && timerService != null) {
             // Set identity fields before delegating to service.
             _workoutState.update {
@@ -2183,6 +2194,8 @@ class WorkoutViewModel @Inject constructor(
 
     fun skipRestTimer() {
         if (!_workoutState.value.restTimer.isActive) return
+        val remainingSeconds = _workoutState.value.restTimer.remainingSeconds
+        analyticsTracker.logRestTimerSkipped(remainingSeconds)
         timerJob?.cancel()
         if (serviceBound && timerService != null) {
             timerService!!.stopTimer()

@@ -100,7 +100,11 @@ class ExerciseDetailViewModel @Inject constructor(
     }
 
     private suspend fun loadWarmUpRamp() {
-        val ramp = repository.computeWarmUpRamp(exerciseId)
+        val exercise = _uiState.value.exercise
+        val ramp = repository.computeWarmUpRamp(
+            exerciseId = exerciseId,
+            equipmentType = exercise?.equipmentType ?: "Barbell"
+        )
         _uiState.update { it.copy(warmUpRamp = ramp) }
     }
 

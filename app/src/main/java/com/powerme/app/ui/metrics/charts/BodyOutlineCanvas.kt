@@ -127,16 +127,18 @@ fun BodyOutlineCanvas(
                 (outlineColor.blue  * 255).toInt()
             )
         }
+        // Labels are placed below the feet (feet end at ~0.958h) to avoid
+        // overlapping the head at the top of the figure.
         drawContext.canvas.nativeCanvas.apply {
             val frontLabel = "FRONT"
             val backLabel  = "BACK"
             val textBounds = android.graphics.Rect()
-            labelPaint.getTextBounds(frontLabel, 0, frontLabel.length, textBounds)
-            val textH = textBounds.height()
+            val labelY = 0.990f * h   // baseline just above canvas bottom
 
-            drawText(frontLabel, 0.235f * w - textBounds.width() / 2f, 0.008f * h + textH, labelPaint)
+            labelPaint.getTextBounds(frontLabel, 0, frontLabel.length, textBounds)
+            drawText(frontLabel, 0.235f * w - textBounds.width() / 2f, labelY, labelPaint)
             labelPaint.getTextBounds(backLabel, 0, backLabel.length, textBounds)
-            drawText(backLabel,  0.765f * w - textBounds.width() / 2f, 0.008f * h + textH, labelPaint)
+            drawText(backLabel,  0.765f * w - textBounds.width() / 2f, labelY, labelPaint)
         }
     }
 }
