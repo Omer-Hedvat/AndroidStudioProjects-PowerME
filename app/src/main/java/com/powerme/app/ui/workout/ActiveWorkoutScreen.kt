@@ -1796,6 +1796,7 @@ private fun WarmupPromptDialog(
     var weightText by remember { mutableStateOf("") }
     var repsText by remember { mutableStateOf("") }
     var fillWorkSets by remember { mutableStateOf(false) }
+    val repsFocusRequester = remember { FocusRequester() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1806,7 +1807,8 @@ private fun WarmupPromptDialog(
                     value = weightText,
                     onValueChange = { weightText = it },
                     label = { Text("Working weight ($unitLabel)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { repsFocusRequester.requestFocus() }),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1814,9 +1816,9 @@ private fun WarmupPromptDialog(
                     value = repsText,
                     onValueChange = { repsText = it },
                     label = { Text("Working reps") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().focusRequester(repsFocusRequester)
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1824,7 +1826,16 @@ private fun WarmupPromptDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Fill work sets", style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = fillWorkSets, onCheckedChange = { fillWorkSets = it })
+                    Switch(
+                        checked = fillWorkSets,
+                        onCheckedChange = { fillWorkSets = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
                 }
             }
         },
