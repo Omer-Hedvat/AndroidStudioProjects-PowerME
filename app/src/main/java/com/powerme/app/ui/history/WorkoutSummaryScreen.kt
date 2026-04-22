@@ -676,8 +676,11 @@ private fun SetDetailRow(
     set: SetDetail,
     unitSystem: UnitSystem
 ) {
-    val isSecondary = set.setType == SetType.WARMUP || set.setType == SetType.DROP
-    val textColor = if (isSecondary) ProSubGrey else MaterialTheme.colorScheme.onSurface
+    val textColor = when (set.setType) {
+        SetType.WARMUP            -> MaterialTheme.colorScheme.onSurfaceVariant
+        SetType.DROP, SetType.FAILURE -> MaterialTheme.colorScheme.tertiary
+        else                      -> MaterialTheme.colorScheme.onSurface
+    }
     val weightText = UnitConverter.formatWeightRaw(set.weight, unitSystem)
 
     val rpeColor = set.rpe?.let { rpe ->

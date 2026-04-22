@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SetDetail(
-    val label: String,      // "W" for warmup, "D" for drop, "1"/"2"/… for working sets
+    val label: String,      // "WU" for warmup, "DROP" for drop, "FAIL" for failure, "1"/"2"/… for working sets
     val weight: Double,     // kg (storage units)
     val reps: Int,
     val rpe: Int?,          // scaled x10 (e.g. 85 = RPE 8.5), null if not logged
@@ -181,8 +181,9 @@ class WorkoutSummaryViewModel @Inject constructor(
             .sortedBy { it.setOrder }
             .map { s ->
                 val label = when (s.setType) {
-                    SetType.WARMUP  -> "W"
-                    SetType.DROP    -> "D"
+                    SetType.WARMUP  -> "WU"
+                    SetType.DROP    -> "DROP"
+                    SetType.FAILURE -> "FAIL"
                     else            -> { workingSetNumber++; workingSetNumber.toString() }
                 }
                 SetDetail(

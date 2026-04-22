@@ -562,10 +562,32 @@ class WorkoutSummaryViewModelTest {
 
         val details = vm.uiState.value.exerciseCards.first().sets
         assertEquals(4, details.size)
-        assertEquals("W", details[0].label)
+        assertEquals("WU", details[0].label)
         assertEquals("1", details[1].label)
         assertEquals("2", details[2].label)
-        assertEquals("D", details[3].label)
+        assertEquals("DROP", details[3].label)
+    }
+
+    @Test
+    fun `FAILURE sets get FAIL label and do not increment working set counter`() = runTest(testDispatcher) {
+        val sets = listOf(
+            makeSetWithExercise(setType = SetType.NORMAL,  setOrder = 1, weight = 100.0, reps = 5),
+            makeSetWithExercise(setType = SetType.FAILURE, setOrder = 2, weight = 100.0, reps = 2),
+            makeSetWithExercise(setType = SetType.NORMAL,  setOrder = 3, weight = 90.0,  reps = 5)
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(sets)
+        whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())
+        whenever(workoutSetDao.getHistoricalBestE1RM(any(), any())).thenReturn(null)
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val details = vm.uiState.value.exerciseCards.first().sets
+        assertEquals(3, details.size)
+        assertEquals("1",    details[0].label)  // first NORMAL → working set 1
+        assertEquals("FAIL", details[1].label)  // FAILURE → no counter increment
+        assertEquals("2",    details[2].label)  // second NORMAL → working set 2
     }
 
     @Test
@@ -629,9 +651,9 @@ class WorkoutSummaryViewModelTest {
 
         val details = vm.uiState.value.exerciseCards.first().sets
         assertEquals(3, details.size)
-        assertEquals("W", details[0].label)   // setOrder 1
-        assertEquals("1", details[1].label)   // setOrder 2
-        assertEquals("2", details[2].label)   // setOrder 3
+        assertEquals("WU", details[0].label)   // setOrder 1
+        assertEquals("1", details[1].label)    // setOrder 2
+        assertEquals("2", details[2].label)    // setOrder 3
     }
 
     // ── Routine sync card dismiss ─────────────────────────────────────────────
