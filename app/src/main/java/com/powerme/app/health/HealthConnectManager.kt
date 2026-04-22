@@ -506,8 +506,8 @@ class HealthConnectManager @Inject constructor(
                 startZoneOffset = zoneRules.getOffset(startInstant),
                 endZoneOffset = zoneRules.getOffset(endInstant),
                 exerciseType = deriveHcExerciseType(exercises),
-                title = workout.routineName,
-                notes = workout.notes,
+                title = workout.routineName?.take(100),
+                notes = workout.notes?.take(1000),
                 metadata = Metadata.manualEntry(workout.id)
             )
             client.insertRecords(listOf(record))
@@ -549,14 +549,58 @@ class HealthConnectManager @Inject constructor(
                 startZoneOffset = zoneRules.getOffset(startInstant),
                 endZoneOffset   = zoneRules.getOffset(endInstant),
                 exerciseType    = deriveHcExerciseTypeFromEnums(exerciseTypes),
-                title           = workout.routineName,
-                notes           = workout.notes,
+                title           = workout.routineName?.take(100),
+                notes           = workout.notes?.take(1000),
                 metadata        = Metadata.manualEntry(workout.id)
             )
             client.insertRecords(listOf(record))
         } catch (e: Exception) {
             Timber.w(e, "writeWorkoutSession (backfill) failed for ${workout.id}")
         }
+    }
+
+    // ── DEBUG: nuke all PowerME-written HC records ──────────────────────────────
+    /**
+     * DEBUG ONLY — deletes every ExerciseSessionRecord written by PowerME in the last 60 days.
+     * This is the only record type PowerME has WRITE permission for, so it is the only one that
+     * could produce a corrupted record and lock the Health Connect system UI.
+     *
+     * Usage: tap the red "NUKE HC DATA" button at the top of Settings.
+     * Remove this function (and the button) once the corrupted record is cleared.
+     */
+    /**
+     * Deletes ExerciseSessionRecords by their clientRecordId (= PowerME workout UUID).
+     * Uses direct ID lookup instead of TimeRangeFilter to avoid the full table scan that
+     * triggers SQLiteBlobTooBigException on a corrupted oversized row.
+     * Each ID is deleted individually so one bad record doesn't abort the rest.
+     */
+    suspend fun nukePowerMEData(healthConnectClient: HealthConnectClient, clientRecordIds: List<String>) {
+        val tag = "HealthConnect-Nuke"
+        if (clientRecordIds.isEmpty()) {
+            android.util.Log.w(tag, "No workout IDs found in PowerME DB — nothing to delete.")
+            android.util.Log.i(tag, "Nuke complete.")
+            return
+        }
+        android.util.Log.i(tag, "Attempting to delete ${clientRecordIds.size} records by clientRecordId…")
+
+        var successCount = 0
+        var failCount = 0
+        for (id in clientRecordIds) {
+            try {
+                healthConnectClient.deleteRecords(
+                    recordType = ExerciseSessionRecord::class,
+                    recordIdsList = emptyList(),
+                    clientRecordIdsList = listOf(id)
+                )
+                android.util.Log.i(tag, "DELETE OK  clientRecordId=$id")
+                successCount++
+            } catch (e: Exception) {
+                android.util.Log.e(tag, "DELETE FAIL clientRecordId=$id — ${e.message}")
+                failCount++
+            }
+        }
+
+        android.util.Log.i(tag, "Nuke complete. success=$successCount  failed=$failCount")
     }
 
     /**

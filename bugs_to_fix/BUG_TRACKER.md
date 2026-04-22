@@ -88,6 +88,8 @@ Single source of truth for bug status across sessions.
 | [BUG_rest_timer_reset_ignores_skipped](BUG_rest_timer_reset_ignores_skipped.md) | "Update Rest Timers" restores separators that were already skipped or finished | ✅ Wrapped | P2 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_rest_timer_overlap_skip](BUG_rest_timer_overlap_skip.md) | Firing a rest timer while another is running starts both instead of skipping the current | ✅ Wrapped | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt`, `ActiveWorkoutScreen.kt` |
 | [BUG_exercise_history_missing_sessions](BUG_exercise_history_missing_sessions.md) | Exercise History tab missing sessions — some logged workouts don't appear | ✅ Wrapped | P1 | — | — | `TrendsDao.kt`, `ExerciseDetailRepositoryTest.kt` |
+| [BUG_write_workout_session_oversized](BUG_write_workout_session_oversized.md) | writeWorkoutSession writes oversized ExerciseSessionRecord — corrupts HC table, blocks all deletes | ✅ Wrapped | P1 | — | — | `HealthConnectManager.kt` |
+| [BUG_nuke_hc_debug_cleanup](BUG_nuke_hc_debug_cleanup.md) | Remove HC nuke debug tooling (temporary code, must not ship) | 🔵 Open | P1 | BUG_write_workout_session_oversized, HC lockup resolved | — | `HealthConnectManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt` |
 
 ---
 
