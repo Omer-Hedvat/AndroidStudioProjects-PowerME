@@ -1016,7 +1016,7 @@ class WorkoutViewModel @Inject constructor(
             )
 
             _workoutState.update {
-                it.copy(exercises = currentExercises + newExerciseWithSets).markDirtyIfEditing()
+                it.copy(exercises = it.exercises + newExerciseWithSets).markDirtyIfEditing()
             }
         }
     }

@@ -4624,6 +4624,36 @@ class WorkoutViewModelTest {
         viewModel.cancelWorkout()
         runCurrent()
     }
+
+    // -------------------------------------------------------------------------
+    // Concurrent addExercise — picker multi-select regression
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `addExercise called in rapid succession adds all exercises not just the first`() = vmTest {
+        val ex1 = Exercise(id = 101L, name = "Squat",      muscleGroup = "Legs",  equipmentType = "Barbell")
+        val ex2 = Exercise(id = 102L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
+        val ex3 = Exercise(id = 103L, name = "Deadlift",   muscleGroup = "Back",  equipmentType = "Barbell")
+        runBlocking {
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+            whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+        }
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        // Simulate picker onExercisesSelected forEach — no runCurrent() between calls
+        viewModel.addExercise(ex1)
+        viewModel.addExercise(ex2)
+        viewModel.addExercise(ex3)
+        runCurrent()
+
+        val ids = viewModel.workoutState.value.exercises.map { it.exercise.id }
+        assertEquals("All three exercises must be present", listOf(101L, 102L, 103L), ids)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
 }
 
 // ── Test helpers ─────────────────────────────────────────────────────────────

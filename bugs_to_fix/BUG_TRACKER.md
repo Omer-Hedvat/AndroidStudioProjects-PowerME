@@ -90,6 +90,7 @@ Single source of truth for bug status across sessions.
 | [BUG_exercise_history_missing_sessions](BUG_exercise_history_missing_sessions.md) | Exercise History tab missing sessions — some logged workouts don't appear | ✅ Wrapped | P1 | — | — | `TrendsDao.kt`, `ExerciseDetailRepositoryTest.kt` |
 | [BUG_write_workout_session_oversized](BUG_write_workout_session_oversized.md) | writeWorkoutSession writes oversized ExerciseSessionRecord — corrupts HC table, blocks all deletes | ✅ Wrapped | P1 | — | — | `HealthConnectManager.kt` |
 | [BUG_nuke_hc_debug_cleanup](BUG_nuke_hc_debug_cleanup.md) | Remove HC nuke debug tooling (temporary code, must not ship) | 🔵 Open | P1 | BUG_write_workout_session_oversized, HC lockup resolved | — | `HealthConnectManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt` |
+| [BUG_quick_start_add_exercise_partial](BUG_quick_start_add_exercise_partial.md) | Quick Start — Add Exercise only adds the first selected exercise | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 
 ---
 
