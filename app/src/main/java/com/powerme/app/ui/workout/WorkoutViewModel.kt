@@ -2549,10 +2549,12 @@ class WorkoutViewModel @Inject constructor(
                 _workoutState.update { state ->
                     val currentSets = state.exercises.find { it.exercise.id == exerciseId }?.sets ?: return@update state
 
-                    // Optionally fill empty NORMAL sets
+                    // Optionally fill empty NORMAL sets (treat blank or "0" as empty)
                     val updatedNormalSets = if (fillWorkSets && workingWeight != null) {
                         currentSets.map { set ->
-                            if (set.setType == SetType.NORMAL && set.weight.isBlank()) {
+                            val isEmptySet = set.setType == SetType.NORMAL &&
+                                (set.weight.isBlank() || set.weight.trim().toDoubleOrNull() == 0.0)
+                            if (isEmptySet) {
                                 set.copy(
                                     weight = formatWeight(workingWeight, currentUnit),
                                     reps = workingReps?.toString() ?: set.reps

@@ -4489,6 +4489,141 @@ class WorkoutViewModelTest {
         viewModel.cancelEditMode()
         runCurrent()
     }
+
+    // -------------------------------------------------------------------------
+    // addSmartWarmups tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `addSmartWarmups Flow A prepends warmup sets when work sets have weight`() = vmTest {
+        val exId = setupLiveWorkoutWithExercise(exerciseId = 80L)
+        runCurrent()
+
+        // Fill work sets with 100 kg (barbell → 4 warmup sets expected)
+        repeat(3) { idx ->
+            viewModel.onWeightChanged(exId, idx + 1, "100")
+        }
+        runCurrent()
+
+        viewModel.addSmartWarmups(exId)
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.find { it.exercise.id == exId }?.sets ?: error("exercise not found")
+        val warmups = sets.filter { it.setType == SetType.WARMUP }
+        assertTrue("Expected warmup sets, got ${warmups.size}", warmups.isNotEmpty())
+        // All warmup sets should be ordered before normal sets
+        val warmupOrders = warmups.map { it.setOrder }
+        val normalOrders = sets.filter { it.setType == SetType.NORMAL }.map { it.setOrder }
+        assertTrue("Warmup orders must all precede normal orders",
+            warmupOrders.all { wu -> normalOrders.all { n -> wu < n } })
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `addSmartWarmups Flow B with explicit weight uses provided working weight`() = vmTest {
+        val exId = setupLiveWorkoutWithExercise(exerciseId = 81L)
+        runCurrent()
+
+        // Work sets empty → explicit working weight 80 kg
+        viewModel.addSmartWarmups(exId, workingWeight = 80.0, workingReps = 5, fillWorkSets = false)
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.find { it.exercise.id == exId }?.sets ?: error("exercise not found")
+        val warmups = sets.filter { it.setType == SetType.WARMUP }
+        assertTrue("Expected warmup sets for 80 kg barbell", warmups.isNotEmpty())
+        // No normal set should be filled with the working weight (fillWorkSets = false)
+        val expectedWeightStr = "80" // barbell metric — addExercise defaults to "0"
+        val normalSets = sets.filter { it.setType == SetType.NORMAL }
+        assertTrue("Normal sets must not contain the working weight",
+            normalSets.none { it.weight == expectedWeightStr })
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `addSmartWarmups fillWorkSets fills empty normal sets`() = vmTest {
+        val exId = setupLiveWorkoutWithExercise(exerciseId = 82L)
+        runCurrent()
+
+        viewModel.addSmartWarmups(exId, workingWeight = 60.0, workingReps = 8, fillWorkSets = true)
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.find { it.exercise.id == exId }?.sets ?: error("exercise not found")
+        val normalSets = sets.filter { it.setType == SetType.NORMAL }
+        assertTrue("All normal sets must be filled with working weight",
+            normalSets.all { it.weight.toDoubleOrNull()?.let { w -> w > 0 } == true && it.reps == "8" })
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `addSmartWarmups replaces existing warmup sets`() = vmTest {
+        val exId = setupLiveWorkoutWithExercise(exerciseId = 83L)
+        runCurrent()
+
+        // Add warmups once
+        viewModel.addSmartWarmups(exId, workingWeight = 60.0, workingReps = 5, fillWorkSets = false)
+        runCurrent()
+        val firstWarmupCount = viewModel.workoutState.value.exercises
+            .find { it.exercise.id == exId }?.sets?.count { it.setType == SetType.WARMUP } ?: 0
+        assertTrue("First call must add warmup sets", firstWarmupCount > 0)
+
+        // Add warmups again with higher weight — old warmups should be replaced
+        viewModel.addSmartWarmups(exId, workingWeight = 100.0, workingReps = 5, fillWorkSets = false)
+        runCurrent()
+        val sets = viewModel.workoutState.value.exercises.find { it.exercise.id == exId }?.sets ?: error("exercise not found")
+        val newWarmups = sets.filter { it.setType == SetType.WARMUP }
+        assertTrue("Warmups must exist after second call", newWarmups.isNotEmpty())
+        // There should be no duplicate warmup sets from the old batch
+        val warmupWeights = newWarmups.map { it.weight }
+        assertEquals("No duplicate warmup weights", warmupWeights.distinct().size, warmupWeights.size)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `addSmartWarmups with weight too light emits snackbar and adds no warmup sets`() = vmTest {
+        val exId = setupLiveWorkoutWithExercise(exerciseId = 84L)
+        runCurrent()
+
+        // Barbell start weight is 20 kg — providing 20 kg = gap of 0 → no warmup sets
+        viewModel.addSmartWarmups(exId, workingWeight = 20.0, workingReps = 5, fillWorkSets = false)
+        runCurrent()
+
+        val sets = viewModel.workoutState.value.exercises.find { it.exercise.id == exId }?.sets ?: error("exercise not found")
+        assertTrue("No warmup sets should be added when weight == start",
+            sets.none { it.setType == SetType.WARMUP })
+        val snackbar = viewModel.workoutState.value.snackbarMessage
+        assertNotNull("Snackbar message must be set", snackbar)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `canAddSmartWarmups returns false for non-STRENGTH exercise`() = vmTest {
+        val exercise = Exercise(
+            id = 85L, name = "Run", muscleGroup = "Cardio",
+            equipmentType = "Barbell", restDurationSeconds = 60,
+            exerciseType = ExerciseType.CARDIO
+        )
+        whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+
+        viewModel.startWorkout("")
+        viewModel.addExercise(exercise)
+        runCurrent()
+
+        assertFalse("CARDIO exercise must not qualify for warmups", viewModel.canAddSmartWarmups(85L))
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
 }
 
 // ── Test helpers ─────────────────────────────────────────────────────────────

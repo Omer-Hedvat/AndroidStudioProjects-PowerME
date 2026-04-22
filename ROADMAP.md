@@ -61,7 +61,7 @@ Core workout loop improvements. Independent of all other phases.
 | Warmup sets — auto-collapse after completion | `future_devs/WARMUP_SETS_AUTO_COLLAPSE_SPEC.md` | S | `wrapped` | — |
 | Numeric keyboard ±1 increment/decrement buttons | `future_devs/NUMERIC_KEYBOARD_PLUS_MINUS_SPEC.md` | S | `wrapped` | — |
 | Watch & phone workout notifications | `future_devs/WATCH_WORKOUT_NOTIFICATIONS_SPEC.md` | L | `completed` | — |
-| Smart "Add Warmups" — equipment-aware warmup generator | `future_devs/SMART_ADD_WARMUPS_SPEC.md` | M | `in-progress` | Warmup sets — auto-collapse ✅ |
+| Smart "Add Warmups" — equipment-aware warmup generator | `future_devs/SMART_ADD_WARMUPS_SPEC.md` | M | `wrapped` | Warmup sets — auto-collapse ✅ |
 
 ---
 
