@@ -45,11 +45,14 @@ fun AiWorkoutGenerationScreen(
     onNavigateBack: () -> Unit,
     onStartWorkout: (AiWorkoutEvent.WorkoutStarted) -> Unit,
     onPickExercise: () -> Unit,
+    initialMode: InputMode = InputMode.TEXT,
     viewModel: AiWorkoutViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val event by viewModel.events.collectAsState()
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) { viewModel.setInputMode(initialMode) }
 
     // Index of the exercise card waiting for a picker result
     var pickingForIndex by remember { mutableStateOf<Int?>(null) }

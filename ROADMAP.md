@@ -46,6 +46,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Logout button on Profile page | `future_devs/PROFILE_LOGOUT_BUTTON_SPEC.md` | XS | `wrapped` | Profile/Settings split ✅ |
 | Quick Start Workout (blank workout, no routine) | `future_devs/QUICK_START_WORKOUT_SPEC.md` | XS | `wrapped` | — |
 | Observability layer — Crashlytics + Analytics + Timber (beta) | `future_devs/OBSERVABILITY_BETA_SPEC.md` | M | `wrapped` | — |
+| Workouts page — Quick Start 3-way chooser (exercises / picture / text) | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | S | `wrapped` | Quick Start Workout ✅, AI Workout Generation ✅ |
 
 ---
 
@@ -79,6 +80,7 @@ Post-workout experience + user identity. Can be built in any order within the ph
 | History cards default expanded | `future_devs/HISTORY_CARDS_DEFAULT_EXPANDED_SPEC.md` | XS | `wrapped` | History card set details ✅ |
 | Summary RPE inline format (weight×reps@RPE) | `future_devs/SUMMARY_RPE_INLINE_FORMAT_SPEC.md` | S | `wrapped` | History card set details ✅ |
 | Workout summary — set type labels (WU / working # / DROP / FAIL) | `future_devs/WORKOUT_SUMMARY_SET_TYPE_LABELS_SPEC.md` | S | `wrapped` | Summary RPE inline format ✅ |
+| HC UX restructure — Settings Connected badge + Profile metrics card | `future_devs/HC_UX_RESTRUCTURE_SPEC.md` | S | `in-progress` | Profile/Settings split ✅ |
 
 ---
 
@@ -156,6 +158,35 @@ Cloud AI that turns free text or a photo into a ready-to-start workout. **Archit
 
 ---
 
+## Phase P8 — Functional Training (Hybrid Mode)
+
+AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_TRAINING_SPEC.md` and the task-tree in the plan file for full dependency structure and parallelization guidance. **Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.**
+
+| Feature | Spec | Effort | Status | Depends on |
+|---|---|---|---|---|
+| `func_style_preference` — WorkoutStyle enum + Settings card | `FUNCTIONAL_TRAINING_SPEC.md §7` | S | `not-started` | — |
+| `func_exercise_tags_seed` — Exercise.tags + seed ~40 functional movements | `FUNCTIONAL_TRAINING_SPEC.md §6` | M | `not-started` | — |
+| `func_timer_engine_extract` — Extract TimerEngine class + real JetBrains Mono font | `FUNCTIONAL_TRAINING_SPEC.md §9.2, §2.D` | M | `not-started` | — |
+| `func_block_entities_migration` — RoutineBlock + WorkoutBlock + MIGRATION_49_50 backfill | `FUNCTIONAL_TRAINING_SPEC.md §3, §4` | L | `not-started` | func_style_preference ✅, func_exercise_tags_seed ✅, func_timer_engine_extract ✅ |
+| `func_firestore_sync_blocks` — Embed block arrays in Firestore push/pull | `FUNCTIONAL_TRAINING_SPEC.md §5` | M | `not-started` | func_block_entities_migration ✅ |
+| `func_template_wizard` — FunctionalBlockWizard + Pure Functional builder | `FUNCTIONAL_TRAINING_SPEC.md §8` | L | `not-started` | func_block_entities_migration ✅ |
+| `func_template_hybrid_sheet` — Hybrid AddBlockOrExerciseSheet | `FUNCTIONAL_TRAINING_SPEC.md §8.1` | S | `not-started` | func_template_wizard ✅ |
+| `func_active_strength_blocks` — Block headers in active workout; STRENGTH materialization | `FUNCTIONAL_TRAINING_SPEC.md §9` | M | `not-started` | func_block_entities_migration ✅ |
+| `func_active_functional_runner` — AMRAP/RFT/EMOM overlays + lifecycle | `FUNCTIONAL_TRAINING_SPEC.md §9, §11` | XL | `not-started` | func_timer_engine_extract ✅, func_firestore_sync_blocks ✅, func_active_strength_blocks ✅ |
+| `func_history_trends_polish` — Block-aware History + Trends + SummaryScreen | `FUNCTIONAL_TRAINING_SPEC.md §12` | M | `not-started` | func_active_functional_runner ✅ (in prod ≥1 release) |
+
+---
+
+## Phase P9 — On-Device AI (AICore / Gemma)
+
+Parser abstraction layer + on-device inference backend. `AiWorkoutViewModel` remains unchanged throughout. **Read `AI_SPEC.md §12` before starting any task in this phase.**
+
+| Feature | Spec | Effort | Status | Depends on |
+|---|---|---|---|---|
+| AI parser interface layer — `WorkoutTextParser`, `WorkoutPromptUtils`, `WorkoutParserRouter`, `AiModule` | `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | S | `in-progress` | AI Workout Generation (P7) ✅ |
+
+---
+
 ## Dependency Map
 
 ```
@@ -187,6 +218,14 @@ P6 (heatmap card)        ── requires ─────────────
 
 P0 (quick start workout) ──────────────────────────────► ship anytime
 P7 (AI workout gen)      ── requires ──────────────────► Quick Start Workout
+
+P8 Tier 0 (style pref, tags, timer engine) ─────────► ship anytime (parallelizable)
+P8 Tier 1 (block migration) ── requires ─────────────► ALL Tier 0 wrapped
+P8 Tier 2 (firestore sync)  ── requires ─────────────► Tier 1 wrapped
+P8 Tier 3 (template wizard, hybrid sheet) ── requires ► Tier 1 wrapped (parallelizable within tier)
+P8 Tier 4 (strength headers) ── requires ────────────► Tier 1 wrapped
+P8 Tier 4 (functional runner) ── requires ───────────► Tier 0 timer extract + Tier 2 + Tier 4 strength headers
+P8 Tier 5 (history/trends)  ── requires ─────────────► Tier 4 runner in prod ≥1 release
 ```
 
 ---

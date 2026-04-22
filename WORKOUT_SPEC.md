@@ -1024,7 +1024,10 @@ The entry point for the workout journey. Manages routine browsing, workout resum
 ```
 [Workouts title]
 [Resume Workout banner]           ← only when isWorkoutActive
-[Start Empty Workout]             ← OutlinedButton
+[Quick Start ▾]                   ← OutlinedButton with ArrowDropDown; opens DropdownMenu
+    ├─ Add exercises               → starts empty workout session (WorkoutViewModel.startWorkout)
+    ├─ Add from picture            → navigates to ai_workout?mode=photo (AiWorkoutGenerationScreen, photo mode pre-selected)
+    └─ Add from text               → navigates to ai_workout?mode=text  (AiWorkoutGenerationScreen, text mode pre-selected)
 [Routines label + Add (+) icon]
 ["Show Archived" FilterChip]      ← top-right of the Routines row; default OFF
 [Empty state]                     ← "No routines yet"

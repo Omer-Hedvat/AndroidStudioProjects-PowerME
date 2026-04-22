@@ -57,10 +57,12 @@ import com.powerme.app.ui.settings.SettingsScreen
 import com.powerme.app.ui.theme.ProBackground
 import com.powerme.app.ui.tools.ToolsScreen
 import com.powerme.app.ui.workout.ActiveWorkoutScreen
+import com.powerme.app.ui.workouts.QuickStartChooserScreen
 import com.powerme.app.ui.workouts.TemplateBuilderScreen
 import com.powerme.app.ui.workouts.WorkoutsScreen
 import com.powerme.app.ui.workouts.ai.AiWorkoutEvent
 import com.powerme.app.ui.workouts.ai.AiWorkoutGenerationScreen
+import com.powerme.app.ui.workouts.ai.InputMode
 import com.powerme.app.ui.workout.WorkoutViewModel
 import com.powerme.app.util.UserSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -86,13 +88,14 @@ private object Routes {
     const val AUTH_HC_OFFER = "auth_hc_offer"
     const val WORKOUT = "workout"
     const val SETTINGS = "settings"
-    const val PROFILE = "profile"
+    const val PROFILE = "profile?scrollToHc={scrollToHc}"
     const val WORKOUT_DETAIL = "workout_detail/{workoutId}"
     const val WORKOUT_SUMMARY = "workout_summary/{workoutId}?isPostWorkout={isPostWorkout}&syncType={syncType}"
     const val TEMPLATE_BUILDER = "template_builder/{routineId}"
     const val EXERCISE_PICKER = "exercise_picker"
     const val IMPORT_WORKOUTS = "import_workouts"
-    const val AI_WORKOUT = "ai_workout"
+    const val QUICK_START_CHOOSER = "quick_start_chooser"
+    const val AI_WORKOUT = "ai_workout?mode={mode}"
     const val EXERCISE_DETAIL = "exercise_detail/{exerciseId}"
 }
 
@@ -304,7 +307,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
-                onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onProfileClick = { navController.navigate("profile") },
                 onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
@@ -326,7 +329,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                             navController.navigate(Routes.WORKOUT)
                         }
                     },
-                    onGenerateWithAi = { navController.navigate(Routes.AI_WORKOUT) }
+                    onQuickStart = { navController.navigate(Routes.QUICK_START_CHOOSER) }
                 )
             }
         }
@@ -344,7 +347,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
-                onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onProfileClick = { navController.navigate("profile") },
                 onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
@@ -370,7 +373,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
-                onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onProfileClick = { navController.navigate("profile") },
                 onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
@@ -398,7 +401,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
-                onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onProfileClick = { navController.navigate("profile") },
                 onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
@@ -421,7 +424,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 workoutState = workoutState,
                 onMaximizeWorkout = { workoutViewModel.maximizeWorkout() },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
-                onProfileClick = { navController.navigate(Routes.PROFILE) },
+                onProfileClick = { navController.navigate("profile") },
                 onTabSelected = { workoutViewModel.logNavTabSelected(it) },
                 clocksTimerProgress = clocksTimerState?.progress
             ) {
@@ -442,7 +445,8 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         ) {
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToImport = { navController.navigate(Routes.IMPORT_WORKOUTS) }
+                onNavigateToImport = { navController.navigate(Routes.IMPORT_WORKOUTS) },
+                onNavigateToProfile = { navController.navigate("profile?scrollToHc=true") }
             )
         }
 
@@ -460,12 +464,15 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
 
         composable(
             route = Routes.PROFILE,
+            arguments = listOf(navArgument("scrollToHc") { type = NavType.BoolType; defaultValue = false }),
             enterTransition = { slideInHorizontally(tween(300)) { it } },
             exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
             popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
-        ) {
+        ) { backStackEntry ->
+            val scrollToHc = backStackEntry.arguments?.getBoolean("scrollToHc") ?: false
             ProfileScreen(
+                scrollToHc = scrollToHc,
                 onNavigateBack = { navController.popBackStack() },
                 onSignOut = {
                     navController.navigate(Routes.AUTH_WELCOME) {
@@ -487,19 +494,50 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
         }
 
         composable(
-            route = Routes.AI_WORKOUT,
+            route = Routes.QUICK_START_CHOOSER,
             enterTransition = { slideInHorizontally(tween(300)) { it } },
             exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
             popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
+            QuickStartChooserScreen(
+                onAddManually = {
+                    workoutViewModel.startWorkout()
+                    navController.navigate(Routes.WORKOUT) {
+                        popUpTo(Routes.QUICK_START_CHOOSER) { inclusive = true }
+                    }
+                },
+                onAddFromPicture = {
+                    navController.navigate("ai_workout?mode=photo")
+                },
+                onAddFromText = {
+                    navController.navigate("ai_workout?mode=text")
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Routes.AI_WORKOUT,
+            arguments = listOf(navArgument("mode") {
+                type = NavType.StringType
+                defaultValue = "text"
+            }),
+            enterTransition = { slideInHorizontally(tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it } }
+        ) { backStackEntry ->
+            val modeArg = backStackEntry.arguments?.getString("mode") ?: "text"
+            val initialMode = if (modeArg == "photo") InputMode.PHOTO else InputMode.TEXT
             AiWorkoutGenerationScreen(
                 navController = navController,
+                initialMode = initialMode,
                 onNavigateBack = { navController.popBackStack() },
                 onStartWorkout = { event ->
                     workoutViewModel.startWorkoutFromPlan(event.bootstrap)
                     navController.navigate(Routes.WORKOUT) {
-                        popUpTo(Routes.AI_WORKOUT) { inclusive = true }
+                        popUpTo(navController.currentBackStackEntry?.destination?.route ?: Routes.WORKOUT) { inclusive = true }
                     }
                 },
                 onPickExercise = { navController.navigate(Routes.EXERCISE_PICKER) }

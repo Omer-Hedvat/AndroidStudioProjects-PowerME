@@ -60,10 +60,15 @@ Read the relevant spec before touching files in that domain.
 | `PROFILE_SETUP_SPEC.md` | Onboarding, two-step flow, HC offer |
 | `SETTINGS_SPEC.md` | Settings screen, all cards, SettingsViewModel |
 | `AI_SPEC.md` | AI workout generation — text/photo → routine, Gemini + OCR, matching, enhancement roadmap. Single source of truth for AI. |
+| `AI_SPEC.md §12` | On-device AI — Android AICore (Gemma 4 / Gemini Nano), graceful degradation, 0-byte APK footprint, privacy model |
 | `AI_BACKLOG.md` | Long-horizon AI brainstorm (46 items with scope tags). Companion to `AI_SPEC.md`. |
 | `DB_UPGRADE.md` | Migration history, schema changes |
 | `DB_ARCHITECTURE.md` | Entity relationships, template-to-instance, UUID migration |
 | `future_devs/OBSERVABILITY_BETA_SPEC.md` | Observability — Crashlytics crash reporting + Firebase Analytics action trail + Timber logging facade |
+| `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | Workouts page restructure — Quick Start becomes a 3-way chooser (exercises / picture / text); removes standalone AI button |
+| `future_devs/HC_UX_RESTRUCTURE_SPEC.md` | P2 | HC UX — Settings shows Connected badge + "View in Profile" button; HC metrics card moves to Profile screen |
+| `FUNCTIONAL_TRAINING_SPEC.md` | Functional Training — AMRAP / RFT / EMOM Hybrid mode. Block concept, WorkoutStyle preference, timer engine, live UX (blind-tap zone), exercise tags, foreground-service lifecycle |
+| `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | P9 | On-device AI prerequisite — `WorkoutTextParser` interface + `WorkoutParserRouter` cloud-only router + `AiModule` Hilt bindings |
 | `future_devs/` | All planned features — see `ROADMAP.md` for phase/status |
 
 ---
