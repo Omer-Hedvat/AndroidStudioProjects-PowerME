@@ -82,7 +82,10 @@ data class SettingsUiState(
     val healthConnectPermissionsDenied: Boolean = false,
     val healthConnectSyncing: Boolean = false,
     val healthConnectData: HealthConnectReadResult? = null,
-    val healthConnectError: String? = null
+    val healthConnectError: String? = null,
+    // DEBUG — nuke HC data button
+    val nukeHcInProgress: Boolean = false,
+    val nukeHcResult: String? = null
 )
 
 @HiltViewModel
@@ -102,6 +105,10 @@ class SettingsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    // DEBUG: set to true when nuke button triggers permission request, so the result callback
+    // knows to auto-fire nukeHcData() instead of the normal connect flow.
+    private var _nukePermissionPending = false
 
     init {
         loadUserSettings()
@@ -437,6 +444,17 @@ class SettingsViewModel @Inject constructor(
 
     fun onHealthConnectPermissionResult(granted: Set<String>) {
         Timber.d("onPermissionResult: granted=${granted.size} perms, expected=${HealthConnectManager.CORE_PERMISSIONS.size}, set=$granted")
+
+        // DEBUG: if this result came from the nuke permission request, auto-fire nuke and return.
+        val writeExercise = androidx.health.connect.client.permission.HealthPermission
+            .getWritePermission(androidx.health.connect.client.records.ExerciseSessionRecord::class)
+        if (_nukePermissionPending && writeExercise in granted) {
+            _nukePermissionPending = false
+            nukeHcData()
+            return
+        }
+        _nukePermissionPending = false
+
         if (granted.containsAll(HealthConnectManager.CORE_PERMISSIONS)) {
             Timber.d("onPermissionResult: allGranted=true")
             _uiState.update {
@@ -479,6 +497,31 @@ class SettingsViewModel @Inject constructor(
             } finally {
                 _uiState.update { it.copy(isDeletingAccount = false) }
                 onComplete()
+            }
+        }
+    }
+
+    // ── DEBUG: nuke all PowerME-written HC records ────────────────────────────
+    /** Called by the nuke button before launching the HC permission dialog. */
+    fun prepareNukePermissionRequest() { _nukePermissionPending = true }
+
+    fun nukeHcData() {
+        if (!healthConnectManager.isAvailable()) {
+            _uiState.update { it.copy(nukeHcResult = "Health Connect unavailable") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(nukeHcInProgress = true, nukeHcResult = null) }
+            try {
+                val client = androidx.health.connect.client.HealthConnectClient.getOrCreate(context)
+                // Fetch all workout IDs ever recorded — clientRecordId = workout.id in HC.
+                // Using a 2-year window to catch every record PowerME may have written.
+                val sinceMs = System.currentTimeMillis() - 2L * 365 * 24 * 60 * 60 * 1000
+                val ids = workoutDao.getCompletedWorkoutsSince(sinceMs).map { it.id }
+                healthConnectManager.nukePowerMEData(client, ids)
+                _uiState.update { it.copy(nukeHcInProgress = false, nukeHcResult = "Nuke complete (${ids.size} IDs) — check Logcat HealthConnect-Nuke") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(nukeHcInProgress = false, nukeHcResult = "Nuke FAILED: ${e.message}") }
             }
         }
     }
