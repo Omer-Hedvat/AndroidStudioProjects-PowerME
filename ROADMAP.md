@@ -185,6 +185,7 @@ Parser abstraction layer + on-device inference backend. `AiWorkoutViewModel` rem
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | AI parser interface layer — `WorkoutTextParser`, `WorkoutPromptUtils`, `WorkoutParserRouter`, `AiModule` | `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | S | `wrapped` | AI Workout Generation (P7) ✅ |
+| AI ViewModel interface wiring — wire `AiWorkoutViewModel` to `WorkoutTextParser`; update test mock type | `future_devs/AI_VIEWMODEL_INTERFACE_WIRING_SPEC.md` | XS | `wrapped` | AI parser interface layer ✅ |
 
 ---
 

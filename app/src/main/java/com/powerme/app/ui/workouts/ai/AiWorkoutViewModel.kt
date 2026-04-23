@@ -4,8 +4,8 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.powerme.app.ai.GeminiWorkoutParser
 import com.powerme.app.ai.TextRecognitionService
+import com.powerme.app.ai.WorkoutTextParser
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.repository.ExerciseRepository
 import com.powerme.app.data.repository.PlanExercise
@@ -55,7 +55,7 @@ sealed class AiWorkoutEvent {
 
 @HiltViewModel
 class AiWorkoutViewModel @Inject constructor(
-    private val geminiParser: GeminiWorkoutParser,
+    private val workoutParser: WorkoutTextParser,
     private val exerciseMatcher: ExerciseMatcher,
     private val exerciseRepository: ExerciseRepository,
     private val workoutRepository: WorkoutRepository,
@@ -115,7 +115,7 @@ class AiWorkoutViewModel @Inject constructor(
             }
             val exerciseNames = cachedLibrary.map { it.name }
 
-            val parseResult = geminiParser.parseWorkoutText(input, exerciseNames)
+            val parseResult = workoutParser.parseWorkoutText(input, exerciseNames)
             if (parseResult.error != null && parseResult.exercises.isEmpty()) {
                 val userError = if (parseResult.error == "API_KEY_MISSING") {
                     "No Gemini API key configured. Add your own key in Settings → AI."

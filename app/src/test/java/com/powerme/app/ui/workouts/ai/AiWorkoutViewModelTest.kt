@@ -1,7 +1,7 @@
 package com.powerme.app.ui.workouts.ai
 
-import com.powerme.app.ai.GeminiWorkoutParser
 import com.powerme.app.ai.ParseResult
+import com.powerme.app.ai.WorkoutTextParser
 import com.powerme.app.ai.ParsedExercise
 import com.powerme.app.ai.TextRecognitionService
 import com.powerme.app.data.database.Exercise
@@ -37,7 +37,7 @@ class AiWorkoutViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private lateinit var geminiParser: GeminiWorkoutParser
+    private lateinit var workoutParser: WorkoutTextParser
     private lateinit var exerciseMatcher: ExerciseMatcher
     private lateinit var exerciseRepository: ExerciseRepository
     private lateinit var workoutRepository: WorkoutRepository
@@ -53,7 +53,7 @@ class AiWorkoutViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        geminiParser = mock()
+        workoutParser = mock()
         exerciseMatcher = mock()
         exerciseRepository = mock()
         workoutRepository = mock()
@@ -65,7 +65,7 @@ class AiWorkoutViewModelTest {
         }
 
         viewModel = AiWorkoutViewModel(
-            geminiParser, exerciseMatcher, exerciseRepository,
+            workoutParser, exerciseMatcher, exerciseRepository,
             workoutRepository, routineRepository, textRecognitionService
         )
     }
@@ -101,7 +101,7 @@ class AiWorkoutViewModelTest {
         advanceUntilIdle() // let init load library
 
         val parsedExercise = ParsedExercise(name = "Bench Press", sets = 3, reps = 8)
-        whenever(geminiParser.parseWorkoutText(any(), any())).thenReturn(ParseResult(listOf(parsedExercise)))
+        whenever(workoutParser.parseWorkoutText(any(), any())).thenReturn(ParseResult(listOf(parsedExercise)))
         whenever(exerciseMatcher.matchExercise(any(), any())).thenReturn(
             MatchResult(benchPress, 1.0, MatchType.EXACT)
         )
@@ -125,7 +125,7 @@ class AiWorkoutViewModelTest {
             ParsedExercise(name = "Bench Press", sets = 4, reps = 5, weight = 80.0),
             ParsedExercise(name = "Squat", sets = 3, reps = 10)
         )
-        whenever(geminiParser.parseWorkoutText(any(), any())).thenReturn(ParseResult(parsedList))
+        whenever(workoutParser.parseWorkoutText(any(), any())).thenReturn(ParseResult(parsedList))
         whenever(exerciseMatcher.matchExercise(any(), any()))
             .thenReturn(MatchResult(benchPress, 1.0, MatchType.EXACT))
             .thenReturn(MatchResult(squat, 0.92, MatchType.FUZZY))
@@ -148,7 +148,7 @@ class AiWorkoutViewModelTest {
     fun `processTextInput stays at INPUT on parser error`() = runTest(testDispatcher) {
         advanceUntilIdle()
 
-        whenever(geminiParser.parseWorkoutText(any(), any()))
+        whenever(workoutParser.parseWorkoutText(any(), any()))
             .thenReturn(ParseResult(emptyList(), "Network error"))
 
         viewModel.updateInputText("some workout")
@@ -175,7 +175,7 @@ class AiWorkoutViewModelTest {
     fun `goBackToInput returns to INPUT step`() = runTest(testDispatcher) {
         advanceUntilIdle()
 
-        whenever(geminiParser.parseWorkoutText(any(), any()))
+        whenever(workoutParser.parseWorkoutText(any(), any()))
             .thenReturn(ParseResult(listOf(ParsedExercise("Bench", 3, 8))))
         whenever(exerciseMatcher.matchExercise(any(), any()))
             .thenReturn(MatchResult(benchPress, 1.0, MatchType.EXACT))
@@ -195,7 +195,7 @@ class AiWorkoutViewModelTest {
     fun `removeExercise removes correct index`() = runTest(testDispatcher) {
         advanceUntilIdle()
 
-        whenever(geminiParser.parseWorkoutText(any(), any()))
+        whenever(workoutParser.parseWorkoutText(any(), any()))
             .thenReturn(ParseResult(listOf(
                 ParsedExercise("Bench", 3, 8),
                 ParsedExercise("Squat", 4, 5)
@@ -220,7 +220,7 @@ class AiWorkoutViewModelTest {
     fun `swapExercise updates matched exercise at index`() = runTest(testDispatcher) {
         advanceUntilIdle()
 
-        whenever(geminiParser.parseWorkoutText(any(), any()))
+        whenever(workoutParser.parseWorkoutText(any(), any()))
             .thenReturn(ParseResult(listOf(ParsedExercise("Unknown Exercise", 3, 8))))
         whenever(exerciseMatcher.matchExercise(any(), any()))
             .thenReturn(MatchResult(null, 0.4, MatchType.UNMATCHED))
@@ -244,7 +244,7 @@ class AiWorkoutViewModelTest {
     fun `startWorkout calls createWorkoutFromPlan with matched exercises`() = runTest(testDispatcher) {
         advanceUntilIdle()
 
-        whenever(geminiParser.parseWorkoutText(any(), any()))
+        whenever(workoutParser.parseWorkoutText(any(), any()))
             .thenReturn(ParseResult(listOf(ParsedExercise("Bench Press", 3, 8, weight = 80.0))))
         whenever(exerciseMatcher.matchExercise(any(), any()))
             .thenReturn(MatchResult(benchPress, 1.0, MatchType.EXACT))
@@ -269,7 +269,7 @@ class AiWorkoutViewModelTest {
     fun `processTextInput shows settings CTA when API key is missing`() = runTest(testDispatcher) {
         advanceUntilIdle()
 
-        whenever(geminiParser.parseWorkoutText(any(), any()))
+        whenever(workoutParser.parseWorkoutText(any(), any()))
             .thenReturn(ParseResult(emptyList(), "API_KEY_MISSING"))
 
         viewModel.updateInputText("bench press")
@@ -284,7 +284,7 @@ class AiWorkoutViewModelTest {
     fun `processTextInput with generic error shows raw error message`() = runTest(testDispatcher) {
         advanceUntilIdle()
 
-        whenever(geminiParser.parseWorkoutText(any(), any()))
+        whenever(workoutParser.parseWorkoutText(any(), any()))
             .thenReturn(ParseResult(emptyList(), "Network timeout"))
 
         viewModel.updateInputText("bench press")
@@ -298,7 +298,7 @@ class AiWorkoutViewModelTest {
     fun `startWorkout emits WorkoutStarted event`() = runTest(testDispatcher) {
         advanceUntilIdle()
 
-        whenever(geminiParser.parseWorkoutText(any(), any()))
+        whenever(workoutParser.parseWorkoutText(any(), any()))
             .thenReturn(ParseResult(listOf(ParsedExercise("Bench Press", 3, 8))))
         whenever(exerciseMatcher.matchExercise(any(), any()))
             .thenReturn(MatchResult(benchPress, 1.0, MatchType.EXACT))

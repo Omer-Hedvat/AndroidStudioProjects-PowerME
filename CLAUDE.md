@@ -71,7 +71,18 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/HC_UX_RESTRUCTURE_SPEC.md` | HC UX — Settings shows Connected badge + "View in Profile" button; HC metrics card in Profile screen |
 | `future_devs/DB_SYNONYM_FOUNDATION_SPEC.md` | P5 | DB synonym layer — UserExerciseSynonym entity + DAO + repository for exercise name learning |
 | `FUNCTIONAL_TRAINING_SPEC.md` | Functional Training — AMRAP / RFT / EMOM Hybrid mode. Block concept, WorkoutStyle preference, timer engine, live UX (blind-tap zone), exercise tags, foreground-service lifecycle |
+| `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | P8 Tier 0 — WorkoutStyle enum (PURE_GYM / PURE_FUNCTIONAL / HYBRID) + Settings card |
+| `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | P8 Tier 0 — Exercise.tags JSON column + ~40 new functional movements + Functional filter chip |
+| `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | P8 Tier 0 — Extract TimerEngine class + real JetBrains Mono font + TimerDigitsXL/L/M typography roles |
+| `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | P8 Tier 1 — RoutineBlock + WorkoutBlock entities + DAOs + MIGRATION_49_50 backfill |
+| `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | P8 Tier 2 — Block arrays embedded in Firestore workout/routine docs; back-compat for legacy docs |
+| `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | P8 Tier 3 — FunctionalBlockWizard 3-step sheet + block-sectioned TemplateBuilderScreen |
+| `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | P8 Tier 3 — Hybrid AddBlockOrExerciseSheet + per-style dispatch |
+| `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | P8 Tier 4 — Block headers in ActiveWorkoutScreen; WorkoutViewModel block materialisation |
+| `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | P8 Tier 4 — AMRAP/RFT/EMOM overlays + BlindTapZone + BlockFinishSheet + foreground-service lifecycle |
+| `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | P8 Tier 5 — Block-aware History rows + BlockSummaryCard in WorkoutSummaryScreen + Trends |
 | `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | P9 | On-device AI prerequisite — `WorkoutTextParser` interface + `WorkoutParserRouter` cloud-only router + `AiModule` Hilt bindings |
+| `future_devs/AI_VIEWMODEL_INTERFACE_WIRING_SPEC.md` | P9 | Wire `AiWorkoutViewModel` to `WorkoutTextParser` interface; update `AiWorkoutViewModelTest` mock type |
 | `future_devs/` | All planned features — see `ROADMAP.md` for phase/status |
 
 ---
@@ -149,6 +160,7 @@ At the start of a session, orient yourself in this order:
 - Use the project's existing theme tokens (colors, typography, shapes) from the `ui/theme` package. Do not hardcode colors or font sizes.
 - New screens get their own ViewModel and are registered in the navigation graph.
 - Reusable UI elements go in `ui/components`.
+- Component conventions (Switch colors, keyboard navigation, etc.) are defined in `THEME_SPEC.md §9` — follow them for every new component.
 
 ### Specs & Documentation
 - **Mandatory Alignment:** Before initiating any change to functionality, UX, or UI, you MUST verify alignment with the relevant `.md` specification files. These documents are the authoritative source of truth for system behavior and design standards.
