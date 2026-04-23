@@ -35,6 +35,8 @@ ExerciseDao, PreMigrationValidator, GymProfileRepository(12), SQLSafetyValidator
 
 **AI (hybrid key, shipped):** `GeminiKeyResolver` resolves: user key (EncryptedSharedPreferences `secure_ai_prefs`) → `BuildConfig.GEMINI_API_KEY` → `ApiKeyMissing` error. User sets their own key in Settings → AI card. `SecurePreferencesStore` interface + `EncryptedSecurePreferencesStore` prod impl. Never synced to Firestore.
 
+**AI parser abstraction layer (P9, shipped):** `WorkoutTextParser` interface (single `suspend fun parseWorkoutText`). `WorkoutParserRouter` (`@Singleton`, cloud-only for now) delegates to `@Named("cloud") WorkoutTextParser`. `AiModule` binds router as `WorkoutTextParser` and provides `GeminiWorkoutParser` adapter as `@Named("cloud")`. `WorkoutPromptUtils` holds shared `workoutPromptJson`, `buildWorkoutPrompt()`, `parseWorkoutJsonResponse()` — extracted from `GeminiWorkoutParser` (not modified). Next step: `OnDeviceWorkoutParser` + AICore routing in `WorkoutParserRouter`.
+
 ---
 
 ## Feature Roadmap

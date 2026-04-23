@@ -29,7 +29,8 @@ names to its library; the user previews, edits, and then chooses
 | Exercise matching (4-tier cascade, 0.85 threshold) | Shipped |
 | Hybrid API key + Settings → AI section | Shipped (§8.1 first item) |
 | Remaining enhancement roadmap (§8) | Not started |
-| On-device LLM (AICore / Gemma) | Architecture decided (§12), not implemented |
+| Parser abstraction layer (`WorkoutTextParser`, `WorkoutParserRouter`, `AiModule`) | Shipped (P9) |
+| On-device LLM (AICore / Gemma) | Architecture decided (§12); interface layer shipped — `OnDeviceWorkoutParser` not yet implemented |
 | Synonym learning system (§8.8) | Designed, not implemented |
 
 **In scope of this spec:** the entire AI feature — what exists today
