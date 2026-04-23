@@ -129,6 +129,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Exercise Detail Screen — Tab-Based Redesign (v2) | `future_devs/EXERCISE_DETAIL_TABS_V2_SPEC.md` | L | `completed` | Exercise Detail Sheet Revision v1 ✅ |
 | Exercise "How to Perform" descriptions | `future_devs/EXERCISE_HOW_TO_PERFORM_SPEC.md` | L | `wrapped` | Exercise Detail Tabs v2 ✅ |
 | Alternative exercise — movement-specific weight transfer | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | M | `not-started` | Exercise Detail Tabs v2 ✅ |
+| DB synonym foundation — UserExerciseSynonym entity, DAO, repository | `future_devs/DB_SYNONYM_FOUNDATION_SPEC.md` | S | `wrapped` | — |
 
 ---
 
