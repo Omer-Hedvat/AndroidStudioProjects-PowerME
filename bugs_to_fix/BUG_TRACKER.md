@@ -91,7 +91,7 @@ Single source of truth for bug status across sessions.
 | [BUG_write_workout_session_oversized](BUG_write_workout_session_oversized.md) | writeWorkoutSession writes oversized ExerciseSessionRecord — corrupts HC table, blocks all deletes | ✅ Wrapped | P1 | — | — | `HealthConnectManager.kt` |
 | [BUG_nuke_hc_debug_cleanup](BUG_nuke_hc_debug_cleanup.md) | Remove HC nuke debug tooling (temporary code, must not ship) | 🔵 Open | P1 | BUG_write_workout_session_oversized, HC lockup resolved | — | `HealthConnectManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt` |
 | [BUG_quick_start_add_exercise_partial](BUG_quick_start_add_exercise_partial.md) | Quick Start — Add Exercise only adds the first selected exercise | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_ai_camera_no_permission_declared](BUG_ai_camera_no_permission_declared.md) | AI photo flow Camera button silently no-ops on fresh install — CAMERA permission not declared in manifest | 🔵 Open | P2 | — | — | — |
+| [BUG_ai_camera_no_permission_declared](BUG_ai_camera_no_permission_declared.md) | AI photo flow Camera button silently no-ops on fresh install — CAMERA permission not declared in manifest | ✅ Wrapped | P2 | — | — | `AiWorkoutGenerationScreen.kt` |
 
 ---
 

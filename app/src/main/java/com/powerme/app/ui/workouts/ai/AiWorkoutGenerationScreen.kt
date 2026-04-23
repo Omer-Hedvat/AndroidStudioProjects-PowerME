@@ -1,7 +1,5 @@
 package com.powerme.app.ui.workouts.ai
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,7 +22,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -98,13 +95,6 @@ fun AiWorkoutGenerationScreen(
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.processPhoto(it, context) }
     }
-    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            val uri = createCameraUri(context)
-            cameraUri = uri
-            cameraLauncher.launch(uri)
-        }
-    }
 
     var showSaveRoutineDialog by remember { mutableStateOf(false) }
 
@@ -149,16 +139,9 @@ fun AiWorkoutGenerationScreen(
                     onModeChange = viewModel::setInputMode,
                     onOcrTextChange = viewModel::updateOcrText,
                     onOpenCamera = {
-                        val hasPerm = ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.CAMERA
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (hasPerm) {
-                            val uri = createCameraUri(context)
-                            cameraUri = uri
-                            cameraLauncher.launch(uri)
-                        } else {
-                            cameraPermission.launch(Manifest.permission.CAMERA)
-                        }
+                        val uri = createCameraUri(context)
+                        cameraUri = uri
+                        cameraLauncher.launch(uri)
                     },
                     onOpenGallery = { galleryLauncher.launch("image/*") },
                     onGenerate = viewModel::processTextInput

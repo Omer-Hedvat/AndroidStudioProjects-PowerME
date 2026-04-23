@@ -1,7 +1,7 @@
 # BUG: AI photo flow Camera button silently no-ops on fresh install
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P2 normal
