@@ -120,13 +120,13 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | Trends Step 6 — BodyCompositionCard | `TRENDS_CHARTS_SPEC.md §Step 6` | L | `completed` | — |
-| Trends Step 7 — StepsTrendCard | `TRENDS_CHARTS_SPEC.md §Step 7` | S | `not-started` | HC Extended Reads (calories) |
+| Trends Step 7 — StepsTrendCard | `TRENDS_CHARTS_SPEC.md §Step 7` | S | `blocked` | HC Extended Reads (calories) |
 | Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `completed` | — |
 | CSV Import (Strong, Hevy, FitBod, generic) | `CSV_IMPORT_SPEC.md` | L | `completed` | — |
-| Exercise animations in ExerciseDetailSheet | `future_devs/EXERCISE_ANIMATIONS_SPEC.md` | S | `completed` | — |
+| Exercise animations in ExerciseDetailSheet | `future_devs/EXERCISE_ANIMATIONS_SPEC.md` | S | `wrapped` | — |
 | Exercise joint indicators in ExerciseDetailSheet | `future_devs/EXERCISE_JOINTS_SPEC.md` | M | `superseded` | Superseded by Exercise Detail Sheet Revision |
 | Exercise Detail Sheet — Full Revision | `future_devs/EXERCISE_DETAIL_SHEET_REVISION_SPEC.md` | L | `wrapped` | — |
-| Exercise Detail Screen — Tab-Based Redesign (v2) | `future_devs/EXERCISE_DETAIL_TABS_V2_SPEC.md` | L | `completed` | Exercise Detail Sheet Revision v1 ✅ |
+| Exercise Detail Screen — Tab-Based Redesign (v2) | `future_devs/EXERCISE_DETAIL_TABS_V2_SPEC.md` | L | `wrapped` | Exercise Detail Sheet Revision v1 ✅ |
 | Exercise "How to Perform" descriptions | `future_devs/EXERCISE_HOW_TO_PERFORM_SPEC.md` | L | `wrapped` | Exercise Detail Tabs v2 ✅ |
 | Alternative exercise — movement-specific weight transfer | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | M | `not-started` | Exercise Detail Tabs v2 ✅ |
 | DB synonym foundation — UserExerciseSynonym entity, DAO, repository | `future_devs/DB_SYNONYM_FOUNDATION_SPEC.md` | S | `wrapped` | — |
@@ -165,16 +165,16 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| `func_style_preference` — WorkoutStyle enum + Settings card | `FUNCTIONAL_TRAINING_SPEC.md §7` | S | `not-started` | — |
-| `func_exercise_tags_seed` — Exercise.tags + seed ~40 functional movements | `FUNCTIONAL_TRAINING_SPEC.md §6` | M | `not-started` | — |
-| `func_timer_engine_extract` — Extract TimerEngine class + real JetBrains Mono font | `FUNCTIONAL_TRAINING_SPEC.md §9.2, §2.D` | M | `not-started` | — |
-| `func_block_entities_migration` — RoutineBlock + WorkoutBlock + MIGRATION_49_50 backfill | `FUNCTIONAL_TRAINING_SPEC.md §3, §4` | L | `not-started` | func_style_preference ✅, func_exercise_tags_seed ✅, func_timer_engine_extract ✅ |
-| `func_firestore_sync_blocks` — Embed block arrays in Firestore push/pull | `FUNCTIONAL_TRAINING_SPEC.md §5` | M | `not-started` | func_block_entities_migration ✅ |
-| `func_template_wizard` — FunctionalBlockWizard + Pure Functional builder | `FUNCTIONAL_TRAINING_SPEC.md §8` | L | `not-started` | func_block_entities_migration ✅ |
-| `func_template_hybrid_sheet` — Hybrid AddBlockOrExerciseSheet | `FUNCTIONAL_TRAINING_SPEC.md §8.1` | S | `not-started` | func_template_wizard ✅ |
-| `func_active_strength_blocks` — Block headers in active workout; STRENGTH materialization | `FUNCTIONAL_TRAINING_SPEC.md §9` | M | `not-started` | func_block_entities_migration ✅ |
-| `func_active_functional_runner` — AMRAP/RFT/EMOM overlays + lifecycle | `FUNCTIONAL_TRAINING_SPEC.md §9, §11` | XL | `not-started` | func_timer_engine_extract ✅, func_firestore_sync_blocks ✅, func_active_strength_blocks ✅ |
-| `func_history_trends_polish` — Block-aware History + Trends + SummaryScreen | `FUNCTIONAL_TRAINING_SPEC.md §12` | M | `not-started` | func_active_functional_runner ✅ (in prod ≥1 release) |
+| WorkoutStyle enum + Settings card | `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | S | `not-started` | — |
+| Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `not-started` | — |
+| Extract TimerEngine class + real JetBrains Mono font | `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | M | `not-started` | — |
+| RoutineBlock + WorkoutBlock entities + MIGRATION_49_50 backfill | `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | L | `not-started` | WorkoutStyle pref ✅, Exercise tags ✅, TimerEngine ✅ |
+| Embed block arrays in Firestore push/pull | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
+| FunctionalBlockWizard + Pure Functional template builder | `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | L | `not-started` | Block entities migration ✅ |
+| Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | S | `not-started` | FunctionalBlockWizard ✅ |
+| Block headers in active workout; STRENGTH materialisation on start | `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
+| AMRAP/RFT/EMOM overlays + FunctionalBlockRunner + foreground-service lifecycle | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `not-started` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
+| Block-aware History rows + Trends + WorkoutSummaryScreen | `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | M | `not-started` | Functional runner ✅ (in prod ≥1 release) |
 
 ---
 
