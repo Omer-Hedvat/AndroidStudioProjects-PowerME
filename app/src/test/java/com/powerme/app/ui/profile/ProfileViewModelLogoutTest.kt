@@ -5,6 +5,7 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.repository.HealthHistoryRepository
 import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.util.UserSessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -33,6 +34,7 @@ class ProfileViewModelLogoutTest {
     private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
     private lateinit var mockUserSessionManager: UserSessionManager
     private lateinit var mockHealthHistoryRepository: HealthHistoryRepository
+    private lateinit var mockHealthConnectManager: HealthConnectManager
 
     @Before
     fun setup() {
@@ -42,11 +44,13 @@ class ProfileViewModelLogoutTest {
         mockAppSettingsDataStore = mock()
         mockUserSessionManager = mock()
         mockHealthHistoryRepository = mock()
+        mockHealthConnectManager = mock()
 
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         whenever(mockMetricLogRepository.getByType(MetricType.WEIGHT)).thenReturn(flowOf(emptyList()))
         whenever(mockMetricLogRepository.getByType(MetricType.BODY_FAT)).thenReturn(flowOf(emptyList()))
         whenever(mockHealthHistoryRepository.getActiveEntries()).thenReturn(flowOf(emptyList()))
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
     }
 
     @After
@@ -61,7 +65,8 @@ class ProfileViewModelLogoutTest {
         userSessionManager = mockUserSessionManager,
         metricLogRepository = mockMetricLogRepository,
         appSettingsDataStore = mockAppSettingsDataStore,
-        healthHistoryRepository = mockHealthHistoryRepository
+        healthHistoryRepository = mockHealthHistoryRepository,
+        healthConnectManager = mockHealthConnectManager
     )
 
     @Test

@@ -41,7 +41,7 @@
 | `trends` | Bottom tab | — | Screen-scoped | UI label: **Trends** · Composable: `MetricsScreen` |
 | `workout` | Full-screen overlay | — | NavHost-scoped `WorkoutViewModel` | Shares the same instance as all tabs |
 | `settings` | Push | — | Screen-scoped | — |
-| `profile` | Push | — | Screen-scoped | Accessed via AccountCircle icon in TopAppBar (left of Settings gear) |
+| `profile?scrollToHc={scrollToHc}` | Push | `scrollToHc: Bool` (default false) | Screen-scoped | Accessed via AccountCircle icon in TopAppBar. Pass `scrollToHc=true` (from Settings "View in Profile") to auto-scroll to the HC metrics card. |
 | `workout_detail/{workoutId}` | Push | `workoutId: String` | Screen-scoped | Accessed from `WorkoutSummaryScreen` Edit button only |
 | `workout_summary/{workoutId}?isPostWorkout={bool}&syncType={string}` | Push | `workoutId: String`, `isPostWorkout: Bool` (default false), `syncType: String` (default "NONE") | Screen-scoped | Post-workout: `LaunchedEffect(pendingWorkoutSummary)` in `ActiveWorkoutScreen` triggers `onWorkoutFinished()` when summary is set; `PowerMeNavigation` reads `lastFinishedWorkoutId`/`lastPendingRoutineSync` and navigates here with `popUpTo(WORKOUT){inclusive=true}`. History: navigated from `HistoryScreen` tap (no sync args). |
 | `template_builder/{routineId}` | Push | `routineId: Long` | Screen-scoped | `routineId = -1` sentinel = new routine (see below) |

@@ -68,7 +68,7 @@ Read the relevant spec before touching files in that domain.
 | `DB_ARCHITECTURE.md` | Entity relationships, template-to-instance, UUID migration |
 | `future_devs/OBSERVABILITY_BETA_SPEC.md` | Observability — Crashlytics crash reporting + Firebase Analytics action trail + Timber logging facade |
 | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | Workouts page restructure — Quick Start becomes a 3-way chooser (exercises / picture / text); removes standalone AI button |
-| `future_devs/HC_UX_RESTRUCTURE_SPEC.md` | P2 | HC UX — Settings shows Connected badge + "View in Profile" button; HC metrics card moves to Profile screen |
+| `future_devs/HC_UX_RESTRUCTURE_SPEC.md` | HC UX — Settings shows Connected badge + "View in Profile" button; HC metrics card in Profile screen |
 | `future_devs/DB_SYNONYM_FOUNDATION_SPEC.md` | P5 | DB synonym layer — UserExerciseSynonym entity + DAO + repository for exercise name learning |
 | `FUNCTIONAL_TRAINING_SPEC.md` | Functional Training — AMRAP / RFT / EMOM Hybrid mode. Block concept, WorkoutStyle preference, timer engine, live UX (blind-tap zone), exercise tags, foreground-service lifecycle |
 | `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | P9 | On-device AI prerequisite — `WorkoutTextParser` interface + `WorkoutParserRouter` cloud-only router + `AiModule` Hilt bindings |

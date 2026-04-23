@@ -80,7 +80,7 @@ Post-workout experience + user identity. Can be built in any order within the ph
 | History cards default expanded | `future_devs/HISTORY_CARDS_DEFAULT_EXPANDED_SPEC.md` | XS | `wrapped` | History card set details ✅ |
 | Summary RPE inline format (weight×reps@RPE) | `future_devs/SUMMARY_RPE_INLINE_FORMAT_SPEC.md` | S | `wrapped` | History card set details ✅ |
 | Workout summary — set type labels (WU / working # / DROP / FAIL) | `future_devs/WORKOUT_SUMMARY_SET_TYPE_LABELS_SPEC.md` | S | `wrapped` | Summary RPE inline format ✅ |
-| HC UX restructure — Settings Connected badge + Profile metrics card | `future_devs/HC_UX_RESTRUCTURE_SPEC.md` | S | `in-progress` | Profile/Settings split ✅ |
+| HC UX restructure — Settings Connected badge + Profile metrics card | `future_devs/HC_UX_RESTRUCTURE_SPEC.md` | S | `wrapped` | Profile/Settings split ✅ |
 
 ---
 

@@ -11,6 +11,8 @@ import com.powerme.app.data.database.HealthHistorySeverity
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.repository.HealthHistoryRepository
 import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.health.HealthConnectManager
+import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.util.UnitConverter
 import com.powerme.app.util.UserSessionManager
@@ -50,6 +52,9 @@ data class ProfileUiState(
     // Fitness Level
     val experienceLevel: ExperienceLevel? = null,
     val trainingAgeYears: Int = 0,
+    // Health Connect
+    val hcConnected: Boolean = false,
+    val hcData: HealthConnectReadResult? = null,
     // Health History
     val healthHistoryEntries: List<HealthHistoryEntry> = emptyList(),
     val showHealthHistorySheet: Boolean = false,
@@ -69,7 +74,8 @@ class ProfileViewModel @Inject constructor(
     private val userSessionManager: UserSessionManager,
     private val metricLogRepository: MetricLogRepository,
     private val appSettingsDataStore: AppSettingsDataStore,
-    private val healthHistoryRepository: HealthHistoryRepository
+    private val healthHistoryRepository: HealthHistoryRepository,
+    private val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -80,6 +86,7 @@ class ProfileViewModel @Inject constructor(
         loadAppSettings()
         observeMetricLogs()
         observeHealthHistory()
+        loadHealthConnectData()
     }
 
     // ── Personal Info ─────────────────────────────────────────────────────────
@@ -315,6 +322,23 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             healthHistoryRepository.getActiveEntries().collect { entries ->
                 _uiState.update { it.copy(healthHistoryEntries = entries) }
+            }
+        }
+    }
+
+    // ── Health Connect ────────────────────────────────────────────────────────
+
+    private fun loadHealthConnectData() {
+        viewModelScope.launch {
+            if (!healthConnectManager.isAvailable()) return@launch
+            val granted = healthConnectManager.checkPermissionsGranted()
+            if (!granted) return@launch
+            _uiState.update { it.copy(hcConnected = true) }
+            try {
+                val data = healthConnectManager.syncAndRead()
+                _uiState.update { it.copy(hcData = data) }
+            } catch (_: Exception) {
+                // data stays null — card still shows Connected state with "--" values
             }
         }
     }

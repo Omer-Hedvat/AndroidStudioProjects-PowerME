@@ -34,12 +34,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.BuildConfig
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.health.HealthConnectManager
-import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.util.TimerSound
 import com.powerme.app.ui.theme.SetupAmber
 import com.powerme.app.ui.theme.TimerGreen
-import com.powerme.app.util.UnitConverter
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -50,7 +48,8 @@ import java.time.temporal.ChronoUnit
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},
-    onNavigateToImport: () -> Unit = {}
+    onNavigateToImport: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -106,7 +105,52 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            // Header removed as it is now in TopAppBar
+            // ── DEBUG: HC Nuke ─────────────────────────────────────────────────
+            item {
+                val nukeInProgress = uiState.nukeHcInProgress
+                val nukeResult = uiState.nukeHcResult
+                val writePermission = androidx.health.connect.client.permission.HealthPermission
+                    .getWritePermission(androidx.health.connect.client.records.ExerciseSessionRecord::class)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Button(
+                        onClick = {
+                            // Request write permission first; permission result auto-fires nuke.
+                            viewModel.prepareNukePermissionRequest()
+                            healthConnectPermissionLauncher.launch(setOf(writePermission))
+                        },
+                        enabled = !nukeInProgress,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = androidx.compose.ui.graphics.Color(0xFFD32F2F),
+                            contentColor = androidx.compose.ui.graphics.Color.White
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (nukeInProgress) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = androidx.compose.ui.graphics.Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("NUKING HC DATA…", fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("DEBUG: NUKE POWERME HC DATA", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (nukeResult != null) {
+                        Text(
+                            text = nukeResult,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
 
             // ── Appearance ───────────────────────────────────────
             item {
@@ -256,29 +300,13 @@ fun SettingsScreen(
                                 )
                             }
 
-                            uiState.healthConnectData?.let { data ->
-                                Spacer(modifier = Modifier.height(10.dp))
-                                HealthMetricsSummary(data, uiState.unitSystem)
-                            }
-
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            if (uiState.healthConnectSyncing) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                    Text("Syncing…", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                                }
-                            } else {
-                                Button(
-                                    onClick = viewModel::syncHealthConnect,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.surface
-                                    )
-                                ) { Text("Sync Now") }
+                            FilledTonalButton(
+                                onClick = onNavigateToProfile,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("View in Profile")
                             }
 
                             uiState.healthConnectError?.let { error ->
@@ -708,63 +736,6 @@ fun SettingsScreen(
     }
 }
 
-@Composable
-private fun HealthMetricsSummary(data: HealthConnectReadResult, unitSystem: UnitSystem) {
-    val subText = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-    val valueText = MaterialTheme.colorScheme.onSurface
-
-    @Composable
-    fun MetricCell(label: String, value: String, modifier: Modifier = Modifier) {
-        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(label, fontSize = 10.sp, color = subText)
-            Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = valueText)
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            MetricCell(
-                "Sleep",
-                data.sleepMinutes?.let { "${it / 60}h ${it % 60}m" } ?: "--",
-                modifier = Modifier.weight(1f)
-            )
-            MetricCell(
-                "HRV",
-                data.hrv?.let { "${"%.0f".format(it)} ms" } ?: "--",
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            MetricCell(
-                "Resting HR",
-                data.rhr?.let { "$it bpm" } ?: "--",
-                modifier = Modifier.weight(1f)
-            )
-            MetricCell(
-                "Steps",
-                data.steps?.let { "%,d".format(it) } ?: "--",
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            MetricCell(
-                "Weight",
-                data.weight?.let { UnitConverter.formatWeight(it, unitSystem) } ?: "--",
-                modifier = Modifier.weight(1f)
-            )
-            MetricCell(
-                "Body Fat",
-                data.bodyFat?.let { "${"%.1f".format(it)}%" } ?: "--",
-                modifier = Modifier.weight(1f)
-            )
-            MetricCell(
-                "Height",
-                data.height?.let { UnitConverter.formatHeight(it.toDouble(), unitSystem) } ?: "--",
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
 
 private fun formatRelativeTime(timestampMs: Long): String {
     val now = Instant.now()

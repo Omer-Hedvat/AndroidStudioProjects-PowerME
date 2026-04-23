@@ -6,6 +6,7 @@ import com.powerme.app.data.database.User
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.repository.HealthHistoryRepository
 import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.util.UserSessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,6 +45,7 @@ class ProfileViewModelPersonalInfoTest {
     private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
     private lateinit var mockUserSessionManager: UserSessionManager
     private lateinit var mockHealthHistoryRepository: HealthHistoryRepository
+    private lateinit var mockHealthConnectManager: HealthConnectManager
 
     private val sampleUser = User(
         email = "test@example.com",
@@ -65,11 +67,13 @@ class ProfileViewModelPersonalInfoTest {
         mockAppSettingsDataStore = mock()
         mockUserSessionManager = mock()
         mockHealthHistoryRepository = mock()
+        mockHealthConnectManager = mock()
 
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         whenever(mockMetricLogRepository.getByType(MetricType.WEIGHT)).thenReturn(flowOf(emptyList()))
         whenever(mockMetricLogRepository.getByType(MetricType.BODY_FAT)).thenReturn(flowOf(emptyList()))
         whenever(mockHealthHistoryRepository.getActiveEntries()).thenReturn(flowOf(emptyList()))
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
     }
 
     @After
@@ -81,7 +85,8 @@ class ProfileViewModelPersonalInfoTest {
         userSessionManager = mockUserSessionManager,
         metricLogRepository = mockMetricLogRepository,
         appSettingsDataStore = mockAppSettingsDataStore,
-        healthHistoryRepository = mockHealthHistoryRepository
+        healthHistoryRepository = mockHealthHistoryRepository,
+        healthConnectManager = mockHealthConnectManager
     )
 
     // ── Load ──────────────────────────────────────────────────────────────────

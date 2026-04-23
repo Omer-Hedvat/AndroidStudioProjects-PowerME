@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -33,6 +34,7 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.ExperienceLevel
+import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.data.database.HealthHistoryEntry
 import com.powerme.app.data.database.HealthHistorySeverity
 import com.powerme.app.data.database.HealthHistoryType
@@ -52,12 +54,21 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
+    scrollToHc: Boolean = false,
     onNavigateBack: () -> Unit = {},
     onSignOut: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val userEmail = Firebase.auth.currentUser?.email ?: ""
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    // Scroll to HC card (index 5) once it's available and scroll was requested
+    LaunchedEffect(scrollToHc, uiState.hcConnected) {
+        if (scrollToHc && uiState.hcConnected) {
+            listState.animateScrollToItem(5)
+        }
+    }
 
     Scaffold(
         modifier = Modifier
@@ -80,6 +91,7 @@ fun ProfileScreen(
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -114,6 +126,13 @@ fun ProfileScreen(
                     onAddClick = viewModel::openAddHealthEntry,
                     onEntryClick = viewModel::openEditHealthEntry
                 )
+            }
+
+            // ── Health Connect ─────────────────────────────────────
+            if (uiState.hcConnected) {
+                item {
+                    HcMetricsCard(data = uiState.hcData, unitSystem = uiState.unitSystem)
+                }
             }
 
             // ── Log Out ────────────────────────────────────────────
@@ -942,6 +961,91 @@ private fun DatePickerField(
         },
         colors = PowerMeDefaults.outlinedTextFieldColors()
     )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Health Connect Metrics Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun HcMetricsCard(data: HealthConnectReadResult?, unitSystem: UnitSystem) {
+    val subText = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+    val valueText = MaterialTheme.colorScheme.onSurface
+
+    @Composable
+    fun MetricCell(label: String, value: String, modifier: Modifier = Modifier) {
+        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(label, fontSize = 10.sp, color = subText)
+            Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = valueText)
+        }
+    }
+
+    ProfileCard(title = "Health Connect") {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = null,
+                tint = TimerGreen,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                "Connected",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TimerGreen
+            )
+        }
+
+        if (data != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    MetricCell(
+                        "Sleep",
+                        data.sleepMinutes?.let { "${it / 60}h ${it % 60}m" } ?: "--",
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricCell(
+                        "HRV",
+                        data.hrv?.let { "${"%.0f".format(it)} ms" } ?: "--",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    MetricCell(
+                        "Resting HR",
+                        data.rhr?.let { "$it bpm" } ?: "--",
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricCell(
+                        "Steps",
+                        data.steps?.let { "%,d".format(it) } ?: "--",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    MetricCell(
+                        "Weight",
+                        data.weight?.let { UnitConverter.formatWeight(it, unitSystem) } ?: "--",
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricCell(
+                        "Body Fat",
+                        data.bodyFat?.let { "${"%.1f".format(it)}%" } ?: "--",
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricCell(
+                        "Height",
+                        data.height?.let { UnitConverter.formatHeight(it.toDouble(), unitSystem) } ?: "--",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
