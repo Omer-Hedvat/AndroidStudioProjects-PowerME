@@ -2,10 +2,11 @@
 
 Single source of truth for bug status across sessions.
 
-**Statuses:** `Open` | `In Progress` | `Completed` | `Wrapped`
+**Statuses:** `Open` | `In Progress` | `Completed` | `Wrapped` | `Pending`
 
 - `Completed` — dev done, tests pass, summary file exists, ready for QA on device
 - `Wrapped` — user QA'd and ran `/wrap_task` (simplify + build + test + commit + push)
+- `Pending` — known issue, intentionally deferred; outside the regular day-to-day roadmap (e.g. depends on external resolution, scheduled for a future milestone, or deliberately parked)
 
 | Bug | Title | Status | Severity | Depends on | Blocks | Files Changed |
 |-----|-------|--------|----------|------------|--------|---------------|
@@ -78,7 +79,7 @@ Single source of truth for bug status across sessions.
 | [BUG_edit_mode_x_saves_changes](BUG_edit_mode_x_saves_changes.md) | Edit mode 'X' (discard) button saves changes instead of discarding | ✅ Wrapped | P0 | — | — | `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_exercise_card_heatmap_cropped](BUG_exercise_card_heatmap_cropped.md) | Exercise card muscle activation heatmap cropped — missing upper and lower body | ✅ Wrapped | P2 | — | — | `AboutTab.kt` |
 | [BUG_update_rest_timers_readds_deleted](BUG_update_rest_timers_readds_deleted.md) | "Update Rest Timers" re-adds previously deleted rest timers | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
-| [BUG_warmup_ramp_minus1_reps](BUG_warmup_ramp_minus1_reps.md) | Warmup ramp shows -1 reps for last warmup set in About tab | ✅ Wrapped | P2 | — | — | `ExerciseDetailRepository.kt`, `ExerciseDetailRepositoryTest.kt` |
+| [BUG_warmup_ramp_minus1_reps](BUG_warmup_ramp_minus1_reps.md) | Warmup ramp shows -1 reps for last warmup set in About tab | ✅ Wrapped | P2 | — | — | `ExerciseDetailRepository.kt`, `WarmupCalculator.kt`, `ExerciseDetailRepositoryTest.kt`, `WarmupCalculatorTest.kt` |
 | [BUG_alternatives_done_false_positive](BUG_alternatives_done_false_positive.md) | Exercise alternatives all show "You've done this" incorrectly | ✅ Wrapped | P2 | — | — | `ExerciseDetailModels.kt`, `ExerciseDetailRepository.kt`, `DetailComponents.kt`, `ExerciseDetailRepositoryTest.kt` |
 | [BUG_exercise_history_rpe_decimal](BUG_exercise_history_rpe_decimal.md) | Exercise history detail shows RPE as raw decimal (0–1) instead of scaled (1–10) | ✅ Wrapped | P2 | — | — | `StrongCsvImporter.kt`, `CsvImportManager.kt`, `DatabaseModule.kt`, `PowerMeDatabase.kt`, `ExerciseDetailRepositoryTest.kt` |
 | [BUG_post_workout_loop_regression](BUG_post_workout_loop_regression.md) | Post-workout resume loop regression — cannot escape summary state after finishing workout | ✅ Wrapped | P0 | — | — | `WorkoutViewModel.kt`, `PowerMeNavigation.kt`, `WorkoutViewModelTest.kt` |
@@ -89,9 +90,10 @@ Single source of truth for bug status across sessions.
 | [BUG_rest_timer_overlap_skip](BUG_rest_timer_overlap_skip.md) | Firing a rest timer while another is running starts both instead of skipping the current | ✅ Wrapped | P2 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt`, `ActiveWorkoutScreen.kt` |
 | [BUG_exercise_history_missing_sessions](BUG_exercise_history_missing_sessions.md) | Exercise History tab missing sessions — some logged workouts don't appear | ✅ Wrapped | P1 | — | — | `TrendsDao.kt`, `ExerciseDetailRepositoryTest.kt` |
 | [BUG_write_workout_session_oversized](BUG_write_workout_session_oversized.md) | writeWorkoutSession writes oversized ExerciseSessionRecord — corrupts HC table, blocks all deletes | ✅ Wrapped | P1 | — | — | `HealthConnectManager.kt` |
-| [BUG_nuke_hc_debug_cleanup](BUG_nuke_hc_debug_cleanup.md) | Remove HC nuke debug tooling (temporary code, must not ship) | 🔵 Open | P1 | BUG_write_workout_session_oversized, HC lockup resolved | — | `HealthConnectManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt` |
+| [BUG_nuke_hc_debug_cleanup](BUG_nuke_hc_debug_cleanup.md) | Remove HC nuke debug tooling (temporary code, must not ship) | ⏸️ Pending | P1 | BUG_write_workout_session_oversized, HC lockup resolved | — | `HealthConnectManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt` |
 | [BUG_quick_start_add_exercise_partial](BUG_quick_start_add_exercise_partial.md) | Quick Start — Add Exercise only adds the first selected exercise | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_ai_camera_no_permission_declared](BUG_ai_camera_no_permission_declared.md) | AI photo flow Camera button silently no-ops on fresh install — CAMERA permission not declared in manifest | ✅ Wrapped | P2 | — | — | `AiWorkoutGenerationScreen.kt` |
+| [BUG_camera_fileprovider_crash](BUG_camera_fileprovider_crash.md) | Camera crashes app in AI photo flow — FileProvider not declared in manifest + file_paths.xml missing | 🔵 Open | P0 | — | — | `AndroidManifest.xml`, `res/xml/file_paths.xml` (new) |
 
 ---
 
@@ -100,6 +102,7 @@ Single source of truth for bug status across sessions.
 - **Start of session:** Find an `Open` bug, change its status to `In Progress`, note your session context.
 - **Dev done:** Update status to `Completed`. Create `SUMMARY_<slug>.md`, fill Fix Notes in `BUG_<slug>.md`. Multiple bugs can sit in `Completed` waiting for batch QA.
 - **After user QA:** Run `/wrap_task <slug>` — it does simplify, build, test, commit, push, and flips status to `Wrapped`.
+- **Parking a bug:** Change status to `Pending` for known issues intentionally deferred outside the regular roadmap (external dependency, future milestone, or deliberately parked). Skip during normal session triage.
 - **New bugs:** Add a row here AND create a `BUG_<slug>.md` file using the format below. Row format: `| [BUG_slug](BUG_slug.md) | Title | 🔵 Open | P<N> | depends on or — | blocks or — | — |`
 
 ---

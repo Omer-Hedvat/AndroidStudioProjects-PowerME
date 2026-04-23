@@ -29,4 +29,7 @@ Note: warmup ramp weights are derived from the user's **last logged working weig
 - Related spec: `future_devs/EXERCISE_DETAIL_TABS_V2_SPEC.md`
 
 ## Fix Notes
-Removed the 100% row from `computeWarmUpRamp` in `ExerciseDetailRepository.kt`. That row used `reps = -1` as a sentinel meaning "working set target" — not an actual warmup set — and the UI was rendering the raw `-1` value. The ramp now returns only the three genuine warmup sets (50%/8, 70%/5, 85%/3). Updated `ExerciseDetailRepositoryTest` to expect 3 rows instead of 4.
+Three issues fixed:
+1. Removed the 100% / `reps = -1` sentinel row from `computeWarmUpRamp` — it represented the working set target, not a warmup set.
+2. Added a 90% threshold filter in `WarmupCalculator.computeWarmupSets` — any generated warmup set at ≥90% of working weight is dropped (e.g. BB Shrug 23 kg would generate a useless 22.5 kg / 98% set).
+3. Changed working weight source from session average to session max (non-zero weight) — averaging all sets including WU sets stored as NORMAL was producing a drastically understated working weight (e.g. 36.67 kg instead of 60 kg).
