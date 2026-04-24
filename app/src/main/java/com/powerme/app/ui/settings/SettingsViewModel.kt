@@ -9,10 +9,14 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.secure.SecurePreferencesStore
+import com.google.ai.client.generativeai.GenerativeModel
+import com.powerme.app.ai.AiCoreAvailability
+import com.powerme.app.ai.AiCoreStatus
 import com.powerme.app.ai.GeminiKeyResolver
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.util.TimerSound
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettings
@@ -36,6 +40,14 @@ import javax.inject.Inject
 data class PlateState(val weight: Double, val isEnabled: Boolean)
 
 enum class ApiKeyStatus { UsingUser, UsingDefault, NoKey }
+
+sealed class ApiKeyValidationState {
+    object Idle : ApiKeyValidationState()
+    object Validating : ApiKeyValidationState()
+    object Valid : ApiKeyValidationState()
+    object QuotaExceeded : ApiKeyValidationState()
+    data class Invalid(val message: String) : ApiKeyValidationState()
+}
 
 data class SettingsUiState(
     val availablePlates: List<PlateState> = listOf(
@@ -65,6 +77,8 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Units
     val unitSystem: UnitSystem = UnitSystem.METRIC,
+    // Workout style
+    val workoutStyle: WorkoutStyle = WorkoutStyle.HYBRID,
     // Cloud Sync
     val isSignedIn: Boolean = false,
     val isRestoringFromCloud: Boolean = false,
@@ -75,6 +89,8 @@ data class SettingsUiState(
     val hasUserApiKey: Boolean = false,
     val userApiKeyInput: String = "",
     val apiKeyStatus: ApiKeyStatus = ApiKeyStatus.UsingDefault,
+    val apiKeyValidation: ApiKeyValidationState = ApiKeyValidationState.Idle,
+    val onDeviceAiStatus: AiCoreStatus = AiCoreStatus.NotSupported,
     // Health Connect
     val healthConnectChecking: Boolean = true,
     val healthConnectAvailable: Boolean = false,
@@ -89,7 +105,7 @@ data class SettingsUiState(
 )
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(
+open class SettingsViewModel @Inject constructor(
     private val userSettingsDao: UserSettingsDao,
     private val database: PowerMeDatabase,
     private val appSettingsDataStore: AppSettingsDataStore,
@@ -100,7 +116,8 @@ class SettingsViewModel @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val workoutSetDao: WorkoutSetDao,
     private val securePreferencesStore: SecurePreferencesStore,
-    private val keyResolver: GeminiKeyResolver
+    private val keyResolver: GeminiKeyResolver,
+    private val aiCoreAvailability: AiCoreAvailability
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -115,6 +132,9 @@ class SettingsViewModel @Inject constructor(
         loadAppSettings()
         loadApiKeyStatus()
         _uiState.update { it.copy(isSignedIn = auth.currentUser != null) }
+        viewModelScope.launch {
+            _uiState.update { it.copy(onDeviceAiStatus = aiCoreAvailability.check()) }
+        }
         checkHealthConnectStatus()
     }
 
@@ -154,6 +174,11 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(notificationsEnabled = value) }
             }
         }
+        viewModelScope.launch {
+            appSettingsDataStore.workoutStyle.collect { value ->
+                _uiState.update { it.copy(workoutStyle = value) }
+            }
+        }
     }
 
     private fun loadApiKeyStatus() {
@@ -167,7 +192,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun updateApiKeyInput(text: String) {
-        _uiState.update { it.copy(userApiKeyInput = text) }
+        _uiState.update { it.copy(userApiKeyInput = text, apiKeyValidation = ApiKeyValidationState.Idle) }
     }
 
     fun saveUserApiKey() {
@@ -179,8 +204,12 @@ class SettingsViewModel @Inject constructor(
             it.copy(
                 userApiKeyInput = "",
                 hasUserApiKey = true,
-                apiKeyStatus = ApiKeyStatus.UsingUser
+                apiKeyStatus = ApiKeyStatus.UsingUser,
+                apiKeyValidation = ApiKeyValidationState.Validating
             )
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(apiKeyValidation = validateApiKey(trimmed)) }
         }
     }
 
@@ -192,7 +221,33 @@ class SettingsViewModel @Inject constructor(
         } else {
             ApiKeyStatus.UsingDefault
         }
-        _uiState.update { it.copy(hasUserApiKey = false, apiKeyStatus = newStatus) }
+        _uiState.update { it.copy(hasUserApiKey = false, apiKeyStatus = newStatus, apiKeyValidation = ApiKeyValidationState.Idle) }
+    }
+
+    open fun createGenerativeModel(key: String): GenerativeModel =
+        GenerativeModel(modelName = "gemini-2.0-flash", apiKey = key)
+
+    protected open suspend fun callGeminiForValidation(key: String) {
+        createGenerativeModel(key).generateContent("hi")
+    }
+
+    private suspend fun validateApiKey(key: String): ApiKeyValidationState {
+        return try {
+            callGeminiForValidation(key)
+            ApiKeyValidationState.Valid
+        } catch (e: Throwable) {
+            val msg = e.message?.lowercase() ?: ""
+            when {
+                "api key not valid" in msg || "api_key_invalid" in msg || "invalid api key" in msg ->
+                    ApiKeyValidationState.Invalid("API key is not valid")
+                "quota" in msg || "resource_exhausted" in msg || "429" in msg ->
+                    ApiKeyValidationState.QuotaExceeded
+                else -> {
+                    Timber.w(e, "API key validation: unexpected error")
+                    ApiKeyValidationState.Invalid(e.message ?: "Could not verify key")
+                }
+            }
+        }
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -207,6 +262,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appSettingsDataStore.setUnitSystem(unit)
             _uiState.update { it.copy(unitSystem = unit) }
+            firestoreSyncManager.pushAppPreferences()
+        }
+    }
+
+    fun setWorkoutStyle(style: WorkoutStyle) {
+        viewModelScope.launch {
+            appSettingsDataStore.setWorkoutStyle(style)
+            _uiState.update { it.copy(workoutStyle = style) }
             firestoreSyncManager.pushAppPreferences()
         }
     }

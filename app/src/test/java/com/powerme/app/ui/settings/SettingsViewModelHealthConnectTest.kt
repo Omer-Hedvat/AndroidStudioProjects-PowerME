@@ -1,11 +1,14 @@
 package com.powerme.app.ui.settings
 
 import com.google.firebase.auth.FirebaseAuth
+import com.powerme.app.ai.AiCoreAvailability
+import com.powerme.app.ai.AiCoreStatus
 import com.powerme.app.ai.GeminiKeyResolver
 import com.powerme.app.ai.KeyResolution
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettingsDao
 import com.powerme.app.data.database.WorkoutDao
@@ -56,6 +59,7 @@ class SettingsViewModelHealthConnectTest {
     private lateinit var mockWorkoutSetDao: WorkoutSetDao
     private lateinit var mockSecurePreferencesStore: SecurePreferencesStore
     private lateinit var mockKeyResolver: GeminiKeyResolver
+    private lateinit var mockAiCoreAvailability: AiCoreAvailability
 
     private lateinit var viewModel: SettingsViewModel
 
@@ -98,7 +102,10 @@ class SettingsViewModelHealthConnectTest {
         whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
         whenever(mockAppSettingsDataStore.timerSound).thenReturn(flowOf(com.powerme.app.util.TimerSound.BEEP))
         whenever(mockAppSettingsDataStore.notificationsEnabled).thenReturn(flowOf(true))
+        whenever(mockAppSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.HYBRID))
         whenever(mockAuth.currentUser).thenReturn(null)
+        mockAiCoreAvailability = mock()
+        runBlocking { whenever(mockAiCoreAvailability.check()).thenReturn(AiCoreStatus.NotSupported) }
     }
 
     @After
@@ -117,7 +124,8 @@ class SettingsViewModelHealthConnectTest {
         workoutDao = mockWorkoutDao,
         workoutSetDao = mockWorkoutSetDao,
         securePreferencesStore = mockSecurePreferencesStore,
-        keyResolver = mockKeyResolver
+        keyResolver = mockKeyResolver,
+        aiCoreAvailability = mockAiCoreAvailability
     )
 
     // ── Test 1: HC not available ─────────────────────────────────────────────

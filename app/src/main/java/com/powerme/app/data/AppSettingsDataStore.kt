@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.util.TimerSound
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
@@ -51,6 +52,10 @@ class AppSettingsDataStore @Inject constructor(
     val notificationsEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[NOTIFICATIONS_ENABLED_KEY] ?: true }
     /** Epoch ms of the last successful body stress map computation. 0 = never computed. */
     val lastStressComputedAt: Flow<Long> = ctx.dataStore.data.map { it[LAST_STRESS_COMPUTED_AT_KEY] ?: 0L }
+    /** Preferred workout style — gates the "Add" UX in the Template Builder. Default: HYBRID. */
+    val workoutStyle: Flow<WorkoutStyle> = ctx.dataStore.data.map {
+        it[WORKOUT_STYLE_KEY]?.let { name -> WorkoutStyle.entries.firstOrNull { e -> e.name == name } } ?: WorkoutStyle.HYBRID
+    }
 
     suspend fun setThemeMode(value: ThemeMode) = ctx.dataStore.edit { it[THEME_MODE_KEY] = value.name }
     suspend fun setLanguage(value: String) = ctx.dataStore.edit { it[LANGUAGE_KEY] = value }
@@ -67,6 +72,7 @@ class AppSettingsDataStore @Inject constructor(
     suspend fun setTimerSound(value: TimerSound) = ctx.dataStore.edit { it[TIMER_SOUND_KEY] = value.name }
     suspend fun setNotificationsEnabled(value: Boolean) = ctx.dataStore.edit { it[NOTIFICATIONS_ENABLED_KEY] = value }
     suspend fun setLastStressComputedAt(value: Long) = ctx.dataStore.edit { it[LAST_STRESS_COMPUTED_AT_KEY] = value }
+    suspend fun setWorkoutStyle(value: WorkoutStyle) = ctx.dataStore.edit { it[WORKOUT_STYLE_KEY] = value.name }
 
     companion object {
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
@@ -83,5 +89,6 @@ class AppSettingsDataStore @Inject constructor(
         val TIMER_SOUND_KEY = stringPreferencesKey("timer_sound")
         val NOTIFICATIONS_ENABLED_KEY = booleanPreferencesKey("notifications_enabled")
         val LAST_STRESS_COMPUTED_AT_KEY = longPreferencesKey("last_stress_computed_at")
+        val WORKOUT_STYLE_KEY = stringPreferencesKey("workout_style")
     }
 }

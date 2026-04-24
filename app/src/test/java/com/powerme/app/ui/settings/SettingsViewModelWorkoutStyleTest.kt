@@ -35,7 +35,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class SettingsViewModelTimerSoundTest {
+class SettingsViewModelWorkoutStyleTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -65,9 +65,7 @@ class SettingsViewModelTimerSoundTest {
         mockWorkoutSetDao = mock()
         mockSecurePreferencesStore = mock()
         mockKeyResolver = mock()
-        whenever(mockSecurePreferencesStore.hasUserGeminiApiKey()).thenReturn(false)
-        whenever(mockSecurePreferencesStore.getUserGeminiApiKey()).thenReturn(null)
-        whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.ShippedKey("test-key"))
+        mockAiCoreAvailability = mock()
 
         whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
         whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(false))
@@ -80,7 +78,10 @@ class SettingsViewModelTimerSoundTest {
         whenever(mockAppSettingsDataStore.notificationsEnabled).thenReturn(flowOf(true))
         whenever(mockAppSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.HYBRID))
         whenever(mockAuth.currentUser).thenReturn(null)
-        mockAiCoreAvailability = mock()
+        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
+        whenever(mockSecurePreferencesStore.hasUserGeminiApiKey()).thenReturn(false)
+        whenever(mockSecurePreferencesStore.getUserGeminiApiKey()).thenReturn(null)
+        whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.ShippedKey("shipped-key"))
         runBlocking { whenever(mockAiCoreAvailability.check()).thenReturn(AiCoreStatus.NotSupported) }
     }
 
@@ -105,64 +106,76 @@ class SettingsViewModelTimerSoundTest {
     )
 
     @Test
-    fun `initial timerSound is BEEP`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-
+    fun `init - workoutStyle defaults to HYBRID from DataStore`() = runTest(testDispatcher) {
         val viewModel = buildViewModel()
         runCurrent()
 
-        assertEquals(TimerSound.BEEP, viewModel.uiState.value.timerSound)
+        assertEquals(WorkoutStyle.HYBRID, viewModel.uiState.value.workoutStyle)
     }
 
     @Test
-    fun `setTimerSound updates uiState to BELL`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-
+    fun `init - workoutStyle reflects DataStore value PURE_GYM`() = runTest(testDispatcher) {
+        whenever(mockAppSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.PURE_GYM))
         val viewModel = buildViewModel()
         runCurrent()
 
-        viewModel.setTimerSound(TimerSound.BELL)
-        runCurrent()
-
-        assertEquals(TimerSound.BELL, viewModel.uiState.value.timerSound)
+        assertEquals(WorkoutStyle.PURE_GYM, viewModel.uiState.value.workoutStyle)
     }
 
     @Test
-    fun `setTimerSound persists to DataStore`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-
+    fun `init - workoutStyle reflects DataStore value PURE_FUNCTIONAL`() = runTest(testDispatcher) {
+        whenever(mockAppSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.PURE_FUNCTIONAL))
         val viewModel = buildViewModel()
         runCurrent()
 
-        viewModel.setTimerSound(TimerSound.CHIME)
-        runCurrent()
-
-        verify(mockAppSettingsDataStore).setTimerSound(TimerSound.CHIME)
+        assertEquals(WorkoutStyle.PURE_FUNCTIONAL, viewModel.uiState.value.workoutStyle)
     }
 
     @Test
-    fun `setTimerSound pushes to Firestore`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-
+    fun `setWorkoutStyle - writes to DataStore and updates uiState`() = runTest(testDispatcher) {
         val viewModel = buildViewModel()
         runCurrent()
 
-        viewModel.setTimerSound(TimerSound.NONE)
+        viewModel.setWorkoutStyle(WorkoutStyle.PURE_GYM)
+        runCurrent()
+
+        verify(mockAppSettingsDataStore).setWorkoutStyle(WorkoutStyle.PURE_GYM)
+        assertEquals(WorkoutStyle.PURE_GYM, viewModel.uiState.value.workoutStyle)
+    }
+
+    @Test
+    fun `setWorkoutStyle - pushes app preferences to Firestore`() = runTest(testDispatcher) {
+        val viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.setWorkoutStyle(WorkoutStyle.PURE_FUNCTIONAL)
         runCurrent()
 
         verify(mockFirestoreSyncManager).pushAppPreferences()
     }
 
     @Test
-    fun `setTimerSound to NONE updates uiState`() = runTest(testDispatcher) {
-        whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
-
+    fun `setWorkoutStyle - changing style updates uiState immediately`() = runTest(testDispatcher) {
         val viewModel = buildViewModel()
         runCurrent()
 
-        viewModel.setTimerSound(TimerSound.NONE)
+        viewModel.setWorkoutStyle(WorkoutStyle.PURE_FUNCTIONAL)
         runCurrent()
 
-        assertEquals(TimerSound.NONE, viewModel.uiState.value.timerSound)
+        assertEquals(WorkoutStyle.PURE_FUNCTIONAL, viewModel.uiState.value.workoutStyle)
+    }
+
+    @Test
+    fun `setWorkoutStyle to HYBRID - writes HYBRID and pushes preferences`() = runTest(testDispatcher) {
+        whenever(mockAppSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.PURE_GYM))
+        val viewModel = buildViewModel()
+        runCurrent()
+
+        viewModel.setWorkoutStyle(WorkoutStyle.HYBRID)
+        runCurrent()
+
+        verify(mockAppSettingsDataStore).setWorkoutStyle(WorkoutStyle.HYBRID)
+        assertEquals(WorkoutStyle.HYBRID, viewModel.uiState.value.workoutStyle)
+        verify(mockFirestoreSyncManager).pushAppPreferences()
     }
 }

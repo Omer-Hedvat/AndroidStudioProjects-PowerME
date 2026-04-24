@@ -32,7 +32,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.BuildConfig
+import com.powerme.app.ai.AiCoreStatus
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.util.TimerSound
@@ -184,6 +186,25 @@ fun SettingsScreen(
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = unitModes.size)
                             ) {
                                 Text(unitLabels[index], fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Workout Style ─────────────────────────────────────
+            item {
+                SettingsCard(title = "Workout Style") {
+                    val styles = WorkoutStyle.entries
+                    val styleLabels = listOf("Pure Gym", "Pure Functional", "Hybrid")
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        styles.forEachIndexed { index, style ->
+                            SegmentedButton(
+                                selected = uiState.workoutStyle == style,
+                                onClick = { viewModel.setWorkoutStyle(style) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = styles.size)
+                            ) {
+                                Text(styleLabels[index], fontSize = 11.sp)
                             }
                         }
                     }
@@ -771,6 +792,21 @@ private fun AiSettingsCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Spacer(modifier = Modifier.height(4.dp))
+        val onDeviceText = when (uiState.onDeviceAiStatus) {
+            AiCoreStatus.Ready -> "On-device AI: Ready"
+            AiCoreStatus.NeedsDownload -> "On-device AI: Downloading…"
+            AiCoreStatus.NotSupported -> "On-device AI: Not available (using cloud)"
+        }
+        val onDeviceColor = when (uiState.onDeviceAiStatus) {
+            AiCoreStatus.Ready -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Text(
+            text = onDeviceText,
+            style = MaterialTheme.typography.bodySmall,
+            color = onDeviceColor
+        )
         Spacer(modifier = Modifier.height(8.dp))
         var keyVisible by remember { mutableStateOf(false) }
         OutlinedTextField(
@@ -796,6 +832,45 @@ private fun AiSettingsCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        when (val validation = uiState.apiKeyValidation) {
+            is ApiKeyValidationState.Idle -> {}
+            is ApiKeyValidationState.Validating -> {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Checking key…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            is ApiKeyValidationState.Valid -> {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "✓ Key is working",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            is ApiKeyValidationState.QuotaExceeded -> {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Key is valid (quota exceeded)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SetupAmber
+                )
+            }
+            is ApiKeyValidationState.Invalid -> {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "✗ ${validation.message}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(

@@ -7,6 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.util.TimerSound
 import com.powerme.app.data.database.*
 import kotlinx.coroutines.CoroutineScope
@@ -117,7 +118,8 @@ class FirestoreSyncManager @Inject constructor(
                 "useRpeAutoPop"       to appSettingsDataStore.useRpeAutoPop.first(),
                 "timedSetSetupSeconds" to appSettingsDataStore.timedSetSetupSeconds.first(),
                 "language"            to appSettingsDataStore.language.first(),
-                "timerSound"          to appSettingsDataStore.timerSound.first().name
+                "timerSound"          to appSettingsDataStore.timerSound.first().name,
+                "workoutStyle"        to appSettingsDataStore.workoutStyle.first().name
             )
             userRef(uid).collection("appPreferences").document("data").set(map)
         }
@@ -158,7 +160,8 @@ class FirestoreSyncManager @Inject constructor(
                 "useRpeAutoPop"        to appSettingsDataStore.useRpeAutoPop.first(),
                 "timedSetSetupSeconds" to appSettingsDataStore.timedSetSetupSeconds.first(),
                 "language"             to appSettingsDataStore.language.first(),
-                "timerSound"           to appSettingsDataStore.timerSound.first().name
+                "timerSound"           to appSettingsDataStore.timerSound.first().name,
+                "workoutStyle"         to appSettingsDataStore.workoutStyle.first().name
             )
             userRef(uid).collection("appPreferences").document("data").set(prefsMap).await()
             SyncResult(success = true, workoutsImported = workouts.size, routinesImported = routines.size, profileImported = true, settingsImported = true)
@@ -231,6 +234,10 @@ class FirestoreSyncManager @Inject constructor(
             doc.getString("timerSound")?.let { name ->
                 TimerSound.entries.firstOrNull { it.name == name }
                     ?.let { appSettingsDataStore.setTimerSound(it) }
+            }
+            doc.getString("workoutStyle")?.let { name ->
+                WorkoutStyle.entries.firstOrNull { it.name == name }
+                    ?.let { appSettingsDataStore.setWorkoutStyle(it) }
             }
             true
         } catch (e: Exception) {

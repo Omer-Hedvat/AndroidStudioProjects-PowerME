@@ -33,6 +33,17 @@
 
 ---
 
+## Epics
+
+Multi-task initiatives that own a root-level spec and a set of child Feature tasks. Status rolls up from children automatically. File with `/file_task epic: <description>`; file children with `/file_task epic:<parent-slug> <description>`.
+
+| Epic | Spec | Phase | Status | Rollup | Children |
+|---|---|---|---|---|---|
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 1/12 wrapped · 2 in-progress · 9 not-started | 12 |
+| AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/3 wrapped | 3 active + §8 queue |
+
+---
+
 ## Phase P0 — Quick Wins
 
 Self-contained, high-impact, no new infrastructure. Ship these first.
@@ -47,6 +58,8 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Quick Start Workout (blank workout, no routine) | `future_devs/QUICK_START_WORKOUT_SPEC.md` | XS | `wrapped` | — |
 | Observability layer — Crashlytics + Analytics + Timber (beta) | `future_devs/OBSERVABILITY_BETA_SPEC.md` | M | `wrapped` | — |
 | Workouts page — Quick Start 3-way chooser (exercises / picture / text) | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | S | `wrapped` | Quick Start Workout ✅, AI Workout Generation ✅ |
+| Gymvisual chest+barbell catalogue comparison (research report) | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | XS | `in-progress` | — |
+| Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed` | — |
 
 ---
 
@@ -165,9 +178,9 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| WorkoutStyle enum + Settings card | `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | S | `not-started` | — |
-| Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `not-started` | — |
-| Extract TimerEngine class + real JetBrains Mono font | `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | M | `not-started` | — |
+| WorkoutStyle enum + Settings card | `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | S | `wrapped` | — |
+| Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `in-progress` | — |
+| Extract TimerEngine class + real JetBrains Mono font | `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | M | `completed` | — |
 | RoutineBlock + WorkoutBlock entities + MIGRATION_49_50 backfill | `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | L | `not-started` | WorkoutStyle pref ✅, Exercise tags ✅, TimerEngine ✅ |
 | Embed block arrays in Firestore push/pull | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
 | FunctionalBlockWizard + Pure Functional template builder | `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | L | `not-started` | Block entities migration ✅ |
@@ -175,6 +188,8 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 | Block headers in active workout; STRENGTH materialisation on start | `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
 | AMRAP/RFT/EMOM overlays + FunctionalBlockRunner + foreground-service lifecycle | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `not-started` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
 | Block-aware History rows + Trends + WorkoutSummaryScreen | `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | M | `not-started` | Functional runner ✅ (in prod ≥1 release) |
+| Exercise gap analysis — CrossFit / Hyrox / Calisthenics (research report) | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `not-started` | — |
+| Expanded exercise seed — CrossFit / Hyrox / Calisthenics DB population | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `not-started` | gap analysis ✅, Exercise tags seed ✅ |
 
 ---
 
@@ -186,6 +201,9 @@ Parser abstraction layer + on-device inference backend. `AiWorkoutViewModel` rem
 |---|---|---|---|---|
 | AI parser interface layer — `WorkoutTextParser`, `WorkoutPromptUtils`, `WorkoutParserRouter`, `AiModule` | `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | S | `wrapped` | AI Workout Generation (P7) ✅ |
 | AI ViewModel interface wiring — wire `AiWorkoutViewModel` to `WorkoutTextParser`; update test mock type | `future_devs/AI_VIEWMODEL_INTERFACE_WIRING_SPEC.md` | XS | `wrapped` | AI parser interface layer ✅ |
+| AICore on-device integration — `AiCoreAvailability`, `AiCoreDownloadManager`, `OnDeviceWorkoutParser`, router wiring, download banner, Settings status row | `future_devs/AICORE_ONDEVICE_INTEGRATION_SPEC.md` | M | `completed` | AI ViewModel interface wiring ✅ |
+| Synonym learning system — migration v49, ExerciseMatcher synonym tier, save prompt UI, analytics | `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | M | `completed` | DB synonym foundation ✅, AI parser interface layer ✅ |
+| AICore two-tier model cascade — E4B (Gemma 4B) preferred, E2B (Gemma 2B) fallback; variant-aware availability, router, download, Settings row | `future_devs/AICORE_TWO_TIER_MODEL_CASCADE_SPEC.md` | S | `abandoned` | AICore on-device integration |
 
 ---
 
@@ -249,3 +267,51 @@ All tracked bugs are resolved. Listed for reference.
 ---
 
 *Last updated: April 2026*
+
+---
+
+## Spec Index
+
+Read the relevant spec before touching files in that domain.
+
+| Spec File | Domain |
+|---|---|
+| `WORKOUT_SPEC.md` | Active workout, edit mode, rest timers, supersets, routine sync, post-workout summary |
+| `EXERCISES_SPEC.md` | Exercise library, search/filter, ExerciseDetailSheet |
+| `HISTORY_ANALYTICS_SPEC.md` | History screen, StatisticalEngine (1RM, Volume, PRs), WorkoutDetailScreen |
+| `NAVIGATION_SPEC.md` | Route map, auth decision tree, WorkoutViewModel scope, transitions |
+| `THEME_SPEC.md` | Color palette, typography, shapes, dark/light scheme |
+| `CLOCKS_SPEC.md` | Clocks tab — Stopwatch, Countdown, Tabata, EMOM |
+| `HEALTH_CONNECT_SPEC.md` | HC permissions, sync logic, Phase B writes, backfill |
+| `TRENDS_SPEC.md` | Trends tab — all chart cards, ReadinessEngine, TrendsDao, body heatmap |
+| `PROFILE_SETUP_SPEC.md` | Onboarding, two-step flow, HC offer |
+| `SETTINGS_SPEC.md` | Settings screen, all cards, SettingsViewModel |
+| `AI_SPEC.md` | AI workout generation — text/photo → routine, Gemini + OCR, matching, enhancement roadmap. Single source of truth for AI. |
+| `AI_SPEC.md §12` | On-device AI — Android AICore (Gemma 4 / Gemini Nano), graceful degradation, 0-byte APK footprint, privacy model |
+| `AI_BACKLOG.md` | Long-horizon AI brainstorm (46 items with scope tags). Companion to `AI_SPEC.md`. |
+| `DB_UPGRADE.md` | Migration history, schema changes |
+| `DB_ARCHITECTURE.md` | Entity relationships, template-to-instance, UUID migration |
+| `FUNCTIONAL_TRAINING_SPEC.md` | Functional Training — AMRAP / RFT / EMOM Hybrid mode. Block concept, WorkoutStyle preference, timer engine, live UX (blind-tap zone), exercise tags, foreground-service lifecycle |
+| `future_devs/OBSERVABILITY_BETA_SPEC.md` | Observability — Crashlytics crash reporting + Firebase Analytics action trail + Timber logging facade |
+| `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | Workouts page restructure — Quick Start becomes a 3-way chooser (exercises / picture / text); removes standalone AI button |
+| `future_devs/HC_UX_RESTRUCTURE_SPEC.md` | HC UX — Settings shows Connected badge + "View in Profile" button; HC metrics card in Profile screen |
+| `future_devs/DB_SYNONYM_FOUNDATION_SPEC.md` | DB synonym layer — UserExerciseSynonym entity + DAO + repository for exercise name learning |
+| `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | P8 Tier 0 — WorkoutStyle enum (PURE_GYM / PURE_FUNCTIONAL / HYBRID) + Settings card |
+| `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | P8 Tier 0 — Exercise.tags JSON column + ~40 new functional movements + Functional filter chip |
+| `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | P8 Tier 0 — Extract TimerEngine class + real JetBrains Mono font + TimerDigitsXL/L/M typography roles |
+| `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | P8 Tier 1 — RoutineBlock + WorkoutBlock entities + DAOs + MIGRATION_49_50 backfill |
+| `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | P8 Tier 2 — Block arrays embedded in Firestore workout/routine docs; back-compat for legacy docs |
+| `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | P8 Tier 3 — FunctionalBlockWizard 3-step sheet + block-sectioned TemplateBuilderScreen |
+| `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | P8 Tier 3 — Hybrid AddBlockOrExerciseSheet + per-style dispatch |
+| `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | P8 Tier 4 — Block headers in ActiveWorkoutScreen; WorkoutViewModel block materialisation |
+| `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | P8 Tier 4 — AMRAP/RFT/EMOM overlays + BlindTapZone + BlockFinishSheet + foreground-service lifecycle |
+| `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | P8 Tier 5 — Block-aware History rows + BlockSummaryCard in WorkoutSummaryScreen + Trends |
+| `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | P9 — On-device AI prerequisite — `WorkoutTextParser` interface + `WorkoutParserRouter` cloud-only router + `AiModule` Hilt bindings |
+| `future_devs/AI_VIEWMODEL_INTERFACE_WIRING_SPEC.md` | P9 — Wire `AiWorkoutViewModel` to `WorkoutTextParser` interface; update `AiWorkoutViewModelTest` mock type |
+| `future_devs/AICORE_ONDEVICE_INTEGRATION_SPEC.md` | P9 — AICore on-device inference: availability check, model download, `OnDeviceWorkoutParser`, router wiring, download UX |
+| `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | P9 — Synonym learning — ExerciseMatcher user-synonym tier, migration v49, save prompt, analytics |
+| `future_devs/AICORE_TWO_TIER_MODEL_CASCADE_SPEC.md` | P9 — AICore E4B/E2B two-tier model cascade; variant-aware availability, router, Settings status row |
+| `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | P0 — Research: gymvisual.com chest+barbell catalogue vs our exercise DB; no GIF download, no DB changes |
+| `future_devs/API_KEY_VALIDATION_SPEC.md` | P0 — Gemini API key inline validation after Save in Settings AI card |
+| `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | P8 — Research: CrossFit / Hyrox / Calisthenics exercise gap analysis; no code changes |
+| `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | P8 — Seed expanded functional exercise list (CrossFit WODs, Hyrox 8 stations, calisthenics progressions) |
