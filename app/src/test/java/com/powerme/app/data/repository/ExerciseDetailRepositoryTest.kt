@@ -363,6 +363,122 @@ class ExerciseDetailRepositoryTest {
         assertEquals(ExerciseDetailRepository.PAGE_SIZE + 1, result.size)
     }
 
+    // ── findAlternatives – movement transfer ─────────────────────────────────
+
+    @Test
+    fun `findAlternatives - back squat to front squat estimate is lower than same equipment no-movement case`() = runTest {
+        // Both are in squat_family, same equipment → movement ratio (0.80) drives the difference
+        val backSquat = makeExercise(id = 1, name = "Barbell Back Squat", muscleGroup = "Quads",
+            equipment = "Barbell", familyId = "squat_family")
+        val frontSquat = makeExercise(id = 2, name = "Front Squat", muscleGroup = "Quads",
+            equipment = "Barbell", familyId = "squat_family")
+
+        whenever(mockExerciseDao.getAllExercisesSync()).thenReturn(listOf(frontSquat))
+        whenever(mockWorkoutSetDao.getExerciseSessionCount(2L)).thenReturn(0)
+        whenever(mockWorkoutSetDao.getHistoricalBestE1RM(eq(1L), any())).thenReturn(100.0)
+
+        val result = repository.findAlternatives(backSquat)
+
+        val estimated = result.first().estimatedStartingWeight
+        assertNotNull(estimated)
+        // Expect: 100 * 0.80 (movement) * 1.0 (same equip) * 0.80 = 64.0 → rounds to 65.0
+        // Must be meaningfully below 80.0 (the equipment-only-no-movement estimate)
+        assertTrue("Expected estimate < 80.0 kg, got $estimated", estimated!! < 80.0)
+        assertTrue("Expected estimate > 50.0 kg, got $estimated", estimated > 50.0)
+    }
+
+    @Test
+    fun `findAlternatives - back squat to front squat sets adjustedForMovement flag`() = runTest {
+        val backSquat = makeExercise(id = 1, name = "Barbell Back Squat", muscleGroup = "Quads",
+            equipment = "Barbell", familyId = "squat_family")
+        val frontSquat = makeExercise(id = 2, name = "Front Squat", muscleGroup = "Quads",
+            equipment = "Barbell", familyId = "squat_family")
+
+        whenever(mockExerciseDao.getAllExercisesSync()).thenReturn(listOf(frontSquat))
+        whenever(mockWorkoutSetDao.getExerciseSessionCount(2L)).thenReturn(0)
+        whenever(mockWorkoutSetDao.getHistoricalBestE1RM(eq(1L), any())).thenReturn(100.0)
+
+        val result = repository.findAlternatives(backSquat)
+
+        assertTrue("adjustedForMovement should be true for same-family different-movement pair",
+            result.first().adjustedForMovement)
+    }
+
+    @Test
+    fun `findAlternatives - barbell curl to dumbbell curl uses equipment ratio only - matches legacy formula`() = runTest {
+        // Both in accessory_family → no seed factors → movement ratio = 1.0
+        val barbellCurl = makeExercise(id = 1, name = "Barbell Curl", muscleGroup = "Biceps",
+            equipment = "Barbell", familyId = "accessory_family")
+        val dumbbellCurl = makeExercise(id = 2, name = "Dumbbell Curl", muscleGroup = "Biceps",
+            equipment = "Dumbbell", familyId = "accessory_family")
+
+        whenever(mockExerciseDao.getAllExercisesSync()).thenReturn(listOf(dumbbellCurl))
+        whenever(mockWorkoutSetDao.getExerciseSessionCount(2L)).thenReturn(0)
+        whenever(mockWorkoutSetDao.getHistoricalBestE1RM(eq(1L), any())).thenReturn(100.0)
+
+        val result = repository.findAlternatives(barbellCurl)
+
+        val estimated = result.first().estimatedStartingWeight
+        assertNotNull(estimated)
+        // Legacy: 100 * 0.35 (Barbell→Dumbbell) * 0.80 = 28.0 → rounds to 27.5
+        assertTrue("Expected ~27.5 kg, got $estimated", estimated!! in 25.0..32.5)
+        assertFalse("No movement adjustment for accessory_family", result.first().adjustedForMovement)
+    }
+
+    @Test
+    fun `findAlternatives - no source history - no estimate and adjustedForMovement false`() = runTest {
+        val backSquat = makeExercise(id = 1, name = "Barbell Back Squat", muscleGroup = "Quads",
+            equipment = "Barbell", familyId = "squat_family")
+        val frontSquat = makeExercise(id = 2, name = "Front Squat", muscleGroup = "Quads",
+            equipment = "Barbell", familyId = "squat_family")
+
+        whenever(mockExerciseDao.getAllExercisesSync()).thenReturn(listOf(frontSquat))
+        whenever(mockWorkoutSetDao.getExerciseSessionCount(2L)).thenReturn(0)
+        whenever(mockWorkoutSetDao.getHistoricalBestE1RM(eq(1L), any())).thenReturn(null)
+
+        val result = repository.findAlternatives(backSquat)
+
+        assertNull(result.first().estimatedStartingWeight)
+        assertFalse(result.first().adjustedForMovement)
+    }
+
+    @Test
+    fun `findAlternatives - cross family pair - no movement adjustment`() = runTest {
+        val backSquat = makeExercise(id = 1, name = "Barbell Back Squat", muscleGroup = "Quads",
+            equipment = "Barbell", familyId = "squat_family")
+        // A hypothetical same-muscle-group exercise from a different family
+        val legExtension = makeExercise(id = 2, name = "Leg Extension", muscleGroup = "Quads",
+            equipment = "Machine", familyId = "leg_curl_family")
+
+        whenever(mockExerciseDao.getAllExercisesSync()).thenReturn(listOf(legExtension))
+        whenever(mockWorkoutSetDao.getExerciseSessionCount(2L)).thenReturn(0)
+        whenever(mockWorkoutSetDao.getHistoricalBestE1RM(eq(1L), any())).thenReturn(100.0)
+
+        val result = repository.findAlternatives(backSquat)
+
+        assertFalse("Cross-family pair should not set adjustedForMovement", result.first().adjustedForMovement)
+    }
+
+    @Test
+    fun `findAlternatives - coerceAtLeast 2_5 prevents sub-minimum estimate`() = runTest {
+        // Pistol squat (factor 0.35) from Barbell to Dumbbell — very deep composition
+        val backSquat = makeExercise(id = 1, name = "Barbell Back Squat", muscleGroup = "Quads",
+            equipment = "Barbell", familyId = "squat_family")
+        val pistol = makeExercise(id = 2, name = "Pistol Squat", muscleGroup = "Quads",
+            equipment = "Dumbbell", familyId = "squat_family")
+
+        whenever(mockExerciseDao.getAllExercisesSync()).thenReturn(listOf(pistol))
+        whenever(mockWorkoutSetDao.getExerciseSessionCount(2L)).thenReturn(0)
+        // Tiny e1RM to force composition towards zero
+        whenever(mockWorkoutSetDao.getHistoricalBestE1RM(eq(1L), any())).thenReturn(10.0)
+
+        val result = repository.findAlternatives(backSquat)
+
+        val estimated = result.first().estimatedStartingWeight
+        assertNotNull(estimated)
+        assertTrue("Estimate must be >= 2.5 kg, got $estimated", estimated!! >= 2.5)
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun makeWorkoutSet(weight: Double, reps: Int) =

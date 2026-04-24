@@ -211,7 +211,15 @@ class ExerciseDetailRepository @Inject constructor(
             // Only shown when user has no history on the candidate but may have history on the main exercise.
             val estimatedWeight = if (userHasHistory) null
             else estimateStartingWeight(target = candidate, sourceExercise = exercise, now)
-            AlternativeExercise(exercise = candidate, score = score, userHasDone = userHasHistory, estimatedStartingWeight = estimatedWeight)
+            val adjustedForMovement = estimatedWeight != null &&
+                MovementTransferTable.ratio(exercise, candidate) != 1.0
+            AlternativeExercise(
+                exercise = candidate,
+                score = score,
+                userHasDone = userHasHistory,
+                estimatedStartingWeight = estimatedWeight,
+                adjustedForMovement = adjustedForMovement,
+            )
         }
     }
 
@@ -222,8 +230,10 @@ class ExerciseDetailRepository @Inject constructor(
     ): Double? {
         val sourceE1RM = workoutSetDao.getHistoricalBestE1RM(sourceExercise.id, now) ?: return null
         if (sourceE1RM <= 0) return null
-        val ratio = equipmentTransferRatio(sourceExercise.equipmentType, target.equipmentType)
-        return roundToNearest(sourceE1RM * ratio * 0.80, 2.5)
+        val movementRatio = MovementTransferTable.ratio(sourceExercise, target)
+        val equipmentRatio = equipmentTransferRatio(sourceExercise.equipmentType, target.equipmentType)
+        val raw = sourceE1RM * movementRatio * equipmentRatio * 0.80
+        return roundToNearest(raw.coerceAtLeast(2.5), 2.5)
     }
 
     // ── Bodyweight (for relative strength) ───────────────────────────────────

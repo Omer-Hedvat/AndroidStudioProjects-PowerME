@@ -75,7 +75,8 @@ data class AlternativeExercise(
     val exercise: Exercise,
     val score: Int,
     val userHasDone: Boolean = false,
-    val estimatedStartingWeight: Double? = null
+    val estimatedStartingWeight: Double? = null,
+    val adjustedForMovement: Boolean = false,
 )
 
 // ── Trend data ──────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -201,11 +202,24 @@ internal fun AlternativeExerciseCard(alternative: AlternativeExercise, onClick: 
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
-                alternative.estimatedStartingWeight != null -> Text(
-                    text = "Start: ~%.1f kg".format(alternative.estimatedStartingWeight),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+                alternative.estimatedStartingWeight != null -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = "Start: ~%.1f kg".format(alternative.estimatedStartingWeight),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                    if (alternative.adjustedForMovement) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = "Adjusted for movement type",
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
             }
         }
     }
