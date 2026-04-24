@@ -44,6 +44,7 @@ import com.powerme.app.ui.theme.TimerGreen
 @Composable
 fun ExercisesScreen(
     pickerMode: Boolean = false,
+    initialFunctionalFilter: Boolean = false,
     onExercisesSelected: (List<Long>) -> Unit = {},
     onExerciseClick: (Long) -> Unit = {},
     viewModel: ExercisesViewModel = hiltViewModel()
@@ -54,6 +55,12 @@ fun ExercisesScreen(
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
     val searchFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(initialFunctionalFilter) {
+        if (initialFunctionalFilter && !uiState.functionalFilter) {
+            viewModel.onFunctionalFilterToggled()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier
@@ -324,13 +331,13 @@ private fun ExerciseCard(
                         )
                         IconButton(
                             onClick = onFavoriteToggled,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
                                 imageVector = if (exercise.isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                                 contentDescription = if (exercise.isFavorite) "Remove from favourites" else "Add to favourites",
-                                tint = if (exercise.isFavorite) ReadinessAmber else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                                modifier = Modifier.size(16.dp)
+                                tint = if (exercise.isFavorite) ReadinessAmber else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }

@@ -16,7 +16,6 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_nuke_hc_debug_cleanup](BUG_nuke_hc_debug_cleanup.md) | Remove HC nuke debug tooling (temporary code, must not ship) | ⏸️ Pending | P1 | BUG_write_workout_session_oversized ✅, HC lockup resolved | — | `HealthConnectManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt` |
 | [BUG_exercise_type_mismatches](BUG_exercise_type_mismatches.md) | exerciseType mismatches — 2 invalid BODYWEIGHT enum + 2 wrong type assignments | ✅ Completed | P2 | — | — | `master_exercises.json`, `MasterExerciseSeeder.kt` |
 | [BUG_save_routine_missing_workouts_tab](BUG_save_routine_missing_workouts_tab.md) | Saved routine missing from Workouts tab after post-workout Save Routine flow | ✅ Completed | P1 | — | — | `RoutineDao.kt` |
-| [BUG_exercise_no_favourite_toggle](BUG_exercise_no_favourite_toggle.md) | No way to favourite an exercise from the Exercises screen | ✅ Completed | P1 | — | exercise_favorites_filter | `ExercisesScreen.kt` |
 
 ---
 

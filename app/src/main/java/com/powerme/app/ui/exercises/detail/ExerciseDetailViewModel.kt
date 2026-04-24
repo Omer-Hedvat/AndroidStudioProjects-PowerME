@@ -8,6 +8,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.powerme.app.data.database.Joint
 import com.powerme.app.data.database.toAffectedJoints
 import com.powerme.app.data.repository.ExerciseDetailRepository
+import com.powerme.app.data.repository.ExerciseRepository
 import com.powerme.app.data.repository.HealthHistoryRepository
 import com.powerme.app.ui.metrics.TrendsTimeRange
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +28,7 @@ import javax.inject.Inject
 class ExerciseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: ExerciseDetailRepository,
+    private val exerciseRepository: ExerciseRepository,
     private val healthHistoryRepository: HealthHistoryRepository
 ) : ViewModel() {
 
@@ -183,6 +185,15 @@ class ExerciseDetailViewModel @Inject constructor(
         noteDebounceJob = viewModelScope.launch {
             delay(500)
             repository.updateUserNote(exerciseId, note)
+        }
+    }
+
+    fun toggleFavorite() {
+        val exercise = _uiState.value.exercise ?: return
+        viewModelScope.launch {
+            exerciseRepository.toggleFavorite(exercise)
+            val updated = repository.getExercise(exerciseId)
+            _uiState.update { it.copy(exercise = updated) }
         }
     }
 

@@ -91,3 +91,4 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | [BUG_exercise_card_form_cues_badge](BUG_exercise_card_form_cues_badge.md) | Exercise card shows spurious "Form cues" badge | ✅ Wrapped | P3 | `ExercisesScreen.kt` |
 | [BUG_use_rpe_toggle_layout](BUG_use_rpe_toggle_layout.md) | Use RPE toggle misaligned — multi-line subtitle breaks row layout | ✅ Wrapped | P2 | `SettingsScreen.kt` |
 | [BUG_exercise_search_clear_no_keyboard](BUG_exercise_search_clear_no_keyboard.md) | Exercise search X button clears query but dismisses keyboard | ✅ Wrapped | P2 | `ExercisesScreen.kt` |
+| [BUG_exercise_no_favourite_toggle](BUG_exercise_no_favourite_toggle.md) | No way to favourite an exercise from the Exercises screen | ✅ Wrapped | P1 | `ExercisesScreen.kt`, `ExerciseDetailScreen.kt`, `ExerciseDetailViewModel.kt` |
