@@ -40,7 +40,7 @@ Multi-task initiatives that own a root-level spec and a set of child Feature tas
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 5/19 wrapped · 3 completed · 11 not-started | 19 |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 7/20 wrapped · 3 completed · 8 not-started | 20 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/3 wrapped | 3 active + §8 queue |
 
 ---
@@ -134,7 +134,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| Trends Step 6 — BodyCompositionCard | `TRENDS_CHARTS_SPEC.md §Step 6` | L | `completed` | — |
+| Trends Step 6 — BodyCompositionCard | `TRENDS_CHARTS_SPEC.md §Step 6` | L | `completed-blocked` | — |
 | Trends Step 7 — StepsTrendCard | `TRENDS_CHARTS_SPEC.md §Step 7` | S | `blocked` | HC Extended Reads (calories) |
 | Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `completed` | — |
 | CSV Import (Strong, Hevy, FitBod, generic) | `CSV_IMPORT_SPEC.md` | L | `completed` | — |
@@ -155,9 +155,9 @@ Flagship feature. Requires all groundwork below before any UI work begins.
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `completed` | — |
-| Stress vectors — Gemini expansion (remaining 120+) | `TRENDS_SPEC.md §10` | M | `completed` | Manual seed ✅ |
-| Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `completed` | — |
+| Stress vectors — manual seed (top 30 exercises) | `TRENDS_SPEC.md §10` | M | `completed-blocked` | — |
+| Stress vectors — Gemini expansion (remaining 120+) | `TRENDS_SPEC.md §10` | M | `completed-blocked` | Manual seed ✅ |
+| Stress accumulation algorithm + DB table | `TRENDS_SPEC.md §10` | M | `completed-blocked` | — |
 | SVG/Canvas body outline rendering | `TRENDS_SPEC.md §10` | L | `wrapped` | — |
 | Full heatmap card (wired end-to-end) | `TRENDS_SPEC.md §10` | XL | `wrapped` | All above + Trends P4 complete |
 
@@ -200,7 +200,7 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 | Exercise Library — filter dialog (Tune icon + centered dialog with type/muscle/equipment) | `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md` | S | `wrapped` | func_exercise_tags_seed ✅ |
 | exerciseType seed gap fix — retag PLYOMETRIC exercises + add STRETCH entries | `future_devs/FUNC_EXERCISE_TYPE_RETAG_SEED_SPEC.md` | S | `wrapped` | func_exercise_tags_seed ✅ |
 | Yoga stretch seed — add ~15 yoga poses to STRETCH category | `future_devs/FUNC_YOGA_STRETCH_SEED_SPEC.md` | XS | `not-started` | func_exercise_type_retag_seed ✅ |
-| Exercise filter dialog — sticky bottom action bar (Reset + Apply always visible) | `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md` | XS | `completed` | exercise_filter_dialog ✅ |
+| Exercise filter dialog — sticky bottom action bar (Reset + Apply always visible) | `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md` | XS | `wrapped` | exercise_filter_dialog ✅ |
 
 ---
 
@@ -212,8 +212,8 @@ Parser abstraction layer + on-device inference backend. `AiWorkoutViewModel` rem
 |---|---|---|---|---|
 | AI parser interface layer — `WorkoutTextParser`, `WorkoutPromptUtils`, `WorkoutParserRouter`, `AiModule` | `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | S | `wrapped` | AI Workout Generation (P7) ✅ |
 | AI ViewModel interface wiring — wire `AiWorkoutViewModel` to `WorkoutTextParser`; update test mock type | `future_devs/AI_VIEWMODEL_INTERFACE_WIRING_SPEC.md` | XS | `wrapped` | AI parser interface layer ✅ |
-| AICore on-device integration — `AiCoreAvailability`, `AiCoreDownloadManager`, `OnDeviceWorkoutParser`, router wiring, download banner, Settings status row | `future_devs/AICORE_ONDEVICE_INTEGRATION_SPEC.md` | M | `completed` | AI ViewModel interface wiring ✅ |
-| Synonym learning system — migration v49, ExerciseMatcher synonym tier, save prompt UI, analytics | `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | M | `completed` | DB synonym foundation ✅, AI parser interface layer ✅ |
+| AICore on-device integration — `AiCoreAvailability`, `AiCoreDownloadManager`, `OnDeviceWorkoutParser`, router wiring, download banner, Settings status row | `future_devs/AICORE_ONDEVICE_INTEGRATION_SPEC.md` | M | `completed-blocked` | AI ViewModel interface wiring ✅ |
+| Synonym learning system — migration v49, ExerciseMatcher synonym tier, save prompt UI, analytics | `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | M | `completed-blocked` | DB synonym foundation ✅, AI parser interface layer ✅ |
 | AICore two-tier model cascade — E4B (Gemma 4B) preferred, E2B (Gemma 2B) fallback; variant-aware availability, router, download, Settings row | `future_devs/AICORE_TWO_TIER_MODEL_CASCADE_SPEC.md` | S | `abandoned` | AICore on-device integration |
 
 ---
