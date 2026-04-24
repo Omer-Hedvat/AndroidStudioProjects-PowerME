@@ -90,5 +90,6 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | [BUG_camera_fileprovider_crash](BUG_camera_fileprovider_crash.md) | Camera crashes app in AI photo flow — FileProvider not declared | ✅ Wrapped | P0 | `AndroidManifest.xml`, `res/xml/file_paths.xml` |
 | [BUG_exercise_card_form_cues_badge](BUG_exercise_card_form_cues_badge.md) | Exercise card shows spurious "Form cues" badge | ✅ Wrapped | P3 | `ExercisesScreen.kt` |
 | [BUG_use_rpe_toggle_layout](BUG_use_rpe_toggle_layout.md) | Use RPE toggle misaligned — multi-line subtitle breaks row layout | ✅ Wrapped | P2 | `SettingsScreen.kt` |
+| [BUG_save_routine_missing_workouts_tab](BUG_save_routine_missing_workouts_tab.md) | Saved routine missing from Workouts tab after post-workout Save Routine flow | ✅ Wrapped | P1 | `RoutineDao.kt`, `WorkoutViewModel.kt`, `PowerMeNavigation.kt` |
 | [BUG_exercise_search_clear_no_keyboard](BUG_exercise_search_clear_no_keyboard.md) | Exercise search X button clears query but dismisses keyboard | ✅ Wrapped | P2 | `ExercisesScreen.kt` |
 | [BUG_exercise_no_favourite_toggle](BUG_exercise_no_favourite_toggle.md) | No way to favourite an exercise from the Exercises screen | ✅ Wrapped | P1 | `ExercisesScreen.kt`, `ExerciseDetailScreen.kt`, `ExerciseDetailViewModel.kt` |

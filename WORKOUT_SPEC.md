@@ -671,7 +671,7 @@ When `isPostWorkout=true`, the screen shows:
 - Exercise summary cards (best set, e1RM, volume delta, avg RPE, golden zone badge, View Trend)
 - Muscle group distribution bars
 - Notes field
-- "Save as Routine" `TextButton` → `SaveAsRoutineDialog` → `saveWorkoutAsRoutine(name)` (wired via `PowerMeNavigation` → `workoutViewModel`)
+- "Save as Routine" `TextButton` → `SaveAsRoutineDialog` → `workoutViewModel.saveWorkoutAsRoutine(workoutId, name)` (wired via `PowerMeNavigation`; `workoutId` comes from the nav arg, not `_workoutState`). If the workout has completed sets in the DB they are used; if not (user finished without tapping completion buttons), falls back to `_workoutState.value.exercises` (in-memory state, preserved after `finishWorkout()`).
 - "Done" `Button` → `onNavigateBack`
 
 **Set count shown excludes WARMUP sets.** Total = count of NORMAL + FAILURE + DROP completed sets only. Implementation: `finishWorkout()` filters `it.isCompleted && it.setType != SetType.WARMUP`. Volume and exercise list also exclude WARMUP sets.

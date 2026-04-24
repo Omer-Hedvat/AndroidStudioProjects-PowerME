@@ -129,7 +129,8 @@ data class ExerciseWithSets(
     val sets: List<ActiveSet>,
     val supersetGroupId: String? = null,
     val sessionNote: String? = null,    // volatile — not persisted, resets each session
-    val stickyNote: String? = null      // persisted via RoutineExercise.stickyNote
+    val stickyNote: String? = null,     // persisted via RoutineExercise.stickyNote
+    val blockId: String? = null         // FK → workout_blocks.id (null for legacy/empty workouts)
 )
 
 data class RestTimerState(
@@ -213,8 +214,12 @@ data class ActiveWorkoutState(
     val deletedSetClipboard: Map<Long, DeletedSetClipboard> = emptyMap(),
     val collapsedExerciseIds: Set<Long> = emptySet(),
     val collapsedWarmupExerciseIds: Set<Long> = emptySet(),
-    val workoutEditSnapshot: WorkoutEditSnapshot? = null
-)
+    val workoutEditSnapshot: WorkoutEditSnapshot? = null,
+    val blocks: List<com.powerme.app.data.database.WorkoutBlock> = emptyList(),
+    val activeBlockId: String? = null
+) {
+    val exercisesByBlockId: Map<String?, List<ExerciseWithSets>> by lazy { exercises.groupBy { it.blockId } }
+}
 
 private fun ActiveWorkoutState.markDirtyIfEditing(): ActiveWorkoutState =
     if (isEditMode && !editModeDirty) copy(editModeDirty = true) else this
@@ -229,6 +234,8 @@ class WorkoutViewModel @Inject constructor(
     private val routineExerciseDao: com.powerme.app.data.database.RoutineExerciseDao,
     private val exerciseDao: com.powerme.app.data.database.ExerciseDao,
     private val routineDao: RoutineDao,
+    private val routineBlockDao: com.powerme.app.data.database.RoutineBlockDao,
+    private val workoutBlockDao: com.powerme.app.data.database.WorkoutBlockDao,
     private val userSettingsDao: UserSettingsDao,
     private val medicalLedgerRepository: MedicalLedgerRepository,
     private val boazPerformanceAnalyzer: BoazPerformanceAnalyzer,
@@ -558,6 +565,33 @@ class WorkoutViewModel @Inject constructor(
             val bootstrap = workoutRepository.instantiateWorkoutFromRoutine(routineId)
             val routineExercises = routineExerciseDao.getForRoutine(routineId)
             val dbSetsByExercise = bootstrap.workoutSets.groupBy { it.exerciseId }
+
+            // Materialise WorkoutBlock rows from the routine template
+            val routineBlocks = routineBlockDao.getBlocksForRoutineOnce(routineId)
+            val now = System.currentTimeMillis()
+            val routineToWorkoutBlockId = routineBlocks.associate { rb ->
+                rb.id to UUID.randomUUID().toString()
+            }
+            val workoutBlocks = routineBlocks.map { rb ->
+                com.powerme.app.data.database.WorkoutBlock(
+                    id = routineToWorkoutBlockId.getValue(rb.id),
+                    workoutId = bootstrap.workoutId,
+                    order = rb.order,
+                    type = rb.type,
+                    name = rb.name,
+                    durationSeconds = rb.durationSeconds,
+                    targetRounds = rb.targetRounds,
+                    emomRoundSeconds = rb.emomRoundSeconds,
+                    tabataWorkSeconds = rb.tabataWorkSeconds,
+                    tabataRestSeconds = rb.tabataRestSeconds,
+                    tabataSkipLastRest = rb.tabataSkipLastRest,
+                    setupSecondsOverride = rb.setupSecondsOverride,
+                    warnAtSecondsOverride = rb.warnAtSecondsOverride,
+                    updatedAt = now
+                )
+            }
+            workoutBlockDao.upsertAll(workoutBlocks)
+
             val exercises = routineExercises.mapNotNull { re ->
                 val exercise = exerciseRepository.getExerciseById(re.exerciseId) ?: return@mapNotNull null
                 val ghostSets = bootstrap.ghostMap[re.exerciseId] ?: emptyList()
@@ -583,7 +617,8 @@ class WorkoutViewModel @Inject constructor(
                     )
                 }
                 val sticky = try { routineExerciseDao.getStickyNote(routineId, re.exerciseId) } catch (_: Exception) { null }
-                ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky, supersetGroupId = re.supersetGroupId)
+                val workoutBlockId = re.blockId?.let { routineToWorkoutBlockId[it] }
+                ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky, supersetGroupId = re.supersetGroupId, blockId = workoutBlockId)
             }
             val name = routineDao.getRoutineById(routineId)?.name ?: "Workout"
             val snapshot = routineExercises.map { re ->
@@ -609,10 +644,11 @@ class WorkoutViewModel @Inject constructor(
                     startTime = startTime,
                     exercises = exercises,
                     workoutName = name,
-                    routineSnapshot = snapshot
+                    routineSnapshot = snapshot,
+                    blocks = workoutBlocks
                 )
             }
-            Timber.d("WVM STARTED_ROUTINE wId=${bootstrap.workoutId.take(8)} exercises=${exercises.size}")
+            Timber.d("WVM STARTED_ROUTINE wId=${bootstrap.workoutId.take(8)} exercises=${exercises.size} blocks=${workoutBlocks.size}")
             analyticsTracker.logWorkoutStarted(routineId = routineId, exerciseCount = exercises.size)
             startElapsedTimer()
             launchWorkoutForegroundService(name, startTime)
@@ -1856,38 +1892,72 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun saveWorkoutAsRoutine(routineName: String) {
-        val workoutId = _workoutState.value.workoutId ?: return
+    fun saveWorkoutAsRoutine(workoutId: String, routineName: String) {
         viewModelScope.launch {
-            val sets = workoutSetDao.getSetsForWorkout(workoutId).first()
+            val dbSets = workoutSetDao.getSetsForWorkout(workoutId).first()
                 .filter { it.isCompleted }
-            if (sets.isEmpty()) return@launch
+
             val newRoutineId = UUID.randomUUID().toString()
             val now = System.currentTimeMillis()
             routineDao.insertRoutine(Routine(id = newRoutineId, name = routineName, isCustom = true, updatedAt = now))
-            val grouped = sets.groupBy { it.exerciseId }.entries.toList()
-            val routineExercises = grouped.mapIndexed { index, (exerciseId, exSets) ->
-                val sortedSets = exSets.sortedBy { it.setOrder }
-                val modalReps = exSets.groupingBy { it.reps }.eachCount().maxByOrNull { it.value }?.key ?: 10
-                val modalWeight = sortedSets.firstOrNull()?.weight?.let { kgToStorageString(it) } ?: ""
-                val setTypesJson = sortedSets.joinToString(",") { it.setType.name }
-                val setWeightsJson = sortedSets.joinToString(",") { kgToStorageString(it.weight) }
-                val setRepsJson = sortedSets.joinToString(",") { it.reps.toString() }
-                RoutineExercise(
-                    id = UUID.randomUUID().toString(),
-                    routineId = newRoutineId,
-                    exerciseId = exerciseId,
-                    sets = exSets.size,
-                    reps = modalReps,
-                    defaultWeight = modalWeight,
-                    restTime = 90,
-                    order = index,
-                    supersetGroupId = exSets.first().supersetGroupId,
-                    setTypesJson = setTypesJson,
-                    setWeightsJson = setWeightsJson,
-                    setRepsJson = setRepsJson
-                )
+
+            val routineExercises = if (dbSets.isNotEmpty()) {
+                val grouped = dbSets.groupBy { it.exerciseId }.entries.toList()
+                grouped.mapIndexed { index, (exerciseId, exSets) ->
+                    val sortedSets = exSets.sortedBy { it.setOrder }
+                    val modalReps = exSets.groupingBy { it.reps }.eachCount().maxByOrNull { it.value }?.key ?: 10
+                    val modalWeight = sortedSets.firstOrNull()?.weight?.let { kgToStorageString(it) } ?: ""
+                    val setTypesJson = sortedSets.joinToString(",") { it.setType.name }
+                    val setWeightsJson = sortedSets.joinToString(",") { kgToStorageString(it.weight) }
+                    val setRepsJson = sortedSets.joinToString(",") { it.reps.toString() }
+                    RoutineExercise(
+                        id = UUID.randomUUID().toString(),
+                        routineId = newRoutineId,
+                        exerciseId = exerciseId,
+                        sets = exSets.size,
+                        reps = modalReps,
+                        defaultWeight = modalWeight,
+                        restTime = 90,
+                        order = index,
+                        supersetGroupId = exSets.first().supersetGroupId,
+                        setTypesJson = setTypesJson,
+                        setWeightsJson = setWeightsJson,
+                        setRepsJson = setRepsJson
+                    )
+                }
+            } else {
+                // No completed sets in DB — build from in-memory exercise state (user finished
+                // without tapping set completion, or quick workout with no logged sets).
+                val exercises = _workoutState.value.exercises
+                if (exercises.isEmpty()) return@launch
+                val unit = currentUnit
+                exercises.mapIndexed { index, exWithSets ->
+                    val activeSets = exWithSets.sets
+                    val setCount = activeSets.size.coerceAtLeast(1)
+                    val modalReps = activeSets.groupingBy { it.reps }.eachCount()
+                        .maxByOrNull { it.value }?.key?.toIntOrNull() ?: 10
+                    val firstKg = activeSets.firstOrNull()?.let { displayStringToKg(it.weight, unit) } ?: 0.0
+                    val setTypesJson = activeSets.joinToString(",") { it.setType.name }
+                    val setWeightsJson = activeSets.joinToString(",") { kgToStorageString(displayStringToKg(it.weight, unit)) }
+                    val setRepsJson = activeSets.joinToString(",") { it.reps }
+                    RoutineExercise(
+                        id = UUID.randomUUID().toString(),
+                        routineId = newRoutineId,
+                        exerciseId = exWithSets.exercise.id,
+                        sets = setCount,
+                        reps = modalReps,
+                        defaultWeight = kgToStorageString(firstKg),
+                        restTime = 90,
+                        order = index,
+                        supersetGroupId = exWithSets.supersetGroupId,
+                        setTypesJson = setTypesJson,
+                        setWeightsJson = setWeightsJson,
+                        setRepsJson = setRepsJson
+                    )
+                }
             }
+
+            if (routineExercises.isEmpty()) return@launch
             routineExerciseDao.insertAll(routineExercises)
             firestoreSyncManager.pushRoutine(newRoutineId)
             _workoutState.update { it.copy(snackbarMessage = "Saved as \"$routineName\"") }

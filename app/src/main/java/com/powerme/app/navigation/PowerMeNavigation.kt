@@ -92,7 +92,7 @@ private object Routes {
     const val WORKOUT_DETAIL = "workout_detail/{workoutId}"
     const val WORKOUT_SUMMARY = "workout_summary/{workoutId}?isPostWorkout={isPostWorkout}&syncType={syncType}"
     const val TEMPLATE_BUILDER = "template_builder/{routineId}"
-    const val EXERCISE_PICKER = "exercise_picker"
+    const val EXERCISE_PICKER = "exercise_picker?functionalFilter={functionalFilter}"
     const val IMPORT_WORKOUTS = "import_workouts"
     const val QUICK_START_CHOOSER = "quick_start_chooser"
     const val AI_WORKOUT = "ai_workout?mode={mode}"
@@ -540,19 +540,27 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                         popUpTo(navController.currentBackStackEntry?.destination?.route ?: Routes.WORKOUT) { inclusive = true }
                     }
                 },
-                onPickExercise = { navController.navigate(Routes.EXERCISE_PICKER) }
+                onPickExercise = { navController.navigate("exercise_picker") }
             )
         }
 
         composable(
             route = Routes.EXERCISE_PICKER,
+            arguments = listOf(
+                navArgument("functionalFilter") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            ),
             enterTransition = { slideInHorizontally(tween(300)) { it } },
             exitTransition = { slideOutHorizontally(tween(300)) { -it / 3 } },
             popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } },
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
-        ) {
+        ) { backStackEntry ->
+            val functionalFilter = backStackEntry.arguments?.getBoolean("functionalFilter") ?: false
             ExercisesScreen(
                 pickerMode = true,
+                initialFunctionalFilter = functionalFilter,
                 onExercisesSelected = { ids ->
                     navController.previousBackStackEntry
                         ?.savedStateHandle
@@ -608,6 +616,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) {
             val isPostWorkout = it.arguments?.getBoolean("isPostWorkout") ?: false
+            val summaryWorkoutId = it.arguments?.getString("workoutId") ?: ""
             // Clear post-workout ViewModel state whenever this screen leaves the composition,
             // covering toolbar back, Done button, and system back gesture.
             androidx.compose.runtime.DisposableEffect(Unit) {
@@ -634,7 +643,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 onConfirmSyncStructure = { workoutViewModel.confirmUpdateRoutineStructure() },
                 onConfirmSyncBoth = { workoutViewModel.confirmUpdateBoth() },
                 onDismissSync = { workoutViewModel.dismissRoutineSync() },
-                onSaveAsRoutine = { name -> workoutViewModel.saveWorkoutAsRoutine(name) }
+                onSaveAsRoutine = { name -> workoutViewModel.saveWorkoutAsRoutine(summaryWorkoutId, name) }
             )
         }
 

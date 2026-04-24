@@ -42,7 +42,7 @@ interface RoutineDao {
         LEFT JOIN routine_exercises re ON re.routineId = r.id
         LEFT JOIN exercises e ON e.id = re.exerciseId
         WHERE r.isArchived = 0
-        ORDER BY r.lastPerformed DESC
+        ORDER BY COALESCE(r.lastPerformed, r.updatedAt) DESC
     """)
     fun getAllActiveRoutinesWithExerciseNames(): Flow<List<RoutineExerciseNameRow>>
 
@@ -53,7 +53,7 @@ interface RoutineDao {
         LEFT JOIN routine_exercises re ON re.routineId = r.id
         LEFT JOIN exercises e ON e.id = re.exerciseId
         WHERE r.isArchived = 1
-        ORDER BY r.lastPerformed DESC
+        ORDER BY COALESCE(r.lastPerformed, r.updatedAt) DESC
     """)
     fun getAllArchivedRoutinesWithExerciseNames(): Flow<List<RoutineExerciseNameRow>>
 }

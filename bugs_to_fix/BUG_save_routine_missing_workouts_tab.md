@@ -1,7 +1,7 @@
 # BUG: Saved routine missing from Workouts tab after post-workout Save Routine flow
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P1 — visible regression affecting daily use; saving a workout as a routine is a core flow
@@ -25,4 +25,9 @@ After finishing a workout and going through the post-workout "Save Routine" shee
 - Related spec: `WORKOUT_SPEC.md`
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+
+**Root cause (ordering):** `RoutineDao.getAllActiveRoutinesWithExerciseNames()` ordered by `r.lastPerformed DESC`. SQLite treats NULL as smaller than any value, so in DESC order NULLs sort last. A brand-new routine always has `lastPerformed = null`, so it landed at the very bottom — invisible unless the user scrolled all the way down. Fix: `ORDER BY COALESCE(r.lastPerformed, r.updatedAt) DESC` in both active and archived queries.
+
+**Root cause (silent no-op):** `WorkoutViewModel.saveWorkoutAsRoutine()` read `_workoutState.value.workoutId` directly (could be null in edge cases) and returned early if the DB had zero completed sets (`sets.isEmpty()`). The latter triggers when a user finishes a workout without tapping the per-set completion button — all sets are "incomplete", deleted by `deleteIncompleteSetsByWorkout()`, and the save silently does nothing. Also, `workoutId` was read from ViewModel state rather than the nav arg, creating a dependency on internal state that doesn't hold across all navigation paths.
+
+**Fix:** Changed `saveWorkoutAsRoutine(routineName)` → `saveWorkoutAsRoutine(workoutId, routineName)`. Navigation now passes `workoutId` directly from the nav argument. Removed the `sets.isEmpty()` early-return guard: if no completed sets exist in the DB, falls back to building the routine from `_workoutState.value.exercises` (in-memory state preserved after `finishWorkout()`), using each exercise's current sets for structure, weights, and reps.
