@@ -5,8 +5,8 @@
 | **Type** | Epic |
 | **Phase** | P8 |
 | **Status** | `in-progress` |
-| **Children** | 12 tasks — see `future_devs/FUNC_*_SPEC.md` |
-| **Rollup** | 1/12 wrapped · 2 in-progress · 9 not-started |
+| **Children** | 13 tasks — see `future_devs/FUNC_*_SPEC.md` |
+| **Rollup** | 2/13 wrapped · 2 in-progress · 9 not-started |
 
 > **Depends on:** DB v48 stable (current). No other phase dependencies.
 

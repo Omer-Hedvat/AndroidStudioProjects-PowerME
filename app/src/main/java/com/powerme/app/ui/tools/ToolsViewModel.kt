@@ -10,10 +10,14 @@ import com.powerme.app.util.ClocksTimerBridge
 import com.powerme.app.util.RestTimerNotifier
 import com.powerme.app.util.TimerSound
 import com.powerme.app.util.WakeLockManager
+import com.powerme.app.util.timer.TimerEngine
+import com.powerme.app.util.timer.TimerEngineImpl
+import com.powerme.app.util.timer.TimerEngineState
+import com.powerme.app.util.timer.TimerPhase
+import com.powerme.app.util.timer.TimerSpec
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +28,6 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class TimerMode { EMOM, TABATA, STOPWATCH, COUNTDOWN }
-enum class TimerPhase { IDLE, SETUP, WORK, REST }
 
 /**
  * Returns the warn-at threshold in seconds, or null if warn should not fire.
@@ -102,6 +105,8 @@ class ToolsViewModel @Inject constructor(
     val uiState: StateFlow<ToolsUiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    private var observerJob: Job? = null
+    private var engine: TimerEngineImpl? = null
 
     fun setMode(mode: TimerMode) {
         if (_uiState.value.isRunning) return
@@ -161,6 +166,7 @@ class ToolsViewModel @Inject constructor(
     fun startTimer() {
         if (_uiState.value.isRunning) return
         val state = _uiState.value
+
         // Validate config: parse text fields before starting
         val emomRound = state.emomRoundSecondsText.toIntOrNull()?.takeIf { it > 0 } ?: state.emomRoundSeconds
         val emomTotal = state.emomTotalRoundsText.toIntOrNull()?.takeIf { it > 0 } ?: state.emomTotalRounds
@@ -171,33 +177,100 @@ class ToolsViewModel @Inject constructor(
         val (cdMins, cdSecs) = countdownTotal / 60 to countdownTotal % 60
         val setup = state.setupSecondsText.toIntOrNull()?.coerceAtLeast(0) ?: state.setupSeconds
 
-        _uiState.update { it.copy(
-            emomRoundSeconds = emomRound, emomTotalRounds = emomTotal,
-            workSeconds = work, restSeconds = rest, totalRounds = rounds,
-            countdownMinutes = cdMins, countdownSeconds = cdSecs,
-            setupSeconds = setup, isRunning = true
-        ) }
+        _uiState.update {
+            it.copy(
+                emomRoundSeconds = emomRound, emomTotalRounds = emomTotal,
+                workSeconds = work, restSeconds = rest, totalRounds = rounds,
+                countdownMinutes = cdMins, countdownSeconds = cdSecs,
+                setupSeconds = setup, isRunning = true
+            )
+        }
 
         wakeLockManager.acquire()
 
-        timerJob = viewModelScope.launch {
-            when (_uiState.value.mode) {
-                TimerMode.EMOM -> runEmom()
-                TimerMode.TABATA -> runTabata()
-                TimerMode.STOPWATCH -> runStopwatch()
-                TimerMode.COUNTDOWN -> runCountdown()
+        // Resume paused engine instead of starting fresh
+        val existingEngine = engine
+        if (existingEngine != null && state.phase != TimerPhase.IDLE) {
+            existingEngine.resume()
+            return
+        }
+
+        val spec = buildSpec(state.mode, emomRound, emomTotal, work, rest, rounds, countdownTotal, state)
+        val newEngine = TimerEngineImpl(restTimerNotifier) { timerSoundState.value }
+        engine = newEngine
+
+        observerJob?.cancel()
+        observerJob = viewModelScope.launch {
+            var prevWasRunning = false
+            newEngine.state.collect { engineState ->
+                val wasRunning = prevWasRunning
+                prevWasRunning = engineState.isRunning
+                syncEngineState(engineState)
+                when {
+                    engineState.isRunning ->
+                        clocksTimerBridge.update(engineState.displaySeconds, engineState.phaseTotalSeconds)
+                    wasRunning -> {
+                        clocksTimerBridge.clear()
+                        if (engineState.phase == TimerPhase.IDLE) wakeLockManager.release()
+                    }
+                }
             }
+        }
+
+        timerJob = viewModelScope.launch { newEngine.run(spec, setup) }
+    }
+
+    private fun buildSpec(
+        mode: TimerMode,
+        emomRound: Int, emomTotal: Int,
+        work: Int, rest: Int, rounds: Int,
+        countdownTotal: Int,
+        state: ToolsUiState
+    ): TimerSpec = when (mode) {
+        TimerMode.EMOM -> TimerSpec.Emom(
+            totalDurationSeconds = emomRound * emomTotal,
+            intervalSeconds = emomRound,
+            warnAtSeconds = resolveWarnAt(state.emomWarnText, emomRound)
+        )
+        TimerMode.TABATA -> TimerSpec.Tabata(
+            workSeconds = work,
+            restSeconds = rest,
+            rounds = rounds,
+            workWarnAtSeconds = resolveWarnAt(state.tabataWorkWarnText, work),
+            restWarnAtSeconds = resolveWarnAt(state.tabataRestWarnText, rest),
+            skipLastRest = state.tabataSkipLastRest
+        )
+        TimerMode.COUNTDOWN -> TimerSpec.Countdown(
+            durationSeconds = countdownTotal,
+            warnAtSeconds = resolveWarnAt(state.countdownWarnText, countdownTotal)
+        )
+        TimerMode.STOPWATCH -> TimerSpec.Stopwatch
+    }
+
+    private fun syncEngineState(engineState: TimerEngineState) {
+        _uiState.update { uiState ->
+            uiState.copy(
+                phase = engineState.phase,
+                currentRound = engineState.currentRound,
+                displaySeconds = engineState.displaySeconds,
+                elapsedSeconds = engineState.elapsedSeconds,
+                tickEpochMs = engineState.tickEpochMs,
+                isRunning = engineState.isRunning,
+                setupSecondsRemaining = if (engineState.phase == TimerPhase.SETUP) engineState.displaySeconds else 0
+            )
         }
     }
 
     fun pauseTimer() {
-        timerJob?.cancel()
+        engine?.pause()
         clocksTimerBridge.clear()
-        _uiState.update { it.copy(isRunning = false, tickEpochMs = 0L) }
     }
 
     fun resetTimer() {
         timerJob?.cancel()
+        observerJob?.cancel()
+        engine?.stop()
+        engine = null
         clocksTimerBridge.clear()
         wakeLockManager.release()
         _uiState.update {
@@ -213,178 +286,10 @@ class ToolsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Runs the preparation countdown before the main timer. Returns true if completed normally,
-     * false if paused/cancelled mid-countdown. When setup = 0, returns true immediately.
-     */
-    private suspend fun runSetupCountdown(): Boolean {
-        val setupTotal = _uiState.value.setupSeconds
-        if (setupTotal <= 0) return true
-
-        // Resume from remaining if paused mid-setup, otherwise start fresh
-        val startFrom = _uiState.value.setupSecondsRemaining.takeIf { it > 0 } ?: setupTotal
-
-        _uiState.update { it.copy(phase = TimerPhase.SETUP) }
-
-        var remaining = startFrom
-        while (remaining > 0 && _uiState.value.isRunning) {
-            _uiState.update { it.copy(displaySeconds = remaining, setupSecondsRemaining = remaining) }
-            clocksTimerBridge.update(remaining, setupTotal)
-            restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
-            delay(1000L)
-            remaining--
-        }
-
-        if (!_uiState.value.isRunning) return false
-
-        _uiState.update { it.copy(setupSecondsRemaining = 0, displaySeconds = 0) }
-        restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START, timerSoundState.value)
-        return true
-    }
-
-    private suspend fun runEmom() {
-        if (!runSetupCountdown()) return
-        val totalRounds   = _uiState.value.emomTotalRounds
-        val roundDuration = _uiState.value.emomRoundSeconds
-        val warnAt        = resolveWarnAt(_uiState.value.emomWarnText, roundDuration)
-
-        for (round in 1..totalRounds) {
-            _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = round) }
-            restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START, timerSoundState.value)
-            var remaining = roundDuration
-            var warnedThisRound = false
-            while (remaining > 0 && _uiState.value.isRunning) {
-                _uiState.update { it.copy(displaySeconds = remaining, tickEpochMs = System.currentTimeMillis()) }
-                clocksTimerBridge.update(remaining, roundDuration)
-                if (warnAt != null && remaining == warnAt && !warnedThisRound) {
-                    warnedThisRound = true
-                    restTimerNotifier.triggerAudioAlert(AlertType.WARNING, timerSoundState.value)
-                }
-                if (remaining in 1..3) {
-                    restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
-                }
-                delay(1000L)
-                remaining--
-            }
-            if (!_uiState.value.isRunning) return
-            // No REST phase in EMOM — next round starts immediately
-        }
-        finishTimer()  // always reached; fires FINISH alert + cleanup
-    }
-
-    private suspend fun runTabata() {
-        if (!runSetupCountdown()) return
-        val state        = _uiState.value
-        var round        = state.currentRound
-        val totalRounds  = state.totalRounds
-        val skipLastRest = state.tabataSkipLastRest
-
-        while (round < totalRounds) {
-            val isLastRound = round == totalRounds - 1
-
-            // ── WORK phase ───────────────────────────────────────────────────
-            _uiState.update { it.copy(phase = TimerPhase.WORK, currentRound = round + 1) }
-            restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START, timerSoundState.value)
-            val workTotal = _uiState.value.workSeconds
-            val workWarnAt = resolveWarnAt(_uiState.value.tabataWorkWarnText, workTotal)
-            var workRemaining = workTotal
-            var warnedWork = false
-            while (workRemaining > 0 && _uiState.value.isRunning) {
-                _uiState.update { it.copy(displaySeconds = workRemaining, tickEpochMs = System.currentTimeMillis()) }
-                clocksTimerBridge.update(workRemaining, workTotal)
-                if (workWarnAt != null && workRemaining == workWarnAt && !warnedWork) {
-                    warnedWork = true
-                    restTimerNotifier.triggerAudioAlert(AlertType.WARNING, timerSoundState.value)
-                }
-                if (workRemaining in 1..3) {
-                    restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
-                }
-                delay(1000L)
-                workRemaining--
-            }
-            if (!_uiState.value.isRunning) return
-            restTimerNotifier.triggerAudioAlert(AlertType.FINISH, timerSoundState.value)
-
-            // ── REST phase ───────────────────────────────────────────────────
-            if (!(isLastRound && skipLastRest)) {
-                _uiState.update { it.copy(phase = TimerPhase.REST) }
-                restTimerNotifier.triggerAudioAlert(AlertType.ROUND_START, timerSoundState.value)
-                val restTotal = _uiState.value.restSeconds
-                val restWarnAt = resolveWarnAt(_uiState.value.tabataRestWarnText, restTotal)
-                var restRemaining = restTotal
-                var warnedRest = false
-                while (restRemaining > 0 && _uiState.value.isRunning) {
-                    _uiState.update { it.copy(displaySeconds = restRemaining, tickEpochMs = System.currentTimeMillis()) }
-                    clocksTimerBridge.update(restRemaining, restTotal)
-                    if (restWarnAt != null && restRemaining == restWarnAt && !warnedRest) {
-                        warnedRest = true
-                        restTimerNotifier.triggerAudioAlert(AlertType.WARNING, timerSoundState.value)
-                    }
-                    if (restRemaining in 1..3) {
-                        restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
-                    }
-                    delay(1000L)
-                    restRemaining--
-                }
-                if (!_uiState.value.isRunning) return
-                restTimerNotifier.triggerAudioAlert(AlertType.FINISH, timerSoundState.value)
-            }
-            round++
-        }
-        finishTimer()  // overall cleanup; fires one final FINISH alert
-    }
-
-    private suspend fun runStopwatch() {
-        if (!runSetupCountdown()) return
-        var elapsed = _uiState.value.elapsedSeconds
-        _uiState.update { it.copy(phase = TimerPhase.WORK) }
-
-        while (_uiState.value.isRunning) {
-            _uiState.update { it.copy(elapsedSeconds = elapsed, tickEpochMs = System.currentTimeMillis()) }
-            delay(1000L)
-            elapsed++
-        }
-    }
-
-    private suspend fun runCountdown() {
-        if (!runSetupCountdown()) return
-        val state = _uiState.value
-        // total is always the configured duration (preserved across pause/resume via startTimer())
-        val total = (state.countdownMinutes * 60 + state.countdownSeconds).takeIf { it > 0 } ?: 60
-        var remaining = if (state.displaySeconds > 0) state.displaySeconds else total
-
-        val warnAt = resolveWarnAt(state.countdownWarnText, total)
-        var warnedThisRound = false
-
-        _uiState.update { it.copy(phase = TimerPhase.WORK) }
-
-        while (remaining > 0 && _uiState.value.isRunning) {
-            _uiState.update { it.copy(displaySeconds = remaining, tickEpochMs = System.currentTimeMillis()) }
-            clocksTimerBridge.update(remaining, total)
-            if (warnAt != null && remaining == warnAt && !warnedThisRound) {
-                warnedThisRound = true
-                restTimerNotifier.triggerAudioAlert(AlertType.WARNING, timerSoundState.value)
-            }
-            if (remaining in 1..3) restTimerNotifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, timerSoundState.value)
-            delay(1000L)
-            remaining--
-        }
-        if (_uiState.value.isRunning) {
-            _uiState.update { it.copy(displaySeconds = 0) }
-            finishTimer()
-        }
-    }
-
-    private fun finishTimer() {
-        restTimerNotifier.triggerAudioAlert(AlertType.FINISH, timerSoundState.value)
-        clocksTimerBridge.clear()
-        wakeLockManager.release()
-        _uiState.update { it.copy(isRunning = false, phase = TimerPhase.IDLE, tickEpochMs = 0L) }
-    }
-
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        observerJob?.cancel()
         clocksTimerBridge.clear()
         wakeLockManager.release()
     }

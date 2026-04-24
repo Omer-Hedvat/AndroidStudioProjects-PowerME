@@ -28,8 +28,12 @@ private val Barlow = FontFamily(
     Font(GoogleFont("Barlow"), provider, weight = FontWeight.SemiBold)
 )
 
-// JetBrains Mono — used for timer displays and numeric data (system monospace fallback).
-val JetBrainsMono = FontFamily.Monospace
+// JetBrains Mono — real GoogleFont with system monospace as loading placeholder.
+val JetBrainsMono = FontFamily(
+    Font(GoogleFont("JetBrains Mono"), provider, weight = FontWeight.Normal),
+    Font(GoogleFont("JetBrains Mono"), provider, weight = FontWeight.Medium),
+    Font(GoogleFont("JetBrains Mono"), provider, weight = FontWeight.Bold)
+)
 
 val MonoTextStyle = TextStyle(
     fontFamily = JetBrainsMono,

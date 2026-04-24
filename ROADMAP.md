@@ -60,6 +60,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Workouts page — Quick Start 3-way chooser (exercises / picture / text) | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | S | `wrapped` | Quick Start Workout ✅, AI Workout Generation ✅ |
 | Gymvisual chest+barbell catalogue comparison (research report) | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | XS | `wrapped` | — |
 | Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed` | — |
+| Clocks Countdown — MM:SS fill-in input (replaces roulette wheel) | `future_devs/CLOCKS_COUNTDOWN_MMS_INPUT_SPEC.md` | S | `in-progress` | — |
 
 ---
 
@@ -180,7 +181,7 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 |---|---|---|---|---|
 | WorkoutStyle enum + Settings card | `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | S | `wrapped` | — |
 | Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `completed` | — |
-| Extract TimerEngine class + real JetBrains Mono font | `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | M | `completed` | — |
+| Extract TimerEngine class + real JetBrains Mono font | `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | M | `wrapped` | — |
 | RoutineBlock + WorkoutBlock entities + MIGRATION_49_50 backfill | `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | L | `not-started` | WorkoutStyle pref ✅, Exercise tags ✅, TimerEngine ✅ |
 | Embed block arrays in Firestore push/pull | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
 | FunctionalBlockWizard + Pure Functional template builder | `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | L | `not-started` | Block entities migration ✅ |
@@ -188,8 +189,9 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 | Block headers in active workout; STRENGTH materialisation on start | `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
 | AMRAP/RFT/EMOM overlays + FunctionalBlockRunner + foreground-service lifecycle | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `not-started` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
 | Block-aware History rows + Trends + WorkoutSummaryScreen | `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | M | `not-started` | Functional runner ✅ (in prod ≥1 release) |
-| Exercise gap analysis — CrossFit / Hyrox / Calisthenics (research report) | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `not-started` | — |
+| Exercise gap analysis — CrossFit / Hyrox / Calisthenics (research report) | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `completed` | — |
 | Expanded exercise seed — CrossFit / Hyrox / Calisthenics DB population | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `not-started` | gap analysis ✅, Exercise tags seed ✅ |
+| Cardio exercise seed — treadmill, cycling, swimming, machines, LISS/HIIT | `future_devs/FUNC_CARDIO_EXERCISE_SEED_SPEC.md` | S | `not-started` | func_exercise_tags_seed ✅, func_exercise_expanded_seed ✅ |
 
 ---
 
@@ -282,6 +284,7 @@ Read the relevant spec before touching files in that domain.
 | `NAVIGATION_SPEC.md` | Route map, auth decision tree, WorkoutViewModel scope, transitions |
 | `THEME_SPEC.md` | Color palette, typography, shapes, dark/light scheme |
 | `CLOCKS_SPEC.md` | Clocks tab — Stopwatch, Countdown, Tabata, EMOM |
+| `future_devs/CLOCKS_COUNTDOWN_MMS_INPUT_SPEC.md` | P0 — Clocks Countdown: replace roulette wheel with MM:SS fill-in input boxes |
 | `HEALTH_CONNECT_SPEC.md` | HC permissions, sync logic, Phase B writes, backfill |
 | `TRENDS_SPEC.md` | Trends tab — all chart cards, ReadinessEngine, TrendsDao, body heatmap |
 | `PROFILE_SETUP_SPEC.md` | Onboarding, two-step flow, HC offer |
@@ -315,3 +318,4 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/API_KEY_VALIDATION_SPEC.md` | P0 — Gemini API key inline validation after Save in Settings AI card |
 | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | P8 — Research: CrossFit / Hyrox / Calisthenics exercise gap analysis; no code changes |
 | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | P8 — Seed expanded functional exercise list (CrossFit WODs, Hyrox 8 stations, calisthenics progressions) |
+| `future_devs/FUNC_CARDIO_EXERCISE_SEED_SPEC.md` | P8 — Cardio exercise seed — treadmill, cycling, swimming, machines, LISS/HIIT protocols |
