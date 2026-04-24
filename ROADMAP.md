@@ -40,7 +40,7 @@ Multi-task initiatives that own a root-level spec and a set of child Feature tas
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 8/20 wrapped · 3 completed · 7 not-started | 20 |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 9/20 wrapped · 3 completed · 6 not-started | 20 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/3 wrapped | 3 active + §8 queue |
 
 ---
@@ -60,7 +60,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Observability layer — Crashlytics + Analytics + Timber (beta) | `future_devs/OBSERVABILITY_BETA_SPEC.md` | M | `wrapped` | — |
 | Workouts page — Quick Start 3-way chooser (exercises / picture / text) | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | S | `wrapped` | Quick Start Workout ✅, AI Workout Generation ✅ |
 | Gymvisual chest+barbell catalogue comparison (research report) | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | XS | `wrapped` | — |
-| Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed-blocked` | — |
+| Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed` | — |
 | Clocks Countdown — MM:SS fill-in input (replaces roulette wheel) | `future_devs/CLOCKS_COUNTDOWN_MMS_INPUT_SPEC.md` | S | `wrapped` | — |
 
 ---
@@ -184,7 +184,7 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 | WorkoutStyle enum + Settings card | `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | S | `wrapped` | — |
 | Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `wrapped` | — |
 | Extract TimerEngine class + real JetBrains Mono font | `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | M | `wrapped` | — |
-| RoutineBlock + WorkoutBlock entities + MIGRATION_50_51 backfill (TABATA type; +7 columns on workout_blocks, +5 on routine_blocks) | `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | L | `completed` | WorkoutStyle pref ✅, Exercise tags ✅, TimerEngine ✅ |
+| RoutineBlock + WorkoutBlock entities + MIGRATION_50_51 backfill (TABATA type; +7 columns on workout_blocks, +5 on routine_blocks) | `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | L | `wrapped` | WorkoutStyle pref ✅, Exercise tags ✅, TimerEngine ✅ |
 | Embed block arrays in Firestore push/pull | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
 | FunctionalBlockWizard + Pure Functional template builder (4 block types incl. TABATA; any-exercise picker; E2MOM/E3MOM; RFT cap; setup/warn overrides) | `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | L | `not-started` | Block entities migration ✅ |
 | Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | S | `not-started` | FunctionalBlockWizard ✅ |
@@ -213,7 +213,7 @@ Parser abstraction layer + on-device inference backend. `AiWorkoutViewModel` rem
 | AI parser interface layer — `WorkoutTextParser`, `WorkoutPromptUtils`, `WorkoutParserRouter`, `AiModule` | `future_devs/AI_PARSER_INTERFACE_LAYER_SPEC.md` | S | `wrapped` | AI Workout Generation (P7) ✅ |
 | AI ViewModel interface wiring — wire `AiWorkoutViewModel` to `WorkoutTextParser`; update test mock type | `future_devs/AI_VIEWMODEL_INTERFACE_WIRING_SPEC.md` | XS | `wrapped` | AI parser interface layer ✅ |
 | AICore on-device integration — `AiCoreAvailability`, `AiCoreDownloadManager`, `OnDeviceWorkoutParser`, router wiring, download banner, Settings status row | `future_devs/AICORE_ONDEVICE_INTEGRATION_SPEC.md` | M | `completed-blocked` | AI ViewModel interface wiring ✅ |
-| Synonym learning system — migration v49, ExerciseMatcher synonym tier, save prompt UI, analytics | `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | M | `completed-blocked` | DB synonym foundation ✅, AI parser interface layer ✅ |
+| Synonym learning system — migration v49, ExerciseMatcher synonym tier, save prompt UI, analytics | `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | M | `completed` | DB synonym foundation ✅, AI parser interface layer ✅ |
 | AICore two-tier model cascade — E4B (Gemma 4B) preferred, E2B (Gemma 2B) fallback; variant-aware availability, router, download, Settings row | `future_devs/AICORE_TWO_TIER_MODEL_CASCADE_SPEC.md` | S | `abandoned` | AICore on-device integration |
 | Firebase AI Logic SDK migration — replace deprecated `generativeai:0.9.0` with Firebase AI SDK; unblocks gemini-2.5-flash and future model strings | `future_devs/FIREBASE_AI_SDK_MIGRATION_SPEC.md` | S | `wrapped` | — |
 

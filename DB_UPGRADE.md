@@ -1,5 +1,123 @@
 # PowerME Database Upgrade Log
 
+## v51 — Block Entities (Functional Training Tier 1)
+
+**Migration:** `MIGRATION_50_51`
+
+### Changes
+
+- **New table:** `routine_blocks` — groups RoutineExercises into typed training blocks (STRENGTH / AMRAP / RFT / EMOM / TABATA) within a routine template
+  - `id TEXT NOT NULL PRIMARY KEY` — UUID
+  - `routineId TEXT NOT NULL` — FK to `routines.id` (CASCADE delete)
+  - `order INTEGER NOT NULL` — 0-based position within routine
+  - `type TEXT NOT NULL` — block type: `STRENGTH | AMRAP | RFT | EMOM | TABATA`
+  - `name TEXT` — optional user label (e.g. "Metcon", "Finisher")
+  - `durationSeconds INTEGER` — AMRAP cap / EMOM total / RFT optional cap
+  - `targetRounds INTEGER` — RFT target round count
+  - `emomRoundSeconds INTEGER` — EMOM interval length in seconds (default 60)
+  - `tabataWorkSeconds INTEGER` — TABATA work phase (default 20)
+  - `tabataRestSeconds INTEGER` — TABATA rest phase (default 10)
+  - `tabataSkipLastRest INTEGER` — 0 or 1 (SQLite bool)
+  - `setupSecondsOverride INTEGER` — per-block pre-start countdown override; null = AppSettings default
+  - `warnAtSecondsOverride INTEGER` — per-block mid-interval warning override; null = resolveWarnAt auto
+  - `syncId TEXT NOT NULL DEFAULT ''` — Firestore stable identity (v35 pattern)
+  - `updatedAt INTEGER NOT NULL DEFAULT 0` — epoch ms LWW timestamp (v35 pattern)
+  - Index on `routineId`
+
+- **New table:** `workout_blocks` — mirrors `routine_blocks` for workout instances; adds result columns
+  - Same plan fields as `routine_blocks` (5 new Tabata + timer overrides)
+  - `totalRounds INTEGER` — AMRAP/RFT/TABATA rounds completed
+  - `extraReps INTEGER` — AMRAP reps into the next round
+  - `finishTimeSeconds INTEGER` — RFT/EMOM/TABATA total elapsed
+  - `rpe INTEGER` — overall block RPE (1–10; mutually exclusive with `perExerciseRpeJson`)
+  - `perExerciseRpeJson TEXT` — JSON map `exerciseId→rpe` (per-exercise; mutually exclusive with `rpe`)
+  - `roundTapLogJson TEXT` — JSON array `[{round, elapsedMs}]` for analytics
+  - `blockNotes TEXT`
+  - `runStartMs INTEGER` — wall-clock epoch at block start (resume-from-kill)
+  - `syncId`, `updatedAt` (v35 pattern)
+  - Index on `workoutId`
+
+- **`routine_exercises` table:** new nullable columns
+  - `blockId TEXT DEFAULT NULL` — FK to `routine_blocks.id`
+  - `holdSeconds INTEGER DEFAULT NULL` — per-prescription hold duration for time-capped exercises in AMRAP/RFT blocks
+
+- **`workout_sets` table:** new nullable column
+  - `blockId TEXT DEFAULT NULL` — FK to `workout_blocks.id`
+
+### Backfill
+
+MIGRATION_50_51 inserts exactly one STRENGTH block per existing routine and one per existing workout (UUID-keyed via SQLite `randomblob`), then points all existing `routine_exercises.blockId` and `workout_sets.blockId` at the corresponding new block. Invariant: every existing row has a non-null `blockId` after migration.
+
+### Rollback SQL (document in PR before merge)
+
+```sql
+-- Undo backfill on existing tables
+ALTER TABLE routine_exercises DROP COLUMN blockId;
+ALTER TABLE routine_exercises DROP COLUMN holdSeconds;
+ALTER TABLE workout_sets DROP COLUMN blockId;
+-- Drop new tables
+DROP TABLE IF EXISTS routine_blocks;
+DROP TABLE IF EXISTS workout_blocks;
+-- Downgrade Room version to 50 in code
+```
+
+### Related
+
+- `RoutineBlock.kt` — new entity
+- `WorkoutBlock.kt` — new entity
+- `RoutineBlockDao.kt` — new DAO (getBlocksForRoutine, upsert, upsertAll, delete, deleteAllForRoutine, touch)
+- `WorkoutBlockDao.kt` — new DAO (getBlocksForWorkout, upsert, upsertAll, saveResult, setRunStart, touch)
+- `RoutineExercise.kt` — added `blockId: String?`, `holdSeconds: Int?`
+- `WorkoutSet.kt` — added `blockId: String?`
+- `PowerMeDatabase.kt` — bumped to v51, registered new entities and DAOs
+- `DatabaseModule.kt` — `MIGRATION_50_51` + `provideRoutineBlockDao` + `provideWorkoutBlockDao`
+
+---
+
+## v50 — Exercise Tags Column (Functional Training Tier 0)
+
+**Migration:** `MIGRATION_49_50`
+
+### Changes
+
+- **`exercises` table:** new column `tags TEXT NOT NULL DEFAULT '[]'` — JSON array of tag strings, e.g. `["functional","olympic"]`. Used by the Exercise Library "Functional" filter chip and future Functional/Gym pickers (P8 Tier 1+).
+
+### Related
+
+- `Exercise.kt` — new `tags: String = "[]"` field with `@ColumnInfo(defaultValue = "[]")`
+- `MasterExerciseSeeder.kt` — bumped to v2.1; seeds ~25 new functional movements (Olympic, MetCon, Gymnastics, Monostructural) and adds tags to 27 existing exercises
+- `master_exercises.json` — version 2.1, totalExercises 265
+- `ExercisesViewModel.kt` — `functionalFilter: Boolean` in `ExercisesUiState`; `onFunctionalFilterToggled()` + `applyFilters()` 4th dimension
+- `ExercisesScreen.kt` — "Functional" `FilterChip` in Mode row below Equipment chips
+
+---
+
+## v49 — User Exercise Synonyms (Synonym Learning System)
+
+**Migration:** `MIGRATION_48_49`
+
+### Changes
+
+- **New table:** `user_exercise_synonyms` — persists user-taught exercise name aliases for AI matching
+  - `id TEXT NOT NULL PRIMARY KEY` — UUID
+  - `rawName TEXT NOT NULL` — normalised alias (via `toSearchName()`: lowercase, no spaces/hyphens/parens)
+  - `exerciseId INTEGER NOT NULL` — FK to `exercises.id` (CASCADE delete)
+  - `useCount INTEGER NOT NULL DEFAULT 1` — incremented on each matching hit
+  - `createdAt INTEGER NOT NULL DEFAULT 0` — epoch ms
+  - Unique index on `rawName` — one canonical mapping per alias
+  - Secondary index on `exerciseId`
+
+### Related
+
+- `UserExerciseSynonym.kt` — entity (created in v48 cycle, now wired)
+- `UserSynonymDao.kt` — DAO
+- `UserSynonymRepository.kt` — repository with normalisation logic
+- `ExerciseMatcher.kt` — new `EXACT_USER_SYNONYM` tier (checked first, before EXACT)
+- `AiWorkoutViewModel.kt` — emits save prompt after UNMATCHED/FUZZY swaps; `saveSynonym()` + `dismissSynonymPrompt()`
+- `AiWorkoutGenerationScreen.kt` — Snackbar save offer; "Your match" chip label
+
+---
+
 ## v48 — Fix CSV-imported RPE scale
 
 **Migration:** `MIGRATION_47_48`
