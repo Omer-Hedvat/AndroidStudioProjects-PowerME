@@ -3,11 +3,9 @@ package com.powerme.app.ui.exercises
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -15,16 +13,17 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +52,7 @@ fun ExercisesScreen(
     val equipmentFilters by viewModel.equipmentFilters.collectAsState()
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    val searchFocusRequester = remember { FocusRequester() }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier
@@ -90,158 +90,43 @@ fun ExercisesScreen(
                     Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 },
                 trailingIcon = {
-                    if (uiState.searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Clear search",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (uiState.searchQuery.isNotEmpty()) {
+                            IconButton(onClick = {
+                                viewModel.onSearchQueryChanged("")
+                                searchFocusRequester.requestFocus()
+                            }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear search",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        IconButton(onClick = viewModel::onFilterDialogToggled) {
+                            BadgedBox(
+                                badge = {
+                                    if (uiState.activeFilterCount > 0) {
+                                        Badge { Text("${uiState.activeFilterCount}") }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Tune,
+                                    contentDescription = "Filters",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .focusRequester(searchFocusRequester),
                 colors = PowerMeDefaults.outlinedTextFieldColors(),
                 singleLine = true
             )
-
-            // Muscle group label
-            Text(
-                text = "Muscle",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)
-            )
-
-            // Muscle group filter chips
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    muscleGroupFilters.forEach { muscle ->
-                        val isSelected = if (muscle == "All") uiState.selectedMuscles.isEmpty()
-                        else muscle in uiState.selectedMuscles
-
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.onMuscleFilterToggled(muscle) },
-                            label = { Text(muscle) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.surface,
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                labelColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                    }
-                }
-                val bgColor = MaterialTheme.colorScheme.background
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .width(40.dp)
-                        .height(40.dp)
-                        .background(
-                            Brush.horizontalGradient(listOf(Color.Transparent, bgColor))
-                        )
-                )
-            }
-
-            // Divider between chip rows
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-            )
-
-            // Equipment label + chips in surfaceVariant background
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column {
-                    Text(
-                        text = "Equipment",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)
-                    )
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            equipmentFilters.forEach { equipment ->
-                                val isSelected = if (equipment == "All") uiState.selectedEquipment.isEmpty()
-                                else equipment in uiState.selectedEquipment
-
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { viewModel.onEquipmentFilterToggled(equipment) },
-                                    label = { Text(equipment) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.secondary,
-                                        selectedLabelColor = MaterialTheme.colorScheme.surface,
-                                        containerColor = MaterialTheme.colorScheme.surface,
-                                        labelColor = MaterialTheme.colorScheme.secondary
-                                    )
-                                )
-                            }
-                        }
-                        val svColor = MaterialTheme.colorScheme.surfaceVariant
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .width(40.dp)
-                                .height(40.dp)
-                                .background(
-                                    Brush.horizontalGradient(listOf(Color.Transparent, svColor))
-                                )
-                        )
-                    }
-                }
-            }
-
-            // Functional filter toggle chip
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Mode",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TimerGreen.copy(alpha = 0.8f)
-                )
-                FilterChip(
-                    selected = uiState.functionalFilter,
-                    onClick = viewModel::onFunctionalFilterToggled,
-                    label = { Text("Functional") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = TimerGreen,
-                        selectedLabelColor = MaterialTheme.colorScheme.surface,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        labelColor = TimerGreen
-                    )
-                )
-            }
 
             // Exercise list
             if (uiState.isLoading) {
@@ -302,9 +187,33 @@ fun ExercisesScreen(
             }
         )
     }
+
+    // Filter dialog
+    if (uiState.showFilterDialog) {
+        ExerciseFilterDialog(
+            selectedTypes = uiState.selectedTypes,
+            selectedMuscles = uiState.selectedMuscles,
+            selectedEquipment = uiState.selectedEquipment,
+            functionalFilter = uiState.functionalFilter,
+            muscleOptions = muscleGroupFilters,
+            equipmentOptions = equipmentFilters,
+            onTypeToggled = viewModel::onTypeFilterToggled,
+            onMuscleToggled = viewModel::onMuscleFilterToggled,
+            onEquipmentToggled = viewModel::onEquipmentFilterToggled,
+            onFunctionalToggled = viewModel::onFunctionalFilterToggled,
+            onSelectAllTypes = viewModel::onSelectAllTypes,
+            onDeselectAllTypes = viewModel::onDeselectAllTypes,
+            onSelectAllMuscles = viewModel::onSelectAllMuscles,
+            onDeselectAllMuscles = viewModel::onDeselectAllMuscles,
+            onSelectAllEquipment = viewModel::onSelectAllEquipment,
+            onDeselectAllEquipment = viewModel::onDeselectAllEquipment,
+            onClearAll = viewModel::onClearAllFilters,
+            onDismiss = viewModel::onFilterDialogToggled
+        )
+    }
 }
 
-private fun exerciseTypeIcon(type: ExerciseType): ImageVector = when (type) {
+internal fun exerciseTypeIcon(type: ExerciseType): ImageVector = when (type) {
     ExerciseType.STRENGTH   -> Icons.Default.FitnessCenter
     ExerciseType.CARDIO     -> Icons.Default.DirectionsRun
     ExerciseType.TIMED      -> Icons.Default.Timer
@@ -312,7 +221,7 @@ private fun exerciseTypeIcon(type: ExerciseType): ImageVector = when (type) {
     ExerciseType.STRETCH    -> Icons.Default.SelfImprovement
 }
 
-private fun exerciseTypeColor(type: ExerciseType, primaryColor: Color): Color = when (type) {
+internal fun exerciseTypeColor(type: ExerciseType, primaryColor: Color): Color = when (type) {
     ExerciseType.STRENGTH   -> primaryColor
     ExerciseType.CARDIO     -> TimerGreen
     ExerciseType.TIMED      -> ReadinessAmber
