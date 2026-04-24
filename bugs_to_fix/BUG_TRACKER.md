@@ -95,6 +95,8 @@ Single source of truth for bug status across sessions.
 | [BUG_ai_camera_no_permission_declared](BUG_ai_camera_no_permission_declared.md) | AI photo flow Camera button silently no-ops on fresh install — CAMERA permission not declared in manifest | ✅ Wrapped | P2 | — | — | `AiWorkoutGenerationScreen.kt` |
 | [BUG_camera_fileprovider_crash](BUG_camera_fileprovider_crash.md) | Camera crashes app in AI photo flow — FileProvider not declared in manifest + file_paths.xml missing | ✅ Wrapped | P0 | — | — | `AndroidManifest.xml`, `res/xml/file_paths.xml` (new) |
 | [BUG_exercise_card_form_cues_badge](BUG_exercise_card_form_cues_badge.md) | Exercise card shows spurious "Form cues" badge | ✅ Wrapped | P3 | — | — | `ExercisesScreen.kt` |
+| [BUG_use_rpe_toggle_layout](BUG_use_rpe_toggle_layout.md) | Use RPE toggle misaligned — multi-line subtitle breaks row layout | ✅ Wrapped | P2 | — | — | `SettingsScreen.kt` |
+| [BUG_exercise_type_mismatches](BUG_exercise_type_mismatches.md) | exerciseType mismatches — 2 invalid BODYWEIGHT enum + 2 wrong type assignments | ✅ Completed | P2 | — | — | `master_exercises.json`, `MasterExerciseSeeder.kt` |
 
 ---
 
