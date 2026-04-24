@@ -39,7 +39,7 @@ Multi-task initiatives that own a root-level spec and a set of child Feature tas
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 1/12 wrapped · 2 in-progress · 9 not-started | 12 |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 4/18 wrapped · 4 completed · 10 not-started | 18 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/3 wrapped | 3 active + §8 queue |
 
 ---
@@ -60,7 +60,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Workouts page — Quick Start 3-way chooser (exercises / picture / text) | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | S | `wrapped` | Quick Start Workout ✅, AI Workout Generation ✅ |
 | Gymvisual chest+barbell catalogue comparison (research report) | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | XS | `wrapped` | — |
 | Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed` | — |
-| Clocks Countdown — MM:SS fill-in input (replaces roulette wheel) | `future_devs/CLOCKS_COUNTDOWN_MMS_INPUT_SPEC.md` | S | `in-progress` | — |
+| Clocks Countdown — MM:SS fill-in input (replaces roulette wheel) | `future_devs/CLOCKS_COUNTDOWN_MMS_INPUT_SPEC.md` | S | `wrapped` | — |
 
 ---
 
@@ -180,18 +180,23 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | WorkoutStyle enum + Settings card | `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | S | `wrapped` | — |
-| Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `completed` | — |
+| Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `wrapped` | — |
 | Extract TimerEngine class + real JetBrains Mono font | `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | M | `wrapped` | — |
-| RoutineBlock + WorkoutBlock entities + MIGRATION_49_50 backfill | `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | L | `not-started` | WorkoutStyle pref ✅, Exercise tags ✅, TimerEngine ✅ |
+| RoutineBlock + WorkoutBlock entities + MIGRATION_49_50 backfill (TABATA type; +7 columns on workout_blocks, +5 on routine_blocks) | `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | L | `not-started` | WorkoutStyle pref ✅, Exercise tags ✅, TimerEngine ✅ |
 | Embed block arrays in Firestore push/pull | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
-| FunctionalBlockWizard + Pure Functional template builder | `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | L | `not-started` | Block entities migration ✅ |
+| FunctionalBlockWizard + Pure Functional template builder (4 block types incl. TABATA; any-exercise picker; E2MOM/E3MOM; RFT cap; setup/warn overrides) | `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | L | `not-started` | Block entities migration ✅ |
 | Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | S | `not-started` | FunctionalBlockWizard ✅ |
 | Block headers in active workout; STRENGTH materialisation on start | `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
-| AMRAP/RFT/EMOM overlays + FunctionalBlockRunner + foreground-service lifecycle | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `not-started` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
+| AMRAP/RFT/EMOM/TABATA overlays + FunctionalBlockRunner + per-exercise RPE + round-tap log + RFT cap + HC block segments + foreground-service lifecycle | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `not-started` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
 | Block-aware History rows + Trends + WorkoutSummaryScreen | `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | M | `not-started` | Functional runner ✅ (in prod ≥1 release) |
 | Exercise gap analysis — CrossFit / Hyrox / Calisthenics (research report) | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `completed` | — |
-| Expanded exercise seed — CrossFit / Hyrox / Calisthenics DB population | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `not-started` | gap analysis ✅, Exercise tags seed ✅ |
-| Cardio exercise seed — treadmill, cycling, swimming, machines, LISS/HIIT | `future_devs/FUNC_CARDIO_EXERCISE_SEED_SPEC.md` | S | `not-started` | func_exercise_tags_seed ✅, func_exercise_expanded_seed ✅ |
+| CrossFit exercise list verification — crossfit.com + 2 sources (research report) | `future_devs/FUNC_CROSSFIT_VERIFICATION_SPEC.md` | XS | `completed` | gap analysis ✅ |
+| Expanded exercise seed — CrossFit / Hyrox / Calisthenics DB population | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `completed` | gap analysis ✅, CrossFit verification ✅, Exercise tags seed ✅ |
+| Cardio exercise seed — treadmill, cycling, swimming, machines, LISS/HIIT | `future_devs/FUNC_CARDIO_EXERCISE_SEED_SPEC.md` | S | `completed` | func_exercise_tags_seed ✅, func_exercise_expanded_seed ✅ |
+| Exercise Library — exerciseType filter chips (Timed / Cardio / Plyometric) | `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md` | S | `superseded` | superseded by exercise_filter_dialog ✅ |
+| Exercise Library — collapsible filter panel | `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` | S | `superseded` | superseded by exercise_filter_dialog ✅ |
+| Exercise Library — filter dialog (Tune icon + centered dialog with type/muscle/equipment) | `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md` | S | `wrapped` | func_exercise_tags_seed ✅ |
+| exerciseType seed gap fix — retag PLYOMETRIC exercises + add STRETCH entries | `future_devs/FUNC_EXERCISE_TYPE_RETAG_SEED_SPEC.md` | S | `in-progress` | func_exercise_tags_seed ✅ |
 
 ---
 
@@ -317,5 +322,9 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | P0 — Research: gymvisual.com chest+barbell catalogue vs our exercise DB; no GIF download, no DB changes |
 | `future_devs/API_KEY_VALIDATION_SPEC.md` | P0 — Gemini API key inline validation after Save in Settings AI card |
 | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | P8 — Research: CrossFit / Hyrox / Calisthenics exercise gap analysis; no code changes |
-| `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | P8 — Seed expanded functional exercise list (CrossFit WODs, Hyrox 8 stations, calisthenics progressions) |
+| `future_devs/FUNC_CROSSFIT_VERIFICATION_SPEC.md` | P8 — Research: CrossFit exercise list verification against crossfit.com + 2 sources; no code changes |
+| `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | P8 — Seed 61 net-new exercises (CrossFit WODs, Hyrox 8 stations, calisthenics progressions) + 41 retagging ops |
 | `future_devs/FUNC_CARDIO_EXERCISE_SEED_SPEC.md` | P8 — Cardio exercise seed — treadmill, cycling, swimming, machines, LISS/HIIT protocols |
+| `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md` | P8 — Exercise Library exerciseType filter chips (Timed / Cardio / Plyometric); no schema change |
+| `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` | P8 — Exercise Library collapsible filter panel; design via ui-ux-pro-max |
+| `future_devs/FUNC_EXERCISE_TYPE_RETAG_SEED_SPEC.md` | P8 — Data fix: retag PLYOMETRIC exercises + seed STRETCH exercises so filter chips return results |

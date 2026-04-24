@@ -5,8 +5,8 @@
 | **Type** | Epic |
 | **Phase** | P8 |
 | **Status** | `in-progress` |
-| **Children** | 13 tasks — see `future_devs/FUNC_*_SPEC.md` |
-| **Rollup** | 2/13 wrapped · 2 in-progress · 9 not-started |
+| **Children** | 18 tasks — see `future_devs/FUNC_*_SPEC.md`, `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md`, `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md`, `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` |
+| **Rollup** | 4/18 wrapped · 4 completed · 10 not-started |
 
 > **Depends on:** DB v48 stable (current). No other phase dependencies.
 
@@ -16,27 +16,34 @@
 
 PowerME currently supports linear strength training only: `Workout → Sets` (exercises derived from `DISTINCT workout_sets.exerciseId`). This spec adds native **Functional Training** support — AMRAP ("As Many Rounds As Possible"), RFT ("Rounds For Time"), and EMOM ("Every Minute On the Minute") — and enables them to coexist with strength work in the same session (Hybrid mode).
 
-### 1.1 The Three Modes
+### 1.1 The Four Modes
 
 **AMRAP (As Many Rounds As Possible)**
 - A prescribed list of exercises (the "recipe") is performed repeatedly until a time cap (e.g. 12 minutes) runs out.
 - Score = rounds completed + extra reps into the next round (e.g. "8 rounds + 3 reps").
 
 **RFT (Rounds For Time)**
-- A prescribed number of rounds is completed as fast as possible.
-- Score = total elapsed time (e.g. "18:42") and rounds completed (partial credit captured if the user taps Finish early, e.g. "4 of 5 rounds @ 14:22").
+- A prescribed number of rounds is completed as fast as possible. Optional time cap auto-finishes the block if reached.
+- Score = total elapsed time (e.g. "18:42") and rounds completed (partial credit captured if the user taps Finish early or cap hits, e.g. "4 of 5 rounds @ 14:22").
 
-**EMOM (Every Minute On the Minute)**
-- A prescribed amount of work is performed at the start of every minute for N minutes. Remaining time in each minute is rest.
+**EMOM (Every Minute On the Minute — and variants)**
+- A prescribed amount of work is performed at the start of every interval for N total minutes. Remaining time in each interval is rest.
+- Interval length is configurable: 60s (EMOM), 90s, 120s (E2MOM), 180s (E3MOM), 300s (E5MOM), or custom.
 - Score = rounds completed + completion %.
+
+**Tabata**
+- A fixed-format interval: work for `workSeconds`, rest for `restSeconds`, repeated for `rounds` total cycles.
+- Default: 20s work / 10s rest × 8 rounds = 4 minutes (classic Tabata protocol).
+- Fully configurable. Optional "skip last rest" flag.
+- Score = rounds completed (auto-tracked) + RPE.
 
 ### 1.2 The Three Workout Styles (user preference)
 
 | Style | "Add" behavior in Template Builder |
 |---|---|
 | `PURE_GYM` | Goes straight to legacy exercise library (no change). |
-| `PURE_FUNCTIONAL` | Opens the Functional Block Wizard directly. |
-| `HYBRID` (default) | Opens a bottom sheet: "Add Strength Exercise" or "Add Functional Block". |
+| `PURE_FUNCTIONAL` | Opens the Functional Block Wizard directly (4 block types). |
+| `HYBRID` (default) | Opens a bottom sheet: "Add Strength Exercise" or "Add Functional Block". A single routine can hold any mix of STRENGTH, AMRAP, RFT, EMOM, and TABATA blocks. |
 
 ### 1.3 The "Block" Concept
 
@@ -120,11 +127,18 @@ data class RoutineBlock(
   @PrimaryKey val id: String,                      // UUID
   val routineId: String,                           // FK → routines.id, CASCADE
   val order: Int,                                  // position within routine (0-based)
-  val type: String,                                // STRENGTH | AMRAP | RFT | EMOM
+  val type: String,                                // STRENGTH | AMRAP | RFT | EMOM | TABATA
   val name: String? = null,                        // user-editable label, e.g. "Metcon", "Finisher"
-  val durationSeconds: Int? = null,                // AMRAP cap total / EMOM total duration
+  val durationSeconds: Int? = null,                // AMRAP cap / EMOM total / RFT optional cap
   val targetRounds: Int? = null,                   // RFT target round count
-  val emomRoundSeconds: Int? = null,               // EMOM: duration of one interval in seconds
+  val emomRoundSeconds: Int? = null,               // EMOM: duration of one interval in seconds (default 60)
+  // Tabata fields
+  val tabataWorkSeconds: Int? = null,              // TABATA work phase duration (default 20)
+  val tabataRestSeconds: Int? = null,              // TABATA rest phase duration (default 10)
+  val tabataSkipLastRest: Int? = null,             // 0 = don't skip, 1 = skip last rest (SQLite bool)
+  // Per-block timer overrides (null = use AppSettings defaults)
+  val setupSecondsOverride: Int? = null,           // pre-start countdown; null = timedSetSetupSeconds pref
+  val warnAtSecondsOverride: Int? = null,          // mid-interval warning; null = resolveWarnAt auto-halftime
   // Sync columns (v35 pattern)
   @ColumnInfo(defaultValue = "") val syncId: String = UUID.randomUUID().toString(),
   @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0L
@@ -154,11 +168,18 @@ data class WorkoutBlock(
   val durationSeconds: Int? = null,
   val targetRounds: Int? = null,
   val emomRoundSeconds: Int? = null,
+  val tabataWorkSeconds: Int? = null,
+  val tabataRestSeconds: Int? = null,
+  val tabataSkipLastRest: Int? = null,
+  val setupSecondsOverride: Int? = null,
+  val warnAtSecondsOverride: Int? = null,
   // Result fields (populated at block finish)
-  val totalRounds: Int? = null,                     // AMRAP: rounds completed; RFT: rounds completed
+  val totalRounds: Int? = null,                     // AMRAP: rounds completed; RFT: rounds completed; TABATA: rounds completed
   val extraReps: Int? = null,                       // AMRAP: reps into next round
-  val finishTimeSeconds: Int? = null,               // RFT: total elapsed; EMOM: total elapsed
-  val rpe: Int? = null,                             // 1–10 user self-rating
+  val finishTimeSeconds: Int? = null,               // RFT: total elapsed; EMOM/TABATA: total elapsed
+  val rpe: Int? = null,                             // 1–10 user self-rating (overall; mutually exclusive with perExerciseRpeJson)
+  val perExerciseRpeJson: String? = null,           // JSON map exerciseId→rpe (per-exercise; mutually exclusive with rpe)
+  val roundTapLogJson: String? = null,              // JSON: [{round,elapsedMs}, ...] — per-round tap timestamps for analytics
   val blockNotes: String? = null,
   // Lifecycle
   val runStartMs: Long? = null,                     // wall-clock epoch at block start; for resume-from-kill
@@ -178,7 +199,7 @@ data class WorkoutBlock(
 **`RoutineExercise.kt`** — add after existing per-set JSON columns:
 ```kotlin
 @ColumnInfo(defaultValue = "null") val blockId: String? = null     // FK → routine_blocks.id
-@ColumnInfo(defaultValue = "null") val holdSeconds: Int? = null    // populated when exerciseType==TIMED in a block
+@ColumnInfo(defaultValue = "null") val holdSeconds: Int? = null    // populated for any time-capped row in a non-STRENGTH block regardless of master Exercise.exerciseType; see §10 and §12 Invariant #10
 ```
 
 **`WorkoutSet.kt`** — add after `supersetGroupId`:
@@ -251,6 +272,11 @@ private val MIGRATION_49_50 = object : Migration(49, 50) {
         durationSeconds INTEGER,
         targetRounds INTEGER,
         emomRoundSeconds INTEGER,
+        tabataWorkSeconds INTEGER,
+        tabataRestSeconds INTEGER,
+        tabataSkipLastRest INTEGER,
+        setupSecondsOverride INTEGER,
+        warnAtSecondsOverride INTEGER,
         syncId TEXT NOT NULL DEFAULT '',
         updatedAt INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (routineId) REFERENCES routines(id) ON DELETE CASCADE
@@ -269,10 +295,17 @@ private val MIGRATION_49_50 = object : Migration(49, 50) {
         durationSeconds INTEGER,
         targetRounds INTEGER,
         emomRoundSeconds INTEGER,
+        tabataWorkSeconds INTEGER,
+        tabataRestSeconds INTEGER,
+        tabataSkipLastRest INTEGER,
+        setupSecondsOverride INTEGER,
+        warnAtSecondsOverride INTEGER,
         totalRounds INTEGER,
         extraReps INTEGER,
         finishTimeSeconds INTEGER,
         rpe INTEGER,
+        perExerciseRpeJson TEXT,
+        roundTapLogJson TEXT,
         blockNotes TEXT,
         runStartMs INTEGER,
         syncId TEXT NOT NULL DEFAULT '',
@@ -364,8 +397,23 @@ Blocks are **embedded as child arrays** in their parent doc — not sub-collecti
       "totalRounds": 8,
       "extraReps": 3,
       "rpe": 8,
+      "roundTapLogJson": "[{\"round\":1,\"elapsedMs\":45000},{\"round\":2,\"elapsedMs\":87000}]",
       "syncId": "...",
       "updatedAt": 1714000100000
+    },
+    {
+      "id": "...",
+      "order": 2,
+      "type": "TABATA",
+      "tabataWorkSeconds": 20,
+      "tabataRestSeconds": 10,
+      "tabataSkipLastRest": 0,
+      "totalRounds": 8,
+      "finishTimeSeconds": 240,
+      "perExerciseRpeJson": "{\"exerciseId_abc\": 8}",
+      "roundTapLogJson": "[{\"round\":1,\"phase\":\"WORK\",\"elapsedMs\":0},...]",
+      "syncId": "...",
+      "updatedAt": 1714000200000
     }
   ],
   "sets": [...]
@@ -406,11 +454,13 @@ If the remote doc **has** `blocks`: reconstruct all blocks + update `blockId` FK
 
 ### 6.2 Picker filter rules
 
-| Context | Include | Exclude |
+| Context | Default filter | Can toggle? |
 |---|---|---|
-| Exercise Library (browse tab) | All exercises | Nothing. "Functional" chip toggles `"functional" in tags` |
-| Gym Picker (Strength block add) | Everything | `"functional-only" in tags` |
-| Functional Picker (Functional block add) | `"functional" in tags` | All others |
+| Exercise Library (browse tab) | None — shows all | Yes: Functional chip narrows to `"functional" in tags` |
+| Gym Picker (Strength block add) | Exclude `"functional-only" in tags` | Fixed |
+| Functional Picker (Functional block add) | Functional chip **ON** (`"functional" in tags`) | **Yes** — toggling OFF exposes all exercises (Back Squat, Bench Press, Treadmill, etc.) |
+
+The Functional Picker reuses `ExercisesScreen` with `functionalFilter = true` pre-set via nav arg. Toggling the chip off triggers `onFunctionalFilterToggled()` exactly as on the Library screen — no new ViewModel logic needed.
 
 ### 6.3 New movements (~40 entries)
 
@@ -548,18 +598,26 @@ workoutStyle == HYBRID
 ### 8.2 `FunctionalBlockWizard` — 3-step bottom sheet
 
 **Step 1 — Block type**
-Three large tappable tiles: `AMRAP`, `RFT`, `EMOM` with icon + one-line description.
+Four large tappable tiles: `AMRAP`, `RFT`, `EMOM`, `TABATA` with icon + one-line description.
 
 **Step 2 — Block parameters**
-- AMRAP: time-cap picker (minutes wheel, 1–60 min).
-- RFT: target rounds stepper (1–20 rounds) + optional time cap.
-- EMOM: total duration picker (minutes) + interval length picker (seconds, default 60).
-- Block name field (optional, auto-filled: "AMRAP 12min", "5RFT", "EMOM 10min").
+- AMRAP: time-cap picker (minutes wheel, 1–60 min). Auto-name: "AMRAP 12min".
+- RFT: target rounds stepper (1–20 rounds) + optional "Time cap [mm:ss]" field (empty = no cap; stored as `durationSeconds`). Auto-name: "5RFT"; with cap: "5RFT / 25min cap".
+- EMOM: total duration picker (minutes) + interval-length preset chips `[60s (EMOM)] [90s] [2min] [3min] [5min]` + "Other [mm:ss]". Auto-name: "EMOM 10min", "E2MOM 10min", "E3MOM 15min". Stored as `emomRoundSeconds`.
+- TABATA: Work stepper (default 20s) + Rest stepper (default 10s) + Rounds stepper (default 8) + "Skip last rest" switch. Auto-name: "Tabata 8rds". Defaults from `ToolsUiState` (`ToolsViewModel.kt:56–71`).
+- Block name field (optional, auto-filled from above).
+- **Advanced ▾ (collapsible row):** "Setup [N]s" + "Warn at [N]s". Blank = use settings defaults (`timedSetSetupSeconds` + `resolveWarnAt`). Stored as `setupSecondsOverride?` / `warnAtSecondsOverride?` on `RoutineBlock`.
 
 **Step 3 — Add exercises (Functional Picker)**
-Multi-select `ExercisesScreen` filtered to `"functional" in tags`. Grouped by `familyId`. Selected exercises become `RoutineExercise` rows with `blockId` pointing at the new block.
+Multi-select `ExercisesScreen` entered with `functionalFilter = true` pre-set (Functional chip ON). User can toggle the chip OFF to expose **any** exercise including Back Squat, Bench Press, Treadmill, or any non-tagged exercise. Grouped by `familyId`. Selected exercises become `RoutineExercise` rows with `blockId` pointing at the new block.
 
-Each exercise row in the template shows `QTY × Exercise Name` (or `Xs Exercise Name` for TIMED exercises using `holdSeconds`).
+Each exercise row in the template shows a quantity stepper alongside a small `[Reps] [Time]` segmented toggle (right-aligned, `bodySmall`, 32dp height). Toggle behaviour varies by block type:
+- **AMRAP / RFT:** `[Reps]` selected → qty stepper (saves to `RoutineExercise.reps`, sets `holdSeconds = null`). `[Time]` selected → `[mm:ss]` picker (saves to `RoutineExercise.holdSeconds`, ignores `reps`). Default chosen by heuristic: `TIMED`-typed exercises default to `[Time]` with `holdSeconds = Exercise.restDurationSeconds ?: 30`; all other types (`STRENGTH`, `PLYOMETRIC`, `CARDIO`) default to `[Reps]`.
+- **EMOM / TABATA:** toggle is hidden entirely; only the reps stepper is shown. `holdSeconds` is forced to `null` on save. If an exercise row is drag-copied from an AMRAP/RFT block into an EMOM/TABATA block, its `holdSeconds` is reset to `null` automatically.
+
+Switching `[Reps] ↔ [Time]` with a value already entered triggers a confirmation dialog before discarding the other field.
+
+The template list shows `QTY × Exercise Name` (rep-capped) or `Xs/Xmin Exercise Name` (time-capped) per §10 rendering rules.
 
 ### 8.3 Block sections in `TemplateBuilderScreen`
 
@@ -569,9 +627,33 @@ The exercise list becomes a block-sectioned list:
 - Per-block "Add exercise" + "Delete block" actions in the block header overflow menu.
 - STRENGTH blocks behave identically to the legacy template — no changes for Pure Gym users.
 
+### 8.4 Mixed Block Routine Example (Hybrid)
+
+A single routine can interleave STRENGTH and functional blocks in any order:
+
+```
+Routine: "Leg Day + Metcon Finisher"
+  Block 1 [STRENGTH]
+    - Barbell Back Squat  5×5
+    - Romanian Deadlift   3×8
+    - Bulgarian Split Squat 3×10
+
+  Block 2 [AMRAP 8:00]
+    - 15 × Wall Ball
+    - 10 × Box Jump 24"
+    - 200m Row
+
+  Block 3 [TABATA 20/10 ×8]
+    - Burpees
+```
+
+In `TemplateBuilderScreen`: Block 1 renders the legacy `RoutineBuilderCard` style (no block header if it's the only STRENGTH block). Blocks 2 and 3 each render a `BlockHeader` with badge + parameter summary. Drag handles allow reordering blocks; exercise reordering works within each block.
+
+In `ActiveWorkoutScreen`: Block 1 exercises use the existing `ActiveWorkoutExerciseCard`. Blocks 2 and 3 render `BlockHeader` with `[▶ START BLOCK]` button → overlay.
+
 ---
 
-## 9. Live Workout UX — The Three Screens
+## 9. Live Workout UX — The Four Screens
 
 ### 9.1 Shared chassis (`FunctionalBlockOverlay`)
 
@@ -620,7 +702,8 @@ val TimerDigitsM  = MonoTextStyle.copy(fontSize = 28.sp, fontWeight = FontWeight
 | Context | Background tint | Digit color | Alert |
 |---|---|---|---|
 | SETUP (get ready countdown) | `ReadinessAmber.copy(alpha=0.12f)` | `ReadinessAmber` | none |
-| WORK (AMRAP, RFT, EMOM interval) | `TimerGreen.copy(alpha=0.08f)` | `TimerGreen` | — |
+| WORK (AMRAP, RFT, EMOM interval, TABATA WORK) | `TimerGreen.copy(alpha=0.08f)` | `TimerGreen` | — |
+| REST (TABATA REST phase) | `ReadinessAmber.copy(alpha=0.12f)` | `ReadinessAmber` | — |
 | AMRAP last 10s | `TimerRed.copy(alpha=0.12f)` | `TimerRed` | `COUNTDOWN_TICK` per second |
 | EMOM last 3s of interval | unchanged | unchanged | `COUNTDOWN_TICK` per second |
 | Blind tap (each tap) | flash `NeonPurple.copy(alpha=0.22f)` | — | `ROUND_START` waveform (600ms beep + `[0,150,150,150,150,500]` haptic) |
@@ -648,10 +731,13 @@ val TimerDigitsM  = MonoTextStyle.copy(fontSize = 28.sp, fontWeight = FontWeight
 **`BlockFinishSheet`** (24dp large shape, 50% scrim):
 - "Final tally" header (`headlineSmall`).
 - Two steppers side-by-side: "Rounds [N ±]" and "Extra reps [N ±]" — 48dp ± buttons, numbers in `TimerDigitsL`.
-- RPE picker: 10 chips in two rows (reuse `RpePickerSheet` pattern from `ActiveWorkoutScreen.kt:2590`).
+- **RPE section** — segmented control `[Overall] [Per exercise]`:
+  - Overall (default): 10 chips in two rows (reuse `RpePickerSheet` from `ActiveWorkoutScreen.kt:2590`). Saves to `WorkoutBlock.rpe`.
+  - Per exercise: one chip row per recipe exercise. Saves to `WorkoutBlock.perExerciseRpeJson`. Switching clears the other field.
 - Optional `OutlinedTextField` for notes.
 - Primary CTA "Save Block" + secondary "Discard".
 - Dismiss-with-unsaved confirm dialog.
+- Each blind-tap appends `{round: N, elapsedMs}` to `WorkoutBlock.roundTapLogJson` in real-time.
 
 ### 9.5 Screen B — RFT Live
 
@@ -663,11 +749,14 @@ val TimerDigitsM  = MonoTextStyle.copy(fontSize = 28.sp, fontWeight = FontWeight
 - Full-width `[FINISH WOD]` button. Height: 72dp. BarlowCondensed Bold, `headlineSmall`. `TimerGreen` background, `onPrimary` text.
 - Subtitle below button: "Stops clock at 08:24" (live-updating — motion meaning).
 - Press → confirmation dialog: "End workout at 08:24?" (prevents fat-finger stops).
+- Secondary `[ROUND ✓]` button (48dp, `outlineVariant`, below FINISH WOD) — records a round split in `roundTapLogJson` without ending the block. Pre-fills rounds completed in `BlockFinishSheet`.
+
+**Optional time cap:** When `WorkoutBlock.durationSeconds` is set, the timer zone shows the count-up stopwatch + a smaller remaining-to-cap counter below it (warning tint at ≤10s to cap). At cap expiry the `BlockFinishSheet` is auto-presented with elapsed = cap and rounds = count of `[ROUND ✓]` taps. Cap auto-finish fires the same `FINISH` alert (sound + haptic) as manual finish.
 
 **`BlockFinishSheet` (RFT variant):**
 - Captured time displayed at top ("18:42").
-- Rounds stepper ("4 of 5 rounds") — pre-filled with rounds completed; user can adjust for partial credit.
-- RPE picker.
+- Rounds stepper ("4 of 5 rounds") — pre-filled with `[ROUND ✓]` tap count; user can adjust for partial credit.
+- **RPE section** — `[Overall] [Per exercise]` toggle (same pattern as AMRAP finish sheet above).
 - Notes field.
 
 ### 9.6 Screen C — EMOM Live
@@ -675,34 +764,64 @@ val TimerDigitsM  = MonoTextStyle.copy(fontSize = 28.sp, fontWeight = FontWeight
 **Timer zone:**
 - `CircularProgressIndicator` ring (320dp diameter, 8dp stroke, `TimerGreen`) — drains left-to-right within each interval. Uses `transform` only (no `height`/`width` animation — `transform-performance` rule).
 - Inside ring: `TimerDigitsXL` remaining seconds of current interval.
-- Below ring: `"Round X of Y"` (`titleMedium` BarlowCondensed).
+- Below ring: `"Round X of Y — [emomRoundSeconds]s interval"` (`titleMedium` BarlowCondensed). E.g. "Round 3 of 10 — 2min interval" for E2MOM.
 
 **Recipe zone:** shows prescribed work for the current round, highlighted. Next round's work at 60% alpha.
 
 **Action zone** (smaller: ~28% height — EMOM is hands-on, no blind tap needed):
-- `[COMPLETED ✓]` button (`TimerGreen`, 56dp height) — logs round as done.
-- `[SKIP ROUND]` button (secondary, `outlineVariant`, 48dp) — marks round skipped.
+- `[COMPLETED ✓]` button (`TimerGreen`, 56dp height) — logs round as done; appends `{round, elapsedMs, completed: true}` to `roundTapLogJson`.
+- `[SKIP ROUND]` button (secondary, `outlineVariant`, 48dp) — marks round skipped; appends `{round, elapsedMs, completed: false}`.
 
-**Interval boundary:** `ROUND_START` alert (inherited from `TimerEngine.runEmom` — fires for each round automatically). No additional code needed.
+**Interval boundary:** `ROUND_START` alert (inherited from `TimerEngine.runEmom` — fires for each `emomRoundSeconds` interval automatically). Supports variable intervals (60s, 90s, 120s, etc.).
 
-### 9.7 Pre-start state (all three screens)
+**`BlockFinishSheet` (EMOM variant):** rounds completed + skip rate (display-only) + **RPE section** with `[Overall] [Per exercise]` toggle + notes.
 
-Block header in `ActiveWorkoutScreen` shows a `▶ START BLOCK` button. Tapping opens the overlay in `SETUP` phase: a 3-2-1-GO `ReadinessAmber` countdown before the timer begins. Uses `TimerDigitsXL` 3-2-1 digits.
+### 9.7 Screen D — Tabata Live
 
-### 9.8 Paused state
+**Timer zone:**
+- `CircularProgressIndicator` ring (320dp/8dp) — drains per phase; resets fully at each phase boundary.
+  - WORK phase: ring + background `TimerGreen.copy(alpha=0.08f)`.
+  - REST phase: ring + background `ReadinessAmber.copy(alpha=0.12f)`.
+- Inside ring: `TimerDigitsXL` remaining seconds of current phase.
+- Below ring: phase label `"WORK"` / `"REST"` + `"Round X of Y"` (`titleMedium` BarlowCondensed).
+
+**Recipe zone:** prescribed work shown during WORK; `"Rest"` during REST.
+
+**Action zone:** No blind tap, no finish button — Tabata is auto-run. Optional `[SKIP REMAINING]` (small, tertiary) available during WORK for early abort.
+
+**Alerts (all via TimerEngine, no extra code):**
+- `ROUND_START` at each WORK phase start.
+- `COUNTDOWN_TICK` last 3s of each phase.
+- `WARNING` at configured threshold.
+- `FINISH` on last round completion.
+
+Each phase boundary auto-appends `{round: N, phase: "WORK"|"REST", elapsedMs}` to `roundTapLogJson`.
+
+**`BlockFinishSheet` (Tabata):** elapsed time (pre-filled, display-only) + rounds-completed stepper (pre-filled with `totalRounds`) + **RPE section** with `[Overall] [Per exercise]` toggle + notes.
+
+### 9.8 Pre-start state (all four screens)
+
+Block header in `ActiveWorkoutScreen` shows a `▶ START BLOCK` button. Tapping opens the overlay in `SETUP` phase.
+
+**Setup countdown length** = `setupSecondsOverride` if set on the block, otherwise `timedSetSetupSeconds` from `AppSettingsDataStore` (the same pref used by timed-set pre-start). If the resolved value is 0, the SETUP phase is skipped entirely and the timer goes directly to WORK. Uses `TimerDigitsXL` digits in `ReadinessAmber`.
+
+### 9.9 Paused state
 
 Overlay dims the action zone to 60% alpha. Tap zone disabled. Center shows `"PAUSED"` (`titleLarge`). Tapping anywhere outside the block recipe → `WorkoutViewModel` confirms with edit guard if applicable.
 
-### 9.9 Summary card (post-block, inline)
+### 9.10 Summary card (post-block, inline)
 
 After `BlockFinishSheet` saved, the block header in `ActiveWorkoutScreen` becomes a summary card:
 - AMRAP: "AMRAP 12:00 — 8 rounds + 3 reps · RPE 8"
 - RFT: "5 Rounds — 18:42 · RPE 7"
-- EMOM: "EMOM 10min — 10/10 rounds · RPE 8"
+- EMOM: "E2MOM 10min — 10/10 rounds · RPE 8"
+- TABATA: "Tabata 8rds — 20/10 · RPE 7"
+
+When `perExerciseRpeJson` was used, headline shows avg RPE: "RPE avg 7.5"; tap the card to see per-exercise breakdown.
 
 User can tap to re-edit the score (opens `BlockFinishSheet` again, pre-filled).
 
-### 9.10 Accessibility
+### 9.11 Accessibility
 
 - Blind tap zone: `role = Button` + live `contentDescription` + `announceForAccessibility` per tap.
 - All haptics respect `AccessibilityManager.isTouchExplorationEnabled()` — do not suppress haptics for TalkBack users (haptic is informational, not decorative).
@@ -714,12 +833,19 @@ User can tap to re-edit the score (opens `BlockFinishSheet` again, pre-filled).
 
 ## 10. Mixed Reps/Time in a Block
 
-`Exercise.exerciseType` determines the recipe row rendering:
-- `STRENGTH` or `PLYOMETRIC` → `"$qty × $exerciseName"` (e.g. "15 × Wall Ball")
-- `TIMED` → `"${holdSeconds}s $exerciseName"` (e.g. "30s Plank")
-- `CARDIO` → `"$qty $unit $exerciseName"` (e.g. "500m Row", "20 cal Bike")
+`RoutineExercise.holdSeconds` takes precedence in rendering — it is a **per-prescription** decision, not a property of the master `Exercise.exerciseType`. Rendering rule:
 
-`RoutineExercise.holdSeconds: Int?` stores the prescribed hold duration per exercise instance in a block. This is the per-instance value; `Exercise.restDurationSeconds` is the master default and is unrelated.
+```
+if (holdSeconds != null)       → "${formatSeconds(holdSeconds)} $exerciseName"     // e.g. "1min Double Unders", "30s Plank"
+else if exerciseType == CARDIO → "$qty $unit $exerciseName"                         // e.g. "500m Row", "20 cal Bike"
+else                           → "$qty × $exerciseName"                             // e.g. "15 × Wall Ball"
+```
+
+`formatSeconds(n: Int): String` helper: `n < 60 → "${n}s"` · `n >= 60 && n % 60 == 0 → "${n/60}min"` · else `"${mm}:${ss}"`.
+
+`RoutineExercise.holdSeconds: Int?` stores the prescribed hold duration for one exercise instance in a block. This is the per-prescription value; `Exercise.restDurationSeconds` is the master default and is unrelated.
+
+**v1 limitation:** the in-block timer does NOT auto-advance when a time-capped exercise's `holdSeconds` elapses. The prescription is descriptive — the user self-paces (same as a coached CrossFit class). Execution-side enforcement (automatic advance after `holdSeconds`) is a v1.1 candidate.
 
 ---
 
@@ -730,7 +856,7 @@ User can tap to re-edit the score (opens `BlockFinishSheet` again, pre-filled).
 `WorkoutTimerService` (existing bound foreground service) hosts `FunctionalBlockRunner` alongside the existing rest-timer logic. No new service needed.
 
 `FunctionalBlockRunner` is a plain class injected via Hilt into `WorkoutViewModel`. It:
-1. Receives a `TimerSpec.Amrap / Rft / Emom` from `WorkoutViewModel.startFunctionalBlock(blockId)`.
+1. Receives a `TimerSpec.Amrap / Rft / Emom / Tabata` from `WorkoutViewModel.startFunctionalBlock(blockId)`. Setup seconds come from `block.setupSecondsOverride ?: appSettingsDataStore.timedSetSetupSeconds`.
 2. Calls `WakeLockManager.acquire()`.
 3. Records `WorkoutBlockDao.setRunStart(blockId, System.currentTimeMillis())`.
 4. Runs the `TimerEngine.run(spec)` coroutine.
@@ -745,6 +871,7 @@ If the process is killed mid-AMRAP, `WorkoutBlock.runStartMs` is non-null and `t
 - For AMRAP: if `elapsed < durationSeconds`, resumes with remaining = `durationSeconds - elapsed`. If elapsed ≥ durationSeconds, shows the finish sheet immediately.
 - For RFT: resumes the count-up from `elapsed`.
 - For EMOM: resumes at the correct round based on `elapsed ÷ emomRoundSeconds`.
+- For TABATA: `cycleSeconds = tabataWorkSeconds + tabataRestSeconds`. `round = elapsed ÷ cycleSeconds`. Phase = `(elapsed mod cycleSeconds) < tabataWorkSeconds ? WORK : REST`. Remaining phase seconds computed accordingly.
 
 ### 11.3 Ongoing notification
 
@@ -752,6 +879,7 @@ Same channel as the existing rest-timer notification. While a functional block r
 - AMRAP: "AMRAP — 08:24 remaining · Round 3"
 - RFT: "RFT — 05:12 elapsed · 2 of 5 rounds"
 - EMOM: "EMOM — Round 4 of 10 · 35s remaining"
+- TABATA: "Tabata — Round 5 of 8 · WORK · 14s remaining"
 
 Tapping the notification opens the active workout screen (existing foreground-notification tap handler).
 
@@ -773,6 +901,8 @@ These must hold across all implementations. Violating any is a regression.
 6. **Wake lock discipline.** `WakeLockManager.acquire()` on block start; `release()` on finish, pause, or `ViewModel.onCleared()`. Leaked wake locks drain battery.
 7. **Backfill blocks are transparent.** After migration, existing users must see zero UI change. The new block header for a STRENGTH block is only rendered if the workout has ≥2 blocks of mixed types. A single STRENGTH block = no header (legacy visual).
 8. **`blockId IS NULL` rows are handled gracefully.** If a `WorkoutSet` or `RoutineExercise` has `blockId = NULL` (corrupt migration, external import, etc.), it renders as part of an implicit unnamed STRENGTH block rather than crashing.
+9. **Exactly one RPE field is non-null per block.** `WorkoutBlock.rpe` and `WorkoutBlock.perExerciseRpeJson` are mutually exclusive. Both `NULL` = user skipped RPE. Both populated = rejected by `WorkoutBlockDao.saveResult`. In Trends/summary, when only `perExerciseRpeJson` is present, headline RPE = mean of its values.
+10. **Exactly one quantity mode per exercise row inside non-STRENGTH blocks.** For any `RoutineExercise` row in an AMRAP or RFT block: either `holdSeconds != null` (time-capped, `reps` ignored) or `holdSeconds == null` and `reps > 0` (rep-capped). Both null or both populated = validator rejects. Inside EMOM and TABATA blocks, `holdSeconds` is always `null` (wizard enforces; validator asserts). Inside STRENGTH blocks, this invariant does not apply — legacy per-set reps/weights pattern governs.
 
 ---
 
@@ -781,13 +911,18 @@ These must hold across all implementations. Violating any is a regression.
 These are explicitly deferred. Do not implement them during P8 execution.
 
 - **Per-movement AMRAP rep tracking.** User enters total rounds + extra reps only. No "how many Wall Balls did you do."
-- **EMOM work/rest ratio.** v1 EMOM is full-minute intervals (work starts at minute boundary, remaining time is implicit rest). Custom ":40s work / :20s rest" is deferred.
+- **EMOM custom work/rest split within an interval.** v1 EMOM and Tabata use the built-in work/rest fields. A full custom ":40s work / :20s rest" per-minute split beyond Tabata's fixed W/R is deferred.
 - **Partial-round tally.** AMRAP extra-reps counts reps into the next partial round — it does NOT track which specific exercises were completed in that partial round.
 - **Leaderboards / social comparison.** Scores are personal.
 - **AI functional block generation.** `AiWorkoutViewModel` can be extended in a later phase. For now, functional blocks are author-only.
 - **RX vs scaled tracking.** Users adjust weight/rep targets manually. No "RX / Scaled" flag.
+- **Execution-side enforcement of per-exercise `holdSeconds`.** v1 renders the time prescription in the `BlockRecipeRow` but does not auto-advance the in-block timer when that exercise's `holdSeconds` elapses. Full auto-advance is a v1.1 candidate.
+- **`[Reps][Time]` toggle on STRENGTH-block rows for non-TIMED masters.** Users who want a 15-min light treadmill run inside a gym day can use a `TIMED`-typed master exercise (e.g. "Treadmill Walk"), which already supports `holdSeconds`. Extending the toggle to STRENGTH-block rows for non-TIMED exercise types is a future extension.
 - **Rest between functional blocks.** Each block in a Hybrid workout starts when the user manually taps "Start Block." There is no automatic inter-block rest timer.
 - **AMRAP team mode (relay).** Single-user only.
+- **Cardio GPS / HC distance capture during a block.** Round count is the scoring primitive. Actual distance/pace sync for running/rowing within a block is a future phase.
+- **Per-exercise RPE time-series charts.** Data is captured in `perExerciseRpeJson`; visualisation in Trends is a v1.1 follow-up.
+- **Pacing-curve chart.** `roundTapLogJson` data is stored; AMRAP pace-over-sessions visualisation is P8 Tier 5 or later.
 
 ---
 
@@ -803,8 +938,8 @@ These are explicitly deferred. Do not implement them during P8 execution.
 | 3 | `func_template_wizard` | FunctionalBlockWizard + Pure Functional builder | MEDIUM |
 | 3 | `func_template_hybrid_sheet` | Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | LOW |
 | 4 | `func_active_strength_blocks` | Block headers in active workout; STRENGTH materializes | MEDIUM |
-| 4 | `func_active_functional_runner` | AMRAP/RFT/EMOM overlays + foreground-service lifecycle | HIGHEST |
-| 5 | `func_history_trends_polish` | Block-aware History + Trends + SummaryScreen | LOW |
+| 4 | `func_active_functional_runner` | AMRAP/RFT/EMOM/TABATA overlays + per-exercise RPE + round-tap log + HC block segments + foreground-service lifecycle | HIGHEST |
+| 5 | `func_history_trends_polish` | Block-aware History + Trends + SummaryScreen + round-split display | LOW |
 | 0 | `func_exercise_gap_analysis` | CrossFit / Hyrox / Calisthenics exercise gap research (no code) | LOW |
 | 0 | `func_exercise_expanded_seed` | Seed expanded exercise list from gap analysis | MEDIUM |
 
@@ -813,3 +948,4 @@ These are explicitly deferred. Do not implement them during P8 execution.
 ---
 
 *Created: April 2026. Spec owner: Lead Architect session. Implementation has not started.*
+*Updated: April 2026 — added Tabata block type, flexible RPE (per-block choice), any-exercise picker (Functional chip toggle-off), all-cardio pickable, setup/warn prefs reuse, RFT optional cap, variable EMOM interval (E2MOM/E3MOM/E5MOM), hybrid routine example, per-round timestamp log, HC block segments + laps.*
