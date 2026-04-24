@@ -12,6 +12,7 @@ import com.powerme.app.data.database.*
 import com.powerme.app.data.repository.MedicalLedgerRepository
 import com.powerme.app.data.repository.RoutineRepository
 import com.powerme.app.data.repository.StateHistoryRepository
+import com.powerme.app.data.repository.UserSynonymRepository
 import com.powerme.app.util.SurgicalValidator
 import com.powerme.app.util.UserSessionManager
 import com.powerme.app.util.WakeLockManager
@@ -627,6 +628,138 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_49_50 = object : Migration(49, 50) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add tags JSON column to exercises for functional training categorisation (P8 Tier 0)
+            db.execSQL("ALTER TABLE exercises ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'")
+        }
+    }
+
+    private val MIGRATION_50_51 = object : Migration(50, 51) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1. Create routine_blocks table
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS routine_blocks (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    routineId TEXT NOT NULL,
+                    `order` INTEGER NOT NULL,
+                    type TEXT NOT NULL,
+                    name TEXT,
+                    durationSeconds INTEGER,
+                    targetRounds INTEGER,
+                    emomRoundSeconds INTEGER,
+                    tabataWorkSeconds INTEGER,
+                    tabataRestSeconds INTEGER,
+                    tabataSkipLastRest INTEGER,
+                    setupSecondsOverride INTEGER,
+                    warnAtSecondsOverride INTEGER,
+                    syncId TEXT NOT NULL DEFAULT '',
+                    updatedAt INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (routineId) REFERENCES routines(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_routine_blocks_routineId ON routine_blocks(routineId)")
+
+            // 2. Create workout_blocks table
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS workout_blocks (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    workoutId TEXT NOT NULL,
+                    `order` INTEGER NOT NULL,
+                    type TEXT NOT NULL,
+                    name TEXT,
+                    durationSeconds INTEGER,
+                    targetRounds INTEGER,
+                    emomRoundSeconds INTEGER,
+                    tabataWorkSeconds INTEGER,
+                    tabataRestSeconds INTEGER,
+                    tabataSkipLastRest INTEGER,
+                    setupSecondsOverride INTEGER,
+                    warnAtSecondsOverride INTEGER,
+                    totalRounds INTEGER,
+                    extraReps INTEGER,
+                    finishTimeSeconds INTEGER,
+                    rpe INTEGER,
+                    perExerciseRpeJson TEXT,
+                    roundTapLogJson TEXT,
+                    blockNotes TEXT,
+                    runStartMs INTEGER,
+                    syncId TEXT NOT NULL DEFAULT '',
+                    updatedAt INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (workoutId) REFERENCES workouts(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_workout_blocks_workoutId ON workout_blocks(workoutId)")
+
+            // 3. Add blockId + holdSeconds to routine_exercises
+            db.execSQL("ALTER TABLE routine_exercises ADD COLUMN blockId TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE routine_exercises ADD COLUMN holdSeconds INTEGER DEFAULT NULL")
+
+            // 4. Add blockId to workout_sets
+            db.execSQL("ALTER TABLE workout_sets ADD COLUMN blockId TEXT DEFAULT NULL")
+
+            // 5. Backfill: one STRENGTH block per routine → point all existing routine_exercises at it
+            db.execSQL("""
+                INSERT INTO routine_blocks (id, routineId, `order`, type, syncId, updatedAt)
+                SELECT lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-4'||
+                       substr(lower(hex(randomblob(2))),2)||'-'||
+                       substr('89ab', abs(random()) % 4 + 1, 1)||
+                       substr(lower(hex(randomblob(2))),2)||'-'||lower(hex(randomblob(6))),
+                       id, 0, 'STRENGTH', '', 0
+                FROM routines
+            """.trimIndent())
+            db.execSQL("""
+                UPDATE routine_exercises
+                SET blockId = (
+                    SELECT rb.id FROM routine_blocks rb WHERE rb.routineId = routine_exercises.routineId LIMIT 1
+                )
+                WHERE blockId IS NULL
+            """.trimIndent())
+
+            // 6. Backfill: one STRENGTH block per workout → point all existing workout_sets at it
+            db.execSQL("""
+                INSERT INTO workout_blocks (id, workoutId, `order`, type, syncId, updatedAt)
+                SELECT lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-4'||
+                       substr(lower(hex(randomblob(2))),2)||'-'||
+                       substr('89ab', abs(random()) % 4 + 1, 1)||
+                       substr(lower(hex(randomblob(2))),2)||'-'||lower(hex(randomblob(6))),
+                       id, 0, 'STRENGTH', '', 0
+                FROM workouts
+            """.trimIndent())
+            db.execSQL("""
+                UPDATE workout_sets
+                SET blockId = (
+                    SELECT wb.id FROM workout_blocks wb WHERE wb.workoutId = workout_sets.workoutId LIMIT 1
+                )
+                WHERE blockId IS NULL
+            """.trimIndent())
+        }
+    }
+
+    private val MIGRATION_48_49 = object : Migration(48, 49) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Create user synonym table for exercise name learning (P9 synonym learning)
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS user_exercise_synonyms (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    rawName TEXT NOT NULL,
+                    exerciseId INTEGER NOT NULL,
+                    useCount INTEGER NOT NULL DEFAULT 1,
+                    createdAt INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL("""
+                CREATE UNIQUE INDEX IF NOT EXISTS index_user_exercise_synonyms_rawName
+                    ON user_exercise_synonyms(rawName)
+            """.trimIndent())
+            db.execSQL("""
+                CREATE INDEX IF NOT EXISTS index_user_exercise_synonyms_exerciseId
+                    ON user_exercise_synonyms(exerciseId)
+            """.trimIndent())
+        }
+    }
+
     private val MIGRATION_47_48 = object : Migration(47, 48) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Fix RPE values imported via CSV: they were stored as raw 1-10 instead of ×10 (60-100).
@@ -1031,7 +1164,10 @@ object DatabaseModule {
                 MIGRATION_44_45,
                 MIGRATION_45_46,
                 MIGRATION_46_47,
-                MIGRATION_47_48
+                MIGRATION_47_48,
+                MIGRATION_48_49,
+                MIGRATION_49_50,
+                MIGRATION_50_51
             )
             .fallbackToDestructiveMigration()
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
@@ -1212,8 +1348,9 @@ object DatabaseModule {
     fun provideRoutineRepository(
         routineDao: RoutineDao,
         routineExerciseDao: RoutineExerciseDao,
+        routineBlockDao: com.powerme.app.data.database.RoutineBlockDao,
         database: PowerMeDatabase
-    ): RoutineRepository = RoutineRepository(routineDao, routineExerciseDao, database)
+    ): RoutineRepository = RoutineRepository(routineDao, routineExerciseDao, routineBlockDao, database)
 
     @Provides
     @Singleton
@@ -1223,15 +1360,18 @@ object DatabaseModule {
         database: PowerMeDatabase,
         workoutDao: WorkoutDao,
         workoutSetDao: WorkoutSetDao,
+        workoutBlockDao: com.powerme.app.data.database.WorkoutBlockDao,
         routineDao: RoutineDao,
         routineExerciseDao: RoutineExerciseDao,
+        routineBlockDao: com.powerme.app.data.database.RoutineBlockDao,
         exerciseDao: ExerciseDao,
         userDao: UserDao,
         userSettingsDao: UserSettingsDao,
         appSettingsDataStore: AppSettingsDataStore
     ): com.powerme.app.data.sync.FirestoreSyncManager =
         com.powerme.app.data.sync.FirestoreSyncManager(
-            firestore, auth, database, workoutDao, workoutSetDao, routineDao, routineExerciseDao,
+            firestore, auth, database, workoutDao, workoutSetDao, workoutBlockDao,
+            routineDao, routineExerciseDao, routineBlockDao,
             exerciseDao, userDao, userSettingsDao, appSettingsDataStore
         )
 
@@ -1258,4 +1398,26 @@ object DatabaseModule {
         medicalLedgerRepository: com.powerme.app.data.repository.MedicalLedgerRepository
     ): com.powerme.app.data.repository.HealthHistoryRepository =
         com.powerme.app.data.repository.HealthHistoryRepository(healthHistoryDao, medicalLedgerRepository)
+
+    @Provides
+    @Singleton
+    fun provideUserSynonymDao(database: PowerMeDatabase): com.powerme.app.data.database.UserSynonymDao =
+        database.userSynonymDao()
+
+    @Provides
+    @Singleton
+    fun provideUserSynonymRepository(
+        dao: com.powerme.app.data.database.UserSynonymDao,
+        exerciseDao: ExerciseDao
+    ): UserSynonymRepository = UserSynonymRepository(dao, exerciseDao)
+
+    @Provides
+    @Singleton
+    fun provideRoutineBlockDao(database: PowerMeDatabase): com.powerme.app.data.database.RoutineBlockDao =
+        database.routineBlockDao()
+
+    @Provides
+    @Singleton
+    fun provideWorkoutBlockDao(database: PowerMeDatabase): com.powerme.app.data.database.WorkoutBlockDao =
+        database.workoutBlockDao()
 }

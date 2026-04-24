@@ -24,7 +24,7 @@
 **Color System:** Pro Tracker v6.0. See `THEME_SPEC.md` for all tokens, semantic colors, and usage rules.
 
 **Database:** Room v51 (21 entities, 23 DAOs). See `DB_UPGRADE.md` for schema history v6→v51.
-Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchived`, functional training blocks (5 types), stress vectors, synonym learning, exercise tags. `FirestoreSyncManager` embeds blocks as `blocks: List<Map>` inside workout/routine Firestore docs (P8 Tier 2 shipped); back-compat: legacy docs without the `blocks` field are handled gracefully (no crash, no synthetic block).
+Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchived`, functional training blocks (5 types), stress vectors, synonym learning, exercise tags.
 
 **SurgicalValidator:** All numeric input validation (`util/SurgicalValidator.kt`). No inline try-catch in ViewModels or Composables.
 

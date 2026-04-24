@@ -53,8 +53,10 @@ class FirestoreSyncManager @Inject constructor(
     private val database: PowerMeDatabase,
     private val workoutDao: WorkoutDao,
     private val workoutSetDao: WorkoutSetDao,
+    private val workoutBlockDao: WorkoutBlockDao,
     private val routineDao: RoutineDao,
     private val routineExerciseDao: RoutineExerciseDao,
+    private val routineBlockDao: RoutineBlockDao,
     private val exerciseDao: ExerciseDao,
     private val userDao: UserDao,
     private val userSettingsDao: UserSettingsDao,
@@ -79,10 +81,11 @@ class FirestoreSyncManager @Inject constructor(
         scope.launch {
             val workout = workoutDao.getWorkoutById(workoutId) ?: return@launch
             val sets = workoutSetDao.getSetsForWorkout(workoutId).first()
+            val blocks = workoutBlockDao.getBlocksForWorkout(workoutId).first()
             val exerciseIds = sets.map { it.exerciseId }.toSet().toList()
             val exerciseMap = exerciseDao.getByIds(exerciseIds).associateBy { it.id }
             userRef(uid).collection("workouts").document(workoutId)
-                .set(workout.toFirestoreMap(sets, exerciseMap))
+                .set(workout.toFirestoreMap(sets, blocks, exerciseMap))
         }
     }
 
@@ -91,10 +94,11 @@ class FirestoreSyncManager @Inject constructor(
         scope.launch {
             val routine = routineDao.getRoutineById(routineId) ?: return@launch
             val exercises = routineExerciseDao.getForRoutine(routineId)
+            val blocks = routineBlockDao.getBlocksForRoutine(routineId).first()
             val exerciseIds = exercises.map { it.exerciseId }.toSet().toList()
             val exerciseMap = exerciseDao.getByIds(exerciseIds).associateBy { it.id }
             userRef(uid).collection("routines").document(routineId)
-                .set(routine.toFirestoreMap(exercises, exerciseMap))
+                .set(routine.toFirestoreMap(exercises, blocks, exerciseMap))
         }
     }
 
@@ -134,17 +138,19 @@ class FirestoreSyncManager @Inject constructor(
             val routines = routineDao.getAllRoutines().first().filter { !it.isArchived }
             for (workout in workouts) {
                 val sets = workoutSetDao.getSetsForWorkout(workout.id).first()
+                val blocks = workoutBlockDao.getBlocksForWorkout(workout.id).first()
                 val exerciseIds = sets.map { it.exerciseId }.toSet().toList()
                 val exerciseMap = exerciseDao.getByIds(exerciseIds).associateBy { it.id }
                 userRef(uid).collection("workouts").document(workout.id)
-                    .set(workout.toFirestoreMap(sets, exerciseMap)).await()
+                    .set(workout.toFirestoreMap(sets, blocks, exerciseMap)).await()
             }
             for (routine in routines) {
                 val exercises = routineExerciseDao.getForRoutine(routine.id)
+                val blocks = routineBlockDao.getBlocksForRoutine(routine.id).first()
                 val exerciseIds = exercises.map { it.exerciseId }.toSet().toList()
                 val exerciseMap = exerciseDao.getByIds(exerciseIds).associateBy { it.id }
                 userRef(uid).collection("routines").document(routine.id)
-                    .set(routine.toFirestoreMap(exercises, exerciseMap)).await()
+                    .set(routine.toFirestoreMap(exercises, blocks, exerciseMap)).await()
             }
             userDao.getCurrentUser()?.let { user ->
                 userRef(uid).collection("profile").document("data").set(user.toFirestoreMap()).await()
@@ -338,6 +344,17 @@ class FirestoreSyncManager @Inject constructor(
                                 val exercises = doc.toRoutineExercisesResolved(doc.id)
                                 routineExerciseDao.deleteAllForRoutine(doc.id)
                                 if (exercises.isNotEmpty()) routineExerciseDao.insertAll(exercises)
+                                // Back-compat: only reconstruct blocks if the remote doc has the field
+                                val remoteBlocks = doc.toRoutineBlocks(doc.id)
+                                if (remoteBlocks != null) {
+                                    val localBlocks = routineBlockDao.getBlocksForRoutine(doc.id).first()
+                                    val localBlockMap = localBlocks.associateBy { it.id }
+                                    val toUpsert = remoteBlocks.filter { remote ->
+                                        val local = localBlockMap[remote.id]
+                                        local == null || remote.updatedAt >= local.updatedAt
+                                    }
+                                    if (toUpsert.isNotEmpty()) routineBlockDao.upsertAll(toUpsert)
+                                }
                             }
                         }
                         routinesImported++
@@ -365,6 +382,17 @@ class FirestoreSyncManager @Inject constructor(
                                 val sets = doc.toWorkoutSetsResolved(doc.id)
                                 workoutSetDao.deleteSetsForWorkout(doc.id)
                                 if (sets.isNotEmpty()) workoutSetDao.insertSets(sets)
+                                // Back-compat: only reconstruct blocks if the remote doc has the field
+                                val remoteBlocks = doc.toWorkoutBlocks(doc.id)
+                                if (remoteBlocks != null) {
+                                    val localBlocks = workoutBlockDao.getBlocksForWorkout(doc.id).first()
+                                    val localBlockMap = localBlocks.associateBy { it.id }
+                                    val toUpsert = remoteBlocks.filter { remote ->
+                                        val local = localBlockMap[remote.id]
+                                        local == null || remote.updatedAt >= local.updatedAt
+                                    }
+                                    if (toUpsert.isNotEmpty()) workoutBlockDao.upsertAll(toUpsert)
+                                }
                             }
                         }
                         workoutsImported++
@@ -438,7 +466,8 @@ class FirestoreSyncManager @Inject constructor(
                 endTime = (map["endTime"] as? Long) ?: (map["endTime"] as? Number)?.toLong(),
                 restDuration = (map["restDuration"] as? Long)?.toInt() ?: (map["restDuration"] as? Number)?.toInt(),
                 supersetGroupId = map["supersetGroupId"] as? String,
-                isCompleted = map["isCompleted"] as? Boolean ?: false
+                isCompleted = map["isCompleted"] as? Boolean ?: false,
+                blockId = map["blockId"] as? String
             )
         }
     }
@@ -470,7 +499,9 @@ class FirestoreSyncManager @Inject constructor(
                 defaultWeight = map["defaultWeight"] as? String ?: "",
                 setTypesJson = map["setTypesJson"] as? String ?: "",
                 setWeightsJson = map["setWeightsJson"] as? String ?: "",
-                setRepsJson = map["setRepsJson"] as? String ?: ""
+                setRepsJson = map["setRepsJson"] as? String ?: "",
+                blockId = map["blockId"] as? String,
+                holdSeconds = (map["holdSeconds"] as? Long)?.toInt() ?: (map["holdSeconds"] as? Number)?.toInt()
             )
         }
     }
@@ -478,7 +509,11 @@ class FirestoreSyncManager @Inject constructor(
 
 // ── Serialization helpers ────────────────────────────────────────────────────
 
-private fun Workout.toFirestoreMap(sets: List<WorkoutSet>, exerciseMap: Map<Long, Exercise>): Map<String, Any?> = mapOf(
+private fun Workout.toFirestoreMap(
+    sets: List<WorkoutSet>,
+    blocks: List<WorkoutBlock>,
+    exerciseMap: Map<Long, Exercise>
+): Map<String, Any?> = mapOf(
     "id" to id,
     "routineId" to routineId,
     "routineName" to routineName,
@@ -491,6 +526,7 @@ private fun Workout.toFirestoreMap(sets: List<WorkoutSet>, exerciseMap: Map<Long
     "endTimeMs" to endTimeMs,
     "updatedAt" to updatedAt,
     "isArchived" to isArchived,
+    "blocks" to blocks.map { it.toFirestoreMap() },
     "sets" to sets.map { it.toFirestoreMap(exerciseMap[it.exerciseId]) }
 )
 
@@ -513,16 +549,22 @@ private fun WorkoutSet.toFirestoreMap(exercise: Exercise?): Map<String, Any?> = 
     "endTime" to endTime,
     "restDuration" to restDuration,
     "supersetGroupId" to supersetGroupId,
-    "isCompleted" to isCompleted
+    "isCompleted" to isCompleted,
+    "blockId" to blockId
 )
 
-private fun Routine.toFirestoreMap(exercises: List<RoutineExercise>, exerciseMap: Map<Long, Exercise>): Map<String, Any?> = mapOf(
+private fun Routine.toFirestoreMap(
+    exercises: List<RoutineExercise>,
+    blocks: List<RoutineBlock>,
+    exerciseMap: Map<Long, Exercise>
+): Map<String, Any?> = mapOf(
     "id" to id,
     "name" to name,
     "lastPerformed" to lastPerformed,
     "isCustom" to isCustom,
     "isArchived" to isArchived,
     "updatedAt" to updatedAt,
+    "blocks" to blocks.map { it.toFirestoreMap() },
     "exercises" to exercises.map { it.toFirestoreMap(exerciseMap[it.exerciseId]) }
 )
 
@@ -542,7 +584,9 @@ private fun RoutineExercise.toFirestoreMap(exercise: Exercise?): Map<String, Any
     "defaultWeight" to defaultWeight,
     "setTypesJson" to setTypesJson,
     "setWeightsJson" to setWeightsJson,
-    "setRepsJson" to setRepsJson
+    "setRepsJson" to setRepsJson,
+    "blockId" to blockId,
+    "holdSeconds" to holdSeconds
 )
 
 // ── UserSettings serialization ────────────────────────────────────────────────
@@ -642,3 +686,133 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toRoutine(): Routine?
         updatedAt = getLong("updatedAt") ?: 0L
     )
 }
+
+// ── Block serialization helpers ──────────────────────────────────────────────
+
+private fun WorkoutBlock.toFirestoreMap(): Map<String, Any?> = buildMap {
+    put("id", id)
+    put("workoutId", workoutId)
+    put("order", order)
+    put("type", type)
+    put("syncId", syncId)
+    put("updatedAt", updatedAt)
+    name?.let { put("name", it) }
+    durationSeconds?.let { put("durationSeconds", it) }
+    targetRounds?.let { put("targetRounds", it) }
+    emomRoundSeconds?.let { put("emomRoundSeconds", it) }
+    tabataWorkSeconds?.let { put("tabataWorkSeconds", it) }
+    tabataRestSeconds?.let { put("tabataRestSeconds", it) }
+    tabataSkipLastRest?.let { put("tabataSkipLastRest", it) }
+    setupSecondsOverride?.let { put("setupSecondsOverride", it) }
+    warnAtSecondsOverride?.let { put("warnAtSecondsOverride", it) }
+    totalRounds?.let { put("totalRounds", it) }
+    extraReps?.let { put("extraReps", it) }
+    finishTimeSeconds?.let { put("finishTimeSeconds", it) }
+    rpe?.let { put("rpe", it) }
+    perExerciseRpeJson?.let { put("perExerciseRpeJson", it) }
+    roundTapLogJson?.let { put("roundTapLogJson", it) }
+    blockNotes?.let { put("blockNotes", it) }
+    runStartMs?.let { put("runStartMs", it) }
+}
+
+private fun RoutineBlock.toFirestoreMap(): Map<String, Any?> = buildMap {
+    put("id", id)
+    put("routineId", routineId)
+    put("order", order)
+    put("type", type)
+    put("syncId", syncId)
+    put("updatedAt", updatedAt)
+    name?.let { put("name", it) }
+    durationSeconds?.let { put("durationSeconds", it) }
+    targetRounds?.let { put("targetRounds", it) }
+    emomRoundSeconds?.let { put("emomRoundSeconds", it) }
+    tabataWorkSeconds?.let { put("tabataWorkSeconds", it) }
+    tabataRestSeconds?.let { put("tabataRestSeconds", it) }
+    tabataSkipLastRest?.let { put("tabataSkipLastRest", it) }
+    setupSecondsOverride?.let { put("setupSecondsOverride", it) }
+    warnAtSecondsOverride?.let { put("warnAtSecondsOverride", it) }
+}
+
+/**
+ * Returns null when the remote doc lacks the `blocks` field (pre-v51 legacy doc).
+ * Callers must NOT synthesize a local block in this case — the migration backfill already exists.
+ */
+@Suppress("UNCHECKED_CAST")
+private fun com.google.firebase.firestore.DocumentSnapshot.toWorkoutBlocks(
+    workoutId: String
+): List<WorkoutBlock>? {
+    if (!contains("blocks")) return null
+    val rawBlocks = get("blocks") as? List<Map<String, Any?>> ?: return emptyList()
+    return parseWorkoutBlockMaps(workoutId, rawBlocks)
+}
+
+/**
+ * Returns null when the remote doc lacks the `blocks` field (pre-v51 legacy doc).
+ * Callers must NOT synthesize a local block in this case — the migration backfill already exists.
+ */
+@Suppress("UNCHECKED_CAST")
+private fun com.google.firebase.firestore.DocumentSnapshot.toRoutineBlocks(
+    routineId: String
+): List<RoutineBlock>? {
+    if (!contains("blocks")) return null
+    val rawBlocks = get("blocks") as? List<Map<String, Any?>> ?: return emptyList()
+    return parseRoutineBlockMaps(routineId, rawBlocks)
+}
+
+// ── Internal helpers exposed for unit tests ──────────────────────────────────
+
+internal fun parseWorkoutBlockMaps(workoutId: String, rawBlocks: List<Map<String, Any?>>): List<WorkoutBlock> =
+    rawBlocks.mapNotNull { map ->
+        val id = map["id"] as? String ?: return@mapNotNull null
+        WorkoutBlock(
+            id = id,
+            workoutId = workoutId,
+            order = (map["order"] as? Long)?.toInt() ?: (map["order"] as? Number)?.toInt() ?: 0,
+            type = map["type"] as? String ?: "STRENGTH",
+            name = map["name"] as? String,
+            durationSeconds = (map["durationSeconds"] as? Long)?.toInt() ?: (map["durationSeconds"] as? Number)?.toInt(),
+            targetRounds = (map["targetRounds"] as? Long)?.toInt() ?: (map["targetRounds"] as? Number)?.toInt(),
+            emomRoundSeconds = (map["emomRoundSeconds"] as? Long)?.toInt() ?: (map["emomRoundSeconds"] as? Number)?.toInt(),
+            tabataWorkSeconds = (map["tabataWorkSeconds"] as? Long)?.toInt() ?: (map["tabataWorkSeconds"] as? Number)?.toInt(),
+            tabataRestSeconds = (map["tabataRestSeconds"] as? Long)?.toInt() ?: (map["tabataRestSeconds"] as? Number)?.toInt(),
+            tabataSkipLastRest = (map["tabataSkipLastRest"] as? Long)?.toInt() ?: (map["tabataSkipLastRest"] as? Number)?.toInt(),
+            setupSecondsOverride = (map["setupSecondsOverride"] as? Long)?.toInt() ?: (map["setupSecondsOverride"] as? Number)?.toInt(),
+            warnAtSecondsOverride = (map["warnAtSecondsOverride"] as? Long)?.toInt() ?: (map["warnAtSecondsOverride"] as? Number)?.toInt(),
+            totalRounds = (map["totalRounds"] as? Long)?.toInt() ?: (map["totalRounds"] as? Number)?.toInt(),
+            extraReps = (map["extraReps"] as? Long)?.toInt() ?: (map["extraReps"] as? Number)?.toInt(),
+            finishTimeSeconds = (map["finishTimeSeconds"] as? Long)?.toInt() ?: (map["finishTimeSeconds"] as? Number)?.toInt(),
+            rpe = (map["rpe"] as? Long)?.toInt() ?: (map["rpe"] as? Number)?.toInt(),
+            perExerciseRpeJson = map["perExerciseRpeJson"] as? String,
+            roundTapLogJson = map["roundTapLogJson"] as? String,
+            blockNotes = map["blockNotes"] as? String,
+            runStartMs = (map["runStartMs"] as? Long) ?: (map["runStartMs"] as? Number)?.toLong(),
+            syncId = map["syncId"] as? String ?: "",
+            updatedAt = (map["updatedAt"] as? Long) ?: (map["updatedAt"] as? Number)?.toLong() ?: 0L
+        )
+    }
+
+internal fun parseRoutineBlockMaps(routineId: String, rawBlocks: List<Map<String, Any?>>): List<RoutineBlock> =
+    rawBlocks.mapNotNull { map ->
+        val id = map["id"] as? String ?: return@mapNotNull null
+        RoutineBlock(
+            id = id,
+            routineId = routineId,
+            order = (map["order"] as? Long)?.toInt() ?: (map["order"] as? Number)?.toInt() ?: 0,
+            type = map["type"] as? String ?: "STRENGTH",
+            name = map["name"] as? String,
+            durationSeconds = (map["durationSeconds"] as? Long)?.toInt() ?: (map["durationSeconds"] as? Number)?.toInt(),
+            targetRounds = (map["targetRounds"] as? Long)?.toInt() ?: (map["targetRounds"] as? Number)?.toInt(),
+            emomRoundSeconds = (map["emomRoundSeconds"] as? Long)?.toInt() ?: (map["emomRoundSeconds"] as? Number)?.toInt(),
+            tabataWorkSeconds = (map["tabataWorkSeconds"] as? Long)?.toInt() ?: (map["tabataWorkSeconds"] as? Number)?.toInt(),
+            tabataRestSeconds = (map["tabataRestSeconds"] as? Long)?.toInt() ?: (map["tabataRestSeconds"] as? Number)?.toInt(),
+            tabataSkipLastRest = (map["tabataSkipLastRest"] as? Long)?.toInt() ?: (map["tabataSkipLastRest"] as? Number)?.toInt(),
+            setupSecondsOverride = (map["setupSecondsOverride"] as? Long)?.toInt() ?: (map["setupSecondsOverride"] as? Number)?.toInt(),
+            warnAtSecondsOverride = (map["warnAtSecondsOverride"] as? Long)?.toInt() ?: (map["warnAtSecondsOverride"] as? Number)?.toInt(),
+            syncId = map["syncId"] as? String ?: "",
+            updatedAt = (map["updatedAt"] as? Long) ?: (map["updatedAt"] as? Number)?.toLong() ?: 0L
+        )
+    }
+
+internal fun WorkoutBlock.toFirestoreMapPublic(): Map<String, Any?> = toFirestoreMap()
+
+internal fun RoutineBlock.toFirestoreMapPublic(): Map<String, Any?> = toFirestoreMap()
