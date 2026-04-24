@@ -58,7 +58,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Quick Start Workout (blank workout, no routine) | `future_devs/QUICK_START_WORKOUT_SPEC.md` | XS | `wrapped` | — |
 | Observability layer — Crashlytics + Analytics + Timber (beta) | `future_devs/OBSERVABILITY_BETA_SPEC.md` | M | `wrapped` | — |
 | Workouts page — Quick Start 3-way chooser (exercises / picture / text) | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | S | `wrapped` | Quick Start Workout ✅, AI Workout Generation ✅ |
-| Gymvisual chest+barbell catalogue comparison (research report) | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | XS | `in-progress` | — |
+| Gymvisual chest+barbell catalogue comparison (research report) | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | XS | `wrapped` | — |
 | Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed` | — |
 
 ---
@@ -179,7 +179,7 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | WorkoutStyle enum + Settings card | `future_devs/FUNC_STYLE_PREFERENCE_SPEC.md` | S | `wrapped` | — |
-| Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `in-progress` | — |
+| Exercise.tags column + seed ~40 functional movements + filter | `future_devs/FUNC_EXERCISE_TAGS_SEED_SPEC.md` | M | `completed` | — |
 | Extract TimerEngine class + real JetBrains Mono font | `future_devs/FUNC_TIMER_ENGINE_EXTRACT_SPEC.md` | M | `completed` | — |
 | RoutineBlock + WorkoutBlock entities + MIGRATION_49_50 backfill | `future_devs/FUNC_BLOCK_ENTITIES_MIGRATION_SPEC.md` | L | `not-started` | WorkoutStyle pref ✅, Exercise tags ✅, TimerEngine ✅ |
 | Embed block arrays in Firestore push/pull | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | M | `not-started` | Block entities migration ✅ |
