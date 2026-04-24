@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | P8 |
 | **Epic** | [Functional Training](../FUNCTIONAL_TRAINING_SPEC.md) |
-| **Status** | `not-started` |
+| **Status** | `wrapped` |
 | **Effort** | XS |
 | **Depends on** | func_exercise_type_retag_seed ✅ |
 | **Blocks** | — |

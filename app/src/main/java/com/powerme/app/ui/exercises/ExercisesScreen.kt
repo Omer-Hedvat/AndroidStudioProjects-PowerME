@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -103,6 +104,16 @@ fun ExercisesScreen(
                                 )
                             }
                         }
+                        IconToggleButton(
+                            checked = uiState.favoritesOnly,
+                            onCheckedChange = { viewModel.onFavoritesFilterToggled() }
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.favoritesOnly) Icons.Filled.Star else Icons.Outlined.Star,
+                                contentDescription = "Show favourites only",
+                                tint = if (uiState.favoritesOnly) ReadinessAmber else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         IconButton(onClick = viewModel::onFilterDialogToggled) {
                             BadgedBox(
                                 badge = {
@@ -155,7 +166,8 @@ fun ExercisesScreen(
                             },
                             onLongPress = {
                                 if (!pickerMode && exercise.isCustom) showDeleteDialog = exercise
-                            }
+                            },
+                            onFavoriteToggled = { viewModel.toggleFavorite(exercise) }
                         )
                     }
                     item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -261,6 +273,7 @@ private fun ExerciseCard(
     exercise: Exercise,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
+    onFavoriteToggled: () -> Unit,
     isSelected: Boolean = false
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -309,11 +322,14 @@ private fun ExerciseCard(
                             color = primaryColor,
                             modifier = Modifier.weight(1f)
                         )
-                        if (exercise.isFavorite) {
+                        IconButton(
+                            onClick = onFavoriteToggled,
+                            modifier = Modifier.size(28.dp)
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = "Favorite",
-                                tint = ReadinessAmber,
+                                imageVector = if (exercise.isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                                contentDescription = if (exercise.isFavorite) "Remove from favourites" else "Add to favourites",
+                                tint = if (exercise.isFavorite) ReadinessAmber else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                                 modifier = Modifier.size(16.dp)
                             )
                         }

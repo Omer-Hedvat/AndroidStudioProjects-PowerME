@@ -3,6 +3,7 @@ package com.powerme.app.ui.exercises
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.database.Exercise
+import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.Joint
 import com.powerme.app.data.database.matchesSearchTokens
 import com.powerme.app.data.database.toAffectedJoints
@@ -26,8 +27,16 @@ data class ExercisesUiState(
     val searchQuery: String = "",
     val selectedMuscles: Set<String> = emptySet(),
     val selectedEquipment: Set<String> = emptySet(),
+    val selectedTypes: Set<ExerciseType> = emptySet(),
+    val functionalFilter: Boolean = false,
+    val favoritesOnly: Boolean = false,
+    val showFilterDialog: Boolean = false,
     val isLoading: Boolean = false
-)
+) {
+    val activeFilterCount: Int
+        get() = selectedTypes.size + selectedMuscles.size + selectedEquipment.size +
+                if (functionalFilter) 1 else 0
+}
 
 @HiltViewModel
 class ExercisesViewModel @Inject constructor(
@@ -38,10 +47,10 @@ class ExercisesViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ExercisesUiState())
     val uiState: StateFlow<ExercisesUiState> = _uiState.asStateFlow()
 
-    private val _muscleGroupFilters = MutableStateFlow<List<String>>(listOf("All"))
+    private val _muscleGroupFilters = MutableStateFlow<List<String>>(emptyList())
     val muscleGroupFilters: StateFlow<List<String>> = _muscleGroupFilters.asStateFlow()
 
-    private val _equipmentFilters = MutableStateFlow<List<String>>(listOf("All"))
+    private val _equipmentFilters = MutableStateFlow<List<String>>(emptyList())
     val equipmentFilters: StateFlow<List<String>> = _equipmentFilters.asStateFlow()
 
     /** Set of joints the user has active MODERATE/SEVERE health history entries for. */
@@ -71,8 +80,8 @@ class ExercisesViewModel @Inject constructor(
         viewModelScope.launch {
             val musclesDeferred = async { exerciseRepository.getDistinctMuscleGroups() }
             val equipmentDeferred = async { exerciseRepository.getDistinctEquipmentTypes() }
-            _muscleGroupFilters.value = listOf("All") + musclesDeferred.await()
-            _equipmentFilters.value = listOf("All") + sortEquipmentTypes(equipmentDeferred.await())
+            _muscleGroupFilters.value = musclesDeferred.await()
+            _equipmentFilters.value = sortEquipmentTypes(equipmentDeferred.await())
         }
     }
 
@@ -93,24 +102,89 @@ class ExercisesViewModel @Inject constructor(
 
     fun onMuscleFilterToggled(muscle: String) {
         val current = _uiState.value.selectedMuscles
-        val updated = if (muscle == "All") emptySet()
-        else if (muscle in current) current - muscle else current + muscle
+        val updated = if (muscle in current) current - muscle else current + muscle
         _uiState.update { it.copy(selectedMuscles = updated) }
         applyFilters()
     }
 
     fun onEquipmentFilterToggled(equipment: String) {
         val current = _uiState.value.selectedEquipment
-        val updated = if (equipment == "All") emptySet()
-        else if (equipment in current) current - equipment else current + equipment
+        val updated = if (equipment in current) current - equipment else current + equipment
         _uiState.update { it.copy(selectedEquipment = updated) }
         applyFilters()
+    }
+
+    fun onTypeFilterToggled(type: ExerciseType) {
+        val current = _uiState.value.selectedTypes
+        val updated = if (type in current) current - type else current + type
+        _uiState.update { it.copy(selectedTypes = updated) }
+        applyFilters()
+    }
+
+    fun onFunctionalFilterToggled() {
+        _uiState.update { it.copy(functionalFilter = !it.functionalFilter) }
+        applyFilters()
+    }
+
+    fun onFavoritesFilterToggled() {
+        _uiState.update { it.copy(favoritesOnly = !it.favoritesOnly) }
+        applyFilters()
+    }
+
+    fun onSelectAllMuscles() {
+        _uiState.update { it.copy(selectedMuscles = _muscleGroupFilters.value.toSet()) }
+        applyFilters()
+    }
+
+    fun onDeselectAllMuscles() {
+        _uiState.update { it.copy(selectedMuscles = emptySet()) }
+        applyFilters()
+    }
+
+    fun onSelectAllEquipment() {
+        _uiState.update { it.copy(selectedEquipment = _equipmentFilters.value.toSet()) }
+        applyFilters()
+    }
+
+    fun onDeselectAllEquipment() {
+        _uiState.update { it.copy(selectedEquipment = emptySet()) }
+        applyFilters()
+    }
+
+    fun onSelectAllTypes() {
+        _uiState.update { it.copy(selectedTypes = ExerciseType.entries.toSet(), functionalFilter = true) }
+        applyFilters()
+    }
+
+    fun onDeselectAllTypes() {
+        _uiState.update { it.copy(selectedTypes = emptySet(), functionalFilter = false) }
+        applyFilters()
+    }
+
+    fun onClearAllFilters() {
+        _uiState.update {
+            it.copy(
+                selectedMuscles = emptySet(),
+                selectedEquipment = emptySet(),
+                selectedTypes = emptySet(),
+                functionalFilter = false,
+                favoritesOnly = false
+            )
+        }
+        applyFilters()
+    }
+
+    fun onFilterDialogToggled() {
+        _uiState.update { it.copy(showFilterDialog = !it.showFilterDialog) }
     }
 
     private fun applyFilters() {
         val tokens = _uiState.value.searchQuery.toSearchTokens()
         val muscles = _uiState.value.selectedMuscles
         val equipment = _uiState.value.selectedEquipment
+        val types = _uiState.value.selectedTypes
+        val functional = _uiState.value.functionalFilter
+        val favoritesOnly = _uiState.value.favoritesOnly
 
         val filtered = allExercises.filter { exercise ->
             val matchesQuery = exercise.matchesSearchTokens(tokens)
@@ -118,9 +192,18 @@ class ExercisesViewModel @Inject constructor(
                 muscles.any { it.equals(exercise.muscleGroup, ignoreCase = true) }
             val matchesEquipment = equipment.isEmpty() ||
                 equipment.any { it.equals(exercise.equipmentType.trim(), ignoreCase = true) }
-            matchesQuery && matchesMuscle && matchesEquipment
+            val matchesType = types.isEmpty() || exercise.exerciseType in types
+            val matchesFunctional = !functional || exercise.tags.contains("\"functional\"")
+            val matchesFavorites = !favoritesOnly || exercise.isFavorite
+            matchesQuery && matchesMuscle && matchesEquipment && matchesType && matchesFunctional && matchesFavorites
         }
         _uiState.update { it.copy(exercises = filtered) }
+    }
+
+    fun toggleFavorite(exercise: Exercise) {
+        viewModelScope.launch {
+            exerciseRepository.toggleFavorite(exercise)
+        }
     }
 
     fun deleteCustomExercise(exercise: Exercise) {

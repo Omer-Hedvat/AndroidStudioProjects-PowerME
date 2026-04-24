@@ -40,7 +40,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "2.3.2"  // retag 4 PLYOMETRIC exercises (Box Jump, Box Jump Over, Tuck Jump, Clap Push-up) + add 5 PLYOMETRIC + 12 STRETCH entries
+        private const val CURRENT_VERSION = "2.3.3"  // add 15 yoga-based STRETCH entries (Warrior I/II/III, Triangle, Bridge, Cobra, Supine Spinal Twist, Lizard, Reclined Butterfly, Standing Forward Fold, Low Lunge, Happy Baby, Legs Up the Wall, Seated Forward Fold, Wide-Legged Forward Fold)
     }
 
     private val json = Json {

@@ -1,6 +1,7 @@
 package com.powerme.app.ui.exercises
 
 import com.powerme.app.data.database.Exercise
+import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.matchesSearchTokens
 import com.powerme.app.data.database.toSearchName
 import com.powerme.app.data.database.toSearchTokens
@@ -245,6 +246,170 @@ class ExerciseFilterTest {
         val exercise = makeExercise("Standing Barbell Overhead Press")
         val tokens = "military".toSearchTokens()
         assertTrue(exercise.matchesSearchTokens(tokens))
+    }
+
+    // --- exerciseType filter predicate ---
+
+    private fun makeTypedExercise(name: String, type: ExerciseType) = Exercise(
+        id = 0, name = name, muscleGroup = "Legs", equipmentType = "Barbell",
+        exerciseType = type, searchName = name.toSearchName()
+    )
+
+    private fun applyTypeFilter(exercises: List<Exercise>, types: Set<ExerciseType>): List<Exercise> =
+        exercises.filter { types.isEmpty() || it.exerciseType in types }
+
+    @Test
+    fun `type filter empty set — all exercises returned`() {
+        val exercises = listOf(
+            makeTypedExercise("Squat", ExerciseType.STRENGTH),
+            makeTypedExercise("Run", ExerciseType.CARDIO),
+            makeTypedExercise("Box Jump", ExerciseType.PLYOMETRIC)
+        )
+        assertEquals(3, applyTypeFilter(exercises, emptySet()).size)
+    }
+
+    @Test
+    fun `type filter STRENGTH — only strength exercises returned`() {
+        val exercises = listOf(
+            makeTypedExercise("Squat", ExerciseType.STRENGTH),
+            makeTypedExercise("Run", ExerciseType.CARDIO),
+            makeTypedExercise("Box Jump", ExerciseType.PLYOMETRIC)
+        )
+        val result = applyTypeFilter(exercises, setOf(ExerciseType.STRENGTH))
+        assertEquals(1, result.size)
+        assertEquals("Squat", result[0].name)
+    }
+
+    @Test
+    fun `type filter CARDIO and PLYOMETRIC — both types returned`() {
+        val exercises = listOf(
+            makeTypedExercise("Squat", ExerciseType.STRENGTH),
+            makeTypedExercise("Run", ExerciseType.CARDIO),
+            makeTypedExercise("Box Jump", ExerciseType.PLYOMETRIC)
+        )
+        val result = applyTypeFilter(exercises, setOf(ExerciseType.CARDIO, ExerciseType.PLYOMETRIC))
+        assertEquals(2, result.size)
+        assertTrue(result.any { it.name == "Run" })
+        assertTrue(result.any { it.name == "Box Jump" })
+        assertFalse(result.any { it.name == "Squat" })
+    }
+
+    @Test
+    fun `type filter with all types selected — all exercises returned`() {
+        val exercises = listOf(
+            makeTypedExercise("Squat", ExerciseType.STRENGTH),
+            makeTypedExercise("Run", ExerciseType.CARDIO),
+            makeTypedExercise("Box Jump", ExerciseType.PLYOMETRIC),
+            makeTypedExercise("Plank Hold", ExerciseType.TIMED),
+            makeTypedExercise("Stretch", ExerciseType.STRETCH)
+        )
+        val result = applyTypeFilter(exercises, ExerciseType.entries.toSet())
+        assertEquals(5, result.size)
+    }
+
+    // --- activeFilterCount ---
+
+    @Test
+    fun `activeFilterCount is zero when all filters empty`() {
+        val state = ExercisesUiState()
+        assertEquals(0, state.activeFilterCount)
+    }
+
+    @Test
+    fun `activeFilterCount counts selected types`() {
+        val state = ExercisesUiState(
+            selectedTypes = setOf(ExerciseType.CARDIO, ExerciseType.PLYOMETRIC)
+        )
+        assertEquals(2, state.activeFilterCount)
+    }
+
+    @Test
+    fun `activeFilterCount counts functional filter as 1`() {
+        val state = ExercisesUiState(functionalFilter = true)
+        assertEquals(1, state.activeFilterCount)
+    }
+
+    @Test
+    fun `activeFilterCount sums all active filter dimensions`() {
+        val state = ExercisesUiState(
+            selectedMuscles = setOf("Legs", "Back"),
+            selectedEquipment = setOf("Barbell"),
+            selectedTypes = setOf(ExerciseType.STRENGTH),
+            functionalFilter = true
+        )
+        // 2 muscles + 1 equipment + 1 type + 1 functional = 5
+        assertEquals(5, state.activeFilterCount)
+    }
+
+    // --- favoritesOnly filter predicate ---
+
+    private fun makeFavExercise(name: String, isFavorite: Boolean, equipment: String = "Barbell") = Exercise(
+        id = 0, name = name, muscleGroup = "Legs", equipmentType = equipment,
+        isFavorite = isFavorite, searchName = name.toSearchName()
+    )
+
+    private fun applyFavoritesFilter(exercises: List<Exercise>, favoritesOnly: Boolean): List<Exercise> =
+        exercises.filter { !favoritesOnly || it.isFavorite }
+
+    @Test
+    fun `favoritesOnly false — all exercises returned`() {
+        val exercises = listOf(
+            makeFavExercise("Squat", isFavorite = true),
+            makeFavExercise("Deadlift", isFavorite = false),
+            makeFavExercise("Bench Press", isFavorite = false)
+        )
+        assertEquals(3, applyFavoritesFilter(exercises, favoritesOnly = false).size)
+    }
+
+    @Test
+    fun `favoritesOnly true — only favourited exercises returned`() {
+        val exercises = listOf(
+            makeFavExercise("Squat", isFavorite = true),
+            makeFavExercise("Deadlift", isFavorite = false),
+            makeFavExercise("Bench Press", isFavorite = false)
+        )
+        val result = applyFavoritesFilter(exercises, favoritesOnly = true)
+        assertEquals(1, result.size)
+        assertEquals("Squat", result[0].name)
+    }
+
+    @Test
+    fun `favoritesOnly true with no favourites — empty list returned`() {
+        val exercises = listOf(
+            makeFavExercise("Deadlift", isFavorite = false),
+            makeFavExercise("Bench Press", isFavorite = false)
+        )
+        assertEquals(0, applyFavoritesFilter(exercises, favoritesOnly = true).size)
+    }
+
+    @Test
+    fun `favoritesOnly stacks with equipment filter — AND logic`() {
+        val exercises = listOf(
+            makeFavExercise("Squat", isFavorite = true, equipment = "Barbell"),
+            makeFavExercise("Deadlift", isFavorite = true, equipment = "Dumbbell"),
+            makeFavExercise("Bench Press", isFavorite = false, equipment = "Barbell")
+        )
+        val favs = applyFavoritesFilter(exercises, favoritesOnly = true)
+        val result = favs.filter { it.equipmentType == "Barbell" }
+        assertEquals(1, result.size)
+        assertEquals("Squat", result[0].name)
+    }
+
+    @Test
+    fun `favoritesOnly does not increment activeFilterCount`() {
+        val state = ExercisesUiState(favoritesOnly = true)
+        assertEquals(0, state.activeFilterCount)
+    }
+
+    @Test
+    fun `activeFilterCount unaffected by favoritesOnly when other filters also active`() {
+        val state = ExercisesUiState(
+            selectedMuscles = setOf("Legs"),
+            selectedEquipment = setOf("Barbell"),
+            favoritesOnly = true
+        )
+        // 1 muscle + 1 equipment = 2; favoritesOnly excluded
+        assertEquals(2, state.activeFilterCount)
     }
 
     @Test
