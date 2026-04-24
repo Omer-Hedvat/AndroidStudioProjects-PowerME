@@ -60,6 +60,8 @@ data class ToolsUiState(
     val emomTotalRounds: Int = 5,
     val countdownMinutes: Int = 1,
     val countdownSeconds: Int = 0,
+    val countdownMinutesText: String = "01",
+    val countdownSecondsText: String = "00",
     val isRunning: Boolean = false,
     // Text fields to avoid integer deletion bug
     val emomRoundSecondsText: String = "60",
@@ -140,14 +142,25 @@ class ToolsViewModel @Inject constructor(
     fun updateSetupSecondsText(text: String) {
         _uiState.update { it.copy(setupSecondsText = text, setupSeconds = text.toIntOrNull()?.coerceAtLeast(0) ?: it.setupSeconds) }
     }
-    fun updateCountdownMinutes(minutes: Int) {
-        _uiState.update { it.copy(countdownMinutes = minutes.coerceIn(0, 59)) }
+    fun updateCountdownMinutesText(text: String) {
+        _uiState.update { it.copy(
+            countdownMinutesText = text,
+            countdownMinutes = text.toIntOrNull()?.coerceIn(0, 99) ?: it.countdownMinutes
+        ) }
     }
-    fun updateCountdownSeconds(seconds: Int) {
-        _uiState.update { it.copy(countdownSeconds = seconds.coerceIn(0, 59)) }
+    fun updateCountdownSecondsText(text: String) {
+        _uiState.update { it.copy(
+            countdownSecondsText = text,
+            countdownSeconds = text.toIntOrNull()?.coerceIn(0, 59) ?: it.countdownSeconds
+        ) }
     }
     fun setCountdownPreset(totalSeconds: Int) {
-        _uiState.update { it.copy(countdownMinutes = totalSeconds / 60, countdownSeconds = totalSeconds % 60) }
+        val m = totalSeconds / 60
+        val s = totalSeconds % 60
+        _uiState.update { it.copy(
+            countdownMinutes = m, countdownSeconds = s,
+            countdownMinutesText = "%02d".format(m), countdownSecondsText = "%02d".format(s)
+        ) }
     }
     fun toggleEmomSkipLastRest() {
         _uiState.update { it.copy(emomSkipLastRest = !it.emomSkipLastRest) }

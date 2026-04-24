@@ -71,11 +71,13 @@ enum class TimerPhase { IDLE, SETUP, WORK, REST }
 ### COUNTDOWN Config
 | Property | Type | Default | Notes |
 |----------|------|---------|-------|
-| `countdownMinutes` | Int | 1 | Wheel picker value (0–59) |
-| `countdownSeconds` | Int | 0 | Wheel picker value (0–59) |
+| `countdownMinutes` | Int | 1 | Mirrors countdownMinutesText (0–99) |
+| `countdownSeconds` | Int | 0 | Mirrors countdownSecondsText (0–59) |
+| `countdownMinutesText` | String | "1" | MM fill-in text field |
+| `countdownSecondsText` | String | "0" | SS fill-in text field |
 | `countdownWarnText` | String | "" | Warn-before-finish field (blank = auto half-time) |
 
-The paired text-field pattern (Dual-Property below) does NOT apply to Countdown. Minutes and seconds are set exclusively via the Roulette wheel picker or preset chips — there are no free-text fields for the countdown duration.
+Countdown uses the Dual-Property pattern like other modes. `countdownMinutesText`/`countdownSecondsText` mirror `countdownMinutes`/`countdownSeconds`; preset chip taps sync both pairs.
 
 ### Dual-Property Pattern
 Every numeric config (TABATA, EMOM) uses paired text + int fields. This allows full text deletion without losing the previous value:
@@ -220,7 +222,7 @@ Column(fillMaxSize, padding=horizontal 16dp / vertical 12dp)
 
 ### ConfigInputs
 - **Stopwatch:** Setup time field only
-- **Countdown:** MM:SS Roulette Picker + `Row` of `WarnBeforeFinishField("Warn (sec)")` / "Setup time (sec)"
+- **Countdown:** MM:SS fill-in boxes (`TimerConfigField` × 2, Enter moves MM→SS) + preset chips + `Row` of `WarnBeforeFinishField("Warn (sec)")` / "Setup time (sec)"
 - **Tabata:** `Row` of Work (s) / Rest (s) / Rounds + `Row` of `WarnBeforeFinishField("Warn – Work")` / `WarnBeforeFinishField("Warn – Rest")` / "Setup (sec)" + Skip-last-rest row
 - **EMOM:** `Row` of Round (sec) / Rounds + `Row` of `WarnBeforeFinishField("Warn (sec)")` / "Setup time (sec)"
 
@@ -230,23 +232,23 @@ Warn fields use `WarnBeforeFinishField` composable with auto half-time default: 
 
 `TimerConfigField`: **label-above compact design** — `Column` with small-caps `labelSmall` label (Barlow Medium, `onSurface @ 0.5α` unfocused / `primary` focused) above a `Box` with `surfaceVariant` fill (`shapes.small` corners, 12/10dp padding). Value rendered via `BasicTextField` (18sp JetBrainsMono SemiBold). A 2dp `Box` below the container lights up in `primary` on focus as the only border indicator. No outline border at any time. Uses `rememberSelectAllState()` + `MutableInteractionSource` for focus tracking and select-all-on-tap behavior. Digit-only filter unchanged.
 
-#### Countdown Roulette Picker
+#### Countdown MM:SS Input
 
 ```
 ┌──────────────────────────────┐
-│     ┌─────┐   ┌─────┐       │
-│     │ MM  │ : │ SS  │       │  ← dual-wheel picker (0–59)
-│     └─────┘   └─────┘       │
+│  ┌──────────┐   ┌──────────┐ │
+│  │  MIN     │ : │  SEC     │ │  ← TimerConfigField × 2
+│  └──────────┘   └──────────┘ │
 │                              │
 │  [0:30] [1:00] [1:30] [2:00]│  ← SuggestionChip row
 └──────────────────────────────┘
 ```
 
-**WheelPicker:** vertical-scroll `LazyColumn` with snap (`rememberSnapFlingBehavior`), item height 36dp, 3 visible items (108dp total). Includes top and bottom padding items so the first and last real values can reach the center slot. Highlighted center item uses `primary` color at full opacity; neighbours faded to 0.3α. Each item 64dp wide, 22sp MonoTextStyle.
+**CountdownMmSsInput:** Two `TimerConfigField` boxes side-by-side with a `:` separator. MM box labeled "MIN" (accepts 0–99, `ImeAction.Next`), SS box labeled "SEC" (accepts 0–59, `ImeAction.Done`). Enter/Next on MM moves focus to SS via `FocusRequester`. Both use `rememberSelectAllState()` — tap selects all for immediate override.
 
-**Quick Presets:** A `Row` of 4 `SuggestionChip`s (weight=1f each) below the wheels:
+**Quick Presets:** A `Row` of 4 `SuggestionChip`s (weight=1f each) below the input row:
 - Labels: `0:30`, `1:00`, `1:30`, `2:00`
-- Tap behavior (**Snap & Wait**): instantly snaps both wheels to the corresponding values. Does **NOT** auto-start.
+- Tap behavior (**Fill & Wait**): syncs both MM and SS text fields + their Int counterparts. Does **NOT** auto-start.
 - Chip style: `SuggestionChip`, `surfaceVariant` container, `onSurface` label. Stateless triggers.
 
 **Start resolution:** `startTimer()` reads `countdownMinutes * 60 + countdownSeconds`. Falls back to 60s if total is 0.
@@ -290,7 +292,7 @@ Any   ──resetTimer()────────→ IDLE
 3. **Start coercion:** `text.toIntOrNull()?.takeIf { it > 0 } ?: fallback`
 4. **Optional fields:** empty → feature disabled (no warning/alert)
 5. **No error messages shown** — invalid input silently falls back to defaults
-6. **Countdown (Roulette Picker):** No text validation needed — wheel values are bounded by the 0–59 range. Zero-total fallback handled in `startTimer()`.
+6. **Countdown (MM:SS fill-in):** MM clamped to 0–99, SS clamped to 0–59 on focus-out (via `coerceIn`). Zero-total fallback handled in `startTimer()`.
 
 ---
 

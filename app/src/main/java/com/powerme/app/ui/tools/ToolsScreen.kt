@@ -1,16 +1,17 @@
 package com.powerme.app.ui.tools
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -518,12 +519,13 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
             }
         }
         TimerMode.COUNTDOWN -> {
-            CountdownRoulettePicker(
-                minutes = state.countdownMinutes,
-                seconds = state.countdownSeconds,
-                onMinutesChanged = viewModel::updateCountdownMinutes,
-                onSecondsChanged = viewModel::updateCountdownSeconds,
-                onPreset = viewModel::setCountdownPreset
+            CountdownMmSsInput(
+                minutesText = state.countdownMinutesText,
+                secondsText = state.countdownSecondsText,
+                onMinutesChanged = viewModel::updateCountdownMinutesText,
+                onSecondsChanged = viewModel::updateCountdownSecondsText,
+                onPreset = viewModel::setCountdownPreset,
+                enabled = !state.isRunning
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -557,118 +559,114 @@ private fun ConfigInputs(state: ToolsUiState, viewModel: ToolsViewModel) {
 }
 
 @Composable
-private fun WheelPicker(
-    range: IntRange,
-    selected: Int,
-    onSelected: (Int) -> Unit,
+private fun CountdownDigitField(
+    value: String,
+    placeholder: String,
+    onValueChange: (String) -> Unit,
+    imeAction: ImeAction = ImeAction.Done,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
     modifier: Modifier = Modifier
 ) {
-    val itemHeightDp = 36.dp
-    val visibleItems = 3
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-    val snapBehavior = rememberSnapFlingBehavior(listState)
-
-    // Padding items at top/bottom allow the first and last real values to reach the center slot.
-    // scrollToItem(k) makes list item k first visible → center slot holds item k+1 (the real value).
-    // So scrollToItem(selected - range.first) centers the selected value.
-    // After scrolling, firstVisibleItemIndex == (selected - range.first), so reporting
-    // range.first + firstVisibleItemIndex correctly recovers the centered value.
-
-    // Scroll so selected item lands in center slot on external change (e.g. preset tap)
-    LaunchedEffect(selected) {
-        val index = (selected - range.first).coerceIn(0, range.last - range.first)
-        listState.scrollToItem(index)
-    }
-
-    // Report settled center item to ViewModel
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (!listState.isScrollInProgress) {
-            val centerIndex = listState.firstVisibleItemIndex
-                .coerceIn(0, range.last - range.first)
-            onSelected(range.first + centerIndex)
-        }
-    }
+    val (tfv, selectAllMod) = rememberSelectAllState(value)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val primary = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
 
     Box(
         modifier = modifier
-            .width(64.dp)
-            .height(itemHeightDp * visibleItems),
+            .width(96.dp)
+            .background(surfaceColor, shape = MaterialTheme.shapes.medium)
+            .border(
+                width = 2.dp,
+                color = if (isFocused) primary else Color.Transparent,
+                shape = MaterialTheme.shapes.medium
+            )
+            .padding(horizontal = 12.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Highlight bar behind center item
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(itemHeightDp)
-                .background(
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    MaterialTheme.shapes.small
+        if (value.isEmpty()) {
+            Text(
+                text = placeholder,
+                style = MonoTextStyle.copy(
+                    fontSize = 42.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
                 )
-        )
-        LazyColumn(
-            state = listState,
-            flingBehavior = snapBehavior,
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Top padding item so the first real value can scroll to center
-            item { Box(modifier = Modifier.width(64.dp).height(itemHeightDp)) }
-            items(range.last - range.first + 1) { idx ->
-                val value = range.first + idx
-                val isCurrent = value == selected
-                Box(
-                    modifier = Modifier
-                        .width(64.dp)
-                        .height(itemHeightDp)
-                        .clickable {
-                            coroutineScope.launch { listState.animateScrollToItem(idx) }
-                            onSelected(value)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "%02d".format(value),
-                        style = MonoTextStyle.copy(
-                            fontSize = 22.sp,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isCurrent) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                        )
-                    )
-                }
-            }
-            // Bottom padding item so the last real value can scroll to center
-            item { Box(modifier = Modifier.width(64.dp).height(itemHeightDp)) }
+            )
         }
+        BasicTextField(
+            value = tfv.value,
+            onValueChange = { newTfv ->
+                val newText = newTfv.text
+                if (newText.isEmpty() || newText.all { it.isDigit() }) {
+                    tfv.value = newTfv
+                    onValueChange(newText)
+                }
+            },
+            textStyle = MonoTextStyle.copy(
+                fontSize = 42.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = imeAction),
+            keyboardActions = keyboardActions,
+            singleLine = true,
+            interactionSource = interactionSource,
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(primary),
+            modifier = selectAllMod.fillMaxWidth()
+        )
     }
 }
 
 @Composable
-private fun CountdownRoulettePicker(
-    minutes: Int,
-    seconds: Int,
-    onMinutesChanged: (Int) -> Unit,
-    onSecondsChanged: (Int) -> Unit,
-    onPreset: (Int) -> Unit
+private fun CountdownMmSsInput(
+    minutesText: String,
+    secondsText: String,
+    onMinutesChanged: (String) -> Unit,
+    onSecondsChanged: (String) -> Unit,
+    onPreset: (Int) -> Unit,
+    enabled: Boolean = true
 ) {
     val presets = listOf(30 to "0:30", 60 to "1:00", 90 to "1:30", 120 to "2:00")
+    val ssFocusRequester = remember { FocusRequester() }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            WheelPicker(range = 0..59, selected = minutes, onSelected = onMinutesChanged)
+            CountdownDigitField(
+                value = minutesText,
+                placeholder = "MM",
+                onValueChange = onMinutesChanged,
+                imeAction = ImeAction.Next,
+                keyboardActions = KeyboardActions(onNext = { ssFocusRequester.requestFocus() })
+            )
             Text(
                 text = ":",
-                style = MonoTextStyle.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                style = MonoTextStyle.copy(
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                ),
+                modifier = Modifier.padding(horizontal = 12.dp)
             )
-            WheelPicker(range = 0..59, selected = seconds, onSelected = onSecondsChanged)
+            CountdownDigitField(
+                value = secondsText,
+                placeholder = "SS",
+                onValueChange = onSecondsChanged,
+                imeAction = ImeAction.Done,
+                modifier = Modifier.focusRequester(ssFocusRequester)
+            )
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
@@ -693,7 +691,10 @@ private fun TimerConfigField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth()
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    imeAction: ImeAction = ImeAction.Done,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    enabled: Boolean = true
 ) {
     val (tfv, selectAllMod) = rememberSelectAllState(value)
     val interactionSource = remember { MutableInteractionSource() }
@@ -729,8 +730,10 @@ private fun TimerConfigField(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 ),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = imeAction),
+                keyboardActions = keyboardActions,
                 singleLine = true,
+                enabled = enabled,
                 interactionSource = interactionSource,
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(accentColor),
                 modifier = selectAllMod.fillMaxWidth()
