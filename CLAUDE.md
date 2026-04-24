@@ -13,7 +13,7 @@
 - Health: Health Connect API
 - Charts: Vico (Material 3)
 - Drag-and-drop: `sh.calvin.reorderable:reorderable-compose`
-- AI: Gemini Flash API (`com.google.ai.client.generativeai:generativeai:0.9.0`) + ML Kit Text Recognition (`com.google.mlkit:text-recognition:16.0.1`)
+- AI: Gemini API via OkHttp REST (`okhttp3:okhttp:4.12.0`, model `gemini-2.5-flash`) + ML Kit Text Recognition (`com.google.mlkit:text-recognition:16.0.1`)
 - Observability: Timber logging facade (DebugTree in debug, CrashlyticsTree in release) + Firebase Crashlytics + Firebase Analytics custom events
 - Build: Gradle Kotlin DSL, KSP, min SDK 26, target SDK 35
 

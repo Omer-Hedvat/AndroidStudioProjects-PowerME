@@ -98,6 +98,7 @@ Single source of truth for bug status across sessions.
 | [BUG_use_rpe_toggle_layout](BUG_use_rpe_toggle_layout.md) | Use RPE toggle misaligned — multi-line subtitle breaks row layout | ✅ Wrapped | P2 | — | — | `SettingsScreen.kt` |
 | [BUG_exercise_type_mismatches](BUG_exercise_type_mismatches.md) | exerciseType mismatches — 2 invalid BODYWEIGHT enum + 2 wrong type assignments | ✅ Completed | P2 | — | — | `master_exercises.json`, `MasterExerciseSeeder.kt` |
 | [BUG_exercise_search_clear_no_keyboard](BUG_exercise_search_clear_no_keyboard.md) | Exercise search X button clears query but dismisses keyboard and loses focus | ✅ Wrapped | P2 | — | — | `ExercisesScreen.kt` |
+| [BUG_save_routine_missing_workouts_tab](BUG_save_routine_missing_workouts_tab.md) | Saved routine missing from Workouts tab after post-workout Save Routine flow | 🔵 Open | P1 | — | — | — |
 
 ---
 

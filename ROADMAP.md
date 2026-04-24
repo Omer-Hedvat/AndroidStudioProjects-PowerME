@@ -215,7 +215,7 @@ Parser abstraction layer + on-device inference backend. `AiWorkoutViewModel` rem
 | AICore on-device integration — `AiCoreAvailability`, `AiCoreDownloadManager`, `OnDeviceWorkoutParser`, router wiring, download banner, Settings status row | `future_devs/AICORE_ONDEVICE_INTEGRATION_SPEC.md` | M | `completed-blocked` | AI ViewModel interface wiring ✅ |
 | Synonym learning system — migration v49, ExerciseMatcher synonym tier, save prompt UI, analytics | `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | M | `completed-blocked` | DB synonym foundation ✅, AI parser interface layer ✅ |
 | AICore two-tier model cascade — E4B (Gemma 4B) preferred, E2B (Gemma 2B) fallback; variant-aware availability, router, download, Settings row | `future_devs/AICORE_TWO_TIER_MODEL_CASCADE_SPEC.md` | S | `abandoned` | AICore on-device integration |
-| Firebase AI Logic SDK migration — replace deprecated `generativeai:0.9.0` with Firebase AI SDK; unblocks gemini-2.5-flash and future model strings | `future_devs/FIREBASE_AI_SDK_MIGRATION_SPEC.md` | S | `in-progress` | — |
+| Firebase AI Logic SDK migration — replace deprecated `generativeai:0.9.0` with Firebase AI SDK; unblocks gemini-2.5-flash and future model strings | `future_devs/FIREBASE_AI_SDK_MIGRATION_SPEC.md` | S | `wrapped` | — |
 
 ---
 

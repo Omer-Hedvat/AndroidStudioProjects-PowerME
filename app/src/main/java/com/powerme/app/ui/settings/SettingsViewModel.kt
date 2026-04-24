@@ -9,7 +9,6 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.secure.SecurePreferencesStore
-import com.google.ai.client.generativeai.GenerativeModel
 import com.powerme.app.ai.AiCoreAvailability
 import com.powerme.app.ai.AiCoreStatus
 import com.powerme.app.ai.GeminiKeyResolver
@@ -33,8 +32,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 data class PlateState(val weight: Double, val isEnabled: Boolean)
@@ -224,11 +229,20 @@ open class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(hasUserApiKey = false, apiKeyStatus = newStatus, apiKeyValidation = ApiKeyValidationState.Idle) }
     }
 
-    open fun createGenerativeModel(key: String): GenerativeModel =
-        GenerativeModel(modelName = "gemini-2.0-flash", apiKey = key)
-
     protected open suspend fun callGeminiForValidation(key: String) {
-        createGenerativeModel(key).generateContent("hi")
+        val body = """{"contents":[{"parts":[{"text":"hi"}]}]}"""
+        val request = Request.Builder()
+            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$key")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+        withContext(Dispatchers.IO) {
+            OkHttpClient().newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val errorBody = response.body?.string() ?: ""
+                    throw Exception("API error ${response.code}: $errorBody")
+                }
+            }
+        }
     }
 
     private suspend fun validateApiKey(key: String): ApiKeyValidationState {

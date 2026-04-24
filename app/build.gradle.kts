@@ -68,6 +68,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
+        freeCompilerArgs += "-Xskip-metadata-version-check"
     }
     buildFeatures {
         compose = true
@@ -144,11 +145,14 @@ dependencies {
     // Timber
     implementation(libs.timber)
 
-    // Gemini AI
-    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    // Gemini AI — direct REST via OkHttp (replaces deprecated generativeai:0.9.0)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // ML Kit Text Recognition (on-device OCR)
     implementation("com.google.mlkit:text-recognition:16.0.1")
+
+    // ML Kit GenAI Prompt API (on-device Gemini Nano via AICore system service)
+    implementation(libs.mlkit.genai.prompt)
 
     // Google Sign-In (Credential Manager)
     implementation("androidx.credentials:credentials:1.3.0")

@@ -1,5 +1,13 @@
 # PowerME — AI Spec
 
+| Field | Value |
+|---|---|
+| **Type** | Epic |
+| **Phase** | P7 / P9 |
+| **Status** | `in-progress` |
+| **Children** | 4 active tasks — see `future_devs/AI_*_SPEC.md` + `future_devs/FIREBASE_AI_SDK_MIGRATION_SPEC.md`; §8 enhancement queue feeds future children |
+| **Rollup** | 3/4 wrapped · 1 completed-blocked · 0 in-progress · 0 not-started |
+
 > **Single source of truth for everything AI in PowerME.** If a change
 > touches the AI feature — prompt, schema, matching, model, key handling,
 > entry point, UX — update this file in the same PR. Do not create a
@@ -30,8 +38,8 @@ names to its library; the user previews, edits, and then chooses
 | Hybrid API key + Settings → AI section | Shipped (§8.1 first item) |
 | Remaining enhancement roadmap (§8) | Not started |
 | Parser abstraction layer (`WorkoutTextParser`, `WorkoutParserRouter`, `AiModule`) | Shipped (P9) |
-| On-device LLM (AICore / Gemma) | Architecture decided (§12); interface layer shipped — `OnDeviceWorkoutParser` not yet implemented |
-| Synonym learning system (§8.8) | Designed, not implemented |
+| On-device LLM (AICore / Gemma) | Shipped (§12) — `OnDeviceWorkoutParser`, `AiCoreAvailability`, `AiCoreDownloadManager`, router wiring, download banner, Settings status row |
+| Synonym learning system (§8.8) | Shipped (P9) |
 
 **In scope of this spec:** the entire AI feature — what exists today
 (§3–§7) and the prioritized gaps (§8).
@@ -54,7 +62,7 @@ Cloud + on-device hybrid, as it actually is:
 | State | `AiWorkoutViewModel` orchestrates input, parse, match, edit | `ui/workouts/ai/AiWorkoutViewModel.kt` |
 | UI | Two-step Compose screen (INPUT → PREVIEW) + Settings → AI card | `ui/workouts/ai/AiWorkoutGenerationScreen.kt`, `ui/settings/SettingsScreen.kt` |
 | Persistence | `PlanExercise` → `WorkoutBootstrap` or `Routine` + `RoutineExercise` rows | `data/repository/WorkoutRepository.kt:162`, `data/repository/RoutineRepository.kt:25` |
-| On-device LLM | **Gemma 4 / Gemini Nano** via Android AICore (§12) | Not yet implemented — architecture only |
+| On-device LLM | **ML Kit GenAI Prompt API** (`genai-prompt:1.0.0-beta1`) wrapping AICore | `ai/OnDeviceWorkoutParser.kt`, `ai/AiCoreAvailability.kt`, `ai/AiCoreDownloadManager.kt` |
 
 No retry, quota, cache, response validation beyond JSON-array shape, or
 Firebase App Check. No Room changes — drafts live in ViewModel state
@@ -134,18 +142,20 @@ matched. Unmatched-only previews cannot be started or saved.
 
 ## 6. Matching behaviour
 
-`ExerciseMatcher.matchExercise()` (`util/ExerciseMatcher.kt:33-67`),
+`ExerciseMatcher.matchExercise()` (`util/ExerciseMatcher.kt`) is `suspend`,
 in priority order:
 
+0. **EXACT_USER_SYNONYM** — user-saved alias in `user_exercise_synonyms` (DB) → confidence 1.0 (shown as "Your match" chip)
 1. **EXACT** — `searchName` equality after `toSearchName()` normalisation → confidence 1.0
 2. **SYNONYM** — all query tokens match via `matchesSearchTokens()` (existing token/synonym mechanism) → confidence 0.95
 3. **FUZZY** — Jaro-Winkler ≥ 0.85 (`FUZZY_THRESHOLD`) on `searchName` pairs → confidence = score
 4. **UNMATCHED** — best score below threshold → confidence = best score, `exercise = null`
 
-UX today shows the match type on each preview row; UNMATCHED rows are
-tappable to open the library picker. Tiered UX with separate
-"auto-match" vs "suggest top-3" vs "manual" bands is **not** shipped
-and is in §8.
+UX shows the match type on each preview row; UNMATCHED rows are
+tappable to open the library picker. After a manual swap of an UNMATCHED/FUZZY
+row, a Snackbar offers to save the alias permanently ("Always match X → Y?").
+Tiered UX with separate "auto-match" vs "suggest top-3" vs "manual" bands is
+**not** shipped and is in §8.
 
 ---
 
@@ -249,7 +259,7 @@ it becomes a real roadmap item.
 - Specific copy for OCR-empty, zero-exercises-parsed, and
   all-unmatched outcomes.
 
-### 8.8 Synonym learning system
+### 8.8 Synonym learning system ✅ SHIPPED (P9 — v49)
 
 Enables the matching layer to improve over time through user corrections and cross-user aggregation.
 
@@ -314,20 +324,20 @@ Rationale and the full 46-item brainstorm live in `AI_BACKLOG.md`.
 
 ## 12. On-Device LLM — Android AICore
 
-> **Status:** Architecture decided. Not yet implemented.
-> Implementation task list lives in the approved plan at `.claude/plans/partitioned-wandering-barto.md`.
+> **Status:** Shipped. ML Kit GenAI Prompt API (`genai-prompt:1.0.0-beta2`) used. Single-tier availability check via `Generation.getClient()` — no model variant selection. All runtime inference failures fall back to Cloud Gemini API seamlessly.
 
 ---
 
 ### 12.1 Decision Summary
 
-PowerME will use the **Android AICore API** (Google AI Edge SDK) for on-device LLM inference. This is the only approved approach for on-device AI.
+PowerME uses the **ML Kit GenAI Prompt API** (`com.google.mlkit:genai-prompt`) for on-device LLM inference. This is the only approved approach for on-device AI.
 
 Key decisions:
-- **System-service model** — AICore is a native Android system service, conceptually similar to Health Connect. The app calls a platform API; it does not ship or manage model files directly.
+- **System-service model** — AICore is a native Android system service. The app calls a platform API via ML Kit; it does not ship or manage model files directly.
 - **No APK bundling** — `.e4b` model files will NOT be bundled into the APK. This is a hard rule (see §12.8).
 - **No cross-app sandbox reads** — the app will NOT attempt to read model files from other apps' private directories (e.g. AI Test Kitchen, Edge Gallery). This is fragile, violates the Android security model, and is explicitly ruled out.
 - **No user consent screens** — unlike Health Connect (which requires explicit user permission dialogs), on-device AI runs entirely locally and privately. No personal data leaves the device, so no consent flow is needed for the on-device path.
+- **No model variant selection** — `Generation.getClient()` is called with no arguments. The OS routing bridge (Google's or Samsung's) selects the appropriate model internally. App-level `ModelPreference`/`ModelVariant` selection was abandoned after field testing showed Samsung Galaxy AI registers different AICore feature IDs (not 636/645) that the standard ML Kit SDK cannot query directly.
 
 ---
 
@@ -335,8 +345,8 @@ Key decisions:
 
 **0 bytes added to the APK.**
 
-Models are downloaded and managed by the OS via Google Play Services. PowerME only ships:
-- A compile-time SDK dependency: `com.google.ai.edge:aicore` (library code only, no model weights)
+Models are downloaded and managed by the OS. PowerME only ships:
+- A compile-time SDK dependency: `com.google.mlkit:genai-prompt` (library code only, no model weights)
 
 This preserves a minimal download size for all users, regardless of device capability.
 
@@ -344,12 +354,17 @@ This preserves a minimal download size for all users, regardless of device capab
 
 ### 12.3 Supported Models
 
-| Model | Min Device | Capability |
-|---|---|---|
-| **Gemma 4** (via AICore) | Pixel 8 series, recent Samsung flagships with NPU | Text generation, structured JSON output |
-| **Gemini Nano** (via AICore) | Pixel 6 Pro, Pixel 7+, Samsung Galaxy S24+ | Text generation |
+`AiCoreAvailability.check()` calls `Generation.getClient().checkStatus()` with no variant arguments. The ML Kit SDK returns one of three states:
 
-Exact device support is determined at runtime by AICore's availability API — PowerME does not maintain a device allowlist. If AICore reports `NotAvailable`, the app falls back to cloud (§12.4).
+| Status | `AiCoreStatus` | Action |
+|---|---|---|
+| `AVAILABLE` | `Ready` | Use on-device inference |
+| `DOWNLOADABLE` / `DOWNLOADING` | `NeedsDownload` | Trigger background download; fall back to cloud |
+| `UNAVAILABLE` / exception | `NotSupported` | Fall back to cloud permanently |
+
+Analytics labels: `"on_device"` (successful inference), `"cloud"` (checkStatus-driven fallback), `"cloud_fallback"` (runtime inference failure after Ready status).
+
+The two-tier E4B→E2B cascade described in earlier drafts was **never shipped** and has been abandoned — see `future_devs/AICORE_TWO_TIER_MODEL_CASCADE_SPEC.md` for rationale.
 
 ---
 
@@ -384,7 +399,7 @@ When AICore is available but the model has not yet been downloaded:
 - A **non-blocking indicator** appears on the AI Workout screen (INPUT step): `"Downloading smart performance model…"` — implemented as a subtle banner or snackbar. No modal, no blocking dialog.
 - The user can **continue using the app normally** — type a workout description, take a photo, log sets — while the download proceeds. The cloud Gemini API handles all AI requests during this window.
 - Once download completes, **future** AI requests automatically use the on-device model. No user action required.
-- A read-only status row in **Settings → AI card** shows the current state: `On-device AI: Ready` / `Downloading…` / `Not available (using cloud)`. This is informational only — no toggle.
+- A read-only status row in **Settings → AI card** shows the current state: `On-device AI: Gemma 4B` / `On-device AI: Gemma 2B` / `On-device AI: Downloading…` / `On-device AI: Not available (using cloud)`. This is informational only — no toggle.
 
 ---
 
@@ -400,7 +415,7 @@ Updated §3 architecture (additions in bold):
 | **LLM (on-device)** | **Gemma 4 / Gemini Nano via AICore** | **`ai/OnDeviceWorkoutParser.kt` (implements `WorkoutTextParser`)** |
 | **Parser interface** | **`WorkoutTextParser`** — unified interface over both backends | **`ai/WorkoutTextParser.kt`** |
 | **Backend router** | **`WorkoutParserRouter`** — selects on-device or cloud based on `AiCoreAvailability` | **`ai/WorkoutParserRouter.kt`** |
-| **Availability** | **`AiCoreAvailability`** — `Ready` / `NeedsDownload` / `NotSupported` | **`ai/AiCoreAvailability.kt`** |
+| **Availability** | **`AiCoreAvailability`** — `Ready` / `NeedsDownload` / `NotSupported`; single-tier via `Generation.getClient()` | **`ai/AiCoreAvailability.kt`** |
 | API key | `GeminiKeyResolver` (cloud path only — unchanged) | `ai/GeminiKeyResolver.kt` |
 | OCR | ML Kit Text Recognition (unchanged) | `ai/TextRecognitionService.kt` |
 | Matching | 4-tier cascade (unchanged) | `util/ExerciseMatcher.kt` |
