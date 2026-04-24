@@ -35,7 +35,6 @@ import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.ui.theme.ExercisePlyometricOrange
 import com.powerme.app.ui.theme.ExerciseStretchTeal
-import com.powerme.app.ui.theme.FormCuesGold
 import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.ReadinessAmber
 import com.powerme.app.ui.theme.TimerGreen
@@ -211,6 +210,37 @@ fun ExercisesScreen(
                         )
                     }
                 }
+            }
+
+            // Functional filter toggle chip
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Mode",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TimerGreen.copy(alpha = 0.8f)
+                )
+                FilterChip(
+                    selected = uiState.functionalFilter,
+                    onClick = viewModel::onFunctionalFilterToggled,
+                    label = { Text("Functional") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = TimerGreen,
+                        selectedLabelColor = MaterialTheme.colorScheme.surface,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        labelColor = TimerGreen
+                    )
+                )
             }
 
             // Exercise list
@@ -404,13 +434,6 @@ private fun ExerciseCard(
                             label = "${exercise.restDurationSeconds}s rest",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
-                        if (exercise.setupNotes?.isNotBlank() == true) {
-                            MetaItem(
-                                icon = Icons.Default.Info,
-                                label = "Form cues",
-                                tint = FormCuesGold.copy(alpha = 0.85f)
-                            )
-                        }
                     }
                 }
             }

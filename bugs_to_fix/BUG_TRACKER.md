@@ -94,6 +94,7 @@ Single source of truth for bug status across sessions.
 | [BUG_quick_start_add_exercise_partial](BUG_quick_start_add_exercise_partial.md) | Quick Start — Add Exercise only adds the first selected exercise | ✅ Wrapped | P1 | — | — | `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt` |
 | [BUG_ai_camera_no_permission_declared](BUG_ai_camera_no_permission_declared.md) | AI photo flow Camera button silently no-ops on fresh install — CAMERA permission not declared in manifest | ✅ Wrapped | P2 | — | — | `AiWorkoutGenerationScreen.kt` |
 | [BUG_camera_fileprovider_crash](BUG_camera_fileprovider_crash.md) | Camera crashes app in AI photo flow — FileProvider not declared in manifest + file_paths.xml missing | ✅ Wrapped | P0 | — | — | `AndroidManifest.xml`, `res/xml/file_paths.xml` (new) |
+| [BUG_exercise_card_form_cues_badge](BUG_exercise_card_form_cues_badge.md) | Exercise card shows spurious "Form cues" badge | ✅ Wrapped | P3 | — | — | `ExercisesScreen.kt` |
 
 ---
 
