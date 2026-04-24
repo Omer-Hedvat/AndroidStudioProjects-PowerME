@@ -39,7 +39,7 @@ Multi-task initiatives that own a root-level spec and a set of child Feature tas
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 4/18 wrapped · 4 completed · 10 not-started | 18 |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 5/19 wrapped · 3 completed · 11 not-started | 19 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/3 wrapped | 3 active + §8 queue |
 
 ---
@@ -144,6 +144,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Exercise "How to Perform" descriptions | `future_devs/EXERCISE_HOW_TO_PERFORM_SPEC.md` | L | `wrapped` | Exercise Detail Tabs v2 ✅ |
 | Alternative exercise — movement-specific weight transfer | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | M | `not-started` | Exercise Detail Tabs v2 ✅ |
 | DB synonym foundation — UserExerciseSynonym entity, DAO, repository | `future_devs/DB_SYNONYM_FOUNDATION_SPEC.md` | S | `wrapped` | — |
+| Exercise Library — favourites quick-filter button (heart icon next to Tune) | `future_devs/EXERCISE_FAVORITES_FILTER_SPEC.md` | S | `not-started` | — |
 
 ---
 
@@ -196,7 +197,9 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 | Exercise Library — exerciseType filter chips (Timed / Cardio / Plyometric) | `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md` | S | `superseded` | superseded by exercise_filter_dialog ✅ |
 | Exercise Library — collapsible filter panel | `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` | S | `superseded` | superseded by exercise_filter_dialog ✅ |
 | Exercise Library — filter dialog (Tune icon + centered dialog with type/muscle/equipment) | `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md` | S | `wrapped` | func_exercise_tags_seed ✅ |
-| exerciseType seed gap fix — retag PLYOMETRIC exercises + add STRETCH entries | `future_devs/FUNC_EXERCISE_TYPE_RETAG_SEED_SPEC.md` | S | `in-progress` | func_exercise_tags_seed ✅ |
+| exerciseType seed gap fix — retag PLYOMETRIC exercises + add STRETCH entries | `future_devs/FUNC_EXERCISE_TYPE_RETAG_SEED_SPEC.md` | S | `wrapped` | func_exercise_tags_seed ✅ |
+| Yoga stretch seed — add ~15 yoga poses to STRETCH category | `future_devs/FUNC_YOGA_STRETCH_SEED_SPEC.md` | XS | `not-started` | func_exercise_type_retag_seed ✅ |
+| Exercise filter dialog — sticky bottom action bar (Reset + Apply always visible) | `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md` | XS | `not-started` | exercise_filter_dialog ✅ |
 
 ---
 
@@ -328,3 +331,6 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md` | P8 — Exercise Library exerciseType filter chips (Timed / Cardio / Plyometric); no schema change |
 | `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` | P8 — Exercise Library collapsible filter panel; design via ui-ux-pro-max |
 | `future_devs/FUNC_EXERCISE_TYPE_RETAG_SEED_SPEC.md` | P8 — Data fix: retag PLYOMETRIC exercises + seed STRETCH exercises so filter chips return results |
+| `future_devs/FUNC_YOGA_STRETCH_SEED_SPEC.md` | P8 — Data seed: ~15 yoga poses added to STRETCH category (Warrior I/II/III, Triangle, Bridge, Cobra, etc.) |
+| `future_devs/EXERCISE_FAVORITES_FILTER_SPEC.md` | P5 — Exercise Library heart icon quick-filter (favourites only, stacks with all existing filters) |
+| `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md` | P8 — Exercise filter dialog: sticky bottom bar with Reset + Apply buttons always visible |

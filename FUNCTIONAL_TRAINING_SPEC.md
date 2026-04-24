@@ -5,8 +5,8 @@
 | **Type** | Epic |
 | **Phase** | P8 |
 | **Status** | `in-progress` |
-| **Children** | 18 tasks — see `future_devs/FUNC_*_SPEC.md`, `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md`, `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md`, `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` |
-| **Rollup** | 4/18 wrapped · 4 completed · 10 not-started |
+| **Children** | 19 tasks — see `future_devs/FUNC_*_SPEC.md`, `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md`, `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md`, `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md`, `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` |
+| **Rollup** | 5/19 wrapped · 3 completed · 11 not-started |
 
 > **Depends on:** DB v48 stable (current). No other phase dependencies.
 

@@ -40,7 +40,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "2.0"  // bumped: rewrite all 240 setupNotes with plain-language "How to Perform" descriptions
+        private const val CURRENT_VERSION = "2.3.2"  // retag 4 PLYOMETRIC exercises (Box Jump, Box Jump Over, Tuck Jump, Clap Push-up) + add 5 PLYOMETRIC + 12 STRETCH entries
     }
 
     private val json = Json {
@@ -126,17 +126,21 @@ class MasterExerciseSeeder @Inject constructor(
             // Fetch all exerciseIds that already have EMG rows — used to avoid duplicate inserts
             val existingEmgIds = exerciseMuscleGroupDao.getAllExerciseIds().toHashSet()
 
+            // Collect all updates so we can flush them in a single batch (one transaction,
+            // one Room Flow invalidation) — prevents the timing window where the ViewModel
+            // reads exercises before tags are written.
+            val pendingUpdates = mutableListOf<Exercise>()
+            val pendingEmgInserts = mutableListOf<ExerciseMuscleGroup>()
+
             masterData.exercises.forEach { masterExercise ->
                 masterNames += masterExercise.name
                 val existing = existingByName[masterExercise.name]
 
                 when {
                     existing == null -> {
-                        // New exercise - insert
+                        // New exercise - insert immediately (needs its generated ID for EMG row)
                         val newId = exerciseDao.insertExercise(masterExercise.copy(searchName = masterExercise.name.toSearchName()))
-                        exerciseMuscleGroupDao.insert(
-                            ExerciseMuscleGroup(exerciseId = newId, majorGroup = masterExercise.muscleGroup, isPrimary = true)
-                        )
+                        pendingEmgInserts += ExerciseMuscleGroup(exerciseId = newId, majorGroup = masterExercise.muscleGroup, isPrimary = true)
                         existingEmgIds += newId
                         insertedCount++
                     }
@@ -146,24 +150,34 @@ class MasterExerciseSeeder @Inject constructor(
                         Timber.d("Skipping custom exercise: ${existing.name}")
                     }
                     else -> {
-                        // Existing master exercise - update with new data, preserve user-modified fields
+                        // Existing master exercise - collect update, preserve user-modified fields
                         val updated = masterExercise.copy(
                             id = existing.id,  // Preserve database ID
                             isFavorite = existing.isFavorite,  // Preserve favorite flag
                             syncId = existing.syncId.ifEmpty { UUID.randomUUID().toString() }, // Preserve syncId (v35)
+                            updatedAt = existing.updatedAt, // Preserve updatedAt — avoid Firestore push storm on reseed
                             searchName = masterExercise.name.toSearchName()
                         )
-                        exerciseDao.updateExercise(updated)
+                        pendingUpdates += updated
                         // Ensure EMG row exists for this exercise (may be missing on fresh install or after new seeder versions)
                         if (existing.id !in existingEmgIds) {
-                            exerciseMuscleGroupDao.insert(
-                                ExerciseMuscleGroup(exerciseId = existing.id, majorGroup = masterExercise.muscleGroup, isPrimary = true)
-                            )
+                            pendingEmgInserts += ExerciseMuscleGroup(exerciseId = existing.id, majorGroup = masterExercise.muscleGroup, isPrimary = true)
                             existingEmgIds += existing.id
                         }
                         updatedCount++
                     }
                 }
+            }
+
+            // Flush all updates in one batch — single Room transaction, single Flow invalidation.
+            // This eliminates the timing window where the Exercise Library sees exercises with
+            // empty tags (tags = "[]") mid-reseed.
+            if (pendingUpdates.isNotEmpty()) {
+                exerciseDao.updateAll(pendingUpdates)
+            }
+            if (pendingEmgInserts.isNotEmpty()) {
+                exerciseMuscleGroupDao.insertAll(pendingEmgInserts)
+                existingEmgIds += pendingEmgInserts.map { it.exerciseId }
             }
 
             // Delete non-custom exercises removed from the JSON master list
