@@ -17,6 +17,7 @@
 | `in-progress` | Currently being implemented |
 | `blocked` | Waiting on another feature listed in "Depends on" |
 | `completed` | Dev done, tests pass, ready for QA on device |
+| `completed-blocked` | Dev done, but QA requires an external dependency (API key, specific device hardware, HC sync) |
 | `wrapped` | User QA'd and ran `/wrap_task` (simplify + build + test + commit + push) |
 | `rework` | QA rejected — needs fixes before re-testing |
 | `done` | Legacy status — same as `wrapped` (used by older shipped items) |
@@ -59,7 +60,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Observability layer — Crashlytics + Analytics + Timber (beta) | `future_devs/OBSERVABILITY_BETA_SPEC.md` | M | `wrapped` | — |
 | Workouts page — Quick Start 3-way chooser (exercises / picture / text) | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | S | `wrapped` | Quick Start Workout ✅, AI Workout Generation ✅ |
 | Gymvisual chest+barbell catalogue comparison (research report) | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | XS | `wrapped` | — |
-| Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed` | — |
+| Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed-blocked` | — |
 | Clocks Countdown — MM:SS fill-in input (replaces roulette wheel) | `future_devs/CLOCKS_COUNTDOWN_MMS_INPUT_SPEC.md` | S | `wrapped` | — |
 
 ---
@@ -193,13 +194,13 @@ AMRAP / RFT / EMOM alongside strength work. Tiered delivery — see `FUNCTIONAL_
 | Exercise gap analysis — CrossFit / Hyrox / Calisthenics (research report) | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `completed` | — |
 | CrossFit exercise list verification — crossfit.com + 2 sources (research report) | `future_devs/FUNC_CROSSFIT_VERIFICATION_SPEC.md` | XS | `completed` | gap analysis ✅ |
 | Expanded exercise seed — CrossFit / Hyrox / Calisthenics DB population | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `completed` | gap analysis ✅, CrossFit verification ✅, Exercise tags seed ✅ |
-| Cardio exercise seed — treadmill, cycling, swimming, machines, LISS/HIIT | `future_devs/FUNC_CARDIO_EXERCISE_SEED_SPEC.md` | S | `completed` | func_exercise_tags_seed ✅, func_exercise_expanded_seed ✅ |
+| Cardio exercise seed — treadmill, cycling, swimming, machines, LISS/HIIT | `future_devs/FUNC_CARDIO_EXERCISE_SEED_SPEC.md` | S | `wrapped` | func_exercise_tags_seed ✅, func_exercise_expanded_seed ✅ |
 | Exercise Library — exerciseType filter chips (Timed / Cardio / Plyometric) | `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md` | S | `superseded` | superseded by exercise_filter_dialog ✅ |
 | Exercise Library — collapsible filter panel | `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` | S | `superseded` | superseded by exercise_filter_dialog ✅ |
 | Exercise Library — filter dialog (Tune icon + centered dialog with type/muscle/equipment) | `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md` | S | `wrapped` | func_exercise_tags_seed ✅ |
 | exerciseType seed gap fix — retag PLYOMETRIC exercises + add STRETCH entries | `future_devs/FUNC_EXERCISE_TYPE_RETAG_SEED_SPEC.md` | S | `wrapped` | func_exercise_tags_seed ✅ |
 | Yoga stretch seed — add ~15 yoga poses to STRETCH category | `future_devs/FUNC_YOGA_STRETCH_SEED_SPEC.md` | XS | `not-started` | func_exercise_type_retag_seed ✅ |
-| Exercise filter dialog — sticky bottom action bar (Reset + Apply always visible) | `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md` | XS | `not-started` | exercise_filter_dialog ✅ |
+| Exercise filter dialog — sticky bottom action bar (Reset + Apply always visible) | `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md` | XS | `completed` | exercise_filter_dialog ✅ |
 
 ---
 
