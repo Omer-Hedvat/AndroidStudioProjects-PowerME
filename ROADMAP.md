@@ -60,7 +60,7 @@ Self-contained, high-impact, no new infrastructure. Ship these first.
 | Observability layer — Crashlytics + Analytics + Timber (beta) | `future_devs/OBSERVABILITY_BETA_SPEC.md` | M | `wrapped` | — |
 | Workouts page — Quick Start 3-way chooser (exercises / picture / text) | `future_devs/WORKOUTS_QUICK_START_CHOOSER_SPEC.md` | S | `wrapped` | Quick Start Workout ✅, AI Workout Generation ✅ |
 | Gymvisual chest+barbell catalogue comparison (research report) | `future_devs/GYMVISUAL_CHEST_BARBELL_DIFF_SPEC.md` | XS | `wrapped` | — |
-| Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `completed` | — |
+| Gemini API key validation — inline status after Save (valid / quota / invalid) | `future_devs/API_KEY_VALIDATION_SPEC.md` | S | `wrapped` | — |
 | Clocks Countdown — MM:SS fill-in input (replaces roulette wheel) | `future_devs/CLOCKS_COUNTDOWN_MMS_INPUT_SPEC.md` | S | `wrapped` | — |
 
 ---
@@ -143,7 +143,7 @@ Data insights layer. Trends Steps 2–5 are independent of each other — can be
 | Exercise Detail Sheet — Full Revision | `future_devs/EXERCISE_DETAIL_SHEET_REVISION_SPEC.md` | L | `wrapped` | — |
 | Exercise Detail Screen — Tab-Based Redesign (v2) | `future_devs/EXERCISE_DETAIL_TABS_V2_SPEC.md` | L | `wrapped` | Exercise Detail Sheet Revision v1 ✅ |
 | Exercise "How to Perform" descriptions | `future_devs/EXERCISE_HOW_TO_PERFORM_SPEC.md` | L | `wrapped` | Exercise Detail Tabs v2 ✅ |
-| Alternative exercise — movement-specific weight transfer | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | M | `not-started` | Exercise Detail Tabs v2 ✅ |
+| Alternative exercise — movement-specific weight transfer | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | M | `in-progress` | Exercise Detail Tabs v2 ✅ |
 | DB synonym foundation — UserExerciseSynonym entity, DAO, repository | `future_devs/DB_SYNONYM_FOUNDATION_SPEC.md` | S | `wrapped` | — |
 | Exercise Library — favourites quick-filter button (heart icon next to Tune) | `future_devs/EXERCISE_FAVORITES_FILTER_SPEC.md` | S | `wrapped` | — |
 
