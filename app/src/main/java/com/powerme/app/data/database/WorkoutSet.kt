@@ -1,5 +1,6 @@
 package com.powerme.app.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -45,5 +46,7 @@ data class WorkoutSet(
     val endTime: Long? = null,         // epoch ms — set ended (for TUT)
     val restDuration: Int? = null,     // seconds between this and next set
     val supersetGroupId: String? = null, // UUID shared by paired superset exercises
-    val isCompleted: Boolean = false   // Iron Vault: persisted completion state
+    val isCompleted: Boolean = false,  // Iron Vault: persisted completion state
+    @ColumnInfo(defaultValue = "NULL")
+    val blockId: String? = null        // FK → workout_blocks.id (v51)
 )

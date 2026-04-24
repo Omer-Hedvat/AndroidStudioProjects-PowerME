@@ -33,5 +33,9 @@ data class RoutineExercise(
     @ColumnInfo(defaultValue = "''")
     val setWeightsJson: String = "", // comma-separated weights per set in order, e.g. "80,85,90" (v29)
     @ColumnInfo(defaultValue = "''")
-    val setRepsJson: String = ""     // comma-separated reps per set in order, e.g. "10,8,6" (v29)
+    val setRepsJson: String = "",    // comma-separated reps per set in order, e.g. "10,8,6" (v29)
+    @ColumnInfo(defaultValue = "NULL")
+    val blockId: String? = null,     // FK → routine_blocks.id (v51)
+    @ColumnInfo(defaultValue = "NULL")
+    val holdSeconds: Int? = null     // per-prescription hold duration for non-STRENGTH blocks (v51); see FUNCTIONAL_TRAINING_SPEC.md §10
 )
