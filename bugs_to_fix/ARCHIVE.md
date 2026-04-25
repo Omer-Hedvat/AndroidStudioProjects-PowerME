@@ -8,6 +8,7 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | Bug | Title | Status | Severity | Files Changed |
 |-----|-------|--------|----------|---------------|
 | [BUG_start_workout_after_edit](BUG_start_workout_after_edit.md) | Start workout button broken after editing a routine | ✅ Fixed & Committed | P0 | `WorkoutViewModel.kt` |
+| [BUG_ai_text_generator_no_parse](BUG_ai_text_generator_no_parse.md) | AI text generator does not generate workout from natural language input | ✅ Wrapped | P1 | No code changes — stale; fixed by WorkoutParserRouter + AiWorkoutViewModel |
 | [BUG_youtube_links_still_rendered](BUG_youtube_links_still_rendered.md) | YouTube links still shown in ExerciseDetailSheet | ✅ Fixed & Committed | P2 | `ExercisesScreen.kt` |
 | [BUG_superset_color_collision](BUG_superset_color_collision.md) | Superset colors collide when >4 supersets exist | ✅ Fixed & Committed | P2 | `Color.kt`, `ActiveWorkoutScreen.kt`, `TemplateBuilderScreen.kt`, `WorkoutDetailScreen.kt`, `WorkoutsScreen.kt`, `SupersetColorTest.kt` |
 | [BUG_history_weight_decimal_places](BUG_history_weight_decimal_places.md) | History weights show only 1 decimal place | ✅ Fixed & Committed | P2 | `UnitConverter.kt`, `WorkoutDetailViewModel.kt`, `UnitConverterTest.kt` |
