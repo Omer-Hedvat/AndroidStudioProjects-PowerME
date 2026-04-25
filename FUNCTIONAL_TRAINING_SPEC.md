@@ -5,8 +5,8 @@
 | **Type** | Epic |
 | **Phase** | P8 |
 | **Status** | `in-progress` |
-| **Children** | 22 tasks — see `future_devs/FUNC_*_SPEC.md`, `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md`, `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md`, `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md`, `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md` |
-| **Rollup** | 12/22 wrapped · 3 completed · 0 in-progress · 5 not-started |
+| **Children** | 24 tasks — see `future_devs/FUNC_*_SPEC.md`, `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md`, `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md`, `future_devs/EXERCISE_TYPE_FILTER_CHIPS_SPEC.md`, `future_devs/EXERCISE_FILTER_COLLAPSE_SPEC.md`, `future_devs/EXERCISE_PICKER_TYPE_PREFILTER_SPEC.md`, `future_devs/FUNC_ACTIVE_BLOCK_CARD_UI_SPEC.md` |
+| **Rollup** | 13/24 wrapped · 3 completed · 0 in-progress · 6 not-started |
 
 > **Depends on:** DB v48 stable (current). No other phase dependencies.
 
@@ -936,7 +936,7 @@ These are explicitly deferred. Do not implement them during P8 execution.
 | 1 | `func_block_entities_migration` | RoutineBlock + WorkoutBlock + backfill migration | HIGHEST |
 | 2 | `func_firestore_sync_blocks` | Firestore block arrays + legacy fallback | MEDIUM |
 | 3 | `func_template_wizard` | FunctionalBlockWizard + Pure Functional builder | MEDIUM |
-| 3 | `func_template_hybrid_sheet` | Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | LOW |
+| 3 | `func_template_hybrid_sheet` ✅ | Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | LOW |
 | 4 | `func_active_strength_blocks` | Block headers in active workout; STRENGTH materializes | MEDIUM |
 | 4 | `func_active_functional_runner` | AMRAP/RFT/EMOM/TABATA overlays + per-exercise RPE + round-tap log + HC block segments + foreground-service lifecycle | HIGHEST |
 | 5 | `func_history_trends_polish` | Block-aware History + Trends + SummaryScreen + round-split display | LOW |

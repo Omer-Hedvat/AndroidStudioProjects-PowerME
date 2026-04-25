@@ -309,4 +309,38 @@ class TemplateBuilderViewModelBlockTest {
         advanceUntilIdle()
         assertEquals(WorkoutStyle.PURE_FUNCTIONAL, viewModel.workoutStyle.value)
     }
+
+    @Test
+    fun `workoutStyle is HYBRID when store emits HYBRID`() = runTest(testDispatcher) {
+        whenever(appSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.HYBRID))
+        val hybridVm = TemplateBuilderViewModel(
+            routineDao = routineDao,
+            routineExerciseDao = routineExerciseDao,
+            routineBlockDao = routineBlockDao,
+            exerciseRepository = exerciseRepository,
+            database = database,
+            firestoreSyncManager = firestoreSyncManager,
+            appSettingsDataStore = appSettingsDataStore,
+            savedStateHandle = SavedStateHandle(mapOf("routineId" to "new"))
+        )
+        advanceUntilIdle()
+        assertEquals(WorkoutStyle.HYBRID, hybridVm.workoutStyle.value)
+    }
+
+    @Test
+    fun `workoutStyle is PURE_GYM when store emits PURE_GYM`() = runTest(testDispatcher) {
+        whenever(appSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.PURE_GYM))
+        val gymVm = TemplateBuilderViewModel(
+            routineDao = routineDao,
+            routineExerciseDao = routineExerciseDao,
+            routineBlockDao = routineBlockDao,
+            exerciseRepository = exerciseRepository,
+            database = database,
+            firestoreSyncManager = firestoreSyncManager,
+            appSettingsDataStore = appSettingsDataStore,
+            savedStateHandle = SavedStateHandle(mapOf("routineId" to "new"))
+        )
+        advanceUntilIdle()
+        assertEquals(WorkoutStyle.PURE_GYM, gymVm.workoutStyle.value)
+    }
 }

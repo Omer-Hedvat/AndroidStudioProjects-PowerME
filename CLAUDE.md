@@ -30,7 +30,7 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 
 **Health Connect:** 7 READ permissions (weight, body fat, height, sleep, HRV, RHR, steps). See `HEALTH_CONNECT_SPEC.md`.
 
-**Unit Tests:** 75 files, ~1064 tests (all passing). See `src/test/`.
+**Unit Tests:** 75 files, ~1066 tests (all passing). See `src/test/`.
 
 **AI:** Hybrid key resolution (user key → BuildConfig fallback). Parser router: cloud-only (Gemini via OkHttp REST). See `AI_SPEC.md`.
 
@@ -41,7 +41,8 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 - Favourites quick-filter (P5) — heart toggle in exercise library search bar
 - Movement transfer (P5) — cross-exercise strength estimation via family ratios
 - AI key + parser abstraction (P9) — WorkoutParserRouter, cloud-only for now
-- FunctionalBlockWizard (P8 Tier 3) — `FunctionalBlockWizard.kt` (2-step sheet: type → params), `DraftBlock` model, `BlockType` enum + `autoBlockName()`, block-sectioned `TemplateBuilderScreen` with `BlockHeader` + `FunctionalExerciseRow` (reps/time toggle). TemplateBuilderViewModel block CRUD + reps/holdSeconds management. RoutineRepository block-aware duplicate/express. Exercise picker pre-marks already-in-block exercises. PURE_FUNCTIONAL style opens wizard; PURE_GYM/HYBRID use legacy picker (HYBRID chooser is next task).
+- FunctionalBlockWizard (P8 Tier 3) — `FunctionalBlockWizard.kt` (2-step sheet: type → params), `DraftBlock` model, `BlockType` enum + `autoBlockName()`, block-sectioned `TemplateBuilderScreen` with `BlockHeader` + `FunctionalExerciseRow` (reps/time toggle). TemplateBuilderViewModel block CRUD + reps/holdSeconds management. RoutineRepository block-aware duplicate/express. Exercise picker pre-marks already-in-block exercises. PURE_FUNCTIONAL style opens wizard; PURE_GYM goes direct to exercise picker; HYBRID opens AddBlockOrExerciseSheet.
+- Hybrid Add-Block-or-Exercise Sheet (P8 Tier 3) — `AddBlockOrExerciseSheet.kt` (24dp-radius bottom sheet, two full-width action items). `TemplateBuilderScreen` Add button dispatches via `when(workoutStyle)`: PURE_GYM → exercise picker, PURE_FUNCTIONAL → FunctionalBlockWizard, HYBRID → AddBlockOrExerciseSheet. All three per-style paths fully wired.
 - Active workout block headers (P8 Tier 4) — `startWorkoutFromRoutine` materialises `WorkoutBlock` rows from `RoutineBlock` template at workout start. `ActiveWorkoutState` gains `blocks: List<WorkoutBlock>` + lazy `exercisesByBlockId`. Hybrid workouts (≥2 blocks) show `BlockHeader` composable before each block's exercise group; single-block workouts unchanged. Functional block headers show disabled "▶ START BLOCK" CTA. `ExerciseWithSets` gains `blockId`.
 
 **In-progress:**

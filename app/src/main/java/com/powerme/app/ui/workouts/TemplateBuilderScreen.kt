@@ -62,6 +62,7 @@ fun TemplateBuilderScreen(
 
     var isReorderMode by remember { mutableStateOf(false) }
     var showBlockWizard by remember { mutableStateOf(false) }
+    var showHybridSheet by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
         val fromIdx = draftExercises.indexOfFirst { it.exerciseId == from.key as Long }
@@ -347,6 +348,7 @@ fun TemplateBuilderScreen(
                     onClick = {
                         when (workoutStyle) {
                             WorkoutStyle.PURE_FUNCTIONAL -> showBlockWizard = true
+                            WorkoutStyle.HYBRID -> showHybridSheet = true
                             else -> {
                                 navController.currentBackStackEntry?.savedStateHandle
                                     ?.set("preselected_exercises", ArrayList<Long>())
@@ -360,7 +362,11 @@ fun TemplateBuilderScreen(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (workoutStyle == WorkoutStyle.PURE_FUNCTIONAL) "Add Block" else "Add Exercises")
+                    Text(when (workoutStyle) {
+                        WorkoutStyle.PURE_FUNCTIONAL -> "Add Block"
+                        WorkoutStyle.HYBRID -> "Add Exercise or Block"
+                        else -> "Add Exercises"
+                    })
                 }
             }
         }
@@ -378,6 +384,19 @@ fun TemplateBuilderScreen(
                 viewModel.setPendingBlock(block)
                 navController.navigate("exercise_picker?functionalFilter=true")
             }
+        )
+    }
+
+    // Hybrid chooser sheet
+    if (showHybridSheet) {
+        AddBlockOrExerciseSheet(
+            onDismiss = { showHybridSheet = false },
+            onAddStrengthExercise = {
+                navController.currentBackStackEntry?.savedStateHandle
+                    ?.set("preselected_exercises", ArrayList<Long>())
+                navController.navigate("exercise_picker")
+            },
+            onAddFunctionalBlock = { showBlockWizard = true }
         )
     }
 }
