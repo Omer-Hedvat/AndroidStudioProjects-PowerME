@@ -259,7 +259,7 @@ fun TemplateBuilderScreen(
                                     navController.currentBackStackEntry?.savedStateHandle
                                         ?.set("preselected_exercises", ArrayList(existing))
                                     viewModel.setPendingBlock(block)
-                                    navController.navigate("exercise_picker?functionalFilter=true")
+                                    navController.navigate("exercise_picker?functionalFilter=true&typeFilters=CARDIO,PLYOMETRIC")
                                 },
                                 onDeleteBlock = { viewModel.deleteBlock(block.id) },
                                 modifier = Modifier.animateItem()
@@ -382,7 +382,7 @@ fun TemplateBuilderScreen(
                 navController.currentBackStackEntry?.savedStateHandle
                     ?.set("preselected_exercises", ArrayList<Long>())
                 viewModel.setPendingBlock(block)
-                navController.navigate("exercise_picker?functionalFilter=true")
+                navController.navigate("exercise_picker?functionalFilter=true&typeFilters=CARDIO,PLYOMETRIC")
             }
         )
     }
@@ -394,7 +394,7 @@ fun TemplateBuilderScreen(
             onAddStrengthExercise = {
                 navController.currentBackStackEntry?.savedStateHandle
                     ?.set("preselected_exercises", ArrayList<Long>())
-                navController.navigate("exercise_picker")
+                navController.navigate("exercise_picker?typeFilters=STRENGTH,TIMED")
             },
             onAddFunctionalBlock = { showBlockWizard = true }
         )

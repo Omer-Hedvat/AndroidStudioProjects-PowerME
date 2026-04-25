@@ -6,6 +6,8 @@ import android.content.res.Resources
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -101,12 +103,12 @@ class MasterExerciseSeederTest {
 
         seeder.seedIfNeeded()
 
-        // Verify EMG insert called twice in the main loop (one per new exercise)
-        val captor = argumentCaptor<ExerciseMuscleGroup>()
-        // insert() is called in the main loop; insertAll() for backfill (should be empty)
-        verify(mockEmgDao, times(2)).insert(captor.capture())
+        // Verify EMG rows flushed in a single insertAll() batch (not per-exercise insert())
+        verify(mockEmgDao, never()).insert(any())
+        val captor = argumentCaptor<List<ExerciseMuscleGroup>>()
+        verify(mockEmgDao, times(1)).insertAll(captor.capture())
 
-        val inserted = captor.allValues
+        val inserted = captor.firstValue
         assertEquals(2, inserted.size)
         assertEquals(1L, inserted[0].exerciseId)
         assertEquals("Legs", inserted[0].majorGroup)
@@ -137,10 +139,12 @@ class MasterExerciseSeederTest {
 
         seeder.seedIfNeeded()
 
-        val captor = argumentCaptor<ExerciseMuscleGroup>()
-        verify(mockEmgDao, times(2)).insert(captor.capture())
+        // EMG rows for update path now flushed in a single insertAll() batch
+        verify(mockEmgDao, never()).insert(any())
+        val captor = argumentCaptor<List<ExerciseMuscleGroup>>()
+        verify(mockEmgDao, times(1)).insertAll(captor.capture())
 
-        val inserted = captor.allValues
+        val inserted = captor.firstValue
         assertEquals(10L, inserted[0].exerciseId)
         assertEquals("Legs", inserted[0].majorGroup)
         assertEquals(true, inserted[0].isPrimary)
@@ -173,6 +177,65 @@ class MasterExerciseSeederTest {
         // No individual inserts in main loop; backfill also finds nothing missing
         verify(mockEmgDao, never()).insert(any())
         verify(mockEmgDao, never()).insertAll(any())
+    }
+
+    /**
+     * Test 3b: Reseed preserves isFavorite from existing exercise and does NOT bump updatedAt.
+     *
+     * This is critical for v2.1 — the seed adds tags to 27 existing exercises. We must not
+     * bump updatedAt on those rows (would trigger a Firestore push storm for all 265 exercises).
+     *
+     * The minimalJson has 2 exercises: "Barbell Back Squat" (in DB) + "Bench Press" (new insert).
+     */
+    @Test
+    fun `reseed preserves isFavorite and updatedAt from existing exercise`() = runTest {
+        val existingSquat = Exercise(
+            id = 10L, name = "Barbell Back Squat", muscleGroup = "Legs",
+            equipmentType = "Barbell", isCustom = false,
+            isFavorite = true,
+            updatedAt = 1714000000000L // non-zero timestamp from a prior sync
+        )
+        whenever(mockExerciseDao.getAllExercisesSync())
+            .thenReturn(listOf(existingSquat))      // main loop lookup
+            .thenReturn(listOf(existingSquat))      // backfill sweep
+        whenever(mockEmgDao.getAllExerciseIds()).thenReturn(listOf(10L))
+        whenever(mockExerciseDao.insertExercise(any())).thenReturn(11L) // "Bench Press" is new
+        whenever(mockExerciseDao.getExerciseCountSync()).thenReturn(2)
+
+        seeder.seedIfNeeded()
+
+        // Updates are now flushed via updateAll() in a single batch
+        val captor = argumentCaptor<List<Exercise>>()
+        verify(mockExerciseDao).updateAll(captor.capture())
+        val updated = captor.firstValue[0]
+
+        assertTrue("isFavorite must be preserved", updated.isFavorite)
+        assertEquals("updatedAt must not be bumped", 1714000000000L, updated.updatedAt)
+    }
+
+    /**
+     * Test 3c: Reseed does NOT update isFavorite to false if user has favorited the exercise.
+     */
+    @Test
+    fun `reseed never clobbers user-set isFavorite`() = runTest {
+        // JSON says isFavorite=false for "Barbell Back Squat", but user set it to true
+        val existingSquat = Exercise(
+            id = 10L, name = "Barbell Back Squat", muscleGroup = "Legs",
+            equipmentType = "Barbell", isCustom = false,
+            isFavorite = true
+        )
+        whenever(mockExerciseDao.getAllExercisesSync())
+            .thenReturn(listOf(existingSquat))      // main loop lookup
+            .thenReturn(listOf(existingSquat))      // backfill sweep
+        whenever(mockEmgDao.getAllExerciseIds()).thenReturn(listOf(10L))
+        whenever(mockExerciseDao.insertExercise(any())).thenReturn(11L) // "Bench Press" is new
+        whenever(mockExerciseDao.getExerciseCountSync()).thenReturn(2)
+
+        seeder.seedIfNeeded()
+
+        val captor = argumentCaptor<List<Exercise>>()
+        verify(mockExerciseDao).updateAll(captor.capture())
+        assertTrue("isFavorite must remain true after reseed", captor.firstValue[0].isFavorite)
     }
 
     /**
@@ -210,18 +273,22 @@ class MasterExerciseSeederTest {
 
         seeder.seedIfNeeded()
 
-        // Main loop — update path for both masters: 2 calls to insert()
-        val singleCaptor = argumentCaptor<ExerciseMuscleGroup>()
-        verify(mockEmgDao, times(2)).insert(singleCaptor.capture())
-        val mainInserts = singleCaptor.allValues.map { it.exerciseId }.toSet()
-        assertEquals(setOf(10L, 11L), mainInserts)
+        // Main loop now uses insertAll() batch, not individual insert() calls
+        verify(mockEmgDao, never()).insert(any())
 
-        // Backfill — only customExercise (id=99) remains without an EMG row
+        // insertAll() is called twice: once for main-loop flush (10L + 11L), once for backfill (99L)
         val listCaptor = argumentCaptor<List<ExerciseMuscleGroup>>()
-        verify(mockEmgDao, times(1)).insertAll(listCaptor.capture())
-        val backfilled = listCaptor.firstValue
+        verify(mockEmgDao, times(2)).insertAll(listCaptor.capture())
+
+        val allInserted = listCaptor.allValues.flatten()
+        assertEquals(3, allInserted.size)
+
+        val mainInserts = allInserted.filter { it.exerciseId in setOf(10L, 11L) }
+        assertEquals(2, mainInserts.size)
+        assertEquals(setOf(10L, 11L), mainInserts.map { it.exerciseId }.toSet())
+
+        val backfilled = allInserted.filter { it.exerciseId == 99L }
         assertEquals(1, backfilled.size)
-        assertEquals(99L, backfilled[0].exerciseId)
         assertEquals("Arms", backfilled[0].majorGroup)
         assertEquals(true, backfilled[0].isPrimary)
     }

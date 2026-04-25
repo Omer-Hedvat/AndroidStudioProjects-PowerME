@@ -161,6 +161,13 @@ class ExercisesViewModel @Inject constructor(
         applyFilters()
     }
 
+    fun applyInitialTypeFilters(types: Set<ExerciseType>) {
+        if (types.isNotEmpty() && _uiState.value.selectedTypes.isEmpty()) {
+            _uiState.update { it.copy(selectedTypes = types) }
+            applyFilters()
+        }
+    }
+
     fun onClearAllFilters() {
         _uiState.update {
             it.copy(

@@ -194,4 +194,44 @@ class WorkoutBlockDaoTest {
         assertNull(block.setupSecondsOverride)
         assertNull(block.warnAtSecondsOverride)
     }
+
+    // ── appendJsonArrayEntry helper tests ─────────────────────────────────────
+
+    @Test
+    fun `appendJsonArrayEntry creates new array when current is null`() {
+        val result = appendJsonArrayEntry(null, """{"round":1,"elapsedMs":1000}""")
+        assertEquals("""[{"round":1,"elapsedMs":1000}]""", result)
+    }
+
+    @Test
+    fun `appendJsonArrayEntry creates new array when current is empty string`() {
+        val result = appendJsonArrayEntry("", """{"round":1}""")
+        assertEquals("""[{"round":1}]""", result)
+    }
+
+    @Test
+    fun `appendJsonArrayEntry creates new array when current is empty brackets`() {
+        val result = appendJsonArrayEntry("[]", """{"round":1}""")
+        assertEquals("""[{"round":1}]""", result)
+    }
+
+    @Test
+    fun `appendJsonArrayEntry appends to existing array`() {
+        val current = """[{"round":1,"elapsedMs":1000}]"""
+        val result = appendJsonArrayEntry(current, """{"round":2,"elapsedMs":2000}""")
+        assertEquals("""[{"round":1,"elapsedMs":1000},{"round":2,"elapsedMs":2000}]""", result)
+    }
+
+    @Test
+    fun `appendJsonArrayEntry handles whitespace in current`() {
+        val current = "  []  "
+        val result = appendJsonArrayEntry(current, """{"r":1}""")
+        assertEquals("""[{"r":1}]""", result)
+    }
+
+    @Test
+    fun `appendJsonArrayEntry recovers from malformed current`() {
+        val result = appendJsonArrayEntry("garbage", """{"r":1}""")
+        assertEquals("""[{"r":1}]""", result)
+    }
 }

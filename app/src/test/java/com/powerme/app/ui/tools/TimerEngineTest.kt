@@ -368,4 +368,201 @@ class TimerEngineTest {
 
         job.cancel()
     }
+
+    // ─── resumeAt: AMRAP ─────────────────────────────────────────────────────
+
+    @Test
+    fun `resumeAt AMRAP seeds remaining seconds correctly`() = runTest(testDispatcher) {
+        val e = engine()
+        // 600s AMRAP, resume at 250s elapsed → 350s remaining
+        val job = launch {
+            e.resumeAt(TimerSpec.Amrap(durationSeconds = 600), elapsedSeconds = 250)
+        }
+        runCurrent()
+
+        assertEquals(TimerPhase.WORK, e.state.value.phase)
+        assertEquals(350, e.state.value.displaySeconds)
+        assertEquals(250, e.state.value.elapsedSeconds)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `resumeAt AMRAP exits immediately when elapsed exceeds duration`() = runTest(testDispatcher) {
+        val e = engine()
+        val job = launch {
+            e.resumeAt(TimerSpec.Amrap(durationSeconds = 600), elapsedSeconds = 700)
+        }
+        runCurrent()
+        // Loop body never runs (remaining=0); engine completes and resets to IDLE
+        advanceTimeBy(100L)
+        runCurrent()
+
+        assertEquals(TimerPhase.IDLE, e.state.value.phase)
+        assertFalse(e.state.value.isRunning)
+
+        job.join()
+    }
+
+    // ─── resumeAt: EMOM ──────────────────────────────────────────────────────
+
+    @Test
+    fun `resumeAt EMOM mid-round seeds correct round and remaining`() = runTest(testDispatcher) {
+        val e = engine()
+        // 4 × 60s rounds (240s total), resume at 75s elapsed → round 2, 45s remaining
+        val job = launch {
+            e.resumeAt(
+                TimerSpec.Emom(totalDurationSeconds = 240, intervalSeconds = 60),
+                elapsedSeconds = 75
+            )
+        }
+        runCurrent()
+
+        assertEquals(TimerPhase.WORK, e.state.value.phase)
+        assertEquals(2, e.state.value.currentRound)
+        assertEquals(4, e.state.value.totalRounds)
+        assertEquals(45, e.state.value.displaySeconds)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `resumeAt EMOM does not fire ROUND_START when resuming mid-round`() = runTest(testDispatcher) {
+        val e = engine()
+        // Resume mid-round 2 (75s into 60s intervals)
+        val job = launch {
+            e.resumeAt(
+                TimerSpec.Emom(totalDurationSeconds = 240, intervalSeconds = 60),
+                elapsedSeconds = 75
+            )
+        }
+        runCurrent()
+        // Only the next round transitions (rounds 3, 4) should fire ROUND_START — 2 total
+        advanceTimeBy(165_001L)  // 240 - 75 = 165s remaining
+        runCurrent()
+
+        verify(mockNotifier, times(2))
+            .triggerAudioAlert(AlertType.ROUND_START, TimerSound.BEEP)
+
+        job.join()
+    }
+
+    @Test
+    fun `resumeAt EMOM exits immediately when elapsed at end`() = runTest(testDispatcher) {
+        val e = engine()
+        val job = launch {
+            e.resumeAt(
+                TimerSpec.Emom(totalDurationSeconds = 180, intervalSeconds = 60),
+                elapsedSeconds = 180
+            )
+        }
+        runCurrent()
+        advanceTimeBy(100L)
+        runCurrent()
+
+        assertEquals(TimerPhase.IDLE, e.state.value.phase)
+        assertFalse(e.state.value.isRunning)
+
+        job.join()
+    }
+
+    // ─── resumeAt: TABATA ────────────────────────────────────────────────────
+
+    @Test
+    fun `resumeAt TABATA mid-WORK seeds work remaining`() = runTest(testDispatcher) {
+        val e = engine()
+        // 8 rounds × (20+10) = 240s total. Resume at 35s elapsed:
+        // round 1 cycle = 30s; into round 2 by 5s → still in WORK with 15s remaining
+        val job = launch {
+            e.resumeAt(
+                TimerSpec.Tabata(workSeconds = 20, restSeconds = 10, rounds = 8),
+                elapsedSeconds = 35
+            )
+        }
+        runCurrent()
+
+        assertEquals(TimerPhase.WORK, e.state.value.phase)
+        assertEquals(2, e.state.value.currentRound)
+        assertEquals(15, e.state.value.displaySeconds)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `resumeAt TABATA mid-REST seeds rest remaining`() = runTest(testDispatcher) {
+        val e = engine()
+        // Resume at 25s elapsed: round 1 work (20s) done, 5s into rest of round 1 → REST, 5s remaining
+        val job = launch {
+            e.resumeAt(
+                TimerSpec.Tabata(workSeconds = 20, restSeconds = 10, rounds = 8),
+                elapsedSeconds = 25
+            )
+        }
+        runCurrent()
+
+        assertEquals(TimerPhase.REST, e.state.value.phase)
+        assertEquals(1, e.state.value.currentRound)
+        assertEquals(5, e.state.value.displaySeconds)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `resumeAt TABATA exits when elapsed exceeds total`() = runTest(testDispatcher) {
+        val e = engine()
+        val job = launch {
+            e.resumeAt(
+                TimerSpec.Tabata(workSeconds = 20, restSeconds = 10, rounds = 2),
+                elapsedSeconds = 999
+            )
+        }
+        runCurrent()
+        advanceTimeBy(100L)
+        runCurrent()
+
+        assertEquals(TimerPhase.IDLE, e.state.value.phase)
+        assertFalse(e.state.value.isRunning)
+
+        job.join()
+    }
+
+    // ─── resumeAt: RFT ───────────────────────────────────────────────────────
+
+    @Test
+    fun `resumeAt RFT seeds elapsed for count-up`() = runTest(testDispatcher) {
+        val e = engine()
+        val job = launch {
+            e.resumeAt(
+                TimerSpec.Rft(targetRounds = 5, capSeconds = 1500),
+                elapsedSeconds = 420
+            )
+        }
+        runCurrent()
+
+        assertEquals(TimerPhase.WORK, e.state.value.phase)
+        assertEquals(420, e.state.value.elapsedSeconds)
+        assertEquals(420, e.state.value.displaySeconds)
+        assertEquals(5, e.state.value.totalRounds)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `resumeAt RFT exits when elapsed reaches cap`() = runTest(testDispatcher) {
+        val e = engine()
+        val job = launch {
+            e.resumeAt(
+                TimerSpec.Rft(targetRounds = 5, capSeconds = 600),
+                elapsedSeconds = 600
+            )
+        }
+        runCurrent()
+        advanceTimeBy(100L)
+        runCurrent()
+
+        assertEquals(TimerPhase.IDLE, e.state.value.phase)
+        assertFalse(e.state.value.isRunning)
+
+        job.join()
+    }
 }

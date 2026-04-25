@@ -293,18 +293,54 @@ HealthPermission.getWritePermission(ExerciseSessionRecord::class)
 | `title` | `Workout.routineName` | `null` for ad-hoc workouts |
 | `notes` | `Workout.notes` | `null` if no session note |
 | `clientRecordId` | `Workout.id` (UUID) | Prevents duplicate writes if `finishWorkout()` is retried |
-| `segments` | Not included (Phase B) | No per-exercise timestamps tracked yet |
+| `segments` | One `ExerciseSegment` per `WorkoutBlock` that has `runStartMs` set | See §8.3a |
+| `laps` | One `ExerciseLap` per entry in `WorkoutBlock.roundTapLogJson` | See §8.3b |
 
 `clientRecordId` is critical: if `finishWorkout()` runs twice for the same workout (e.g. retry after a crash), HC will update the existing record rather than create a duplicate.
+
+### 8.3a Block → `ExerciseSegment` mapping
+
+Each `WorkoutBlock` with `runStartMs != null` (was actually started) becomes one `ExerciseSegment`:
+
+```kotlin
+ExerciseSegment(
+    startTime = Instant.ofEpochMilli(block.runStartMs!!),
+    endTime   = Instant.ofEpochMilli(block.runStartMs!! + (block.finishTimeSeconds?.times(1000L) ?: 0L)),
+    segmentType = when (block.type) {
+        "STRENGTH" -> ExerciseSegment.EXERCISE_SEGMENT_TYPE_WEIGHTLIFTING
+        "AMRAP", "RFT", "TABATA" -> ExerciseSegment.EXERCISE_SEGMENT_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
+        "EMOM" -> ExerciseSegment.EXERCISE_SEGMENT_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
+        else -> ExerciseSegment.EXERCISE_SEGMENT_TYPE_OTHER_WORKOUT
+    }
+)
+```
+
+Blocks without `runStartMs` (user created but never started — common with Hybrid routines) are excluded.
+
+### 8.3b Round taps → `ExerciseLap` mapping
+
+If `block.roundTapLogJson` is non-null, parse the JSON array and map each entry to an `ExerciseLap`:
+
+```kotlin
+// Each JSON entry: {"round":N,"elapsedMs":M} or {"round":N,"elapsedMs":M,"completed":true}
+ExerciseLap(
+    startTime = blockStart + elapsedMs_previous.milliseconds,
+    endTime   = blockStart + elapsedMs_current.milliseconds
+)
+```
+
+TABATA entries also carry `"phase": "WORK"|"REST"` — write only WORK-phase laps (omit REST entries from the lap list to keep the lap count meaningful for analytics tools).
 
 ---
 
 ### 8.3 Exercise Type Mapping
 
-HC requires a single `exerciseType` for the session. Determine it from the exercises in the workout:
+HC requires a single `exerciseType` for the session. Determine it from the blocks and exercises in the workout:
 
 ```kotlin
-fun deriveHcExerciseType(exercises: List<ActiveExercise>): Int {
+fun deriveHcExerciseType(exercises: List<ActiveExercise>, blocks: List<WorkoutBlock>): Int {
+    val hasFunctionalBlock = blocks.any { it.type in setOf("AMRAP", "RFT", "EMOM", "TABATA") }
+    if (hasFunctionalBlock) return ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
     val types = exercises.map { it.exercise.exerciseType }.toSet()
     return when {
         types.all { it == ExerciseType.STRETCH }     -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
@@ -316,8 +352,9 @@ fun deriveHcExerciseType(exercises: List<ActiveExercise>): Int {
 
 | Workout composition | HC exercise type |
 |---|---|
+| Any functional block (AMRAP/RFT/EMOM/TABATA) | `EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING` |
 | All STRENGTH / TIMED / PLYOMETRIC (or mixed) | `EXERCISE_TYPE_WEIGHTLIFTING` |
-| Any CARDIO exercise present | `EXERCISE_TYPE_OTHER_WORKOUT` |
+| Any CARDIO exercise present (no functional block) | `EXERCISE_TYPE_OTHER_WORKOUT` |
 | All STRETCH | `EXERCISE_TYPE_YOGA` |
 
 `EXERCISE_TYPE_WEIGHTLIFTING` is the correct type for strength training — it is distinct from `EXERCISE_TYPE_STRENGTH_TRAINING` (which HC treats as machine-guided/PT sessions). Use `WEIGHTLIFTING` for free-weight and barbell workouts.
@@ -326,10 +363,10 @@ fun deriveHcExerciseType(exercises: List<ActiveExercise>): Int {
 
 ### 8.4 Write Method — `HealthConnectManager`
 
-Add a new suspend function:
+Add a new suspend function (extended signature for block-aware writes):
 
 ```kotlin
-suspend fun writeWorkoutSession(workout: Workout, exercises: List<ActiveExercise>) {
+suspend fun writeWorkoutSession(workout: Workout, exercises: List<ActiveExercise>, blocks: List<WorkoutBlock> = emptyList()) {
     // No-op guards
     if (!isAvailable()) return
     if (workout.startTimeMs == 0L || workout.endTimeMs == 0L) return
@@ -347,10 +384,12 @@ suspend fun writeWorkoutSession(workout: Workout, exercises: List<ActiveExercise
         endTime          = endInstant,
         startZoneOffset  = zoneRules.getOffset(startInstant),
         endZoneOffset    = zoneRules.getOffset(endInstant),
-        exerciseType     = deriveHcExerciseType(exercises),
+        exerciseType     = deriveHcExerciseType(exercises, blocks),
         title            = workout.routineName,
         notes            = workout.notes,
-        metadata         = Metadata(clientRecordId = workout.id)
+        metadata         = Metadata(clientRecordId = workout.id),
+        segments         = buildSegments(blocks),
+        laps             = buildLaps(blocks)
     )
 
     try {
@@ -371,8 +410,9 @@ Call `writeWorkoutSession` **after** the DB write and Firestore push succeed. It
 ```kotlin
 // In finishWorkout(), after firestoreSyncManager.pushWorkout(workoutId):
 healthConnectManager.writeWorkoutSession(
-    workout  = <the Workout object just written to DB>,
-    exercises = state.exercises
+    workout   = <the Workout object just written to DB>,
+    exercises = state.exercises,
+    blocks    = workoutBlockDao.getBlocksForWorkoutOnce(workoutId)   // suspend, one-shot query
 )
 ```
 

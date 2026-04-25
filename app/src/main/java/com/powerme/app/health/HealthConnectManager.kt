@@ -7,6 +7,7 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
@@ -28,6 +29,7 @@ import com.powerme.app.data.database.HealthConnectSync
 import com.powerme.app.data.database.HealthConnectSyncDao
 import com.powerme.app.data.database.MetricType
 import com.powerme.app.data.database.Workout
+import com.powerme.app.data.database.WorkoutBlock
 import com.powerme.app.data.database.WorkoutDao
 import com.powerme.app.data.database.WorkoutSetDao
 import com.powerme.app.data.repository.MetricLogRepository
@@ -488,7 +490,11 @@ class HealthConnectManager @Inject constructor(
      * Fire-and-forget: failures are logged but never surfaced to the user.
      * Uses [Workout.id] as [clientRecordId] to prevent duplicate writes on retry.
      */
-    suspend fun writeWorkoutSession(workout: Workout, exercises: List<ExerciseWithSets>) {
+    suspend fun writeWorkoutSession(
+        workout: Workout,
+        exercises: List<ExerciseWithSets>,
+        blocks: List<WorkoutBlock> = emptyList(),
+    ) {
         if (!isAvailable()) return
         if (workout.startTimeMs == 0L || workout.endTimeMs == 0L) return
         try {
@@ -508,11 +514,38 @@ class HealthConnectManager @Inject constructor(
                 exerciseType = deriveHcExerciseType(exercises),
                 title = workout.routineName?.take(100),
                 notes = workout.notes?.take(1000),
+                segments = buildSegments(blocks),
                 metadata = Metadata.manualEntry(workout.id)
             )
             client.insertRecords(listOf(record))
         } catch (e: Exception) {
             Timber.w(e, "writeWorkoutSession failed")
+        }
+    }
+
+    /**
+     * Builds [ExerciseSegment]s from functional [WorkoutBlock]s that ran during the workout.
+     * Only blocks with a non-null [runStartMs] are included (the block was actually started).
+     * STRENGTH blocks are not segmented (the session itself covers them).
+     */
+    private fun buildSegments(blocks: List<WorkoutBlock>): List<ExerciseSegment> {
+        if (blocks.isEmpty()) return emptyList()
+        return blocks.mapNotNull { b ->
+            val startMs = b.runStartMs ?: return@mapNotNull null
+            val durationSec = b.finishTimeSeconds ?: b.durationSeconds ?: return@mapNotNull null
+            if (durationSec <= 0) return@mapNotNull null
+            val segType = when (b.type) {
+                "STRENGTH" -> ExerciseSegment.EXERCISE_SEGMENT_TYPE_WEIGHTLIFTING
+                "AMRAP", "RFT", "EMOM", "TABATA" ->
+                    ExerciseSegment.EXERCISE_SEGMENT_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
+                else -> return@mapNotNull null
+            }
+            ExerciseSegment(
+                startTime = Instant.ofEpochMilli(startMs),
+                endTime = Instant.ofEpochMilli(startMs + durationSec * 1000L),
+                segmentType = segType,
+                repetitions = b.totalRounds ?: 0,
+            )
         }
     }
 

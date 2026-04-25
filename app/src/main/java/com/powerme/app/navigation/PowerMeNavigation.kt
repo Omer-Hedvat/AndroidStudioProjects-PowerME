@@ -45,6 +45,7 @@ import com.powerme.app.ui.auth.ForgotPasswordScreen
 import com.powerme.app.ui.auth.HcOfferScreen
 import com.powerme.app.ui.auth.ProfileSetupScreen
 import com.powerme.app.ui.auth.WelcomeScreen
+import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.ui.exercises.ExercisesScreen
 import com.powerme.app.ui.exercises.detail.ExerciseDetailScreen
 import com.powerme.app.ui.history.HistoryScreen
@@ -92,7 +93,7 @@ private object Routes {
     const val WORKOUT_DETAIL = "workout_detail/{workoutId}"
     const val WORKOUT_SUMMARY = "workout_summary/{workoutId}?isPostWorkout={isPostWorkout}&syncType={syncType}"
     const val TEMPLATE_BUILDER = "template_builder/{routineId}"
-    const val EXERCISE_PICKER = "exercise_picker?functionalFilter={functionalFilter}"
+    const val EXERCISE_PICKER = "exercise_picker?functionalFilter={functionalFilter}&typeFilters={typeFilters}"
     const val IMPORT_WORKOUTS = "import_workouts"
     const val QUICK_START_CHOOSER = "quick_start_chooser"
     const val AI_WORKOUT = "ai_workout?mode={mode}"
@@ -550,6 +551,11 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
                 navArgument("functionalFilter") {
                     type = NavType.BoolType
                     defaultValue = false
+                },
+                navArgument("typeFilters") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             ),
             enterTransition = { slideInHorizontally(tween(300)) { it } },
@@ -558,6 +564,10 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) { backStackEntry ->
             val functionalFilter = backStackEntry.arguments?.getBoolean("functionalFilter") ?: false
+            val typeFilters = backStackEntry.arguments?.getString("typeFilters")
+                ?.split(",")
+                ?.mapNotNull { runCatching { ExerciseType.valueOf(it) }.getOrNull() }
+                ?.toSet() ?: emptySet()
             val preselectedIds = navController.previousBackStackEntry
                 ?.savedStateHandle
                 ?.get<ArrayList<Long>>("preselected_exercises")
@@ -565,6 +575,7 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             ExercisesScreen(
                 pickerMode = true,
                 initialFunctionalFilter = functionalFilter,
+                initialTypeFilters = typeFilters,
                 initialSelectedIds = preselectedIds,
                 onExercisesSelected = { ids ->
                     navController.previousBackStackEntry

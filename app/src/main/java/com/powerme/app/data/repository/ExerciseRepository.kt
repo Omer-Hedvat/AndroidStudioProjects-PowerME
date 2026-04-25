@@ -60,4 +60,8 @@ class ExerciseRepository @Inject constructor(
     suspend fun getDistinctEquipmentTypes(): List<String> {
         return exerciseDao.getDistinctEquipmentTypes()
     }
+
+    suspend fun toggleFavorite(exercise: Exercise) {
+        exerciseDao.updateFavorite(exercise.id, !exercise.isFavorite, System.currentTimeMillis())
+    }
 }

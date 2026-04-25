@@ -94,4 +94,20 @@ class AnalyticsTracker @Inject constructor(
             putString("tab_name", tabName)
         })
     }
+
+    fun logAiGeneration(backend: String, exerciseCount: Int) {
+        Timber.i("ai_generation backend=$backend exercises=$exerciseCount")
+        analytics.logEvent("ai_generation", Bundle().apply {
+            putString("backend", backend)
+            putInt("exercise_count", exerciseCount)
+        })
+    }
+
+    fun logSynonymSaved(rawName: String, resolvedExerciseName: String) {
+        Timber.i("synonym_saved raw=$rawName resolved=$resolvedExerciseName")
+        analytics.logEvent("synonym_saved", Bundle().apply {
+            putString("raw_name", rawName)
+            putString("resolved_exercise", resolvedExerciseName)
+        })
+    }
 }

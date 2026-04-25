@@ -41,7 +41,9 @@ class RoutineRepository @Inject constructor(
                         sets = pe.sets,
                         reps = pe.reps,
                         restTime = pe.restSeconds ?: 90,
-                        defaultWeight = (pe.weight ?: 0.0).toString()
+                        defaultWeight = (pe.weight ?: 0.0).toString(),
+                        supersetGroupId = pe.supersetGroupId,
+                        stickyNote = pe.notes
                     )
                 }
             )

@@ -8,6 +8,9 @@ import android.os.IBinder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.KeepScreenOnMode
+import com.powerme.app.data.RpeMode
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.notification.WorkoutNotificationManager
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.sync.FirestoreSyncManager
@@ -216,7 +219,8 @@ data class ActiveWorkoutState(
     val collapsedWarmupExerciseIds: Set<Long> = emptySet(),
     val workoutEditSnapshot: WorkoutEditSnapshot? = null,
     val blocks: List<com.powerme.app.data.database.WorkoutBlock> = emptyList(),
-    val activeBlockId: String? = null
+    val activeBlockId: String? = null,
+    val functionalBlockState: FunctionalBlockRunnerState? = null
 ) {
     val exercisesByBlockId: Map<String?, List<ExerciseWithSets>> by lazy { exercises.groupBy { it.blockId } }
 }
@@ -246,6 +250,8 @@ class WorkoutViewModel @Inject constructor(
     private val appSettingsDataStore: AppSettingsDataStore,
     private val healthConnectManager: HealthConnectManager,
     private val workoutNotificationManager: WorkoutNotificationManager,
+    private val functionalBlockRunner: FunctionalBlockRunner,
+    private val wakeLockManager: com.powerme.app.util.WakeLockManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -325,14 +331,21 @@ class WorkoutViewModel @Inject constructor(
     private val _workoutState = MutableStateFlow(ActiveWorkoutState())
     val workoutState: StateFlow<ActiveWorkoutState> = _workoutState.asStateFlow()
 
-    /** One-shot signal: set to "${exerciseId}_${setOrder}" when a set is just completed and useRpeAutoPop is on. */
+    /** One-shot signal: set to "${exerciseId}_${setOrder}" when a set is just completed and rpeMode fires. */
     private val _rpeAutoPopTarget = MutableStateFlow<String?>(null)
     val rpeAutoPopTarget: StateFlow<String?> = _rpeAutoPopTarget.asStateFlow()
 
-    private var useRpeAutoPopEnabled = false
+    private val rpeMode: StateFlow<RpeMode> = appSettingsDataStore.rpeMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, RpeMode.OFF)
+
+    private val currentWorkoutStyle: StateFlow<WorkoutStyle> = appSettingsDataStore.workoutStyle
+        .stateIn(viewModelScope, SharingStarted.Eagerly, WorkoutStyle.HYBRID)
 
     val timedSetSetupSeconds: StateFlow<Int> = appSettingsDataStore.timedSetSetupSeconds
         .stateIn(viewModelScope, SharingStarted.Eagerly, 3)
+
+    val keepScreenOnMode: StateFlow<KeepScreenOnMode> = appSettingsDataStore.keepScreenOnMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, KeepScreenOnMode.DURING_WORKOUT)
 
     private val saveJobs = mutableMapOf<Pair<Long, Int>, Job>()
 
@@ -349,12 +362,80 @@ class WorkoutViewModel @Inject constructor(
             Context.BIND_AUTO_CREATE
         )
         viewModelScope.launch {
-            appSettingsDataStore.useRpeAutoPop.collect { useRpeAutoPopEnabled = it }
+            functionalBlockRunner.state.collect { rs ->
+                _workoutState.update { it.copy(functionalBlockState = rs) }
+            }
         }
     }
 
     fun consumeRpeAutoPop() {
         _rpeAutoPopTarget.value = null
+    }
+
+    // ── Functional block runner facade ───────────────────────────────────────
+
+    fun startFunctionalBlock(blockId: String) {
+        viewModelScope.launch {
+            val block = workoutBlockDao.getById(blockId) ?: return@launch
+            val plan = buildBlockPlan(block) ?: return@launch
+            functionalBlockRunner.start(block, plan)
+            _workoutState.update { it.copy(activeBlockId = blockId) }
+        }
+    }
+
+    fun pauseFunctionalBlock() = functionalBlockRunner.pause()
+    fun resumeFunctionalBlock() = functionalBlockRunner.resume()
+
+    fun finishFunctionalBlock(
+        rounds: Int? = null,
+        extraReps: Int? = null,
+        finishSeconds: Int? = null,
+        rpe: Int? = null,
+        perExerciseRpeJson: String? = null,
+        notes: String? = null,
+    ) {
+        viewModelScope.launch {
+            functionalBlockRunner.finish(rounds, extraReps, finishSeconds, rpe, perExerciseRpeJson, notes)
+            _workoutState.update { it.copy(activeBlockId = null) }
+        }
+    }
+
+    fun abandonFunctionalBlock() {
+        functionalBlockRunner.abandon()
+        _workoutState.update { it.copy(activeBlockId = null) }
+    }
+
+    fun appendBlockRoundTap(round: Int, elapsedMs: Long, phase: String? = null, completed: Boolean? = null) {
+        viewModelScope.launch {
+            functionalBlockRunner.appendRoundTap(round, elapsedMs, phase, completed)
+        }
+    }
+
+    /**
+     * Builds a [BlockPlan] for [block] by joining its [type]/plan fields with the routine's
+     * recipe rows (reps + holdSeconds live on RoutineExercise).
+     */
+    private suspend fun buildBlockPlan(block: com.powerme.app.data.database.WorkoutBlock): BlockPlan? {
+        val state = _workoutState.value
+        val recipeRows = state.exercises
+            .filter { it.blockId == block.id }
+            .map { ex ->
+                RecipeRow(
+                    exerciseId = ex.exercise.id,
+                    exerciseName = ex.exercise.name,
+                    reps = ex.sets.firstOrNull()?.reps?.toIntOrNull(),
+                    holdSeconds = null,
+                )
+            }
+        return BlockPlan(
+            durationSeconds = block.durationSeconds,
+            targetRounds = block.targetRounds,
+            emomRoundSeconds = block.emomRoundSeconds,
+            tabataWorkSeconds = block.tabataWorkSeconds,
+            tabataRestSeconds = block.tabataRestSeconds,
+            tabataSkipLastRest = block.tabataSkipLastRest == 1,
+            recipe = recipeRows,
+        )
     }
 
     override fun onCleared() {
@@ -371,6 +452,8 @@ class WorkoutViewModel @Inject constructor(
             context.unbindService(timerConnection)
             serviceBound = false
         }
+        // Wakelock — runner owns it while active; only release if VM is dying without an active block.
+        if (!functionalBlockRunner.isActive.value) wakeLockManager.release()
     }
 
     private fun launchWorkoutForegroundService(workoutName: String, startTimeMs: Long) {
@@ -1330,7 +1413,13 @@ class WorkoutViewModel @Inject constructor(
             } else {
                 val ex = _workoutState.value.exercises.find { it.exercise.id == exerciseId }
                 val completedSet = ex?.sets?.find { it.setOrder == setOrder }
-                if (useRpeAutoPopEnabled && completedSet?.setType == SetType.NORMAL) {
+                val shouldAutoPop = when (rpeMode.value) {
+                    RpeMode.OFF -> false
+                    RpeMode.PURE_GYM -> currentWorkoutStyle.value == WorkoutStyle.PURE_GYM
+                    RpeMode.PURE_FUNCTIONAL -> currentWorkoutStyle.value == WorkoutStyle.PURE_FUNCTIONAL
+                    RpeMode.HYBRID -> true
+                }
+                if (shouldAutoPop && completedSet?.setType == SetType.NORMAL) {
                     _rpeAutoPopTarget.value = "${exerciseId}_${setOrder}"
                 }
                 val nextSet = ex?.sets
@@ -1605,6 +1694,7 @@ class WorkoutViewModel @Inject constructor(
             it.onSkipRestRequested = null
             it.onFinishWorkoutRequested = null
         }
+        if (functionalBlockRunner.isActive.value) functionalBlockRunner.abandon()
         stopRestTimer()
         elapsedTimerJob?.cancel()
         viewModelScope.launch {
@@ -1655,7 +1745,7 @@ class WorkoutViewModel @Inject constructor(
                 workoutSetDao.deleteIncompleteSetsByWorkout(workoutId)
                 // Push to Firestore (fire-and-forget; SDK queues when offline)
                 firestoreSyncManager.pushWorkout(workoutId)
-                healthConnectManager.writeWorkoutSession(finishedWorkout, state.exercises)
+                healthConnectManager.writeWorkoutSession(finishedWorkout, state.exercises, state.blocks)
 
                 // Update lastPerformed on the routine (Risk 4 fix)
                 if (state.routineId.isNotBlank()) {
@@ -2123,6 +2213,8 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun startRestTimer(exerciseId: Long, setOrder: Int? = null, overrideSeconds: Int? = null, setType: SetType? = null) {
+        // Invariant #4: rest timers are a no-op while a functional block runner is active.
+        if (functionalBlockRunner.isActive.value) return
         // If a timer is already running, dismiss it (cancel job + mark separator finished) before
         // starting the new one. Warmup collapse is intentionally not triggered here — the new timer
         // may itself be a warmup timer and will handle collapse when it finishes or is skipped.

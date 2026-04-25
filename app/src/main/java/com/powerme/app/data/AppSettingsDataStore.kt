@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.powerme.app.data.KeepScreenOnMode
+import com.powerme.app.data.RpeMode
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -28,7 +30,37 @@ class AppSettingsDataStore @Inject constructor(
         it[THEME_MODE_KEY]?.let { name -> ThemeMode.entries.firstOrNull { e -> e.name == name } } ?: ThemeMode.SYSTEM
     }
     val language: Flow<String> = ctx.dataStore.data.map { it[LANGUAGE_KEY] ?: "Hebrew" }
+    /**
+     * 3-mode keep-screen-on selector. Migrates from the legacy Boolean key on first read:
+     * old true → ALWAYS, old false → OFF. Default when neither key exists: DURING_WORKOUT.
+     */
+    val keepScreenOnMode: Flow<KeepScreenOnMode> = ctx.dataStore.data.map { prefs ->
+        prefs[KEEP_SCREEN_ON_MODE_KEY]
+            ?.let { name -> KeepScreenOnMode.entries.firstOrNull { e -> e.name == name } }
+            ?: when (prefs[KEEP_SCREEN_ON_KEY]) {
+                true  -> KeepScreenOnMode.ALWAYS
+                false -> KeepScreenOnMode.OFF
+                null  -> KeepScreenOnMode.DURING_WORKOUT
+            }
+    }
+
+    @Deprecated("Use keepScreenOnMode. Retained for Firestore sync compatibility.")
     val keepScreenOn: Flow<Boolean> = ctx.dataStore.data.map { it[KEEP_SCREEN_ON_KEY] ?: true }
+    /**
+     * 4-mode RPE auto-pop selector. Migrates from legacy Boolean key on first read:
+     * old true → HYBRID, old false → OFF. Default when neither key exists: OFF.
+     */
+    val rpeMode: Flow<RpeMode> = ctx.dataStore.data.map { prefs ->
+        prefs[RPE_MODE_KEY]
+            ?.let { name -> RpeMode.entries.firstOrNull { e -> e.name == name } }
+            ?: when (prefs[USE_RPE_AUTO_POP_KEY]) {
+                true  -> RpeMode.HYBRID
+                false -> RpeMode.OFF
+                null  -> RpeMode.OFF
+            }
+    }
+
+    @Deprecated("Use rpeMode. Retained for Firestore sync compatibility.")
     val useRpeAutoPop: Flow<Boolean> = ctx.dataStore.data.map { it[USE_RPE_AUTO_POP_KEY] ?: false }
     @Deprecated("App is permanently light-mode. DataStore key retained for schema stability.")
     val darkModeEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[DARK_MODE_KEY] ?: true }
@@ -59,7 +91,14 @@ class AppSettingsDataStore @Inject constructor(
 
     suspend fun setThemeMode(value: ThemeMode) = ctx.dataStore.edit { it[THEME_MODE_KEY] = value.name }
     suspend fun setLanguage(value: String) = ctx.dataStore.edit { it[LANGUAGE_KEY] = value }
+    suspend fun saveKeepScreenOnMode(mode: KeepScreenOnMode) = ctx.dataStore.edit { it[KEEP_SCREEN_ON_MODE_KEY] = mode.name }
+
+    @Deprecated("Use saveKeepScreenOnMode. Retained for Firestore sync compatibility.")
     suspend fun setKeepScreenOn(value: Boolean) = ctx.dataStore.edit { it[KEEP_SCREEN_ON_KEY] = value }
+
+    suspend fun saveRpeMode(mode: RpeMode) = ctx.dataStore.edit { it[RPE_MODE_KEY] = mode.name }
+
+    @Deprecated("Use saveRpeMode. Retained for Firestore sync compatibility.")
     suspend fun setUseRpeAutoPop(value: Boolean) = ctx.dataStore.edit { it[USE_RPE_AUTO_POP_KEY] = value }
     @Deprecated("App is permanently light-mode. DataStore key retained for schema stability.")
     suspend fun setDarkModeEnabled(value: Boolean) = ctx.dataStore.edit { it[DARK_MODE_KEY] = value }
@@ -78,6 +117,8 @@ class AppSettingsDataStore @Inject constructor(
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         val LANGUAGE_KEY = stringPreferencesKey("language")
         val KEEP_SCREEN_ON_KEY = booleanPreferencesKey("keep_screen_on")
+        val KEEP_SCREEN_ON_MODE_KEY = stringPreferencesKey("keep_screen_on_mode")
+        val RPE_MODE_KEY = stringPreferencesKey("rpe_mode")
         val USE_RPE_AUTO_POP_KEY = booleanPreferencesKey("use_rpe_auto_pop")
         val DARK_MODE_KEY = booleanPreferencesKey("dark_mode_enabled")
         val DAILY_STEP_TARGET_KEY = intPreferencesKey("daily_step_target")

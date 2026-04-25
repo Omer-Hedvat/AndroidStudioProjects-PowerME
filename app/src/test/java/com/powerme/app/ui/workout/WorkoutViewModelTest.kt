@@ -30,7 +30,10 @@ import com.powerme.app.data.database.WorkoutSet
 import com.powerme.app.data.repository.WorkoutBootstrap
 import com.powerme.app.data.repository.WorkoutRepository
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.KeepScreenOnMode
+import com.powerme.app.data.RpeMode
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.util.ClocksTimerBridge
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +122,8 @@ class WorkoutViewModelTest {
     private lateinit var mockHealthConnectManager: HealthConnectManager
     private lateinit var mockAppSettingsDataStore: AppSettingsDataStore
     private lateinit var mockWorkoutNotificationManager: WorkoutNotificationManager
+    private lateinit var mockFunctionalBlockRunner: FunctionalBlockRunner
+    private lateinit var mockWakeLockManager: com.powerme.app.util.WakeLockManager
     private lateinit var mockContext: Context
 
     private lateinit var viewModel: WorkoutViewModel
@@ -148,11 +153,17 @@ class WorkoutViewModelTest {
         mockHealthConnectManager = mock()
         mockAppSettingsDataStore = mock()
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
-        whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(false))
+        whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(RpeMode.OFF))
+        whenever(mockAppSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.HYBRID))
         whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
         whenever(mockAppSettingsDataStore.timerSound).thenReturn(flowOf(com.powerme.app.util.TimerSound.BEEP))
         whenever(mockAppSettingsDataStore.notificationsEnabled).thenReturn(flowOf(true))
+        whenever(mockAppSettingsDataStore.keepScreenOnMode).thenReturn(flowOf(KeepScreenOnMode.DURING_WORKOUT))
         mockWorkoutNotificationManager = mock()
+        mockFunctionalBlockRunner = mock()
+        whenever(mockFunctionalBlockRunner.state).thenReturn(MutableStateFlow(null))
+        whenever(mockFunctionalBlockRunner.isActive).thenReturn(MutableStateFlow(false))
+        mockWakeLockManager = mock()
         mockContext = mock()
 
         // Non-suspend property stubs (used at ViewModel construction time)
@@ -216,6 +227,8 @@ class WorkoutViewModelTest {
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
             workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
             context = mockContext
         )
     }
@@ -2381,7 +2394,7 @@ class WorkoutViewModelTest {
     fun `completeSet with rpeAutoPop enabled emits rpeAutoPopTarget`() = vmTest {
         val exercise = Exercise(id = 80L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
         runBlocking {
-            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(RpeMode.HYBRID))
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
             whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
@@ -2410,6 +2423,8 @@ class WorkoutViewModelTest {
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
             workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
             context = mockContext
         )
 
@@ -2451,14 +2466,14 @@ class WorkoutViewModelTest {
         viewModel.cancelWorkout()
         runCurrent()
 
-        assertNull("Signal should remain null when useRpeAutoPop is false", target)
+        assertNull("Signal should remain null when rpeMode is OFF", target)
     }
 
     @Test
     fun `uncompleting a set does not emit rpeAutoPopTarget even when rpeAutoPop enabled`() = vmTest {
         val exercise = Exercise(id = 82L, name = "Deadlift", muscleGroup = "Back", equipmentType = "Barbell")
         runBlocking {
-            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(RpeMode.HYBRID))
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
             whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
@@ -2487,6 +2502,8 @@ class WorkoutViewModelTest {
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
             workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
             context = mockContext
         )
 
@@ -2514,7 +2531,7 @@ class WorkoutViewModelTest {
     fun `consumeRpeAutoPop resets rpeAutoPopTarget to null`() = vmTest {
         val exercise = Exercise(id = 83L, name = "OHP", muscleGroup = "Shoulders", equipmentType = "Barbell")
         runBlocking {
-            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(RpeMode.HYBRID))
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
             whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
@@ -2543,6 +2560,8 @@ class WorkoutViewModelTest {
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
             workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
             context = mockContext
         )
 
@@ -2568,7 +2587,7 @@ class WorkoutViewModelTest {
     fun `completeSet with rpeAutoPop enabled does not emit rpeAutoPopTarget for Warmup set`() = vmTest {
         val exercise = Exercise(id = 84L, name = "Bar Squat", muscleGroup = "Legs", equipmentType = "Barbell")
         runBlocking {
-            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(RpeMode.HYBRID))
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
             whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
@@ -2597,6 +2616,8 @@ class WorkoutViewModelTest {
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
             workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
             context = mockContext
         )
 
@@ -2621,7 +2642,7 @@ class WorkoutViewModelTest {
     fun `completeSet with rpeAutoPop enabled does not emit rpeAutoPopTarget for Drop set`() = vmTest {
         val exercise = Exercise(id = 85L, name = "Cable Curl", muscleGroup = "Biceps", equipmentType = "Cable")
         runBlocking {
-            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(RpeMode.HYBRID))
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
             whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
@@ -2650,6 +2671,8 @@ class WorkoutViewModelTest {
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
             workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
             context = mockContext
         )
 
@@ -2674,7 +2697,7 @@ class WorkoutViewModelTest {
     fun `completeSet with rpeAutoPop enabled does not emit rpeAutoPopTarget for Failure set`() = vmTest {
         val exercise = Exercise(id = 86L, name = "Leg Press", muscleGroup = "Legs", equipmentType = "Machine")
         runBlocking {
-            whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(true))
+            whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(RpeMode.HYBRID))
             whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
             whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
             whenever(mockWorkoutSetDao.updateSetCompleted(any(), any())).thenReturn(Unit)
@@ -2703,6 +2726,8 @@ class WorkoutViewModelTest {
             healthConnectManager = mockHealthConnectManager,
             appSettingsDataStore = mockAppSettingsDataStore,
             workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
             context = mockContext
         )
 
@@ -4778,6 +4803,56 @@ class WorkoutViewModelTest {
         viewModel.cancelEditMode()
 
         assertEquals(blocksBeforeEdit, viewModel.workoutState.value.blocks)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // Invariant #4: rest timers must be a no-op while functional block runner active
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `startRestTimer is no-op when functional block runner is active`() = vmTest {
+        val activeFlow = MutableStateFlow(true)
+        whenever(mockFunctionalBlockRunner.isActive).thenReturn(activeFlow)
+
+        // Rebuild VM so init reads the new isActive stub
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
+            context = mockContext
+        )
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        viewModel.startRestTimer(exerciseId = 1L, setOrder = 1, overrideSeconds = 90)
+        runCurrent()
+
+        // Rest timer must remain inactive — functional block owns the timer mutex.
+        assertFalse(viewModel.workoutState.value.restTimer.isActive)
 
         viewModel.cancelWorkout()
         runCurrent()

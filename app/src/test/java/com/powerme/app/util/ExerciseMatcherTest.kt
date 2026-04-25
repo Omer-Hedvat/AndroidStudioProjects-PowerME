@@ -2,21 +2,28 @@ package com.powerme.app.util
 
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.toSearchName
+import com.powerme.app.data.repository.UserSynonymRepository
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 class ExerciseMatcherTest {
 
     private lateinit var matcher: ExerciseMatcher
     private lateinit var library: List<Exercise>
+    private lateinit var userSynonymRepository: UserSynonymRepository
 
     @Before
     fun setup() {
-        matcher = ExerciseMatcher()
+        userSynonymRepository = mock()
+        matcher = ExerciseMatcher(userSynonymRepository)
         library = listOf(
             makeExercise(1, "Barbell Bench Press", "Chest", "Barbell"),
             makeExercise(2, "Dumbbell Row", "Back", "Dumbbell"),
@@ -34,7 +41,8 @@ class ExerciseMatcherTest {
     // ── Exact match ──────────────────────────────────────────────────────────
 
     @Test
-    fun `exact match — Barbell Bench Press`() {
+    fun `exact match — Barbell Bench Press`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("Barbell Bench Press", library)
         assertEquals(MatchType.EXACT, result.matchType)
         assertEquals(1L, result.exercise?.id)
@@ -42,15 +50,17 @@ class ExerciseMatcherTest {
     }
 
     @Test
-    fun `exact match — case insensitive`() {
+    fun `exact match — case insensitive`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("barbell bench press", library)
         assertEquals(MatchType.EXACT, result.matchType)
         assertEquals(1L, result.exercise?.id)
     }
 
     @Test
-    fun `exact match — hyphen normalised`() {
+    fun `exact match — hyphen normalised`() = runTest {
         // "Pull-Up" normalises to "pullup" which equals the searchName
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("Pull-Up", library)
         assertEquals(MatchType.EXACT, result.matchType)
         assertEquals(4L, result.exercise?.id)
@@ -59,8 +69,9 @@ class ExerciseMatcherTest {
     // ── Synonym match ─────────────────────────────────────────────────────────
 
     @Test
-    fun `synonym match — bb bench press`() {
+    fun `synonym match — bb bench press`() = runTest {
         // "bb" expands to "barbell" via ExerciseSynonyms
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("bb bench press", library)
         assertEquals(MatchType.SYNONYM, result.matchType)
         assertEquals(1L, result.exercise?.id)
@@ -68,21 +79,24 @@ class ExerciseMatcherTest {
     }
 
     @Test
-    fun `synonym match — rdl maps to Romanian Deadlift`() {
+    fun `synonym match — rdl maps to Romanian Deadlift`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("rdl", library)
         assertEquals(MatchType.SYNONYM, result.matchType)
         assertEquals(5L, result.exercise?.id)
     }
 
     @Test
-    fun `synonym match — ohp maps to Overhead Press`() {
+    fun `synonym match — ohp maps to Overhead Press`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("ohp", library)
         assertEquals(MatchType.SYNONYM, result.matchType)
         assertEquals(6L, result.exercise?.id)
     }
 
     @Test
-    fun `synonym match — pulldown maps to Lat Pulldown`() {
+    fun `synonym match — pulldown maps to Lat Pulldown`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("pulldown", library)
         assertEquals(MatchType.SYNONYM, result.matchType)
         assertEquals(7L, result.exercise?.id)
@@ -91,9 +105,10 @@ class ExerciseMatcherTest {
     // ── Fuzzy match ───────────────────────────────────────────────────────────
 
     @Test
-    fun `fuzzy match — typo in barbell bench press`() {
+    fun `fuzzy match — typo in barbell bench press`() = runTest {
         // "Barbel Bench Pres" may match via SYNONYM (each token is still a substring)
         // or via FUZZY — either way the correct exercise must be returned with high confidence
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("Barbel Bench Pres", library)
         assertTrue(
             "Expected EXACT, SYNONYM, or FUZZY, got ${result.matchType}",
@@ -104,7 +119,8 @@ class ExerciseMatcherTest {
     }
 
     @Test
-    fun `fuzzy match — overhead pres (missing s)`() {
+    fun `fuzzy match — overhead pres (missing s)`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("Overhead Pres", library)
         assert(result.matchType == MatchType.FUZZY || result.matchType == MatchType.SYNONYM) {
             "Expected FUZZY or SYNONYM, got ${result.matchType}"
@@ -115,7 +131,8 @@ class ExerciseMatcherTest {
     // ── Unmatched ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `unmatched — completely unknown exercise`() {
+    fun `unmatched — completely unknown exercise`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("Underwater Basket Weaving", library)
         assertEquals(MatchType.UNMATCHED, result.matchType)
         assertNull(result.exercise)
@@ -123,7 +140,8 @@ class ExerciseMatcherTest {
     }
 
     @Test
-    fun `unmatched — empty library returns UNMATCHED`() {
+    fun `unmatched — empty library returns UNMATCHED`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("Bench Press", emptyList())
         assertEquals(MatchType.UNMATCHED, result.matchType)
         assertNull(result.exercise)
@@ -131,7 +149,8 @@ class ExerciseMatcherTest {
     }
 
     @Test
-    fun `unmatched — gibberish input`() {
+    fun `unmatched — gibberish input`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("xkzqvwm", library)
         assertEquals(MatchType.UNMATCHED, result.matchType)
         assertNull(result.exercise)
@@ -140,7 +159,8 @@ class ExerciseMatcherTest {
     // ── Edge cases ────────────────────────────────────────────────────────────
 
     @Test
-    fun `empty raw name does not crash`() {
+    fun `empty raw name does not crash`() = runTest {
+        whenever(userSynonymRepository.findExercise(any())).thenReturn(null)
         val result = matcher.matchExercise("", library)
         assertNotNull(result)
     }

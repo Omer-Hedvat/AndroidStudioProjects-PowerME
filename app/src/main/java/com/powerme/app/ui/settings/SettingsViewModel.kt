@@ -11,6 +11,8 @@ import com.powerme.app.ai.AiCoreAvailability
 import com.powerme.app.ai.AiCoreStatus
 import com.powerme.app.ai.GeminiKeyResolver
 import com.powerme.app.data.sync.FirestoreSyncManager
+import com.powerme.app.data.KeepScreenOnMode
+import com.powerme.app.data.RpeMode
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.WorkoutStyle
@@ -63,9 +65,9 @@ data class SettingsUiState(
     val exportSuccessMessage: String? = null,
     val exportErrorMessage: String? = null,
     // Keep screen on
-    val keepScreenOn: Boolean = false,
+    val keepScreenOnMode: KeepScreenOnMode = KeepScreenOnMode.DURING_WORKOUT,
     // RPE auto-pop
-    val useRpeAutoPop: Boolean = false,
+    val rpeMode: RpeMode = RpeMode.OFF,
     // Get Ready countdown before timed sets
     val timedSetSetupSeconds: Int = 3,
     // Timer sound
@@ -141,13 +143,13 @@ open class SettingsViewModel @Inject constructor(
 
     private fun loadAppSettings() {
         viewModelScope.launch {
-            appSettingsDataStore.keepScreenOn.collect { value ->
-                _uiState.update { it.copy(keepScreenOn = value) }
+            appSettingsDataStore.keepScreenOnMode.collect { mode ->
+                _uiState.update { it.copy(keepScreenOnMode = mode) }
             }
         }
         viewModelScope.launch {
-            appSettingsDataStore.useRpeAutoPop.collect { value ->
-                _uiState.update { it.copy(useRpeAutoPop = value) }
+            appSettingsDataStore.rpeMode.collect { mode ->
+                _uiState.update { it.copy(rpeMode = mode) }
             }
         }
         viewModelScope.launch {
@@ -359,20 +361,18 @@ open class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(exportSuccessMessage = null, exportErrorMessage = null) }
     }
 
-    fun toggleKeepScreenOn() {
+    fun setKeepScreenOnMode(mode: KeepScreenOnMode) {
         viewModelScope.launch {
-            val newValue = !_uiState.value.keepScreenOn
-            appSettingsDataStore.setKeepScreenOn(newValue)
-            _uiState.update { it.copy(keepScreenOn = newValue) }
+            appSettingsDataStore.saveKeepScreenOnMode(mode)
+            _uiState.update { it.copy(keepScreenOnMode = mode) }
             firestoreSyncManager.pushAppPreferences()
         }
     }
 
-    fun toggleUseRpeAutoPop() {
+    fun setRpeMode(mode: RpeMode) {
         viewModelScope.launch {
-            val newValue = !_uiState.value.useRpeAutoPop
-            appSettingsDataStore.setUseRpeAutoPop(newValue)
-            _uiState.update { it.copy(useRpeAutoPop = newValue) }
+            appSettingsDataStore.saveRpeMode(mode)
+            _uiState.update { it.copy(rpeMode = mode) }
             firestoreSyncManager.pushAppPreferences()
         }
     }

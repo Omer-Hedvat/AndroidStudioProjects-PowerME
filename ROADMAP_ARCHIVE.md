@@ -39,6 +39,10 @@ Moved here from `ROADMAP.md` to keep the active roadmap lean.
 | Workout style — contextual explanation (ℹ info sheet) | `future_devs/WORKOUT_STYLE_TOOLTIPS_SPEC.md` | `wrapped` |
 | Move Privacy (Delete Account) card to Profile screen | `future_devs/MOVE_PRIVACY_TO_PROFILE_SPEC.md` | `wrapped` |
 | Settings — merge Data Export + Cloud Sync into "Data & Backup" | `future_devs/SETTINGS_DATA_BACKUP_MERGE_SPEC.md` | `wrapped` |
+| Keep screen on — 3-mode selector (Always / During workout / Off) | `future_devs/KEEP_SCREEN_ON_MODE_SPEC.md` | `wrapped` |
+| RPE auto-pop — workout style selector (Strength only / Functional only / All workouts / Off) | `future_devs/RPE_MODE_SELECTOR_SPEC.md` | `wrapped` |
+| Profile — move Log Out into Danger Zone | `future_devs/PROFILE_LOGOUT_INTO_DANGER_ZONE_SPEC.md` | `wrapped` |
+| Settings page — card reorder | `future_devs/SETTINGS_PAGE_REORDER_SPEC.md` | `wrapped` |
 
 ---
 

@@ -5,6 +5,8 @@ import androidx.room.withTransaction
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.KeepScreenOnMode
+import com.powerme.app.data.RpeMode
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.WorkoutStyle
@@ -118,8 +120,8 @@ class FirestoreSyncManager @Inject constructor(
                 "themeMode"      to appSettingsDataStore.themeMode.first().name,
                 "unitSystem"     to appSettingsDataStore.unitSystem.first().name,
                 "dailyStepTarget" to appSettingsDataStore.dailyStepTarget.first(),
-                "keepScreenOn"        to appSettingsDataStore.keepScreenOn.first(),
-                "useRpeAutoPop"       to appSettingsDataStore.useRpeAutoPop.first(),
+                "keepScreenOnMode"    to appSettingsDataStore.keepScreenOnMode.first().name,
+                "rpeMode"             to appSettingsDataStore.rpeMode.first().name,
                 "timedSetSetupSeconds" to appSettingsDataStore.timedSetSetupSeconds.first(),
                 "language"            to appSettingsDataStore.language.first(),
                 "timerSound"          to appSettingsDataStore.timerSound.first().name,
@@ -162,8 +164,8 @@ class FirestoreSyncManager @Inject constructor(
                 "themeMode"       to appSettingsDataStore.themeMode.first().name,
                 "unitSystem"      to appSettingsDataStore.unitSystem.first().name,
                 "dailyStepTarget" to appSettingsDataStore.dailyStepTarget.first(),
-                "keepScreenOn"         to appSettingsDataStore.keepScreenOn.first(),
-                "useRpeAutoPop"        to appSettingsDataStore.useRpeAutoPop.first(),
+                "keepScreenOnMode"     to appSettingsDataStore.keepScreenOnMode.first().name,
+                "rpeMode"              to appSettingsDataStore.rpeMode.first().name,
                 "timedSetSetupSeconds" to appSettingsDataStore.timedSetSetupSeconds.first(),
                 "language"             to appSettingsDataStore.language.first(),
                 "timerSound"           to appSettingsDataStore.timerSound.first().name,
@@ -233,8 +235,14 @@ class FirestoreSyncManager @Inject constructor(
                     ?.let { appSettingsDataStore.setUnitSystem(it) }
             }
             doc.getLong("dailyStepTarget")?.let { appSettingsDataStore.setDailyStepTarget(it.toInt()) }
-            doc.getBoolean("keepScreenOn")?.let { appSettingsDataStore.setKeepScreenOn(it) }
-            doc.getBoolean("useRpeAutoPop")?.let { appSettingsDataStore.setUseRpeAutoPop(it) }
+            doc.getString("keepScreenOnMode")?.let { name ->
+                KeepScreenOnMode.entries.firstOrNull { e -> e.name == name }
+                    ?.let { mode -> appSettingsDataStore.saveKeepScreenOnMode(mode) }
+            }
+            doc.getString("rpeMode")?.let { name ->
+                RpeMode.entries.firstOrNull { e -> e.name == name }
+                    ?.let { mode -> appSettingsDataStore.saveRpeMode(mode) }
+            }
             doc.getLong("timedSetSetupSeconds")?.let { appSettingsDataStore.setTimedSetSetupSeconds(it.toInt()) }
             doc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
             doc.getString("timerSound")?.let { name ->
@@ -319,8 +327,14 @@ class FirestoreSyncManager @Inject constructor(
                         ?.let { appSettingsDataStore.setUnitSystem(it) }
                 }
                 appPrefsDoc.getLong("dailyStepTarget")?.let { appSettingsDataStore.setDailyStepTarget(it.toInt()) }
-                appPrefsDoc.getBoolean("keepScreenOn")?.let { appSettingsDataStore.setKeepScreenOn(it) }
-                appPrefsDoc.getBoolean("useRpeAutoPop")?.let { appSettingsDataStore.setUseRpeAutoPop(it) }
+                appPrefsDoc.getString("keepScreenOnMode")?.let { name ->
+                    KeepScreenOnMode.entries.firstOrNull { e -> e.name == name }
+                        ?.let { mode -> appSettingsDataStore.saveKeepScreenOnMode(mode) }
+                }
+                appPrefsDoc.getString("rpeMode")?.let { name ->
+                    RpeMode.entries.firstOrNull { e -> e.name == name }
+                        ?.let { mode -> appSettingsDataStore.saveRpeMode(mode) }
+                }
                 appPrefsDoc.getLong("timedSetSetupSeconds")?.let { appSettingsDataStore.setTimedSetSetupSeconds(it.toInt()) }
                 appPrefsDoc.getString("language")?.let { appSettingsDataStore.setLanguage(it) }
                 appPrefsDoc.getString("timerSound")?.let { name ->

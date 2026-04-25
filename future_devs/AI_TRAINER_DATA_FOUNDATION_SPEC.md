@@ -1,6 +1,7 @@
 # AI Trainer Data Foundation Spec
 
 > **Phase:** P7 (new phase — AI Trainer groundwork)
+> **Epic:** [AI Workout Generation](../AI_SPEC.md)
 > **Status:** `not-started`
 > **Effort:** L (schema + migrations + collection UI touchpoints)
 > **Depends on:** Profile/Settings split (P2) done, Health History (P3) done

@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | **Phase** | P9 |
+| **Epic** | [AI Workout Generation](../AI_SPEC.md) |
 | **Status** | `done` |
 | **Effort** | XS |
 | **Depends on** | AI parser interface layer ✅ |

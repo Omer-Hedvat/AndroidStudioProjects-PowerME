@@ -195,6 +195,22 @@ class WorkoutNotificationManager @Inject constructor(
         notificationManager.notify(NOTIFICATION_ID_PERSISTENT, notification)
     }
 
+    /**
+     * Builds a persistent notification for an active functional block (AMRAP / RFT / EMOM / TABATA).
+     * [text] is the throttled status line built by WorkoutTimerService.formatFunctionalNotification.
+     */
+    fun buildFunctionalBlockNotification(blockType: String, text: String): Notification {
+        return NotificationCompat.Builder(context, CHANNEL_ACTIVE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("$blockType in progress")
+            .setContentText(text)
+            .setContentIntent(mainActivityIntent)
+            .setOngoing(true)
+            .setSilent(true)
+            .addAction(0, "Finish Workout", finishWorkoutIntent)
+            .build()
+    }
+
     fun cancelRestDoneNotification() {
         notificationManager.cancel(NOTIFICATION_ID_REST_DONE)
     }

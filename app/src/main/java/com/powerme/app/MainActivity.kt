@@ -12,6 +12,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.KeepScreenOnMode
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.navigation.PowerMeApp
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val themeMode by appSettingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
-            val keepScreenOn by appSettingsDataStore.keepScreenOn.collectAsState(initial = true)
+            val keepScreenOnMode by appSettingsDataStore.keepScreenOnMode.collectAsState(initial = KeepScreenOnMode.DURING_WORKOUT)
             val systemDark = isSystemInDarkTheme()
             val isDark = when (themeMode) {
                 ThemeMode.LIGHT  -> false
@@ -54,7 +55,7 @@ class MainActivity : ComponentActivity() {
                 else
                     SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
-                if (keepScreenOn) {
+                if (keepScreenOnMode == KeepScreenOnMode.ALWAYS) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 } else {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

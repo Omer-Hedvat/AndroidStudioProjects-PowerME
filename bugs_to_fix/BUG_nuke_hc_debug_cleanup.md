@@ -1,7 +1,7 @@
 # BUG: Remove HC nuke debug tooling (temporary code, must not ship)
 
 ## Status
-[ ] Open
+[ ] Pending
 
 ## Severity
 P1 high — debug-only code with a destructive button must not reach production

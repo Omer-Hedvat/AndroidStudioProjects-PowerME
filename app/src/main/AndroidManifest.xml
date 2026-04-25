@@ -26,6 +26,9 @@
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
     <uses-permission android:name="android.permission.health.READ_RESPIRATORY_RATE" />
 
+    <!-- Android AICore (on-device LLM via MLKit GenAI) -->
+    <uses-feature android:name="android.software.predict" android:required="false" />
+
     <!-- Declare that this app queries Health Connect -->
     <queries>
         <!-- Android 14+ (API 34+): HC is built into the framework, served by this package -->

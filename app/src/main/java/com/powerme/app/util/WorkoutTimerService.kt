@@ -41,6 +41,7 @@ class WorkoutTimerService : Service() {
     @InstallIn(SingletonComponent::class)
     interface WorkoutTimerServiceEntryPoint {
         fun workoutNotificationManager(): WorkoutNotificationManager
+        fun functionalBlockRunner(): com.powerme.app.ui.workout.FunctionalBlockRunner
     }
 
     inner class TimerBinder : Binder() {
@@ -61,6 +62,7 @@ class WorkoutTimerService : Service() {
     var onFinishWorkoutRequested: (() -> Unit)? = null
 
     private lateinit var notificationManager: WorkoutNotificationManager
+    private lateinit var functionalBlockRunner: com.powerme.app.ui.workout.FunctionalBlockRunner
 
     override fun onCreate() {
         super.onCreate()
@@ -69,6 +71,45 @@ class WorkoutTimerService : Service() {
             WorkoutTimerServiceEntryPoint::class.java
         )
         notificationManager = entryPoint.workoutNotificationManager()
+        functionalBlockRunner = entryPoint.functionalBlockRunner()
+
+        // Observe functional block runner state — update foreground notification with throttling
+        // by string equality so per-tick rebuilds don't flicker.
+        serviceScope.launch {
+            var lastText: String? = null
+            functionalBlockRunner.state.collect { rs ->
+                if (rs == null) {
+                    lastText = null
+                    return@collect
+                }
+                val text = formatFunctionalNotification(rs)
+                if (text != lastText) {
+                    notificationManager.updateNotification(
+                        notificationManager.buildFunctionalBlockNotification(rs.blockType, text)
+                    )
+                    lastText = text
+                }
+            }
+        }
+    }
+
+    private fun formatFunctionalNotification(rs: com.powerme.app.ui.workout.FunctionalBlockRunnerState): String {
+        val mm = rs.displaySeconds / 60
+        val ss = rs.displaySeconds % 60
+        val time = "%d:%02d".format(mm, ss)
+        return when (rs.blockType) {
+            "AMRAP"  -> "AMRAP — $time remaining · Round ${rs.roundTapCount + 1}"
+            "RFT"    -> "RFT — ${formatElapsed(rs.elapsedSeconds)} · Round ${rs.roundTapCount}/${rs.totalRounds}"
+            "EMOM"   -> "EMOM — Round ${rs.currentRound}/${rs.totalRounds} · $time"
+            "TABATA" -> "TABATA — ${if (rs.timerPhase == com.powerme.app.util.timer.TimerPhase.REST) "REST" else "WORK"} · $time · Round ${rs.currentRound}/${rs.totalRounds}"
+            else     -> "Block — $time"
+        }
+    }
+
+    private fun formatElapsed(secs: Int): String {
+        val m = secs / 60
+        val s = secs % 60
+        return "%d:%02d".format(m, s)
     }
 
     override fun onBind(intent: Intent?): IBinder = binder

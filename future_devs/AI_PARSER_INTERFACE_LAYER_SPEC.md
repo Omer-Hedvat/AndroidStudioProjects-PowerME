@@ -3,6 +3,7 @@
 | Field | Value |
 |---|---|
 | **Phase** | P9 |
+| **Epic** | [AI Workout Generation](../AI_SPEC.md) |
 | **Status** | `done` |
 | **Effort** | S |
 | **Depends on** | AI Workout Generation (P7 wrapped) ✅ |

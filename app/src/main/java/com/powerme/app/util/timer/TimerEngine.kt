@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.update
 interface TimerEngine {
     val state: StateFlow<TimerEngineState>
     suspend fun run(spec: TimerSpec, setupSeconds: Int = 0)
+    suspend fun resumeAt(spec: TimerSpec, elapsedSeconds: Int, setupSeconds: Int = 0)
     fun pause()
     fun resume()
     fun stop()
@@ -29,18 +30,24 @@ class TimerEngineImpl(
 
     private val _isPaused = MutableStateFlow(false)
 
-    override suspend fun run(spec: TimerSpec, setupSeconds: Int) {
+    override suspend fun run(spec: TimerSpec, setupSeconds: Int) =
+        runInternal(spec, setupSeconds, initialElapsed = 0)
+
+    override suspend fun resumeAt(spec: TimerSpec, elapsedSeconds: Int, setupSeconds: Int) =
+        runInternal(spec, setupSeconds, initialElapsed = elapsedSeconds.coerceAtLeast(0))
+
+    private suspend fun runInternal(spec: TimerSpec, setupSeconds: Int, initialElapsed: Int) {
         _isPaused.value = false
         _state.update { it.copy(isRunning = true, phase = TimerPhase.IDLE) }
         try {
             if (!runSetup(setupSeconds)) return
             when (spec) {
-                is TimerSpec.Emom      -> runEmom(spec)
-                is TimerSpec.Tabata    -> runTabata(spec)
+                is TimerSpec.Emom      -> runEmom(spec, initialElapsed)
+                is TimerSpec.Tabata    -> runTabata(spec, initialElapsed)
                 is TimerSpec.Countdown -> runCountdown(spec)
-                is TimerSpec.Stopwatch -> runStopwatch()
-                is TimerSpec.Amrap     -> runAmrap(spec)
-                is TimerSpec.Rft       -> runRft(spec)
+                is TimerSpec.Stopwatch -> runStopwatch(initialElapsed)
+                is TimerSpec.Amrap     -> runAmrap(spec, initialElapsed)
+                is TimerSpec.Rft       -> runRft(spec, initialElapsed)
             }
             notifier.triggerAudioAlert(AlertType.FINISH, getSound())
         } finally {
@@ -87,15 +94,19 @@ class TimerEngineImpl(
         return true
     }
 
-    private suspend fun runEmom(spec: TimerSpec.Emom) {
+    private suspend fun runEmom(spec: TimerSpec.Emom, initialElapsed: Int = 0) {
         val totalRounds = spec.totalDurationSeconds / spec.intervalSeconds
         _state.update {
             it.copy(phase = TimerPhase.WORK, totalRounds = totalRounds, phaseTotalSeconds = spec.intervalSeconds)
         }
-        for (round in 1..totalRounds) {
+        if (initialElapsed >= totalRounds * spec.intervalSeconds) return
+        val startRound = (initialElapsed / spec.intervalSeconds) + 1
+        val intoRound = initialElapsed % spec.intervalSeconds
+        for (round in startRound..totalRounds) {
+            val resumingMidRound = (round == startRound && intoRound > 0)
             _state.update { it.copy(currentRound = round) }
-            notifier.triggerAudioAlert(AlertType.ROUND_START, getSound())
-            var remaining = spec.intervalSeconds
+            if (!resumingMidRound) notifier.triggerAudioAlert(AlertType.ROUND_START, getSound())
+            var remaining = if (resumingMidRound) spec.intervalSeconds - intoRound else spec.intervalSeconds
             var warnedThisRound = false
             while (remaining > 0) {
                 awaitNotPaused()
@@ -118,38 +129,60 @@ class TimerEngineImpl(
         }
     }
 
-    private suspend fun runTabata(spec: TimerSpec.Tabata) {
+    private suspend fun runTabata(spec: TimerSpec.Tabata, initialElapsed: Int = 0) {
         _state.update { it.copy(totalRounds = spec.rounds) }
-        for (round in 0 until spec.rounds) {
-            val isLastRound = round == spec.rounds - 1
+        val cycleSeconds = spec.workSeconds + spec.restSeconds
+        val totalSeconds =
+            if (spec.skipLastRest) (spec.rounds * cycleSeconds) - spec.restSeconds
+            else spec.rounds * cycleSeconds
+        if (initialElapsed >= totalSeconds) return
+        val startRoundIdx = (initialElapsed / cycleSeconds).coerceAtMost(spec.rounds - 1)
+        val intoCycle = initialElapsed - (startRoundIdx * cycleSeconds)
+        val startInRest = intoCycle >= spec.workSeconds
 
-            _state.update {
-                it.copy(phase = TimerPhase.WORK, currentRound = round + 1, phaseTotalSeconds = spec.workSeconds)
-            }
-            notifier.triggerAudioAlert(AlertType.ROUND_START, getSound())
-            var workRemaining = spec.workSeconds
-            var warnedWork = false
-            while (workRemaining > 0) {
-                awaitNotPaused()
-                _state.update { it.copy(displaySeconds = workRemaining, tickEpochMs = System.currentTimeMillis()) }
-                if (spec.workWarnAtSeconds != null && workRemaining == spec.workWarnAtSeconds && !warnedWork) {
-                    warnedWork = true
-                    notifier.triggerAudioAlert(AlertType.WARNING, getSound())
+        for (round in startRoundIdx until spec.rounds) {
+            val isLastRound = round == spec.rounds - 1
+            val resumingThisRound = (round == startRoundIdx && initialElapsed > round * cycleSeconds)
+
+            if (!(resumingThisRound && startInRest)) {
+                _state.update {
+                    it.copy(phase = TimerPhase.WORK, currentRound = round + 1, phaseTotalSeconds = spec.workSeconds)
                 }
-                if (workRemaining in 1..3) notifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, getSound())
-                delay(1000L)
-                workRemaining--
+                if (!resumingThisRound) notifier.triggerAudioAlert(AlertType.ROUND_START, getSound())
+                var workRemaining = if (resumingThisRound) spec.workSeconds - intoCycle else spec.workSeconds
+                var warnedWork = false
+                while (workRemaining > 0) {
+                    awaitNotPaused()
+                    _state.update {
+                        it.copy(displaySeconds = workRemaining, tickEpochMs = System.currentTimeMillis())
+                    }
+                    if (spec.workWarnAtSeconds != null && workRemaining == spec.workWarnAtSeconds && !warnedWork) {
+                        warnedWork = true
+                        notifier.triggerAudioAlert(AlertType.WARNING, getSound())
+                    }
+                    if (workRemaining in 1..3) notifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, getSound())
+                    delay(1000L)
+                    workRemaining--
+                }
+                notifier.triggerAudioAlert(AlertType.FINISH, getSound())
             }
-            notifier.triggerAudioAlert(AlertType.FINISH, getSound())
 
             if (!(isLastRound && spec.skipLastRest)) {
-                _state.update { it.copy(phase = TimerPhase.REST, phaseTotalSeconds = spec.restSeconds) }
-                notifier.triggerAudioAlert(AlertType.ROUND_START, getSound())
-                var restRemaining = spec.restSeconds
+                _state.update {
+                    it.copy(phase = TimerPhase.REST, currentRound = round + 1, phaseTotalSeconds = spec.restSeconds)
+                }
+                if (!(resumingThisRound && startInRest)) {
+                    notifier.triggerAudioAlert(AlertType.ROUND_START, getSound())
+                }
+                var restRemaining =
+                    if (resumingThisRound && startInRest) spec.restSeconds - (intoCycle - spec.workSeconds)
+                    else spec.restSeconds
                 var warnedRest = false
                 while (restRemaining > 0) {
                     awaitNotPaused()
-                    _state.update { it.copy(displaySeconds = restRemaining, tickEpochMs = System.currentTimeMillis()) }
+                    _state.update {
+                        it.copy(displaySeconds = restRemaining, tickEpochMs = System.currentTimeMillis())
+                    }
                     if (spec.restWarnAtSeconds != null && restRemaining == spec.restWarnAtSeconds && !warnedRest) {
                         warnedRest = true
                         notifier.triggerAudioAlert(AlertType.WARNING, getSound())
@@ -183,9 +216,9 @@ class TimerEngineImpl(
         _state.update { it.copy(displaySeconds = 0) }
     }
 
-    private suspend fun runStopwatch() {
+    private suspend fun runStopwatch(initialElapsed: Int = 0) {
         _state.update { it.copy(phase = TimerPhase.WORK, totalRounds = 0, phaseTotalSeconds = 0) }
-        var elapsed = _state.value.elapsedSeconds
+        var elapsed = initialElapsed
         while (true) {
             awaitNotPaused()
             _state.update {
@@ -196,23 +229,28 @@ class TimerEngineImpl(
         }
     }
 
-    private suspend fun runAmrap(spec: TimerSpec.Amrap) {
+    private suspend fun runAmrap(spec: TimerSpec.Amrap, initialElapsed: Int = 0) {
         _state.update { it.copy(phase = TimerPhase.WORK, totalRounds = 0, phaseTotalSeconds = spec.durationSeconds) }
-        var remaining = spec.durationSeconds
+        var remaining = (spec.durationSeconds - initialElapsed).coerceAtLeast(0)
+        var elapsed = initialElapsed
         while (remaining > 0) {
             awaitNotPaused()
-            _state.update { it.copy(displaySeconds = remaining, tickEpochMs = System.currentTimeMillis()) }
+            _state.update {
+                it.copy(displaySeconds = remaining, elapsedSeconds = elapsed, tickEpochMs = System.currentTimeMillis())
+            }
             if (remaining in 1..3) notifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, getSound())
             delay(1000L)
             remaining--
+            elapsed++
         }
         _state.update { it.copy(displaySeconds = 0) }
     }
 
-    private suspend fun runRft(spec: TimerSpec.Rft) {
+    private suspend fun runRft(spec: TimerSpec.Rft, initialElapsed: Int = 0) {
         _state.update { it.copy(phase = TimerPhase.WORK, totalRounds = spec.targetRounds, phaseTotalSeconds = 0) }
-        var elapsed = 0
+        var elapsed = initialElapsed
         val cap = spec.capSeconds
+        if (cap != null && elapsed >= cap) return
         while (true) {
             awaitNotPaused()
             _state.update {

@@ -1,11 +1,15 @@
 package com.powerme.app.ui.settings
 
 import com.google.firebase.auth.FirebaseAuth
+import com.powerme.app.ai.AiCoreAvailability
+import com.powerme.app.ai.AiCoreStatus
 import com.powerme.app.ai.GeminiKeyResolver
 import com.powerme.app.ai.KeyResolution
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.KeepScreenOnMode
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.UserSettingsDao
 import com.powerme.app.data.database.WorkoutDao
@@ -17,6 +21,7 @@ import com.powerme.app.util.TimerSound
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -48,6 +53,7 @@ class SettingsViewModelApiKeyTest {
     private lateinit var mockWorkoutSetDao: WorkoutSetDao
     private lateinit var mockSecurePreferencesStore: SecurePreferencesStore
     private lateinit var mockKeyResolver: GeminiKeyResolver
+    private lateinit var mockAiCoreAvailability: AiCoreAvailability
 
     @Before
     fun setup() {
@@ -65,19 +71,22 @@ class SettingsViewModelApiKeyTest {
         mockKeyResolver = mock()
 
         whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
-        whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(false))
-        whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(false))
+        whenever(mockAppSettingsDataStore.keepScreenOnMode).thenReturn(flowOf(KeepScreenOnMode.DURING_WORKOUT))
+        whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(com.powerme.app.data.RpeMode.OFF))
         whenever(mockAppSettingsDataStore.themeMode).thenReturn(flowOf(ThemeMode.DARK))
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         whenever(mockAppSettingsDataStore.hcWorkoutBackfillDone).thenReturn(flowOf(true))
         whenever(mockAppSettingsDataStore.timedSetSetupSeconds).thenReturn(flowOf(3))
         whenever(mockAppSettingsDataStore.timerSound).thenReturn(flowOf(TimerSound.BEEP))
         whenever(mockAppSettingsDataStore.notificationsEnabled).thenReturn(flowOf(true))
+        whenever(mockAppSettingsDataStore.workoutStyle).thenReturn(flowOf(WorkoutStyle.HYBRID))
         whenever(mockAuth.currentUser).thenReturn(null)
         whenever(mockHealthConnectManager.isAvailable()).thenReturn(false)
         whenever(mockSecurePreferencesStore.hasUserGeminiApiKey()).thenReturn(false)
         whenever(mockSecurePreferencesStore.getUserGeminiApiKey()).thenReturn(null)
         whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.ShippedKey("shipped-key"))
+        mockAiCoreAvailability = mock()
+        runBlocking { whenever(mockAiCoreAvailability.check()).thenReturn(AiCoreStatus.NotSupported) }
     }
 
     @After
@@ -96,7 +105,8 @@ class SettingsViewModelApiKeyTest {
         workoutDao = mockWorkoutDao,
         workoutSetDao = mockWorkoutSetDao,
         securePreferencesStore = mockSecurePreferencesStore,
-        keyResolver = mockKeyResolver
+        keyResolver = mockKeyResolver,
+        aiCoreAvailability = mockAiCoreAvailability
     )
 
     @Test
@@ -196,5 +206,96 @@ class SettingsViewModelApiKeyTest {
         runCurrent()
 
         verify(mockFirestoreSyncManager, never()).pushAppPreferences()
+    }
+
+    // ── Validation state tests ───────────────────────────────────────────────
+
+    private fun buildViewModelWithValidation(geminiAction: suspend (String) -> Unit): SettingsViewModel =
+        object : SettingsViewModel(
+            userSettingsDao = mockUserSettingsDao,
+            database = mockDatabase,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            auth = mockAuth,
+            context = mock(),
+            healthConnectManager = mockHealthConnectManager,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            securePreferencesStore = mockSecurePreferencesStore,
+            keyResolver = mockKeyResolver,
+            aiCoreAvailability = mockAiCoreAvailability
+        ) {
+            override suspend fun callGeminiForValidation(key: String) = geminiAction(key)
+        }
+
+    @Test
+    fun `saveUserApiKey sets validation to Validating then Valid on success`() = runTest(testDispatcher) {
+        val viewModel = buildViewModelWithValidation { /* no-op = success */ }
+        runCurrent()
+
+        viewModel.updateApiKeyInput("valid-key")
+        viewModel.saveUserApiKey()
+        assertEquals(ApiKeyValidationState.Validating, viewModel.uiState.value.apiKeyValidation)
+
+        runCurrent()
+        assertEquals(ApiKeyValidationState.Valid, viewModel.uiState.value.apiKeyValidation)
+    }
+
+    @Test
+    fun `saveUserApiKey sets validation to Invalid when key is not valid`() = runTest(testDispatcher) {
+        val viewModel = buildViewModelWithValidation {
+            throw RuntimeException("API key not valid. Please pass a valid API key.")
+        }
+        runCurrent()
+
+        viewModel.updateApiKeyInput("bad-key")
+        viewModel.saveUserApiKey()
+        runCurrent()
+
+        val state = viewModel.uiState.value.apiKeyValidation
+        assertTrue(state is ApiKeyValidationState.Invalid)
+        assertEquals("API key is not valid", (state as ApiKeyValidationState.Invalid).message)
+    }
+
+    @Test
+    fun `saveUserApiKey sets validation to QuotaExceeded on quota error`() = runTest(testDispatcher) {
+        val viewModel = buildViewModelWithValidation {
+            throw RuntimeException("RESOURCE_EXHAUSTED: quota exceeded")
+        }
+        runCurrent()
+
+        viewModel.updateApiKeyInput("quota-key")
+        viewModel.saveUserApiKey()
+        runCurrent()
+
+        assertEquals(ApiKeyValidationState.QuotaExceeded, viewModel.uiState.value.apiKeyValidation)
+    }
+
+    @Test
+    fun `updateApiKeyInput resets validation state to Idle`() = runTest(testDispatcher) {
+        val viewModel = buildViewModelWithValidation { /* success */ }
+        runCurrent()
+
+        viewModel.updateApiKeyInput("key")
+        viewModel.saveUserApiKey()
+        runCurrent()
+        assertEquals(ApiKeyValidationState.Valid, viewModel.uiState.value.apiKeyValidation)
+
+        viewModel.updateApiKeyInput("new-key")
+        assertEquals(ApiKeyValidationState.Idle, viewModel.uiState.value.apiKeyValidation)
+    }
+
+    @Test
+    fun `clearUserApiKey resets validation state to Idle`() = runTest(testDispatcher) {
+        val viewModel = buildViewModelWithValidation { /* success */ }
+        runCurrent()
+
+        viewModel.updateApiKeyInput("key")
+        viewModel.saveUserApiKey()
+        runCurrent()
+        assertEquals(ApiKeyValidationState.Valid, viewModel.uiState.value.apiKeyValidation)
+
+        viewModel.clearUserApiKey()
+        assertEquals(ApiKeyValidationState.Idle, viewModel.uiState.value.apiKeyValidation)
     }
 }

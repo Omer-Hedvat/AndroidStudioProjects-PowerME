@@ -135,9 +135,18 @@ fun ProfileScreen(
                 }
             }
 
-            // ── Log Out ────────────────────────────────────────────
+            // ── Danger Zone ────────────────────────────────────────
             item {
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Danger Zone",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+                Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = { showLogoutDialog = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -153,19 +162,6 @@ fun ProfileScreen(
                     Spacer(Modifier.width(8.dp))
                     Text("Log Out")
                 }
-            }
-
-            // ── Danger Zone ────────────────────────────────────────
-            item {
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "Danger Zone",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
                 Spacer(Modifier.height(8.dp))
                 if (uiState.isDeletingAccount) {
                     Row(

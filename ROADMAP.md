@@ -52,9 +52,6 @@
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | Watch & phone workout notifications | `future_devs/WATCH_WORKOUT_NOTIFICATIONS_SPEC.md` | L | `completed` | — |
-| Keep screen on — 3-mode selector (Always / During workout / Off) | `future_devs/KEEP_SCREEN_ON_MODE_SPEC.md` | S | `not-started` | — |
-| RPE auto-pop — workout style selector (Gym only / Functional / All / Off) | `future_devs/RPE_MODE_SELECTOR_SPEC.md` | S | `not-started` | — |
-| Settings page — card reorder | `future_devs/SETTINGS_PAGE_REORDER_SPEC.md` | XS | `not-started` | keep_screen_on_mode ✅, rpe_mode_selector ✅, move_privacy_to_profile ✅, settings_data_backup_merge ✅ |
 
 ---
 
@@ -205,3 +202,4 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/MOVE_PRIVACY_TO_PROFILE_SPEC.md` | P1 — Move Delete Account / Privacy card from Settings to Profile |
 | `future_devs/SETTINGS_DATA_BACKUP_MERGE_SPEC.md` | P1 — Merge Data Export + Cloud Sync into single "Data & Backup" card |
 | `future_devs/SETTINGS_PAGE_REORDER_SPEC.md` | P1 — Settings page card reorder (workout settings up, HC down) |
+| `future_devs/PROFILE_LOGOUT_INTO_DANGER_ZONE_SPEC.md` | P1 — Profile: move Log Out button inside Danger Zone, above Delete Account |

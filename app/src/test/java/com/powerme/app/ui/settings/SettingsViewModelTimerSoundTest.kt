@@ -6,6 +6,7 @@ import com.powerme.app.ai.AiCoreStatus
 import com.powerme.app.ai.GeminiKeyResolver
 import com.powerme.app.ai.KeyResolution
 import com.powerme.app.data.AppSettingsDataStore
+import com.powerme.app.data.KeepScreenOnMode
 import com.powerme.app.data.ThemeMode
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.WorkoutStyle
@@ -70,8 +71,8 @@ class SettingsViewModelTimerSoundTest {
         whenever(mockKeyResolver.resolve()).thenReturn(KeyResolution.ShippedKey("test-key"))
 
         whenever(mockUserSettingsDao.getSettings()).thenReturn(flowOf(null))
-        whenever(mockAppSettingsDataStore.keepScreenOn).thenReturn(flowOf(false))
-        whenever(mockAppSettingsDataStore.useRpeAutoPop).thenReturn(flowOf(false))
+        whenever(mockAppSettingsDataStore.keepScreenOnMode).thenReturn(flowOf(KeepScreenOnMode.DURING_WORKOUT))
+        whenever(mockAppSettingsDataStore.rpeMode).thenReturn(flowOf(com.powerme.app.data.RpeMode.OFF))
         whenever(mockAppSettingsDataStore.themeMode).thenReturn(flowOf(ThemeMode.DARK))
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         whenever(mockAppSettingsDataStore.hcWorkoutBackfillDone).thenReturn(flowOf(true))

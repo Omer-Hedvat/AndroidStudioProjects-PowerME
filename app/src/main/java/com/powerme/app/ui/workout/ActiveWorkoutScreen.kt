@@ -44,6 +44,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.powerme.app.data.KeepScreenOnMode
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseType
@@ -108,6 +109,7 @@ fun ActiveWorkoutScreen(
     val unitSystem by viewModel.unitSystem.collectAsState()
     val rpeAutoPopTarget by viewModel.rpeAutoPopTarget.collectAsState()
     val setupSeconds by viewModel.timedSetSetupSeconds.collectAsState()
+    val keepScreenOnMode by viewModel.keepScreenOnMode.collectAsState()
     val supersetColorMap = remember(workoutState.exercises) {
         buildSupersetColorMap(workoutState.exercises.map { it.supersetGroupId })
     }
@@ -117,6 +119,14 @@ fun ActiveWorkoutScreen(
     var showTimerControls by remember { mutableStateOf(false) }
     var showStandaloneTimerConfig by remember { mutableStateOf(false) }
     val view = LocalView.current
+
+    // Keep screen on during workout when mode is DURING_WORKOUT (ALWAYS is handled in MainActivity).
+    DisposableEffect(view, keepScreenOnMode, workoutState.isActive) {
+        val shouldKeep = keepScreenOnMode == KeepScreenOnMode.DURING_WORKOUT && workoutState.isActive
+        view.keepScreenOn = shouldKeep
+        onDispose { if (keepScreenOnMode == KeepScreenOnMode.DURING_WORKOUT) view.keepScreenOn = false }
+    }
+
     var isReorderMode by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -185,6 +195,80 @@ fun ActiveWorkoutScreen(
             onAdd30s = { viewModel.addTimeToStandaloneTimer(30) },
             onSubtract30s = { viewModel.subtractFromStandaloneTimer(30) }
         )
+    }
+
+    // Functional Block Overlay (AMRAP / RFT / EMOM / TABATA — full-screen when active)
+    val fb = workoutState.functionalBlockState
+    var showBlockFinishSheet by remember { mutableStateOf(false) }
+    if (fb != null) {
+        when (fb.blockType) {
+            "AMRAP" -> com.powerme.app.ui.workout.runner.AmrapOverlay(
+                state = fb,
+                onTap = {
+                    viewModel.appendBlockRoundTap(
+                        round = fb.roundTapCount + 1,
+                        elapsedMs = fb.elapsedSeconds * 1000L,
+                        completed = true,
+                    )
+                },
+                onFinishClick = { showBlockFinishSheet = true },
+                onAbandonClick = { viewModel.abandonFunctionalBlock() },
+            )
+            "RFT" -> com.powerme.app.ui.workout.runner.RftOverlay(
+                state = fb,
+                onRoundTap = {
+                    viewModel.appendBlockRoundTap(
+                        round = fb.roundTapCount + 1,
+                        elapsedMs = fb.elapsedSeconds * 1000L,
+                        completed = true,
+                    )
+                },
+                onFinishClick = { showBlockFinishSheet = true },
+                onAbandonClick = { viewModel.abandonFunctionalBlock() },
+            )
+            "EMOM" -> com.powerme.app.ui.workout.runner.EmomOverlay(
+                state = fb,
+                onRoundCompleted = {
+                    viewModel.appendBlockRoundTap(
+                        round = fb.currentRound,
+                        elapsedMs = fb.elapsedSeconds * 1000L,
+                        completed = true,
+                    )
+                },
+                onRoundSkipped = {
+                    viewModel.appendBlockRoundTap(
+                        round = fb.currentRound,
+                        elapsedMs = fb.elapsedSeconds * 1000L,
+                        completed = false,
+                    )
+                },
+                onFinishClick = { showBlockFinishSheet = true },
+                onAbandonClick = { viewModel.abandonFunctionalBlock() },
+            )
+            "TABATA" -> com.powerme.app.ui.workout.runner.TabataOverlay(
+                state = fb,
+                onFinishClick = { showBlockFinishSheet = true },
+                onAbandonClick = { viewModel.abandonFunctionalBlock() },
+            )
+        }
+        if (showBlockFinishSheet) {
+            com.powerme.app.ui.workout.runner.BlockFinishSheet(
+                blockType = fb.blockType,
+                state = fb,
+                onDismiss = { showBlockFinishSheet = false },
+                onSave = { result ->
+                    viewModel.finishFunctionalBlock(
+                        rounds = result.rounds,
+                        extraReps = result.extraReps,
+                        finishSeconds = result.finishSeconds,
+                        rpe = result.rpe,
+                        perExerciseRpeJson = result.perExerciseRpeJson,
+                        notes = result.notes,
+                    )
+                    showBlockFinishSheet = false
+                },
+            )
+        }
     }
 
     // Auto-navigate to WorkoutSummaryScreen when finishWorkout() completes
@@ -382,9 +466,13 @@ fun ActiveWorkoutScreen(
     } // end Box
 
     if (showExerciseDialog) {
-        ModalBottomSheet(onDismissRequest = { showExerciseDialog = false }) {
+        ModalBottomSheet(
+            onDismissRequest = { showExerciseDialog = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
             ExercisesScreen(
                 pickerMode = true,
+                isModal = true,
                 onExercisesSelected = { ids ->
                     ids.forEach { id ->
                         workoutState.availableExercises.find { it.id == id }?.let { viewModel.addExercise(it) }
@@ -410,8 +498,231 @@ fun ActiveWorkoutScreen(
     }
 }
 
+/**
+ * Single grouped card for a functional block (AMRAP / RFT / EMOM / TABATA).
+ * Shows block type badge + params at the top, then one plain row per exercise.
+ * No sets column, no PRE, no RPE, no checkmark — those concepts don't apply here.
+ */
 @Composable
-private fun BlockHeader(block: WorkoutBlock) {
+private fun FunctionalBlockActiveCard(
+    block: WorkoutBlock,
+    exercises: List<ExerciseWithSets>,
+    unitSystem: UnitSystem,
+    isEditMode: Boolean,
+    onStartBlock: ((String) -> Unit)? = null,
+    onWeightChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
+    onRepsChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
+    onTimeChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
+) {
+    val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
+        .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
+    val badgeColor = when (blockType) {
+        com.powerme.app.data.BlockType.AMRAP   -> TimerGreen
+        com.powerme.app.data.BlockType.RFT     -> NeonPurple
+        com.powerme.app.data.BlockType.EMOM    -> ReadinessAmber
+        com.powerme.app.data.BlockType.TABATA  -> TimerRed
+        else                                   -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val paramsSummary = when (blockType) {
+        com.powerme.app.data.BlockType.AMRAP   -> block.durationSeconds?.let { "${it / 60} min cap" }
+        com.powerme.app.data.BlockType.RFT     -> block.targetRounds?.let { "$it rounds" }
+        com.powerme.app.data.BlockType.EMOM    -> block.emomRoundSeconds?.let { interval ->
+            block.durationSeconds?.let { dur ->
+                val prefix = when {
+                    interval <= 60 -> "EMOM"
+                    interval % 60 == 0 -> "E${interval / 60}MOM"
+                    else -> "E${interval}sMOM"
+                }
+                "$prefix ${dur / 60} min"
+            }
+        } ?: block.durationSeconds?.let { "${it / 60} min" }
+        com.powerme.app.data.BlockType.TABATA  -> block.tabataWorkSeconds?.let { ws ->
+            block.tabataRestSeconds?.let { rs -> "${ws}s / ${rs}s" }
+        }
+        else -> null
+    }
+    val alreadyRun = block.runStartMs != null
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            // Block header row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = badgeColor.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = blockType.displayName,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = badgeColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (block.name != null) {
+                    Text(
+                        text = block.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+                if (paramsSummary != null) {
+                    Text(
+                        text = paramsSummary,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!isEditMode) {
+                    OutlinedButton(
+                        onClick = { onStartBlock?.invoke(block.id) },
+                        enabled = onStartBlock != null && !alreadyRun,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            if (alreadyRun) "BLOCK DONE" else "START BLOCK",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Exercise rows — one plain row per exercise, no sets/PRE/RPE/checkmark
+            exercises.forEachIndexed { index, exWithSets ->
+                if (index > 0) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                }
+                FunctionalExerciseRow(
+                    exerciseWithSets = exWithSets,
+                    unitSystem = unitSystem,
+                    onWeightChanged = { setOrder, v -> onWeightChanged(exWithSets.exercise.id, setOrder, v) },
+                    onRepsChanged = { setOrder, v -> onRepsChanged(exWithSets.exercise.id, setOrder, v) },
+                    onTimeChanged = { setOrder, v -> onTimeChanged(exWithSets.exercise.id, setOrder, v) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Single exercise row inside a [FunctionalBlockActiveCard].
+ * Shows name, optional muscle group, weight field, and reps-or-time field.
+ */
+@Composable
+private fun FunctionalExerciseRow(
+    exerciseWithSets: ExerciseWithSets,
+    unitSystem: UnitSystem,
+    onWeightChanged: (setOrder: Int, value: String) -> Unit,
+    onRepsChanged: (setOrder: Int, value: String) -> Unit,
+    onTimeChanged: (setOrder: Int, value: String) -> Unit,
+) {
+    val exercise = exerciseWithSets.exercise
+    val set = exerciseWithSets.sets.firstOrNull()
+    val isTimed = exercise.exerciseType == ExerciseType.TIMED
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = exercise.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            exercise.muscleGroup?.let { muscle ->
+                Text(
+                    text = muscle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        // Weight field
+        WorkoutInputField(
+            value = set?.weight ?: "",
+            onValueChange = { v -> set?.let { onWeightChanged(it.setOrder, v) } },
+            modifier = Modifier.width(72.dp),
+            placeholder = "0",
+            keyboardType = KeyboardType.Decimal,
+            imeAction = ImeAction.Next,
+            accessoryEnabled = true
+        )
+        Spacer(Modifier.width(6.dp))
+        // Reps or hold-seconds field
+        if (isTimed) {
+            WorkoutInputField(
+                value = set?.timeSeconds ?: "",
+                onValueChange = { v -> set?.let { onTimeChanged(it.setOrder, v) } },
+                modifier = Modifier.width(72.dp),
+                placeholder = "0",
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+                accessoryEnabled = true
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "s",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            WorkoutInputField(
+                value = set?.reps ?: "",
+                onValueChange = { v -> set?.let { onRepsChanged(it.setOrder, v) } },
+                modifier = Modifier.width(72.dp),
+                placeholder = "0",
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+                accessoryEnabled = true
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "reps",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun BlockHeader(
+    block: WorkoutBlock,
+    onStartBlock: ((String) -> Unit)? = null,
+) {
     val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
         .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
     val isFunctional = blockType != com.powerme.app.data.BlockType.STRENGTH
@@ -471,9 +782,10 @@ private fun BlockHeader(block: WorkoutBlock) {
             )
         }
         if (isFunctional) {
+            val alreadyRun = block.runStartMs != null
             OutlinedButton(
-                onClick = {},
-                enabled = false,
+                onClick = { onStartBlock?.invoke(block.id) },
+                enabled = onStartBlock != null && !alreadyRun,
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                 modifier = Modifier.height(32.dp)
             ) {
@@ -483,7 +795,11 @@ private fun BlockHeader(block: WorkoutBlock) {
                     modifier = Modifier.size(14.dp)
                 )
                 Spacer(Modifier.width(4.dp))
-                Text("START BLOCK", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (alreadyRun) "BLOCK DONE" else "START BLOCK",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -555,70 +871,91 @@ private fun LazyListScope.activeWorkoutListItems(
         }
     }
 
-    // Exercises — hybrid workouts (≥2 blocks) get block headers; single-block is unchanged
-    val showBlockHeaders = workoutState.blocks.size > 1 && !workoutState.isSupersetSelectMode
+    // Exercises — multi-block or any functional block uses grouped rendering; single STRENGTH block is flat.
+    val showBlockHeaders = !workoutState.isSupersetSelectMode &&
+        (workoutState.blocks.size > 1 || workoutState.blocks.any { it.type != "STRENGTH" })
     if (showBlockHeaders) {
         workoutState.blocks.forEach { block ->
-            item(key = "block_header_${block.id}") {
-                BlockHeader(block = block)
-            }
-            items(items = workoutState.exercisesByBlockId[block.id] ?: emptyList(), key = { it.exercise.id }) { exerciseWithSets ->
-                val isCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedExerciseIds
-                val warmupsCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedWarmupExerciseIds
-                ExerciseCard(
-                    exerciseWithSets = exerciseWithSets,
-                    supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
-                    isSelectMode = false,
-                    isSelected = false,
-                    activeTimerExerciseId = activeTimerExerciseId,
-                    activeTimerSetOrder = activeTimerSetOrder,
-                    activeTimerRemainingSeconds = activeTimerRemainingSeconds,
-                    activeTimerTotalSeconds = activeTimerTotalSeconds,
-                    unitSystem = unitSystem,
-                    availableExercises = workoutState.availableExercises,
-                    restTimeOverrides = workoutState.restTimeOverrides,
-                    hiddenRestSeparators = workoutState.hiddenRestSeparators + workoutState.finishedRestSeparators,
-                    isEditMode = isEditMode,
-                    isCollapsed = isCollapsed,
-                    warmupsCollapsed = warmupsCollapsed,
-                    onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
-                    onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
-                    onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
-                    dragHandleModifier = null,
-                    onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
-                    onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
-                    onDeleteSet = { setOrder -> viewModel.deleteSet(exerciseWithSets.exercise.id, setOrder) },
-                    onUpdateSetupNotes = { notes -> viewModel.updateSetupNotes(exerciseWithSets.exercise.id, notes) },
-                    onUpdateSetNotes = { setOrder, notes -> viewModel.updateSetNotes(exerciseWithSets.exercise.id, setOrder, notes) },
-                    onWeightChanged = { setOrder, weight -> viewModel.onWeightChanged(exerciseWithSets.exercise.id, setOrder, weight) },
-                    onRepsChanged = { setOrder, reps -> viewModel.onRepsChanged(exerciseWithSets.exercise.id, setOrder, reps) },
-                    onUpdateCardioSet = { setOrder, dist, time, rpe, completed -> viewModel.updateCardioSet(exerciseWithSets.exercise.id, setOrder, dist, time, rpe, completed = completed) },
-                    onUpdateTimedSet = { setOrder, time, rpe, completed -> viewModel.updateTimedSet(exerciseWithSets.exercise.id, setOrder, "", time, rpe, completed = completed) },
-                    onTimeChanged = { setOrder, time -> viewModel.onTimeChanged(exerciseWithSets.exercise.id, setOrder, time) },
-                    onReplaceExercise = { newExercise -> viewModel.replaceExercise(exerciseWithSets.exercise.id, newExercise) },
-                    onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
-                    onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
-                    onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
-                    onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
-                    onAddWarmupSets = { w, r, fill -> viewModel.addSmartWarmups(exerciseWithSets.exercise.id, w, r, fill) },
-                    onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
-                    onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
-                    onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
-                    onSelectSetType = { setOrder, type -> viewModel.selectSetType(exerciseWithSets.exercise.id, setOrder, type) },
-                    onUpdateRpe = { setOrder, rpe -> viewModel.updateRpe(exerciseWithSets.exercise.id, setOrder, rpe) },
-                    onDeleteLocalRestTime = { setOrder -> viewModel.deleteLocalRestTime(exerciseWithSets.exercise.id, setOrder) },
-                    onUpdateLocalRestTime = { setOrder, seconds -> viewModel.updateLocalRestTime(exerciseWithSets.exercise.id, setOrder, seconds) },
-                    onTimerActiveClick = onTimerActiveClick,
-                    onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
-                    onTimerFinished = { viewModel.timerFinishedFeedback() },
-                    onTimerWarningTick = { viewModel.timerWarningTickFeedback() },
-                    rpeAutoPopTarget = rpeAutoPopTarget,
-                    onConsumeRpeAutoPop = onConsumeRpeAutoPop,
-                    setupSeconds = setupSeconds,
-                    onSetupCountdownTick = onSetupCountdownTick,
-                    onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() },
-                    onStopRestTimer = { viewModel.stopRestTimer() }
-                )
+            val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
+                .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
+            if (blockType == com.powerme.app.data.BlockType.STRENGTH) {
+                item(key = "block_header_${block.id}") {
+                    BlockHeader(
+                        block = block,
+                        onStartBlock = { blockId -> viewModel.startFunctionalBlock(blockId) },
+                    )
+                }
+                items(items = workoutState.exercisesByBlockId[block.id] ?: emptyList(), key = { it.exercise.id }) { exerciseWithSets ->
+                    val isCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedExerciseIds
+                    val warmupsCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedWarmupExerciseIds
+                    ExerciseCard(
+                        exerciseWithSets = exerciseWithSets,
+                        supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
+                        isSelectMode = false,
+                        isSelected = false,
+                        activeTimerExerciseId = activeTimerExerciseId,
+                        activeTimerSetOrder = activeTimerSetOrder,
+                        activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                        activeTimerTotalSeconds = activeTimerTotalSeconds,
+                        unitSystem = unitSystem,
+                        availableExercises = workoutState.availableExercises,
+                        restTimeOverrides = workoutState.restTimeOverrides,
+                        hiddenRestSeparators = workoutState.hiddenRestSeparators + workoutState.finishedRestSeparators,
+                        isEditMode = isEditMode,
+                        isCollapsed = isCollapsed,
+                        warmupsCollapsed = warmupsCollapsed,
+                        onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
+                        onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
+                        onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
+                        dragHandleModifier = null,
+                        onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
+                        onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
+                        onDeleteSet = { setOrder -> viewModel.deleteSet(exerciseWithSets.exercise.id, setOrder) },
+                        onUpdateSetupNotes = { notes -> viewModel.updateSetupNotes(exerciseWithSets.exercise.id, notes) },
+                        onUpdateSetNotes = { setOrder, notes -> viewModel.updateSetNotes(exerciseWithSets.exercise.id, setOrder, notes) },
+                        onWeightChanged = { setOrder, weight -> viewModel.onWeightChanged(exerciseWithSets.exercise.id, setOrder, weight) },
+                        onRepsChanged = { setOrder, reps -> viewModel.onRepsChanged(exerciseWithSets.exercise.id, setOrder, reps) },
+                        onUpdateCardioSet = { setOrder, dist, time, rpe, completed -> viewModel.updateCardioSet(exerciseWithSets.exercise.id, setOrder, dist, time, rpe, completed = completed) },
+                        onUpdateTimedSet = { setOrder, time, rpe, completed -> viewModel.updateTimedSet(exerciseWithSets.exercise.id, setOrder, "", time, rpe, completed = completed) },
+                        onTimeChanged = { setOrder, time -> viewModel.onTimeChanged(exerciseWithSets.exercise.id, setOrder, time) },
+                        onReplaceExercise = { newExercise -> viewModel.replaceExercise(exerciseWithSets.exercise.id, newExercise) },
+                        onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
+                        onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
+                        onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
+                        onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
+                        onAddWarmupSets = { w, r, fill -> viewModel.addSmartWarmups(exerciseWithSets.exercise.id, w, r, fill) },
+                        onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
+                        onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
+                        onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
+                        onSelectSetType = { setOrder, type -> viewModel.selectSetType(exerciseWithSets.exercise.id, setOrder, type) },
+                        onUpdateRpe = { setOrder, rpe -> viewModel.updateRpe(exerciseWithSets.exercise.id, setOrder, rpe) },
+                        onDeleteLocalRestTime = { setOrder -> viewModel.deleteLocalRestTime(exerciseWithSets.exercise.id, setOrder) },
+                        onUpdateLocalRestTime = { setOrder, seconds -> viewModel.updateLocalRestTime(exerciseWithSets.exercise.id, setOrder, seconds) },
+                        onTimerActiveClick = onTimerActiveClick,
+                        onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
+                        onTimerFinished = { viewModel.timerFinishedFeedback() },
+                        onTimerWarningTick = { viewModel.timerWarningTickFeedback() },
+                        rpeAutoPopTarget = rpeAutoPopTarget,
+                        onConsumeRpeAutoPop = onConsumeRpeAutoPop,
+                        setupSeconds = setupSeconds,
+                        onSetupCountdownTick = onSetupCountdownTick,
+                        onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() },
+                        onStopRestTimer = { viewModel.stopRestTimer() }
+                    )
+                }
+            } else {
+                item(key = "func_block_card_${block.id}") {
+                    FunctionalBlockActiveCard(
+                        block = block,
+                        exercises = workoutState.exercisesByBlockId[block.id] ?: emptyList(),
+                        unitSystem = unitSystem,
+                        isEditMode = isEditMode,
+                        onStartBlock = { blockId -> viewModel.startFunctionalBlock(blockId) },
+                        onWeightChanged = { exId, setOrder, v -> viewModel.onWeightChanged(exId, setOrder, v) },
+                        onRepsChanged = { exId, setOrder, v -> viewModel.onRepsChanged(exId, setOrder, v) },
+                        onTimeChanged = { exId, setOrder, v -> viewModel.onTimeChanged(exId, setOrder, v) },
+                    )
+                }
             }
         }
     } else {
@@ -1274,9 +1611,13 @@ private fun ExerciseCard(
     }
 
     if (showReplaceDialog) {
-        ModalBottomSheet(onDismissRequest = { showReplaceDialog = false }) {
+        ModalBottomSheet(
+            onDismissRequest = { showReplaceDialog = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
             ExercisesScreen(
                 pickerMode = true,
+                isModal = true,
                 onExercisesSelected = { ids ->
                     ids.firstOrNull()?.let { id ->
                         availableExercises.find { it.id == id }?.let { onReplaceExercise(it) }

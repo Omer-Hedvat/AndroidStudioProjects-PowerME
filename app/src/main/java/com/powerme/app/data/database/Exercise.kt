@@ -41,7 +41,9 @@ data class Exercise(
     @ColumnInfo(defaultValue = "")
     val secondaryJoints: String = "", // JSON array of Joint enum names — secondary (stabilising) joints (v43)
     @ColumnInfo(defaultValue = "''")
-    val userNote: String = "" // User-authored per-exercise note (v47)
+    val userNote: String = "", // User-authored per-exercise note (v47)
+    @ColumnInfo(defaultValue = "[]")
+    val tags: String = "[]" // JSON array of tags, e.g. ["functional","olympic"] (v50)
 )
 
 fun String.toSearchName(): String = lowercase().replace(Regex("[\\s\\-()'/]"), "")

@@ -31,7 +31,9 @@ data class PlanExercise(
     val sets: Int,
     val reps: Int,
     val weight: Double?,
-    val restSeconds: Int?
+    val restSeconds: Int?,
+    val supersetGroupId: String? = null,
+    val notes: String? = null
 )
 
 data class WorkoutBootstrap(

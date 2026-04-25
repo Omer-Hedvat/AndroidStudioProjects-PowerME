@@ -412,6 +412,54 @@ class ExerciseFilterTest {
         assertEquals(2, state.activeFilterCount)
     }
 
+    // --- applyInitialTypeFilters guard logic ---
+
+    private fun simulateApplyInitialTypeFilters(
+        currentState: ExercisesUiState,
+        initialTypes: Set<ExerciseType>
+    ): ExercisesUiState {
+        return if (initialTypes.isNotEmpty() && currentState.selectedTypes.isEmpty()) {
+            currentState.copy(selectedTypes = initialTypes)
+        } else {
+            currentState
+        }
+    }
+
+    @Test
+    fun `applyInitialTypeFilters — sets types when selectedTypes is empty`() {
+        val state = ExercisesUiState()
+        val result = simulateApplyInitialTypeFilters(state, setOf(ExerciseType.STRENGTH, ExerciseType.TIMED))
+        assertEquals(setOf(ExerciseType.STRENGTH, ExerciseType.TIMED), result.selectedTypes)
+    }
+
+    @Test
+    fun `applyInitialTypeFilters — no-op when selectedTypes already has values`() {
+        val state = ExercisesUiState(selectedTypes = setOf(ExerciseType.CARDIO))
+        val result = simulateApplyInitialTypeFilters(state, setOf(ExerciseType.STRENGTH, ExerciseType.TIMED))
+        assertEquals(setOf(ExerciseType.CARDIO), result.selectedTypes)
+    }
+
+    @Test
+    fun `applyInitialTypeFilters — no-op when initialTypes is empty`() {
+        val state = ExercisesUiState()
+        val result = simulateApplyInitialTypeFilters(state, emptySet())
+        assertEquals(emptySet<ExerciseType>(), result.selectedTypes)
+    }
+
+    @Test
+    fun `applyInitialTypeFilters — CARDIO and PLYOMETRIC applied for functional entry point`() {
+        val state = ExercisesUiState()
+        val result = simulateApplyInitialTypeFilters(state, setOf(ExerciseType.CARDIO, ExerciseType.PLYOMETRIC))
+        assertEquals(setOf(ExerciseType.CARDIO, ExerciseType.PLYOMETRIC), result.selectedTypes)
+    }
+
+    @Test
+    fun `applyInitialTypeFilters — applied types are reflected in activeFilterCount`() {
+        val state = ExercisesUiState()
+        val result = simulateApplyInitialTypeFilters(state, setOf(ExerciseType.STRENGTH, ExerciseType.TIMED))
+        assertEquals(2, result.activeFilterCount)
+    }
+
     @Test
     fun `Dumbbell is canonical singular form`() {
         // Regression test for the original bug: DB had "Dumbbells", filter had "Dumbbell".

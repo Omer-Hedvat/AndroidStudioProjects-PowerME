@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import timber.log.Timber
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -34,6 +35,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.powerme.app.BuildConfig
 import com.powerme.app.ai.AiCoreStatus
+import com.powerme.app.data.KeepScreenOnMode
+import com.powerme.app.data.RpeMode
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.health.HealthConnectManager
@@ -228,6 +231,228 @@ fun SettingsScreen(
             }
 
 
+            // ── Display & Workout ──────────────────────────────────────
+            item {
+                SettingsCard(title = "Display & Workout") {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Keep screen on", color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        val keepScreenOnModes = KeepScreenOnMode.entries
+                        val keepScreenOnLabels = listOf("Always", "During workout", "Off")
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            keepScreenOnModes.forEachIndexed { index, mode ->
+                                SegmentedButton(
+                                    selected = uiState.keepScreenOnMode == mode,
+                                    onClick = { viewModel.setKeepScreenOnMode(mode) },
+                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = keepScreenOnModes.size)
+                                ) {
+                                    Text(keepScreenOnLabels[index], fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("RPE auto-pop", color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val rpeModes = listOf(RpeMode.PURE_GYM, RpeMode.PURE_FUNCTIONAL, RpeMode.HYBRID, RpeMode.OFF)
+                        val rpeLabels = listOf("Strength only", "Functional only", "All workouts", "Off")
+                        rpeModes.forEachIndexed { index, mode ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.setRpeMode(mode) }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = uiState.rpeMode == mode,
+                                    onClick = { viewModel.setRpeMode(mode) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary,
+                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                                Text(
+                                    text = rpeLabels[index],
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (uiState.rpeMode == mode)
+                                        MaterialTheme.colorScheme.onSurface
+                                    else
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Timer sound dropdown
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Timer sound", color = MaterialTheme.colorScheme.onSurface)
+                            Text("Alert tone for rest timers and clocks", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        }
+                        var timerSoundExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = timerSoundExpanded,
+                            onExpandedChange = { timerSoundExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.timerSound.displayName,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = timerSoundExpanded) },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .width(120.dp),
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                singleLine = true
+                            )
+                            ExposedDropdownMenu(
+                                expanded = timerSoundExpanded,
+                                onDismissRequest = { timerSoundExpanded = false }
+                            ) {
+                                TimerSound.entries.forEach { sound ->
+                                    DropdownMenuItem(
+                                        text = { Text(sound.displayName) },
+                                        onClick = {
+                                            viewModel.setTimerSound(sound)
+                                            timerSoundExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Rest Timer ─────────────────────────────────────────
+            item {
+                SettingsCard(title = "Rest Timer") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Audio", color = MaterialTheme.colorScheme.onSurface)
+                        Switch(
+                            checked = uiState.restTimerAudioEnabled,
+                            onCheckedChange = { viewModel.toggleRestTimerAudio() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Haptics", color = MaterialTheme.colorScheme.onSurface)
+                        Switch(
+                            checked = uiState.restTimerHapticsEnabled,
+                            onCheckedChange = { viewModel.toggleRestTimerHaptics() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Notifications", color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                "Watch & lock screen alerts",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                        }
+                        Switch(
+                            checked = uiState.notificationsEnabled,
+                            onCheckedChange = { viewModel.toggleNotificationsEnabled() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Get Ready countdown", color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                if (uiState.timedSetSetupSeconds == 0) "Off — timed sets start immediately"
+                                else "Timed sets wait ${uiState.timedSetSetupSeconds}s before starting",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = { viewModel.setTimedSetSetupSeconds(uiState.timedSetSetupSeconds - 1) },
+                                enabled = uiState.timedSetSetupSeconds > 0,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(
+                                text = if (uiState.timedSetSetupSeconds == 0) "Off" else "${uiState.timedSetSetupSeconds}s",
+                                color = if (uiState.timedSetSetupSeconds > 0) SetupAmber else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.widthIn(min = 32.dp),
+                                textAlign = TextAlign.Center
+                            )
+                            FilledTonalIconButton(
+                                onClick = { viewModel.setTimedSetSetupSeconds(uiState.timedSetSetupSeconds + 1) },
+                                enabled = uiState.timedSetSetupSeconds < 10,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── AI ──────────────────────────────────────────────────
+            item {
+                AiSettingsCard(
+                    uiState = uiState,
+                    onApiKeyInputChange = viewModel::updateApiKeyInput,
+                    onSaveApiKey = viewModel::saveUserApiKey,
+                    onClearApiKey = viewModel::clearUserApiKey
+                )
+            }
+
             // ── Health Connect ────────────────────────────────────
             item {
                 SettingsCard(title = "Health Connect") {
@@ -354,217 +579,6 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
-
-            // ── Rest Timer ─────────────────────────────────────────
-            item {
-                SettingsCard(title = "Rest Timer") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Audio", color = MaterialTheme.colorScheme.onSurface)
-                        Switch(
-                            checked = uiState.restTimerAudioEnabled,
-                            onCheckedChange = { viewModel.toggleRestTimerAudio() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Haptics", color = MaterialTheme.colorScheme.onSurface)
-                        Switch(
-                            checked = uiState.restTimerHapticsEnabled,
-                            onCheckedChange = { viewModel.toggleRestTimerHaptics() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Notifications", color = MaterialTheme.colorScheme.onSurface)
-                            Text(
-                                "Watch & lock screen alerts",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                        }
-                        Switch(
-                            checked = uiState.notificationsEnabled,
-                            onCheckedChange = { viewModel.toggleNotificationsEnabled() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Get Ready countdown", color = MaterialTheme.colorScheme.onSurface)
-                            Text(
-                                if (uiState.timedSetSetupSeconds == 0) "Off — timed sets start immediately"
-                                else "Timed sets wait ${uiState.timedSetSetupSeconds}s before starting",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilledTonalIconButton(
-                                onClick = { viewModel.setTimedSetSetupSeconds(uiState.timedSetSetupSeconds - 1) },
-                                enabled = uiState.timedSetSetupSeconds > 0,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Text(
-                                text = if (uiState.timedSetSetupSeconds == 0) "Off" else "${uiState.timedSetSetupSeconds}s",
-                                color = if (uiState.timedSetSetupSeconds > 0) SetupAmber else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.widthIn(min = 32.dp),
-                                textAlign = TextAlign.Center
-                            )
-                            FilledTonalIconButton(
-                                onClick = { viewModel.setTimedSetSetupSeconds(uiState.timedSetSetupSeconds + 1) },
-                                enabled = uiState.timedSetSetupSeconds < 10,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── Display & Workout ──────────────────────────────────────
-            item {
-                SettingsCard(title = "Display & Workout") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Keep screen on", color = MaterialTheme.colorScheme.onSurface)
-                            Text("Prevent display from sleeping", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                        }
-                        Switch(
-                            checked = uiState.keepScreenOn,
-                            onCheckedChange = { viewModel.toggleKeepScreenOn() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text("Use RPE", color = MaterialTheme.colorScheme.onSurface)
-                            Text("Automatically open the RPE picker after completing each set", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                        }
-                        Switch(
-                            checked = uiState.useRpeAutoPop,
-                            onCheckedChange = { viewModel.toggleUseRpeAutoPop() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Timer sound dropdown
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Timer sound", color = MaterialTheme.colorScheme.onSurface)
-                            Text("Alert tone for rest timers and clocks", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                        }
-                        var timerSoundExpanded by remember { mutableStateOf(false) }
-                        ExposedDropdownMenuBox(
-                            expanded = timerSoundExpanded,
-                            onExpandedChange = { timerSoundExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = uiState.timerSound.displayName,
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = timerSoundExpanded) },
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .width(120.dp),
-                                textStyle = MaterialTheme.typography.bodyMedium,
-                                singleLine = true
-                            )
-                            ExposedDropdownMenu(
-                                expanded = timerSoundExpanded,
-                                onDismissRequest = { timerSoundExpanded = false }
-                            ) {
-                                TimerSound.entries.forEach { sound ->
-                                    DropdownMenuItem(
-                                        text = { Text(sound.displayName) },
-                                        onClick = {
-                                            viewModel.setTimerSound(sound)
-                                            timerSoundExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── AI ──────────────────────────────────────────────────
-            item {
-                AiSettingsCard(
-                    uiState = uiState,
-                    onApiKeyInputChange = viewModel::updateApiKeyInput,
-                    onSaveApiKey = viewModel::saveUserApiKey,
-                    onClearApiKey = viewModel::clearUserApiKey
-                )
             }
 
             // ── Data & Backup ────────────────────────────────────────

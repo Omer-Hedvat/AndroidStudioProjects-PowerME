@@ -30,7 +30,7 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 
 **Health Connect:** 7 READ permissions (weight, body fat, height, sleep, HRV, RHR, steps). See `HEALTH_CONNECT_SPEC.md`.
 
-**Unit Tests:** 75 files, ~1066 tests (all passing). See `src/test/`.
+**Unit Tests:** 78 files, ~1079 tests (all passing). See `src/test/`.
 
 **AI:** Hybrid key resolution (user key → BuildConfig fallback). Parser router: cloud-only (Gemini via OkHttp REST). See `AI_SPEC.md`.
 
@@ -49,6 +49,10 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 - Workout Style info sheet (P1) — `ℹ` `IconButton` in the Workout Style card header opens a `ModalBottomSheet` (`WorkoutStyleInfoSheet`) explaining Pure Strength / Hybrid / Pure Functional. State in `SettingsUiState.showWorkoutStyleInfoSheet`. Segmented button label renamed "Pure Gym" → "Pure Strength".
 - Move Privacy to Profile (P1) — Privacy / Delete Account card removed from Settings. "Danger Zone" section (outlined error-color button + `AlertDialog`) added at bottom of `ProfileScreen`. Deletion state + logic moved to `ProfileViewModel` (injected `PowerMeDatabase` + `SecurePreferencesStore`).
 - Settings Data & Backup merge (P1) — Former "Data & Backup" (export+import) and "Cloud Sync" (backup+restore) cards merged into single `DataAndBackupCard`. Signed-in users see all four rows; signed-out users see Export + Import only.
+- Keep Screen On — 3-mode selector (P1) — `KeepScreenOnMode` enum (ALWAYS/DURING_WORKOUT/OFF) replaces the old boolean toggle. `SingleChoiceSegmentedButtonRow` ("Always" / "During workout" / "Off") in Display & Workout settings card. ALWAYS: `window.addFlags(FLAG_KEEP_SCREEN_ON)` in `MainActivity`. DURING_WORKOUT: `DisposableEffect` in `ActiveWorkoutScreen` sets `view.keepScreenOn` only while workout is active. DataStore migration from old boolean key. 6 new ViewModel tests.
+- RPE auto-pop mode selector (P1) — `RpeMode` enum (PURE_GYM/PURE_FUNCTIONAL/HYBRID/OFF) replaces old boolean. Display: RadioButton list ("Strength only" / "Functional only" / "All workouts" / "Off") in Display & Workout card — avoids text-wrapping of 4-segment row. `WorkoutViewModel` checks `rpeMode` against `currentWorkoutStyle` (from DataStore) before emitting `rpeAutoPopTarget`. DataStore migration from old boolean. Firestore push/pull updated. 7 new ViewModel tests.
+- Profile — Log Out into Danger Zone (P1) — Standalone Log Out button removed from above the Danger Zone divider; moved inside the Danger Zone block as the first action, above Delete Account, with 8dp spacer between them.
+- Settings page card reorder (P1) — LazyColumn order: Appearance → Units → Workout Style → Display & Workout → Rest Timer → AI → Health Connect → Data & Backup.
 
 **In-progress:**
 - _(none)_

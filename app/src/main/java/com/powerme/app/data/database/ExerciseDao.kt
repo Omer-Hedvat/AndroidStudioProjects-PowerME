@@ -21,6 +21,9 @@ interface ExerciseDao {
     @Update
     suspend fun updateExercise(exercise: Exercise)
 
+    @Update
+    suspend fun updateAll(exercises: List<Exercise>)
+
     @Delete
     suspend fun deleteExercise(exercise: Exercise)
 
@@ -87,4 +90,7 @@ interface ExerciseDao {
 
     @Query("UPDATE exercises SET userNote = :note, updatedAt = :updatedAt WHERE id = :exerciseId")
     suspend fun updateUserNote(exerciseId: Long, note: String, updatedAt: Long)
+
+    @Query("UPDATE exercises SET isFavorite = :isFavorite, updatedAt = :updatedAt WHERE id = :exerciseId")
+    suspend fun updateFavorite(exerciseId: Long, isFavorite: Boolean, updatedAt: Long)
 }
