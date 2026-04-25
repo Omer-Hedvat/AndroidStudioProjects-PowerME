@@ -7,6 +7,8 @@ import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.notification.WorkoutNotificationManager
 import com.powerme.app.data.database.ExerciseDao
+import com.powerme.app.data.database.RoutineBlock
+import com.powerme.app.data.database.RoutineBlockDao
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.Workout
 import com.powerme.app.data.database.ExerciseType
@@ -14,6 +16,8 @@ import com.powerme.app.data.database.SetType
 import com.powerme.app.data.database.RoutineExerciseDao
 import com.powerme.app.data.database.Routine
 import com.powerme.app.data.database.UserSettingsDao
+import com.powerme.app.data.database.WorkoutBlock
+import com.powerme.app.data.database.WorkoutBlockDao
 import com.powerme.app.data.database.WorkoutDao
 import com.powerme.app.data.database.WorkoutSetDao
 import com.powerme.app.data.repository.ExerciseRepository
@@ -98,6 +102,8 @@ class WorkoutViewModelTest {
     private lateinit var mockRoutineExerciseDao: RoutineExerciseDao
     private lateinit var mockExerciseDao: ExerciseDao
     private lateinit var mockRoutineDao: RoutineDao
+    private lateinit var mockRoutineBlockDao: RoutineBlockDao
+    private lateinit var mockWorkoutBlockDao: WorkoutBlockDao
     private lateinit var mockUserSettingsDao: UserSettingsDao
 
     // Concrete classes — require mock-maker-inline
@@ -126,6 +132,8 @@ class WorkoutViewModelTest {
         mockRoutineExerciseDao = mock()
         mockExerciseDao = mock()
         mockRoutineDao = mock()
+        mockRoutineBlockDao = mock()
+        mockWorkoutBlockDao = mock()
         mockUserSettingsDao = mock()
         mockExerciseRepository = mock()
         mockWorkoutRepository = mock()
@@ -181,6 +189,10 @@ class WorkoutViewModelTest {
 
             // updateSetType — used by selectSetType()
             whenever(mockWorkoutSetDao.updateSetType(any(), any())).thenReturn(Unit)
+
+            // block materialisation — default: single STRENGTH block per routine (legacy behaviour)
+            whenever(mockRoutineBlockDao.getBlocksForRoutineOnce(any())).thenReturn(emptyList())
+            whenever(mockWorkoutBlockDao.upsertAll(any())).thenReturn(Unit)
         }
 
         viewModel = WorkoutViewModel(
@@ -192,6 +204,8 @@ class WorkoutViewModelTest {
             routineExerciseDao = mockRoutineExerciseDao,
             exerciseDao = mockExerciseDao,
             routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
@@ -2384,6 +2398,8 @@ class WorkoutViewModelTest {
             routineExerciseDao = mockRoutineExerciseDao,
             exerciseDao = mockExerciseDao,
             routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
@@ -2459,6 +2475,8 @@ class WorkoutViewModelTest {
             routineExerciseDao = mockRoutineExerciseDao,
             exerciseDao = mockExerciseDao,
             routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
@@ -2513,6 +2531,8 @@ class WorkoutViewModelTest {
             routineExerciseDao = mockRoutineExerciseDao,
             exerciseDao = mockExerciseDao,
             routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
@@ -2565,6 +2585,8 @@ class WorkoutViewModelTest {
             routineExerciseDao = mockRoutineExerciseDao,
             exerciseDao = mockExerciseDao,
             routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
@@ -2616,6 +2638,8 @@ class WorkoutViewModelTest {
             routineExerciseDao = mockRoutineExerciseDao,
             exerciseDao = mockExerciseDao,
             routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
@@ -2667,6 +2691,8 @@ class WorkoutViewModelTest {
             routineExerciseDao = mockRoutineExerciseDao,
             exerciseDao = mockExerciseDao,
             routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
             userSettingsDao = mockUserSettingsDao,
             medicalLedgerRepository = mockMedicalLedgerRepository,
             boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
@@ -4650,6 +4676,108 @@ class WorkoutViewModelTest {
 
         val ids = viewModel.workoutState.value.exercises.map { it.exercise.id }
         assertEquals("All three exercises must be present", listOf(101L, 102L, 103L), ids)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // ── Block materialisation tests ───────────────────────────────────────────
+
+    @Test
+    fun `startWorkoutFromRoutine with no routine blocks produces empty blocks list`() = vmTest {
+        runBlocking { setupRoutineWorkout() }
+        // mockRoutineBlockDao.getBlocksForRoutineOnce already stubbed to return emptyList()
+
+        viewModel.startWorkoutFromRoutine("1")
+        runCurrent()
+
+        assertTrue(viewModel.workoutState.value.blocks.isEmpty())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startWorkoutFromRoutine materialises one WorkoutBlock per RoutineBlock`() = vmTest {
+        val rb1 = RoutineBlock(id = "rb-1", routineId = "1", order = 0, type = "STRENGTH")
+        val rb2 = RoutineBlock(id = "rb-2", routineId = "1", order = 1, type = "AMRAP", durationSeconds = 720)
+        runBlocking {
+            setupRoutineWorkout()
+            whenever(mockRoutineBlockDao.getBlocksForRoutineOnce("1")).thenReturn(listOf(rb1, rb2))
+        }
+
+        viewModel.startWorkoutFromRoutine("1")
+        runCurrent()
+
+        val blocks = viewModel.workoutState.value.blocks
+        assertEquals(2, blocks.size)
+        assertEquals("STRENGTH", blocks[0].type)
+        assertEquals("AMRAP", blocks[1].type)
+        assertEquals(720, blocks[1].durationSeconds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startWorkoutFromRoutine assigns correct blockId to exercises`() = vmTest {
+        val rb1 = RoutineBlock(id = "rb-str", routineId = "1", order = 0, type = "STRENGTH")
+        val exercise = Exercise(id = 1L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
+        val routineExercise = RoutineExercise(
+            id = "re-1", routineId = "1", exerciseId = 1L, sets = 1, reps = 10,
+            blockId = "rb-str"
+        )
+        val ws1 = WorkoutSet(id = "101", workoutId = "100", exerciseId = 1L, setOrder = 1, weight = 0.0, reps = 0)
+        runBlocking {
+            whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("1"))
+                .thenReturn(WorkoutBootstrap(workoutId = "100", ghostMap = emptyMap(), workoutSets = listOf(ws1)))
+            whenever(mockRoutineExerciseDao.getForRoutine("1")).thenReturn(listOf(routineExercise))
+            whenever(mockRoutineExerciseDao.getStickyNote("1", 1L)).thenReturn(null)
+            whenever(mockExerciseRepository.getExerciseById(1L)).thenReturn(exercise)
+            whenever(mockRoutineDao.getRoutineById("1")).thenReturn(Routine(id = "1", name = "Test Routine"))
+            whenever(mockRoutineBlockDao.getBlocksForRoutineOnce("1")).thenReturn(listOf(rb1))
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        }
+
+        viewModel.startWorkoutFromRoutine("1")
+        runCurrent()
+
+        val state = viewModel.workoutState.value
+        val workoutBlockId = state.blocks.first().id
+        assertNotNull(state.exercises.first().blockId)
+        assertEquals(workoutBlockId, state.exercises.first().blockId)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `enterLiveWorkoutEditMode and cancelEditMode preserve blocks`() = vmTest {
+        val rb1 = RoutineBlock(id = "rb-str", routineId = "1", order = 0, type = "STRENGTH")
+        val exercise = Exercise(id = 1L, name = "Bench Press", muscleGroup = "Chest", equipmentType = "Barbell")
+        val routineExercise = RoutineExercise(id = "re-1", routineId = "1", exerciseId = 1L, sets = 1, reps = 10, blockId = "rb-str")
+        val ws1 = WorkoutSet(id = "101", workoutId = "100", exerciseId = 1L, setOrder = 1, weight = 0.0, reps = 0)
+        runBlocking {
+            whenever(mockWorkoutRepository.instantiateWorkoutFromRoutine("1"))
+                .thenReturn(WorkoutBootstrap(workoutId = "100", ghostMap = emptyMap(), workoutSets = listOf(ws1)))
+            whenever(mockRoutineExerciseDao.getForRoutine("1")).thenReturn(listOf(routineExercise))
+            whenever(mockRoutineExerciseDao.getStickyNote("1", 1L)).thenReturn(null)
+            whenever(mockExerciseRepository.getExerciseById(1L)).thenReturn(exercise)
+            whenever(mockRoutineDao.getRoutineById("1")).thenReturn(Routine(id = "1", name = "Test Routine"))
+            whenever(mockRoutineBlockDao.getBlocksForRoutineOnce("1")).thenReturn(listOf(rb1))
+            whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        }
+
+        viewModel.startWorkoutFromRoutine("1")
+        runCurrent()
+
+        val blocksBeforeEdit = viewModel.workoutState.value.blocks
+        assertEquals(1, blocksBeforeEdit.size)
+
+        viewModel.enterLiveWorkoutEditMode()
+        viewModel.cancelEditMode()
+
+        assertEquals(blocksBeforeEdit, viewModel.workoutState.value.blocks)
 
         viewModel.cancelWorkout()
         runCurrent()

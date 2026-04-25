@@ -37,7 +37,7 @@
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 11/20 wrapped · 3 completed · 1 in-progress · 3 not-started | 20 |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 12/22 wrapped · 3 completed · 0 in-progress · 5 not-started | 22 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/3 wrapped | 3 active + §8 queue |
 | Gym Profiles | `GYM_PROFILES_SPEC.md` | P10 | `not-started` | — | 0 |
 
@@ -105,12 +105,14 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 |---|---|---|---|---|
 | Embed block arrays in Firestore push/pull | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | M | `wrapped` | Block entities migration ✅ |
 | Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | S | `not-started` | FunctionalBlockWizard ✅ |
-| Block headers in active workout; STRENGTH materialisation on start | `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | M | `in-progress` | Block entities migration ✅ |
+| Block headers in active workout; STRENGTH materialisation on start | `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | M | `wrapped` | Block entities migration ✅ |
 | AMRAP/RFT/EMOM/TABATA overlays + FunctionalBlockRunner | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `not-started` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
 | Block-aware History rows + Trends + WorkoutSummaryScreen | `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | M | `not-started` | Functional runner ✅ (in prod ≥1 release) |
 | Exercise gap analysis — CrossFit / Hyrox / Calisthenics | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `completed` | — |
 | CrossFit exercise list verification | `future_devs/FUNC_CROSSFIT_VERIFICATION_SPEC.md` | XS | `completed` | gap analysis ✅ |
 | Expanded exercise seed — CrossFit / Hyrox / Calisthenics | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `completed` | gap analysis ✅, CrossFit verification ✅, Exercise tags seed ✅ |
+| Functional block card layout (single card per block in template builder) | `future_devs/FUNC_BLOCK_CARD_LAYOUT_SPEC.md` | S | `not-started` | func_template_wizard ✅ |
+| Exercise picker UI consistency (standardise all entry points) | `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | S | `not-started` | func_template_wizard ✅ |
 
 ---
 
@@ -182,3 +184,5 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | P9 — Synonym learning — ExerciseMatcher user-synonym tier, save prompt |
 | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | P5 — Movement-specific weight transfer ratios for alternative exercise suggestions |
 | `future_devs/WATCH_WORKOUT_NOTIFICATIONS_SPEC.md` | P1 — Watch & phone workout notifications |
+| `future_devs/FUNC_BLOCK_CARD_LAYOUT_SPEC.md` | P8 — Functional block card layout — single card per block in template builder |
+| `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | P8 — Exercise picker UI consistency — standardise all entry points to same UI |

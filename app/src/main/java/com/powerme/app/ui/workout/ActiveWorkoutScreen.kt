@@ -48,6 +48,7 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.Exercise
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
+import com.powerme.app.data.database.WorkoutBlock
 import com.powerme.app.ui.components.KeyboardAccessoryBar
 import com.powerme.app.ui.components.KeyboardAccessoryRegistrar
 import com.powerme.app.ui.components.LocalKeyboardAccessoryRegistrar
@@ -409,6 +410,86 @@ fun ActiveWorkoutScreen(
     }
 }
 
+@Composable
+private fun BlockHeader(block: WorkoutBlock) {
+    val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
+        .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
+    val isFunctional = blockType != com.powerme.app.data.BlockType.STRENGTH
+    val badgeColor = when (blockType) {
+        com.powerme.app.data.BlockType.AMRAP   -> TimerGreen
+        com.powerme.app.data.BlockType.RFT     -> NeonPurple
+        com.powerme.app.data.BlockType.EMOM    -> ReadinessAmber
+        com.powerme.app.data.BlockType.TABATA  -> TimerRed
+        else                                   -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val paramsSummary = when (blockType) {
+        com.powerme.app.data.BlockType.AMRAP   -> block.durationSeconds?.let { "${it / 60} min cap" }
+        com.powerme.app.data.BlockType.RFT     -> block.targetRounds?.let { "$it rounds" }
+        com.powerme.app.data.BlockType.EMOM    -> block.durationSeconds?.let { "${it / 60} min" }
+        com.powerme.app.data.BlockType.TABATA  -> block.tabataWorkSeconds?.let { ws ->
+            block.tabataRestSeconds?.let { rs -> "${ws}s work / ${rs}s rest" }
+        }
+        else -> null
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = badgeColor.copy(alpha = 0.15f)
+        ) {
+            Text(
+                text = blockType.displayName,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = badgeColor,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        if (block.name != null) {
+            Text(
+                text = block.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        if (paramsSummary != null) {
+            Text(
+                text = paramsSummary,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (isFunctional) {
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text("START BLOCK", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+}
+
 private fun LazyListScope.activeWorkoutListItems(
     workoutState: ActiveWorkoutState,
     viewModel: WorkoutViewModel,
@@ -474,45 +555,21 @@ private fun LazyListScope.activeWorkoutListItems(
         }
     }
 
-    // Exercises
-    items(
-        items = workoutState.exercises,
-        key = { it.exercise.id }
-    ) { exerciseWithSets ->
-        val isSelected = workoutState.supersetCandidateIds.contains(exerciseWithSets.exercise.id)
-        val isCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedExerciseIds
-        val warmupsCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedWarmupExerciseIds
-
-        // Superset selection mode: collapsed selectable rows (with drag-to-reorder)
-        if (workoutState.isSupersetSelectMode) {
-            if (reorderableLazyListState != null) {
-                ReorderableItem(reorderableLazyListState, key = exerciseWithSets.exercise.id) { _ ->
-                    SupersetSelectRow(
-                        exerciseWithSets = exerciseWithSets,
-                        isSelected = isSelected,
-                        onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
-                        dragHandleModifier = Modifier.draggableHandle(),
-                        supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent
-                    )
-                }
-            } else {
-                SupersetSelectRow(
-                    exerciseWithSets = exerciseWithSets,
-                    isSelected = isSelected,
-                    onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
-                    supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent
-                )
+    // Exercises — hybrid workouts (≥2 blocks) get block headers; single-block is unchanged
+    val showBlockHeaders = workoutState.blocks.size > 1 && !workoutState.isSupersetSelectMode
+    if (showBlockHeaders) {
+        workoutState.blocks.forEach { block ->
+            item(key = "block_header_${block.id}") {
+                BlockHeader(block = block)
             }
-            return@items
-        }
-
-        if (reorderableLazyListState != null) {
-            ReorderableItem(reorderableLazyListState, key = exerciseWithSets.exercise.id) { _ ->
+            items(items = workoutState.exercisesByBlockId[block.id] ?: emptyList(), key = { it.exercise.id }) { exerciseWithSets ->
+                val isCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedExerciseIds
+                val warmupsCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedWarmupExerciseIds
                 ExerciseCard(
                     exerciseWithSets = exerciseWithSets,
                     supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
-                    isSelectMode = workoutState.isSupersetSelectMode,
-                    isSelected = isSelected,
+                    isSelectMode = false,
+                    isSelected = false,
                     activeTimerExerciseId = activeTimerExerciseId,
                     activeTimerSetOrder = activeTimerSetOrder,
                     activeTimerRemainingSeconds = activeTimerRemainingSeconds,
@@ -527,7 +584,7 @@ private fun LazyListScope.activeWorkoutListItems(
                     onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
                     onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
                     onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
-                    dragHandleModifier = Modifier.draggableHandle(onDragStarted = { viewModel.collapseAll() }),
+                    dragHandleModifier = null,
                     onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
                     onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
                     onDeleteSet = { setOrder -> viewModel.deleteSet(exerciseWithSets.exercise.id, setOrder) },
@@ -563,61 +620,153 @@ private fun LazyListScope.activeWorkoutListItems(
                     onStopRestTimer = { viewModel.stopRestTimer() }
                 )
             }
-        } else {
-            ExerciseCard(
-                exerciseWithSets = exerciseWithSets,
-                supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
-                isSelectMode = workoutState.isSupersetSelectMode,
-                isSelected = isSelected,
-                activeTimerExerciseId = activeTimerExerciseId,
-                activeTimerSetOrder = activeTimerSetOrder,
-                activeTimerRemainingSeconds = activeTimerRemainingSeconds,
-                activeTimerTotalSeconds = activeTimerTotalSeconds,
-                unitSystem = unitSystem,
-                availableExercises = workoutState.availableExercises,
-                restTimeOverrides = workoutState.restTimeOverrides,
-                hiddenRestSeparators = workoutState.hiddenRestSeparators + workoutState.finishedRestSeparators,
-                isEditMode = isEditMode,
-                isCollapsed = isCollapsed,
-                warmupsCollapsed = warmupsCollapsed,
-                onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
-                onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
-                onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
-                dragHandleModifier = null,
-                onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
-                onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
-                onDeleteSet = { setOrder -> viewModel.deleteSet(exerciseWithSets.exercise.id, setOrder) },
-                onUpdateSetupNotes = { notes -> viewModel.updateSetupNotes(exerciseWithSets.exercise.id, notes) },
-                onUpdateSetNotes = { setOrder, notes -> viewModel.updateSetNotes(exerciseWithSets.exercise.id, setOrder, notes) },
-                onWeightChanged = { setOrder, weight -> viewModel.onWeightChanged(exerciseWithSets.exercise.id, setOrder, weight) },
-                onRepsChanged = { setOrder, reps -> viewModel.onRepsChanged(exerciseWithSets.exercise.id, setOrder, reps) },
-                onUpdateCardioSet = { setOrder, dist, time, rpe, completed -> viewModel.updateCardioSet(exerciseWithSets.exercise.id, setOrder, dist, time, rpe, completed = completed) },
-                onUpdateTimedSet = { setOrder, time, rpe, completed -> viewModel.updateTimedSet(exerciseWithSets.exercise.id, setOrder, "", time, rpe, completed = completed) },
-                onTimeChanged = { setOrder, time -> viewModel.onTimeChanged(exerciseWithSets.exercise.id, setOrder, time) },
-                onReplaceExercise = { newExercise -> viewModel.replaceExercise(exerciseWithSets.exercise.id, newExercise) },
-                onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
-                onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
-                onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
-                onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
-                onAddWarmupSets = { w, r, fill -> viewModel.addSmartWarmups(exerciseWithSets.exercise.id, w, r, fill) },
-                onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
-                onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
-                onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
-                onSelectSetType = { setOrder, type -> viewModel.selectSetType(exerciseWithSets.exercise.id, setOrder, type) },
-                onUpdateRpe = { setOrder, rpe -> viewModel.updateRpe(exerciseWithSets.exercise.id, setOrder, rpe) },
-                onDeleteLocalRestTime = { setOrder -> viewModel.deleteLocalRestTime(exerciseWithSets.exercise.id, setOrder) },
-                onUpdateLocalRestTime = { setOrder, seconds -> viewModel.updateLocalRestTime(exerciseWithSets.exercise.id, setOrder, seconds) },
-                onTimerActiveClick = onTimerActiveClick,
-                onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
-                onTimerFinished = { viewModel.timerFinishedFeedback() },
-                onTimerWarningTick = { viewModel.timerWarningTickFeedback() },
-                rpeAutoPopTarget = rpeAutoPopTarget,
-                onConsumeRpeAutoPop = onConsumeRpeAutoPop,
-                setupSeconds = setupSeconds,
-                onSetupCountdownTick = onSetupCountdownTick,
-                onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() },
-                onStopRestTimer = { viewModel.stopRestTimer() }
-            )
+        }
+    } else {
+        // Single-block or organize mode: flat list with full reorder / superset support
+        items(
+            items = workoutState.exercises,
+            key = { it.exercise.id }
+        ) { exerciseWithSets ->
+            val isSelected = workoutState.supersetCandidateIds.contains(exerciseWithSets.exercise.id)
+            val isCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedExerciseIds
+            val warmupsCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedWarmupExerciseIds
+
+            // Superset selection mode: collapsed selectable rows (with drag-to-reorder)
+            if (workoutState.isSupersetSelectMode) {
+                if (reorderableLazyListState != null) {
+                    ReorderableItem(reorderableLazyListState, key = exerciseWithSets.exercise.id) { _ ->
+                        SupersetSelectRow(
+                            exerciseWithSets = exerciseWithSets,
+                            isSelected = isSelected,
+                            onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
+                            dragHandleModifier = Modifier.draggableHandle(),
+                            supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent
+                        )
+                    }
+                } else {
+                    SupersetSelectRow(
+                        exerciseWithSets = exerciseWithSets,
+                        isSelected = isSelected,
+                        onToggle = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
+                        supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent
+                    )
+                }
+                return@items
+            }
+
+            if (reorderableLazyListState != null) {
+                ReorderableItem(reorderableLazyListState, key = exerciseWithSets.exercise.id) { _ ->
+                    ExerciseCard(
+                        exerciseWithSets = exerciseWithSets,
+                        supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
+                        isSelectMode = workoutState.isSupersetSelectMode,
+                        isSelected = isSelected,
+                        activeTimerExerciseId = activeTimerExerciseId,
+                        activeTimerSetOrder = activeTimerSetOrder,
+                        activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                        activeTimerTotalSeconds = activeTimerTotalSeconds,
+                        unitSystem = unitSystem,
+                        availableExercises = workoutState.availableExercises,
+                        restTimeOverrides = workoutState.restTimeOverrides,
+                        hiddenRestSeparators = workoutState.hiddenRestSeparators + workoutState.finishedRestSeparators,
+                        isEditMode = isEditMode,
+                        isCollapsed = isCollapsed,
+                        warmupsCollapsed = warmupsCollapsed,
+                        onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
+                        onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
+                        onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
+                        dragHandleModifier = Modifier.draggableHandle(onDragStarted = { viewModel.collapseAll() }),
+                        onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
+                        onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
+                        onDeleteSet = { setOrder -> viewModel.deleteSet(exerciseWithSets.exercise.id, setOrder) },
+                        onUpdateSetupNotes = { notes -> viewModel.updateSetupNotes(exerciseWithSets.exercise.id, notes) },
+                        onUpdateSetNotes = { setOrder, notes -> viewModel.updateSetNotes(exerciseWithSets.exercise.id, setOrder, notes) },
+                        onWeightChanged = { setOrder, weight -> viewModel.onWeightChanged(exerciseWithSets.exercise.id, setOrder, weight) },
+                        onRepsChanged = { setOrder, reps -> viewModel.onRepsChanged(exerciseWithSets.exercise.id, setOrder, reps) },
+                        onUpdateCardioSet = { setOrder, dist, time, rpe, completed -> viewModel.updateCardioSet(exerciseWithSets.exercise.id, setOrder, dist, time, rpe, completed = completed) },
+                        onUpdateTimedSet = { setOrder, time, rpe, completed -> viewModel.updateTimedSet(exerciseWithSets.exercise.id, setOrder, "", time, rpe, completed = completed) },
+                        onTimeChanged = { setOrder, time -> viewModel.onTimeChanged(exerciseWithSets.exercise.id, setOrder, time) },
+                        onReplaceExercise = { newExercise -> viewModel.replaceExercise(exerciseWithSets.exercise.id, newExercise) },
+                        onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
+                        onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
+                        onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
+                        onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
+                        onAddWarmupSets = { w, r, fill -> viewModel.addSmartWarmups(exerciseWithSets.exercise.id, w, r, fill) },
+                        onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
+                        onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
+                        onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
+                        onSelectSetType = { setOrder, type -> viewModel.selectSetType(exerciseWithSets.exercise.id, setOrder, type) },
+                        onUpdateRpe = { setOrder, rpe -> viewModel.updateRpe(exerciseWithSets.exercise.id, setOrder, rpe) },
+                        onDeleteLocalRestTime = { setOrder -> viewModel.deleteLocalRestTime(exerciseWithSets.exercise.id, setOrder) },
+                        onUpdateLocalRestTime = { setOrder, seconds -> viewModel.updateLocalRestTime(exerciseWithSets.exercise.id, setOrder, seconds) },
+                        onTimerActiveClick = onTimerActiveClick,
+                        onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
+                        onTimerFinished = { viewModel.timerFinishedFeedback() },
+                        onTimerWarningTick = { viewModel.timerWarningTickFeedback() },
+                        rpeAutoPopTarget = rpeAutoPopTarget,
+                        onConsumeRpeAutoPop = onConsumeRpeAutoPop,
+                        setupSeconds = setupSeconds,
+                        onSetupCountdownTick = onSetupCountdownTick,
+                        onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() },
+                        onStopRestTimer = { viewModel.stopRestTimer() }
+                    )
+                }
+            } else {
+                ExerciseCard(
+                    exerciseWithSets = exerciseWithSets,
+                    supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
+                    isSelectMode = workoutState.isSupersetSelectMode,
+                    isSelected = isSelected,
+                    activeTimerExerciseId = activeTimerExerciseId,
+                    activeTimerSetOrder = activeTimerSetOrder,
+                    activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                    activeTimerTotalSeconds = activeTimerTotalSeconds,
+                    unitSystem = unitSystem,
+                    availableExercises = workoutState.availableExercises,
+                    restTimeOverrides = workoutState.restTimeOverrides,
+                    hiddenRestSeparators = workoutState.hiddenRestSeparators + workoutState.finishedRestSeparators,
+                    isEditMode = isEditMode,
+                    isCollapsed = isCollapsed,
+                    warmupsCollapsed = warmupsCollapsed,
+                    onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
+                    onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
+                    onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
+                    dragHandleModifier = null,
+                    onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
+                    onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
+                    onDeleteSet = { setOrder -> viewModel.deleteSet(exerciseWithSets.exercise.id, setOrder) },
+                    onUpdateSetupNotes = { notes -> viewModel.updateSetupNotes(exerciseWithSets.exercise.id, notes) },
+                    onUpdateSetNotes = { setOrder, notes -> viewModel.updateSetNotes(exerciseWithSets.exercise.id, setOrder, notes) },
+                    onWeightChanged = { setOrder, weight -> viewModel.onWeightChanged(exerciseWithSets.exercise.id, setOrder, weight) },
+                    onRepsChanged = { setOrder, reps -> viewModel.onRepsChanged(exerciseWithSets.exercise.id, setOrder, reps) },
+                    onUpdateCardioSet = { setOrder, dist, time, rpe, completed -> viewModel.updateCardioSet(exerciseWithSets.exercise.id, setOrder, dist, time, rpe, completed = completed) },
+                    onUpdateTimedSet = { setOrder, time, rpe, completed -> viewModel.updateTimedSet(exerciseWithSets.exercise.id, setOrder, "", time, rpe, completed = completed) },
+                    onTimeChanged = { setOrder, time -> viewModel.onTimeChanged(exerciseWithSets.exercise.id, setOrder, time) },
+                    onReplaceExercise = { newExercise -> viewModel.replaceExercise(exerciseWithSets.exercise.id, newExercise) },
+                    onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
+                    onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
+                    onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
+                    onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
+                    onAddWarmupSets = { w, r, fill -> viewModel.addSmartWarmups(exerciseWithSets.exercise.id, w, r, fill) },
+                    onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
+                    onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
+                    onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
+                    onSelectSetType = { setOrder, type -> viewModel.selectSetType(exerciseWithSets.exercise.id, setOrder, type) },
+                    onUpdateRpe = { setOrder, rpe -> viewModel.updateRpe(exerciseWithSets.exercise.id, setOrder, rpe) },
+                    onDeleteLocalRestTime = { setOrder -> viewModel.deleteLocalRestTime(exerciseWithSets.exercise.id, setOrder) },
+                    onUpdateLocalRestTime = { setOrder, seconds -> viewModel.updateLocalRestTime(exerciseWithSets.exercise.id, setOrder, seconds) },
+                    onTimerActiveClick = onTimerActiveClick,
+                    onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
+                    onTimerFinished = { viewModel.timerFinishedFeedback() },
+                    onTimerWarningTick = { viewModel.timerWarningTickFeedback() },
+                    rpeAutoPopTarget = rpeAutoPopTarget,
+                    onConsumeRpeAutoPop = onConsumeRpeAutoPop,
+                    setupSeconds = setupSeconds,
+                    onSetupCountdownTick = onSetupCountdownTick,
+                    onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() },
+                    onStopRestTimer = { viewModel.stopRestTimer() }
+                )
+            }
         }
     }
 
