@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsRun
@@ -39,12 +41,13 @@ import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.ReadinessAmber
 import com.powerme.app.ui.theme.TimerGreen
 
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExercisesScreen(
     pickerMode: Boolean = false,
+    isModal: Boolean = false,
     initialFunctionalFilter: Boolean = false,
+    initialTypeFilters: Set<ExerciseType> = emptySet(),
     initialSelectedIds: Set<Long> = emptySet(),
     onExercisesSelected: (List<Long>) -> Unit = {},
     onExerciseClick: (Long) -> Unit = {},
@@ -63,10 +66,16 @@ fun ExercisesScreen(
         }
     }
 
+    LaunchedEffect(initialTypeFilters) {
+        if (initialTypeFilters.isNotEmpty()) {
+            viewModel.applyInitialTypeFilters(initialTypeFilters)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier
             .fillMaxSize()
-            .then(if (pickerMode) Modifier.statusBarsPadding() else Modifier)
+            .then(if (pickerMode && !isModal) Modifier.statusBarsPadding() else Modifier)
         ) {
             // Picker mode header
             if (pickerMode) {
@@ -79,14 +88,8 @@ fun ExercisesScreen(
                     Text(
                         text = "Select Exercises",
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    if (selectedIds.isNotEmpty()) {
-                        TextButton(onClick = { onExercisesSelected(selectedIds.toList()) }) {
-                            Text("Add (${selectedIds.size})", fontWeight = FontWeight.Bold)
-                        }
-                    }
                 }
             }
 
@@ -147,15 +150,40 @@ fun ExercisesScreen(
                 singleLine = true
             )
 
+            // Quick filter chips
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) {
+                item {
+                    FilterChip(
+                        selected = uiState.functionalFilter,
+                        onClick = viewModel::onFunctionalFilterToggled,
+                        label = { Text("⚡ Functional") }
+                    )
+                }
+                items(ExerciseType.entries) { type ->
+                    FilterChip(
+                        selected = type in uiState.selectedTypes,
+                        onClick = { viewModel.onTypeFilterToggled(type) },
+                        label = { Text(type.pickerChipLabel()) }
+                    )
+                }
+            }
+
             // Exercise list
             if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             } else {
+                val bottomPad = if (pickerMode && selectedIds.isNotEmpty()) 88.dp else 16.dp
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = bottomPad),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(uiState.exercises, key = { it.id }) { exercise ->
@@ -178,9 +206,24 @@ fun ExercisesScreen(
                             onFavoriteToggled = { viewModel.toggleFavorite(exercise) }
                         )
                     }
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
             }
+        }
+
+        // Multi-select confirm FAB
+        if (pickerMode && selectedIds.isNotEmpty()) {
+            ExtendedFloatingActionButton(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp),
+                onClick = { onExercisesSelected(selectedIds.toList()) },
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = {
+                    val count = selectedIds.size
+                    Text("Add $count exercise${if (count != 1) "s" else ""}")
+                }
+            )
         }
     }
 
@@ -231,6 +274,14 @@ fun ExercisesScreen(
             onDismiss = viewModel::onFilterDialogToggled
         )
     }
+}
+
+internal fun ExerciseType.pickerChipLabel(): String = when (this) {
+    ExerciseType.STRENGTH   -> "Strength"
+    ExerciseType.CARDIO     -> "Cardio"
+    ExerciseType.TIMED      -> "Timed"
+    ExerciseType.PLYOMETRIC -> "Plyometric"
+    ExerciseType.STRETCH    -> "Stretch"
 }
 
 internal fun exerciseTypeIcon(type: ExerciseType): ImageVector = when (type) {

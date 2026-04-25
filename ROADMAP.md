@@ -37,8 +37,8 @@
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 13/24 wrapped · 3 completed · 0 in-progress · 6 not-started | 24 |
-| AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/4 wrapped · 1 not-started | 4 active + §8 queue |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 13/24 wrapped · 5 completed · 0 in-progress · 4 not-started | 24 |
+| AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/4 wrapped · 1 in-progress | 4 active + §8 queue |
 | Gym Profiles | `GYM_PROFILES_SPEC.md` | P10 | `not-started` | — | 0 |
 
 ---
@@ -52,6 +52,9 @@
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | Watch & phone workout notifications | `future_devs/WATCH_WORKOUT_NOTIFICATIONS_SPEC.md` | L | `completed` | — |
+| Keep screen on — 3-mode selector (Always / During workout / Off) | `future_devs/KEEP_SCREEN_ON_MODE_SPEC.md` | S | `not-started` | — |
+| RPE auto-pop — workout style selector (Gym only / Functional / All / Off) | `future_devs/RPE_MODE_SELECTOR_SPEC.md` | S | `not-started` | — |
+| Settings page — card reorder | `future_devs/SETTINGS_PAGE_REORDER_SPEC.md` | XS | `not-started` | keep_screen_on_mode ✅, rpe_mode_selector ✅, move_privacy_to_profile ✅, settings_data_backup_merge ✅ |
 
 ---
 
@@ -97,7 +100,7 @@
 
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
-| AI Review — full workout management options | `future_devs/AI_REVIEW_WORKOUT_MANAGEMENT_SPEC.md` | M | `not-started` | AI workout generation core ✅ |
+| AI Review — full workout management options | `future_devs/AI_REVIEW_WORKOUT_MANAGEMENT_SPEC.md` | M | `in-progress` | AI workout generation core ✅ |
 
 ---
 
@@ -110,15 +113,15 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 | Embed block arrays in Firestore push/pull | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | M | `wrapped` | Block entities migration ✅ |
 | Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | S | `wrapped` | FunctionalBlockWizard ✅ |
 | Block headers in active workout; STRENGTH materialisation on start | `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | M | `wrapped` | Block entities migration ✅ |
-| AMRAP/RFT/EMOM/TABATA overlays + FunctionalBlockRunner | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `not-started` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
+| AMRAP/RFT/EMOM/TABATA overlays + FunctionalBlockRunner | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `completed` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
 | Block-aware History rows + Trends + WorkoutSummaryScreen | `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | M | `not-started` | Functional runner ✅ (in prod ≥1 release) |
 | Exercise gap analysis — CrossFit / Hyrox / Calisthenics | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `completed` | — |
 | CrossFit exercise list verification | `future_devs/FUNC_CROSSFIT_VERIFICATION_SPEC.md` | XS | `completed` | gap analysis ✅ |
 | Expanded exercise seed — CrossFit / Hyrox / Calisthenics | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `completed` | gap analysis ✅, CrossFit verification ✅, Exercise tags seed ✅ |
 | Functional block card layout (single card per block in template builder) | `future_devs/FUNC_BLOCK_CARD_LAYOUT_SPEC.md` | S | `not-started` | func_template_wizard ✅ |
-| Exercise picker UI consistency (standardise all entry points) | `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | S | `not-started` | func_template_wizard ✅ |
-| Exercise picker — ExerciseType pre-filter by entry point | `future_devs/EXERCISE_PICKER_TYPE_PREFILTER_SPEC.md` | S | `not-started` | func_template_hybrid_sheet ✅ |
-| Functional block active workout card UI (grouped card, no sets/PRE/RPE/V) | `future_devs/FUNC_ACTIVE_BLOCK_CARD_UI_SPEC.md` | M | `not-started` | func_active_strength_blocks ✅ |
+| Exercise picker UI consistency (standardise all entry points) | `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | S | `completed` | func_template_wizard ✅ |
+| Exercise picker — ExerciseType pre-filter by entry point | `future_devs/EXERCISE_PICKER_TYPE_PREFILTER_SPEC.md` | S | `completed` | func_template_hybrid_sheet ✅ |
+| Functional block active workout card UI (grouped card, no sets/PRE/RPE/V) | `future_devs/FUNC_ACTIVE_BLOCK_CARD_UI_SPEC.md` | M | `completed` | func_active_strength_blocks ✅ |
 
 ---
 
@@ -195,3 +198,10 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/EXERCISE_PICKER_TYPE_PREFILTER_SPEC.md` | P8 — Exercise picker pre-filter by ExerciseType based on entry point (strength vs functional) |
 | `future_devs/FUNC_ACTIVE_BLOCK_CARD_UI_SPEC.md` | P8 — Functional block active workout card: grouped card, no sets/PRE/RPE/V for functional exercises |
 | `future_devs/AI_REVIEW_WORKOUT_MANAGEMENT_SPEC.md` | P7 — AI Review — supersets, reorder, replace, rest times, notes in PREVIEW step |
+| `future_devs/KEEP_SCREEN_ON_MODE_SPEC.md` | P1 — Keep screen on: Always / During workout / Off selector |
+| `future_devs/RPE_MODE_SELECTOR_SPEC.md` | P1 — RPE auto-pop: Gym only / Functional / All workouts / Off selector |
+| `future_devs/AI_KEY_CONNECTED_INDICATOR_SPEC.md` | P1 — AI card: green "Connected" chip when user API key is validated |
+| `future_devs/WORKOUT_STYLE_TOOLTIPS_SPEC.md` | P1 — Workout Style: ℹ info button + explanation sheet per style |
+| `future_devs/MOVE_PRIVACY_TO_PROFILE_SPEC.md` | P1 — Move Delete Account / Privacy card from Settings to Profile |
+| `future_devs/SETTINGS_DATA_BACKUP_MERGE_SPEC.md` | P1 — Merge Data Export + Cloud Sync into single "Data & Backup" card |
+| `future_devs/SETTINGS_PAGE_REORDER_SPEC.md` | P1 — Settings page card reorder (workout settings up, HC down) |

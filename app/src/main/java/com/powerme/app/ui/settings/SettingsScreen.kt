@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -194,9 +195,24 @@ fun SettingsScreen(
 
             // ── Workout Style ─────────────────────────────────────
             item {
-                SettingsCard(title = "Workout Style") {
+                SettingsCard(
+                    title = "Workout Style",
+                    trailingAction = {
+                        IconButton(
+                            onClick = viewModel::showWorkoutStyleInfo,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Info,
+                                contentDescription = "Workout style info",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                ) {
                     val styles = WorkoutStyle.entries
-                    val styleLabels = listOf("Pure Gym", "Pure Functional", "Hybrid")
+                    val styleLabels = listOf("Pure Strength", "Pure Functional", "Hybrid")
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         styles.forEachIndexed { index, style ->
                             SegmentedButton(
@@ -210,6 +226,7 @@ fun SettingsScreen(
                     }
                 }
             }
+
 
             // ── Health Connect ────────────────────────────────────
             item {
@@ -552,99 +569,13 @@ fun SettingsScreen(
 
             // ── Data & Backup ────────────────────────────────────────
             item {
-                SettingsCard(title = "Data & Backup") {
-                    Button(
-                        onClick = viewModel::exportDatabase,
-                        enabled = !uiState.isExporting,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)
-                    ) {
-                        if (uiState.isExporting) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onSecondary, strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        Text("Export Database to JSON")
-                    }
-                    uiState.exportSuccessMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
-                    uiState.exportErrorMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = onNavigateToImport,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Import Workout History")
-                    }
-                }
-            }
-
-            // ── Cloud Sync ───────────────────────────────────────────
-            item {
-                SettingsCard(title = "Cloud Sync") {
-                    if (!uiState.isSignedIn) {
-                        Text(
-                            text = "Sign in to enable cloud sync",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    } else {
-                        val busy = uiState.isBackingUpToCloud || uiState.isRestoringFromCloud
-                        // Back Up Now
-                        Text(
-                            text = "Upload all local workouts, routines, and settings to your cloud account.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (uiState.isBackingUpToCloud) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Text("Backing up…")
-                            }
-                        } else {
-                            Button(
-                                onClick = viewModel::backupToCloud,
-                                enabled = !busy
-                            ) {
-                                Text("Back Up Now")
-                            }
-                        }
-                        uiState.backupMessage?.let { msg ->
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(msg, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Restore from Cloud
-                        Text(
-                            text = "Download and restore workouts and routines from your cloud backup.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (uiState.isRestoringFromCloud) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Text("Restoring from cloud…")
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = viewModel::restoreFromCloud,
-                                enabled = !busy
-                            ) {
-                                Text("Restore from Cloud")
-                            }
-                        }
-                        uiState.cloudRestoreMessage?.let { msg ->
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(msg, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
+                DataAndBackupCard(
+                    uiState = uiState,
+                    onExport = viewModel::exportDatabase,
+                    onImport = onNavigateToImport,
+                    onBackup = viewModel::backupToCloud,
+                    onRestore = viewModel::restoreFromCloud
+                )
             }
 
             // ── Feedback ─────────────────────────────────────────────
@@ -691,34 +622,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Privacy / Delete Account ─────────────────────────────
-            item {
-                SettingsCard(title = "Privacy") {
-                    Text(
-                        text = "Your data is stored locally and mirrored to Firebase for account continuity. Deleting your account permanently removes all local data and your Firebase user record.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    if (uiState.isDeletingAccount) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.error, strokeWidth = 2.dp)
-                            Text("Deleting account…", color = MaterialTheme.colorScheme.error)
-                        }
-                    } else {
-                        Button(
-                            onClick = viewModel::showDeleteAccountDialog,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            )
-                        ) {
-                            Text("Delete Account")
-                        }
-                    }
-                }
-            }
-
             // ── Version ───────────────────────────────────────────────
             item {
                 Text(
@@ -732,29 +635,11 @@ fun SettingsScreen(
         }
     }
 
-    // Delete Account confirmation dialog
-    if (uiState.showDeleteAccountDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissDeleteAccountDialog,
-            title = { Text("Delete Account?", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "This will permanently delete all your data, workout history, and your account. This cannot be undone.",
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.deleteAccount {} },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
-                ) { Text("Delete Everything") }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = viewModel::dismissDeleteAccountDialog) { Text("Cancel") }
-            },
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+    // Workout Style info sheet
+    if (uiState.showWorkoutStyleInfoSheet) {
+        WorkoutStyleInfoSheet(onDismiss = viewModel::dismissWorkoutStyleInfo)
     }
+
 }
 
 
@@ -807,6 +692,25 @@ private fun AiSettingsCard(
             style = MaterialTheme.typography.bodySmall,
             color = onDeviceColor
         )
+        if (uiState.apiKeyValidation is ApiKeyValidationState.Valid) {
+            Spacer(modifier = Modifier.height(6.dp))
+            AssistChip(
+                onClick = {},
+                label = { Text("Connected", color = TimerGreen, fontWeight = FontWeight.SemiBold) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = TimerGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = TimerGreen.copy(alpha = 0.15f),
+                    labelColor = TimerGreen
+                )
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         var keyVisible by remember { mutableStateOf(false) }
         OutlinedTextField(
@@ -886,16 +790,197 @@ private fun AiSettingsCard(
 }
 
 @Composable
-private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun DataAndBackupCard(
+    uiState: SettingsUiState,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit
+) {
+    SettingsCard(title = "Data & Backup") {
+        // Export row
+        Column {
+            Text(
+                "Save a local backup of your workouts and exercises",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onExport,
+                enabled = !uiState.isExporting,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (uiState.isExporting) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text("Export to JSON")
+            }
+            uiState.exportSuccessMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
+            uiState.exportErrorMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Import row
+        OutlinedButton(
+            onClick = onImport,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Import Workout History")
+        }
+
+        if (uiState.isSignedIn) {
+            val busy = uiState.isBackingUpToCloud || uiState.isRestoringFromCloud
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Back up row
+            Column {
+                Text(
+                    "Upload all local workouts, routines, and settings to your cloud account.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                if (uiState.isBackingUpToCloud) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text("Backing up…")
+                    }
+                } else {
+                    OutlinedButton(onClick = onBackup, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        Text("Back Up Now")
+                    }
+                }
+                uiState.backupMessage?.let { msg ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(msg, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Restore row
+            Column {
+                Text(
+                    "Download and restore workouts and routines from your cloud backup.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                if (uiState.isRestoringFromCloud) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text("Restoring from cloud…")
+                    }
+                } else {
+                    OutlinedButton(onClick = onRestore, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        Text("Restore from Cloud")
+                    }
+                }
+                uiState.cloudRestoreMessage?.let { msg ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(msg, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(
+    title: String,
+    trailingAction: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = PowerMeDefaults.cardColors(),
         elevation = PowerMeDefaults.subtleCardElevation()
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            if (trailingAction != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    trailingAction()
+                }
+            } else {
+                Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
             Spacer(modifier = Modifier.height(12.dp))
             content()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WorkoutStyleInfoSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            Text(
+                "Pure Strength",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Strength training only. The \"+\" button goes straight to the exercise library. No functional blocks.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Hybrid  (recommended)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Mix strength exercises and functional blocks (AMRAP, RFT, EMOM) in the same routine. The \"+\" button lets you choose which to add.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Pure Functional",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Functional blocks only (AMRAP, RFT, EMOM, Tabata). The \"+\" button opens the Functional Block Wizard directly.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }

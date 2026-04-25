@@ -5,8 +5,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.secure.SecurePreferencesStore
 import com.powerme.app.ai.AiCoreAvailability
@@ -34,7 +32,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -65,9 +62,6 @@ data class SettingsUiState(
     val isExporting: Boolean = false,
     val exportSuccessMessage: String? = null,
     val exportErrorMessage: String? = null,
-    // Account deletion
-    val showDeleteAccountDialog: Boolean = false,
-    val isDeletingAccount: Boolean = false,
     // Keep screen on
     val keepScreenOn: Boolean = false,
     // RPE auto-pop
@@ -104,6 +98,8 @@ data class SettingsUiState(
     val healthConnectSyncing: Boolean = false,
     val healthConnectData: HealthConnectReadResult? = null,
     val healthConnectError: String? = null,
+    // Workout style info sheet
+    val showWorkoutStyleInfoSheet: Boolean = false,
     // DEBUG — nuke HC data button
     val nukeHcInProgress: Boolean = false,
     val nukeHcResult: String? = null
@@ -405,8 +401,8 @@ open class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun showDeleteAccountDialog() { _uiState.update { it.copy(showDeleteAccountDialog = true) } }
-    fun dismissDeleteAccountDialog() { _uiState.update { it.copy(showDeleteAccountDialog = false) } }
+    fun showWorkoutStyleInfo() { _uiState.update { it.copy(showWorkoutStyleInfoSheet = true) } }
+    fun dismissWorkoutStyleInfo() { _uiState.update { it.copy(showWorkoutStyleInfoSheet = false) } }
 
     fun restoreFromCloud() {
         if (auth.currentUser == null) {
@@ -557,23 +553,6 @@ open class SettingsViewModel @Inject constructor(
                     syncHealthConnect()
                     triggerBackfillIfNeeded()
                 }
-            }
-        }
-    }
-
-    fun deleteAccount(onComplete: () -> Unit) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isDeletingAccount = true, showDeleteAccountDialog = false) }
-            try {
-                database.clearAllTables()
-                securePreferencesStore.clearUserGeminiApiKey()
-                Firebase.auth.currentUser?.delete()?.await()
-                appSettingsDataStore.setLanguage("Hebrew")
-            } catch (e: Exception) {
-                Timber.e(e, "Delete account error")
-            } finally {
-                _uiState.update { it.copy(isDeletingAccount = false) }
-                onComplete()
             }
         }
     }

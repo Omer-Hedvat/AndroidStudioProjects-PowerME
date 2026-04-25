@@ -2,6 +2,8 @@ package com.powerme.app.ui.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.ExperienceLevel
@@ -9,8 +11,10 @@ import com.powerme.app.data.database.HealthHistoryEntry
 import com.powerme.app.data.database.HealthHistoryType
 import com.powerme.app.data.database.HealthHistorySeverity
 import com.powerme.app.data.database.MetricType
+import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.repository.HealthHistoryRepository
 import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.data.secure.SecurePreferencesStore
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.health.HealthConnectReadResult
 import com.powerme.app.util.SurgicalValidator
@@ -22,6 +26,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 
@@ -66,7 +72,10 @@ data class ProfileUiState(
     val sheetSeverity: HealthHistorySeverity = HealthHistorySeverity.MODERATE,
     val sheetStartDate: Long? = null,
     val sheetResolvedDate: Long? = null,
-    val sheetNotes: String = ""
+    val sheetNotes: String = "",
+    // Danger Zone
+    val showDeleteAccountDialog: Boolean = false,
+    val isDeletingAccount: Boolean = false
 )
 
 @HiltViewModel
@@ -75,7 +84,9 @@ class ProfileViewModel @Inject constructor(
     private val metricLogRepository: MetricLogRepository,
     private val appSettingsDataStore: AppSettingsDataStore,
     private val healthHistoryRepository: HealthHistoryRepository,
-    private val healthConnectManager: HealthConnectManager
+    private val healthConnectManager: HealthConnectManager,
+    private val database: PowerMeDatabase,
+    private val securePreferencesStore: SecurePreferencesStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -425,6 +436,28 @@ class ProfileViewModel @Inject constructor(
     fun signOut() {
         viewModelScope.launch {
             userSessionManager.clearUser()
+        }
+    }
+
+    // ── Danger Zone ───────────────────────────────────────────────────────────
+
+    fun showDeleteAccountDialog() { _uiState.update { it.copy(showDeleteAccountDialog = true) } }
+    fun dismissDeleteAccountDialog() { _uiState.update { it.copy(showDeleteAccountDialog = false) } }
+
+    fun deleteAccount(onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDeletingAccount = true, showDeleteAccountDialog = false) }
+            try {
+                database.clearAllTables()
+                securePreferencesStore.clearUserGeminiApiKey()
+                Firebase.auth.currentUser?.delete()?.await()
+                appSettingsDataStore.setLanguage("Hebrew")
+            } catch (e: Exception) {
+                Timber.e(e, "Delete account error")
+            } finally {
+                _uiState.update { it.copy(isDeletingAccount = false) }
+                onComplete()
+            }
         }
     }
 }

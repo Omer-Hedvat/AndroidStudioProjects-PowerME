@@ -18,15 +18,17 @@ The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` compos
 |---|---|---|
 | 1 | Appearance | Theme mode |
 | 2 | Units | Metric / Imperial |
-| 3 | Health Connect | HC permissions + sync |
-| 4 | Rest Timer | Audio / haptics toggles + Get Ready countdown (0–10s) |
-| 5 | Display & Workout | Keep screen on, Use RPE (auto-pop picker) |
-| 6 | AI | Gemini API key management (user override + status) |
-| 7 | Data Export | Export DB to JSON |
-| 8 | Cloud Sync | Restore from Firestore |
-| 9 | Privacy | Delete account |
+| 3 | Workout Style | Pure Gym / Pure Functional / Hybrid (with ℹ info sheet) |
+| 4 | Health Connect | HC permissions + sync |
+| 5 | Rest Timer | Audio / haptics toggles + Get Ready countdown (0–10s) |
+| 6 | Display & Workout | Keep screen on, Use RPE (auto-pop picker) |
+| 7 | AI | Gemini API key management (user override + status + Connected chip) |
+| 8 | Data & Backup | Export JSON + Import History + (signed-in) Back Up Now + Restore |
+| 9 | Feedback | Email feedback |
 
-**Moved to ProfileScreen:** Personal Info (card 4) and Body Metrics (card 5) were removed from Settings and now live in `ProfileScreen`.
+**Moved to ProfileScreen:** Personal Info and Body Metrics were removed from Settings. Privacy / Delete Account has been moved to `ProfileScreen` → Danger Zone section (bottom of profile).
+
+**Note:** The "Workout Style" card is currently listed between Units and Health Connect but order may change after the settings-page-reorder task.
 
 ---
 
@@ -59,15 +61,23 @@ Two `Switch` rows: "Audio" and "Haptics". Changes persisted to `userSettingsDao.
 
 **Get Ready countdown** stepper row: label "Get Ready countdown" + `[-] [N] [+]` buttons (range 0–10s). Shows "Off" + grey text when 0; shows amber `Ns` value and subtitle "Timed sets wait Ns before starting" otherwise. Calls `viewModel.setTimedSetSetupSeconds()` → `AppSettingsDataStore.setTimedSetSetupSeconds()` → syncs via `FirestoreSyncManager.pushAppPreferences()`. Default 3s. Controls the `SETUP` state in `TimedSetRow` (see WORKOUT_SPEC.md §4.8).
 
-### 2.5 Display & Workout
+### 2.5 Workout Style
+
+`SingleChoiceSegmentedButtonRow` with 3 options: Pure Gym / Pure Functional / Hybrid → `viewModel.setWorkoutStyle(WorkoutStyle)` → persists to `AppSettingsDataStore`.
+
+**Info sheet:** An `IconButton(Icons.Outlined.Info)` appears to the right of the "Workout Style" card title. Tapping it opens a `ModalBottomSheet` (`WorkoutStyleInfoSheet`) with three rows explaining each style (Pure Gym / Hybrid / Pure Functional), separated by `HorizontalDivider`. Sheet state is `showWorkoutStyleInfoSheet: Boolean` in `SettingsUiState`, toggled by `showWorkoutStyleInfo()` / `dismissWorkoutStyleInfo()` in `SettingsViewModel`.
+
+### 2.6 Display & Workout
 
 "Keep screen on" `Switch` → `viewModel.toggleKeepScreenOn()` → `AppSettingsDataStore.setKeepScreenOn()`.
 
 "Use RPE" `Switch` → `viewModel.toggleUseRpeAutoPop()` → `AppSettingsDataStore.setUseRpeAutoPop()`. When enabled, `WorkoutViewModel` emits a one-shot `rpeAutoPopTarget` signal after each set completion, which `ActiveWorkoutScreen` consumes to auto-open `RpePickerSheet` for that set.
 
-### 2.6 AI
+### 2.7 AI
 
 Status line showing one of: "Using: Your key" / "Using: Default" / "No key set" (driven by `apiKeyStatus: ApiKeyStatus`).
+
+**Connected chip:** When `apiKeyValidation` is `ApiKeyValidationState.Valid`, a green `AssistChip` with checkmark icon appears below the status line (above the text field), using `primaryContainer` / `onPrimaryContainer` color tokens.
 
 `OutlinedTextField` for the user's Gemini API key: `PasswordVisualTransformation` with eye-toggle icon, single-line, Password keyboard type. Draft held in `userApiKeyInput: String` (never persisted until Save).
 
@@ -79,21 +89,26 @@ Key stored in `EncryptedSharedPreferences` file `"secure_ai_prefs"` via `SecureP
 
 ViewModel: `updateApiKeyInput(String)`, `saveUserApiKey()`, `clearUserApiKey()`.
 
-### 2.7 Data Export
+### 2.8 Data & Backup
 
-"Export Database to JSON" button → `viewModel.exportDatabase()` → `DatabaseExporter` writes a JSON file. Shows success path (file path) or error text. `isExporting` shows a spinner.
+Single `SettingsCard` replacing the former separate Data Export (§2.7) and Cloud Sync (§2.8) cards. Rows:
 
-### 2.8 Cloud Sync
+1. **Export to JSON** (always visible) — `OutlinedButton` → `viewModel.exportDatabase()`. `isExporting` shows spinner. Success/error text below.
+2. **Import Workout History** (always visible) — `OutlinedButton` → `onNavigateToImport`.
+3. **Back Up Now** (signed-in only) — `OutlinedButton` → `viewModel.backupToCloud()`. `isBackingUpToCloud` spinner. `backupMessage` feedback below.
+4. **Restore from Cloud** (signed-in only) — `OutlinedButton` → `viewModel.restoreFromCloud()`. `isRestoringFromCloud` spinner. `cloudRestoreMessage` shown via `LaunchedEffect` toast.
 
-If not signed in: informational text. If signed in: "Restore from Cloud" button → `viewModel.restoreFromCloud()` → `FirestoreSyncManager.pullFromCloud()`. Result shown via `Toast`.
+Rows 1–2 always shown. Rows 3–4 hidden when `!isSignedIn`. All rows separated by `HorizontalDivider`.
 
-### 2.9 Privacy
+### 2.9 Privacy / Danger Zone → Moved to ProfileScreen
 
-"Delete Account" button → confirmation `AlertDialog` → `viewModel.deleteAccount()`:
+The Privacy card has been removed from Settings. "Delete Account" now lives in `ProfileScreen` at the very bottom, below the Log Out button, in a "Danger Zone" section separated by a `HorizontalDivider`. Uses `OutlinedButton` with `error` color tokens. Confirmation `AlertDialog` → `viewModel.deleteAccount()`:
 1. `database.clearAllTables()`
-2. `securePreferencesStore.clearUserGeminiApiKey()` — clears user Gemini key from EncryptedSharedPreferences
+2. `securePreferencesStore.clearUserGeminiApiKey()`
 3. `Firebase.auth.currentUser?.delete()`
 4. `appSettingsDataStore.setLanguage("Hebrew")`
+
+State: `showDeleteAccountDialog`, `isDeletingAccount` in `ProfileUiState` / `ProfileViewModel`.
 
 ---
 
@@ -127,12 +142,19 @@ If not signed in: informational text. If signed in: "Restore from Cloud" button 
 | `healthConnectData` | `HealthConnectReadResult?` | Latest sync result |
 | `healthConnectError` | `String?` | Sync error message |
 
+### Workout Style Info Sheet
+| Field | Type | Purpose |
+|---|---|---|
+| `showWorkoutStyleInfoSheet` | `Boolean` | Controls `WorkoutStyleInfoSheet` visibility |
+
 ### Cloud / Account
 | Field | Type | Purpose |
 |---|---|---|
 | `isSignedIn` | `Boolean` | Firebase user present |
 | `isRestoringFromCloud` / `cloudRestoreMessage` | `Boolean` / `String?` | Cloud restore state |
-| `showDeleteAccountDialog` / `isDeletingAccount` | `Boolean` | Account deletion flow |
+| `isBackingUpToCloud` / `backupMessage` | `Boolean` / `String?` | Cloud backup state |
+
+**Removed:** `showDeleteAccountDialog` / `isDeletingAccount` moved to `ProfileUiState`.
 
 ---
 

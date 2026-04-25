@@ -154,6 +154,45 @@ fun ProfileScreen(
                     Text("Log Out")
                 }
             }
+
+            // ── Danger Zone ────────────────────────────────────────
+            item {
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Danger Zone",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+                Spacer(Modifier.height(8.dp))
+                if (uiState.isDeletingAccount) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.error,
+                            strokeWidth = 2.dp
+                        )
+                        Text("Deleting account…", color = MaterialTheme.colorScheme.error)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = viewModel::showDeleteAccountDialog,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Delete Account")
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
         }
 
         if (showLogoutDialog) {
@@ -178,6 +217,32 @@ fun ProfileScreen(
                         Text("Cancel")
                     }
                 }
+            )
+        }
+
+        if (uiState.showDeleteAccountDialog) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissDeleteAccountDialog,
+                title = { Text("Delete Account?", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
+                text = {
+                    Text(
+                        "This will permanently delete all your data, workout history, and your account. This cannot be undone.",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.deleteAccount() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) { Text("Delete Everything") }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = viewModel::dismissDeleteAccountDialog) { Text("Cancel") }
+                },
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
     }

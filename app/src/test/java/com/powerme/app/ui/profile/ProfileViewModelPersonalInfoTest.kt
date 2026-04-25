@@ -4,8 +4,10 @@ import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.User
 import com.powerme.app.data.database.MetricType
+import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.repository.HealthHistoryRepository
 import com.powerme.app.data.repository.MetricLogRepository
+import com.powerme.app.data.secure.SecurePreferencesStore
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.util.UserSessionManager
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +48,8 @@ class ProfileViewModelPersonalInfoTest {
     private lateinit var mockUserSessionManager: UserSessionManager
     private lateinit var mockHealthHistoryRepository: HealthHistoryRepository
     private lateinit var mockHealthConnectManager: HealthConnectManager
+    private lateinit var mockDatabase: PowerMeDatabase
+    private lateinit var mockSecurePreferencesStore: SecurePreferencesStore
 
     private val sampleUser = User(
         email = "test@example.com",
@@ -68,6 +72,8 @@ class ProfileViewModelPersonalInfoTest {
         mockUserSessionManager = mock()
         mockHealthHistoryRepository = mock()
         mockHealthConnectManager = mock()
+        mockDatabase = mock()
+        mockSecurePreferencesStore = mock()
 
         whenever(mockAppSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
         whenever(mockMetricLogRepository.getByType(MetricType.WEIGHT)).thenReturn(flowOf(emptyList()))
@@ -86,7 +92,9 @@ class ProfileViewModelPersonalInfoTest {
         metricLogRepository = mockMetricLogRepository,
         appSettingsDataStore = mockAppSettingsDataStore,
         healthHistoryRepository = mockHealthHistoryRepository,
-        healthConnectManager = mockHealthConnectManager
+        healthConnectManager = mockHealthConnectManager,
+        database = mockDatabase,
+        securePreferencesStore = mockSecurePreferencesStore
     )
 
     // ── Load ──────────────────────────────────────────────────────────────────

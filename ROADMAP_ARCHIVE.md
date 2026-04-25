@@ -35,6 +35,10 @@ Moved here from `ROADMAP.md` to keep the active roadmap lean.
 | Warmup sets — auto-collapse after completion | `future_devs/WARMUP_SETS_AUTO_COLLAPSE_SPEC.md` | `wrapped` |
 | Numeric keyboard ±1 increment/decrement buttons | `future_devs/NUMERIC_KEYBOARD_PLUS_MINUS_SPEC.md` | `wrapped` |
 | Smart "Add Warmups" — equipment-aware warmup generator | `future_devs/SMART_ADD_WARMUPS_SPEC.md` | `wrapped` |
+| AI — API key connected indicator (green chip when validated) | `future_devs/AI_KEY_CONNECTED_INDICATOR_SPEC.md` | `wrapped` |
+| Workout style — contextual explanation (ℹ info sheet) | `future_devs/WORKOUT_STYLE_TOOLTIPS_SPEC.md` | `wrapped` |
+| Move Privacy (Delete Account) card to Profile screen | `future_devs/MOVE_PRIVACY_TO_PROFILE_SPEC.md` | `wrapped` |
+| Settings — merge Data Export + Cloud Sync into "Data & Backup" | `future_devs/SETTINGS_DATA_BACKUP_MERGE_SPEC.md` | `wrapped` |
 
 ---
 
