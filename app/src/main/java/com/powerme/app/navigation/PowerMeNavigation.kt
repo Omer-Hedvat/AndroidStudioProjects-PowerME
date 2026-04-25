@@ -558,9 +558,14 @@ fun PowerMeApp(startupViewModel: AppStartupViewModel = hiltViewModel()) {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } }
         ) { backStackEntry ->
             val functionalFilter = backStackEntry.arguments?.getBoolean("functionalFilter") ?: false
+            val preselectedIds = navController.previousBackStackEntry
+                ?.savedStateHandle
+                ?.get<ArrayList<Long>>("preselected_exercises")
+                ?.toSet() ?: emptySet()
             ExercisesScreen(
                 pickerMode = true,
                 initialFunctionalFilter = functionalFilter,
+                initialSelectedIds = preselectedIds,
                 onExercisesSelected = { ids ->
                     navController.previousBackStackEntry
                         ?.savedStateHandle

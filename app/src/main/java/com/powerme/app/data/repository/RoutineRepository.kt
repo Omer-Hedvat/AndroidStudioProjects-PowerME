@@ -3,6 +3,7 @@ package com.powerme.app.data.repository
 import androidx.room.withTransaction
 import com.powerme.app.data.database.PowerMeDatabase
 import com.powerme.app.data.database.Routine
+import com.powerme.app.data.database.RoutineBlockDao
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.RoutineExercise
 import com.powerme.app.data.database.RoutineExerciseDao
@@ -16,6 +17,7 @@ import kotlin.math.floor
 class RoutineRepository @Inject constructor(
     private val routineDao: RoutineDao,
     private val routineExerciseDao: RoutineExerciseDao,
+    private val routineBlockDao: RoutineBlockDao,
     private val database: PowerMeDatabase
 ) {
     /**
@@ -48,7 +50,7 @@ class RoutineRepository @Inject constructor(
     }
 
     /**
-     * Deep-copies a routine and all its exercises atomically.
+     * Deep-copies a routine, its blocks, and all its exercises atomically.
      * Saved name: "[Original Name] (Copy)".
      * Returns the new routine's id, or "" if the source routine was not found.
      */
@@ -61,9 +63,16 @@ class RoutineRepository @Inject constructor(
                 Routine(id = newRoutineId, name = "${original.name} (Copy)",
                     isCustom = original.isCustom, lastPerformed = null, updatedAt = now)
             )
+            val blockIdMap = copyBlocksForRoutine(routineId, newRoutineId, now)
             val exercises = routineExerciseDao.getForRoutine(routineId)
             routineExerciseDao.insertAll(
-                exercises.map { it.copy(id = UUID.randomUUID().toString(), routineId = newRoutineId) }
+                exercises.map { ex ->
+                    ex.copy(
+                        id = UUID.randomUUID().toString(),
+                        routineId = newRoutineId,
+                        blockId = ex.blockId?.let { blockIdMap[it] }
+                    )
+                }
             )
             newRoutineId
         }
@@ -71,9 +80,9 @@ class RoutineRepository @Inject constructor(
 
     /**
      * Creates a time-optimised "Express" copy of a routine:
-     *  1. Drops the bottom floor(N × 0.4) exercises (by order — typically isolation/accessories).
-     *  2. Keeps ALL warmup sets; caps work sets (NORMAL/DROP/FAILURE) to a maximum of 2.
-     *  3. Selects setTypesJson/setWeightsJson/setRepsJson entries by kept indices.
+     *  1. For STRENGTH exercises (no block or STRENGTH block): drops the bottom floor(N × 0.4)
+     *     exercises and caps work sets to 2.
+     *  2. Functional blocks are copied intact with all their exercises.
      * Saved name: "[Original Name] - Express".
      * Returns the new routine's id, or "" if the source routine was not found.
      */
@@ -81,31 +90,65 @@ class RoutineRepository @Inject constructor(
         return database.withTransaction {
             val original = routineDao.getRoutineById(routineId) ?: return@withTransaction ""
             val exercises = routineExerciseDao.getForRoutine(routineId).sortedBy { it.order }
-            val dropCount = floor(exercises.size * 0.4).toInt()
-            val surviving = exercises.dropLast(dropCount)
+            val blocks = routineBlockDao.getBlocksForRoutineOnce(routineId)
+            val functionalBlockIds = blocks.filter { it.type != "STRENGTH" }.map { it.id }.toSet()
+
             val now = System.currentTimeMillis()
             val newRoutineId = UUID.randomUUID().toString()
             routineDao.insertRoutine(
                 Routine(id = newRoutineId, name = "${original.name} - Express",
                     isCustom = original.isCustom, lastPerformed = null, updatedAt = now)
             )
+            val blockIdMap = copyBlocksForRoutine(routineId, newRoutineId, now)
+
+            val functionalExercises = exercises.filter { it.blockId in functionalBlockIds }
+            val strengthExercises = exercises.filter { it.blockId !in functionalBlockIds }
+            val dropCount = floor(strengthExercises.size * 0.4).toInt()
+            val survivingStrength = strengthExercises.dropLast(dropCount)
+
+            val expressStrength = survivingStrength.map { re ->
+                val keptIndices = selectExpressIndices(re.setTypesJson, re.sets)
+                re.copy(
+                    id = UUID.randomUUID().toString(),
+                    routineId = newRoutineId,
+                    blockId = re.blockId?.let { blockIdMap[it] },
+                    sets = keptIndices.size,
+                    setTypesJson = re.setTypesJson.pickIndices(keptIndices),
+                    setWeightsJson = re.setWeightsJson.pickIndices(keptIndices),
+                    setRepsJson = re.setRepsJson.pickIndices(keptIndices)
+                )
+            }
+            val copiedFunctional = functionalExercises.map { ex ->
+                ex.copy(
+                    id = UUID.randomUUID().toString(),
+                    routineId = newRoutineId,
+                    blockId = ex.blockId?.let { blockIdMap[it] }
+                )
+            }
             routineExerciseDao.insertAll(
-                surviving.mapIndexed { idx, re ->
-                    val keptIndices = selectExpressIndices(re.setTypesJson, re.sets)
-                    val keptCount = keptIndices.size
-                    re.copy(
-                        id = UUID.randomUUID().toString(),
-                        routineId = newRoutineId,
-                        order = idx,
-                        sets = keptCount,
-                        setTypesJson = re.setTypesJson.pickIndices(keptIndices),
-                        setWeightsJson = re.setWeightsJson.pickIndices(keptIndices),
-                        setRepsJson = re.setRepsJson.pickIndices(keptIndices)
-                    )
-                }
+                (expressStrength + copiedFunctional).mapIndexed { i, ex -> ex.copy(order = i) }
             )
             newRoutineId
         }
+    }
+
+    /** Copies all blocks from [sourceRoutineId] to [targetRoutineId], returning oldId→newId map. */
+    private suspend fun copyBlocksForRoutine(
+        sourceRoutineId: String,
+        targetRoutineId: String,
+        now: Long
+    ): Map<String, String> {
+        val blocks = routineBlockDao.getBlocksForRoutineOnce(sourceRoutineId)
+        if (blocks.isEmpty()) return emptyMap()
+        val blockIdMap = mutableMapOf<String, String>()
+        routineBlockDao.upsertAll(
+            blocks.map { b ->
+                val newId = UUID.randomUUID().toString()
+                blockIdMap[b.id] = newId
+                b.copy(id = newId, routineId = targetRoutineId, updatedAt = now)
+            }
+        )
+        return blockIdMap
     }
 }
 

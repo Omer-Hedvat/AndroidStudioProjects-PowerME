@@ -45,6 +45,7 @@ import com.powerme.app.ui.theme.TimerGreen
 fun ExercisesScreen(
     pickerMode: Boolean = false,
     initialFunctionalFilter: Boolean = false,
+    initialSelectedIds: Set<Long> = emptySet(),
     onExercisesSelected: (List<Long>) -> Unit = {},
     onExerciseClick: (Long) -> Unit = {},
     viewModel: ExercisesViewModel = hiltViewModel()
@@ -53,7 +54,7 @@ fun ExercisesScreen(
     val muscleGroupFilters by viewModel.muscleGroupFilters.collectAsState()
     val equipmentFilters by viewModel.equipmentFilters.collectAsState()
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
-    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    var selectedIds by remember { mutableStateOf(initialSelectedIds) }
     val searchFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(initialFunctionalFilter) {

@@ -127,6 +127,7 @@ Moved here from `ROADMAP.md` to keep the active roadmap lean.
 | exerciseType seed gap fix — PLYOMETRIC + STRETCH retag | `future_devs/FUNC_EXERCISE_TYPE_RETAG_SEED_SPEC.md` | `wrapped` |
 | Yoga stretch seed — 15 yoga poses | `future_devs/FUNC_YOGA_STRETCH_SEED_SPEC.md` | `wrapped` |
 | Exercise filter dialog — sticky bottom action bar | `future_devs/EXERCISE_FILTER_DIALOG_STICKY_ACTIONS_SPEC.md` | `wrapped` |
+| FunctionalBlockWizard + Pure Functional template builder | `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | `wrapped` |
 
 ---
 

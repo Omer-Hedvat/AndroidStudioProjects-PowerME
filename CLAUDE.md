@@ -30,7 +30,7 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 
 **Health Connect:** 7 READ permissions (weight, body fat, height, sleep, HRV, RHR, steps). See `HEALTH_CONNECT_SPEC.md`.
 
-**Unit Tests:** 73 files, ~1041 tests (all passing). See `src/test/`.
+**Unit Tests:** 75 files, ~1060 tests (all passing). See `src/test/`.
 
 **AI:** Hybrid key resolution (user key → BuildConfig fallback). Parser router: cloud-only (Gemini via OkHttp REST). See `AI_SPEC.md`.
 
@@ -41,10 +41,10 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 - Favourites quick-filter (P5) — heart toggle in exercise library search bar
 - Movement transfer (P5) — cross-exercise strength estimation via family ratios
 - AI key + parser abstraction (P9) — WorkoutParserRouter, cloud-only for now
+- FunctionalBlockWizard (P8 Tier 3) — `FunctionalBlockWizard.kt` (2-step sheet: type → params), `DraftBlock` model, `BlockType` enum + `autoBlockName()`, block-sectioned `TemplateBuilderScreen` with `BlockHeader` + `FunctionalExerciseRow` (reps/time toggle). TemplateBuilderViewModel block CRUD + reps/holdSeconds management. RoutineRepository block-aware duplicate/express. Exercise picker pre-marks already-in-block exercises. PURE_FUNCTIONAL style opens wizard; PURE_GYM/HYBRID use legacy picker (HYBRID chooser is next task).
 
 **In-progress:**
 - TimerEngine (P8 Tier 0) — `TimerSpec` sealed class + `TimerEngineImpl` in `util/timer/`
-- FunctionalBlockWizard (P8 Tier 3) — `FunctionalBlockWizard.kt` (2-step sheet: type → params), `DraftBlock` model, `BlockType` enum + `autoBlockName()`, block-sectioned `TemplateBuilderScreen` with `BlockHeader`, TemplateBuilderViewModel block CRUD, RoutineRepository block-aware duplicate/express. Exercise picker accepts `functionalFilter=true` nav arg. PURE_FUNCTIONAL style opens wizard; PURE_GYM/HYBRID use legacy exercise picker (HYBRID chooser is next task).
 
 ---
 

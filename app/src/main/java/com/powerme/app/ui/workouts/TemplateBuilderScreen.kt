@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
@@ -35,7 +36,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.powerme.app.data.BlockType
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.ui.theme.buildSupersetColorMap
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,19 +50,28 @@ fun TemplateBuilderScreen(
 ) {
     val routineName by viewModel.routineName.collectAsState()
     val draftExercises by viewModel.draftExercises.collectAsState()
+    val draftBlocks by viewModel.draftBlocks.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val supersetColorMap = remember(draftExercises) {
         buildSupersetColorMap(draftExercises.map { it.supersetGroupId })
     }
     val isOrganizeMode by viewModel.isOrganizeMode.collectAsState()
     val selectedExerciseIds by viewModel.selectedExerciseIds.collectAsState()
+    val workoutStyle by viewModel.workoutStyle.collectAsState()
+    val pendingBlock by viewModel.pendingBlock.collectAsState()
 
     var isReorderMode by remember { mutableStateOf(false) }
+    var showBlockWizard by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
         val fromIdx = draftExercises.indexOfFirst { it.exerciseId == from.key as Long }
         val toIdx   = draftExercises.indexOfFirst { it.exerciseId == to.key as Long }
-        if (fromIdx >= 0 && toIdx >= 0) viewModel.reorderDraftExercise(fromIdx, toIdx)
+        // Only allow reorder within the same block
+        val fromBlock = draftExercises.getOrNull(fromIdx)?.blockId
+        val toBlock   = draftExercises.getOrNull(toIdx)?.blockId
+        if (fromIdx >= 0 && toIdx >= 0 && fromBlock == toBlock) {
+            viewModel.reorderDraftExercise(fromIdx, toIdx)
+        }
     }
 
     // Observe selected exercises passed back from the exercise picker
@@ -71,7 +84,11 @@ fun TemplateBuilderScreen(
     LaunchedEffect(selectedIds) {
         val ids = selectedIds ?: return@LaunchedEffect
         if (ids.isNotEmpty()) {
-            viewModel.addExercises(ids)
+            if (pendingBlock != null) {
+                viewModel.completePendingBlock(ids)
+            } else {
+                viewModel.addExercises(ids)
+            }
             backEntry?.savedStateHandle?.remove<ArrayList<Long>>("selected_exercises")
         }
     }
@@ -164,7 +181,13 @@ fun TemplateBuilderScreen(
                 }
             }
 
-            if (draftExercises.isEmpty()) {
+            val hasFunctionalBlocks = remember(draftBlocks) { draftBlocks.any { it.type != BlockType.STRENGTH } }
+            val showBlockHeaders = draftBlocks.size >= 2 || hasFunctionalBlocks
+            val exercisesByBlock = remember(draftExercises) { draftExercises.groupBy { it.blockId } }
+            val sortedBlocks = remember(draftBlocks) { draftBlocks.sortedBy { it.order } }
+            val blockTypeById = remember(draftBlocks) { draftBlocks.associate { it.id to it.type } }
+
+            if (draftExercises.isEmpty() && draftBlocks.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -188,7 +211,91 @@ fun TemplateBuilderScreen(
                         )
                     }
                 }
+            } else if (showBlockHeaders) {
+                // Block-sectioned list
+                LazyColumn(
+                    state = lazyListState,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    // Unblocked exercises first (legacy STRENGTH exercises without a blockId)
+                    val unblockedExercises = exercisesByBlock[null] ?: emptyList()
+                    if (unblockedExercises.isNotEmpty()) {
+                        items(unblockedExercises, key = { it.exerciseId }) { draft ->
+                            ReorderableItem(reorderState, key = draft.exerciseId) { isDragging ->
+                                ExerciseRowContent(
+                                    draft = draft,
+                                    supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
+                                    isDragging = isDragging,
+                                    isOrganizeMode = isOrganizeMode,
+                                    isReorderMode = isReorderMode,
+                                    blockType = blockTypeById[draft.blockId],
+                                    selectedExerciseIds = selectedExerciseIds,
+                                    onLongPress = { isReorderMode = true },
+                                    onToggleSelection = { viewModel.toggleExerciseSelection(it) },
+                                    onDragStopped = { isReorderMode = false },
+                                    onIncrement = { viewModel.incrementSets(draft.exerciseId) },
+                                    onDecrement = { viewModel.decrementSets(draft.exerciseId) },
+                                    onRemove = { viewModel.removeExercise(draft.exerciseId) },
+                                    onIncrementReps = { viewModel.incrementReps(draft.exerciseId) },
+                                    onDecrementReps = { viewModel.decrementReps(draft.exerciseId) },
+                                    onIncrementHold = { viewModel.incrementHoldSeconds(draft.exerciseId) },
+                                    onDecrementHold = { viewModel.decrementHoldSeconds(draft.exerciseId) },
+                                    onToggleInputMode = { viewModel.toggleInputMode(draft.exerciseId) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Blocks in order
+                    sortedBlocks.forEach { block ->
+                        item(key = "block-header-${block.id}") {
+                            BlockHeader(
+                                block = block,
+                                onAddExercise = {
+                                    val existing = draftExercises.filter { it.blockId == block.id }.map { it.exerciseId }
+                                    navController.currentBackStackEntry?.savedStateHandle
+                                        ?.set("preselected_exercises", ArrayList(existing))
+                                    viewModel.setPendingBlock(block)
+                                    navController.navigate("exercise_picker?functionalFilter=true")
+                                },
+                                onDeleteBlock = { viewModel.deleteBlock(block.id) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                        val blockExercises = exercisesByBlock[block.id] ?: emptyList()
+                        items(blockExercises, key = { it.exerciseId }) { draft ->
+                            ReorderableItem(reorderState, key = draft.exerciseId) { isDragging ->
+                                ExerciseRowContent(
+                                    draft = draft,
+                                    supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
+                                    isDragging = isDragging,
+                                    isOrganizeMode = isOrganizeMode,
+                                    isReorderMode = isReorderMode,
+                                    blockType = blockTypeById[draft.blockId],
+                                    selectedExerciseIds = selectedExerciseIds,
+                                    onLongPress = { isReorderMode = true },
+                                    onToggleSelection = { viewModel.toggleExerciseSelection(it) },
+                                    onDragStopped = { isReorderMode = false },
+                                    onIncrement = { viewModel.incrementSets(draft.exerciseId) },
+                                    onDecrement = { viewModel.decrementSets(draft.exerciseId) },
+                                    onRemove = { viewModel.removeExercise(draft.exerciseId) },
+                                    onIncrementReps = { viewModel.incrementReps(draft.exerciseId) },
+                                    onDecrementReps = { viewModel.decrementReps(draft.exerciseId) },
+                                    onIncrementHold = { viewModel.incrementHoldSeconds(draft.exerciseId) },
+                                    onDecrementHold = { viewModel.decrementHoldSeconds(draft.exerciseId) },
+                                    onToggleInputMode = { viewModel.toggleInputMode(draft.exerciseId) }
+                                )
+                            }
+                        }
+                        item(key = "block-spacer-${block.id}") {
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
             } else {
+                // Flat list (legacy / single STRENGTH block / no blocks)
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier.weight(1f),
@@ -197,28 +304,26 @@ fun TemplateBuilderScreen(
                 ) {
                     items(draftExercises, key = { it.exerciseId }) { draft ->
                         ReorderableItem(reorderState, key = draft.exerciseId) { isDragging ->
-                            when {
-                                isOrganizeMode -> TemplateSupersetSelectRow(
-                                    draft = draft,
-                                    supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
-                                    isSelected = draft.exerciseId in selectedExerciseIds,
-                                    onToggle = { viewModel.toggleExerciseSelection(draft.exerciseId) },
-                                    dragHandleModifier = Modifier.draggableHandle()
-                                )
-                                isReorderMode -> CollapsedTemplateDraftRow(
-                                    draft = draft,
-                                    isDragging = isDragging,
-                                    onDragStopped = { isReorderMode = false }
-                                )
-                                else -> DraftExerciseRow(
-                                    draft = draft,
-                                    supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
-                                    onLongPress = { isReorderMode = true },
-                                    onIncrement = { viewModel.incrementSets(draft.exerciseId) },
-                                    onDecrement = { viewModel.decrementSets(draft.exerciseId) },
-                                    onRemove = { viewModel.removeExercise(draft.exerciseId) }
-                                )
-                            }
+                            ExerciseRowContent(
+                                draft = draft,
+                                supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
+                                isDragging = isDragging,
+                                isOrganizeMode = isOrganizeMode,
+                                isReorderMode = isReorderMode,
+                                blockType = blockTypeById[draft.blockId],
+                                selectedExerciseIds = selectedExerciseIds,
+                                onLongPress = { isReorderMode = true },
+                                onToggleSelection = { viewModel.toggleExerciseSelection(it) },
+                                onDragStopped = { isReorderMode = false },
+                                onIncrement = { viewModel.incrementSets(draft.exerciseId) },
+                                onDecrement = { viewModel.decrementSets(draft.exerciseId) },
+                                onRemove = { viewModel.removeExercise(draft.exerciseId) },
+                                onIncrementReps = { viewModel.incrementReps(draft.exerciseId) },
+                                onDecrementReps = { viewModel.decrementReps(draft.exerciseId) },
+                                onIncrementHold = { viewModel.incrementHoldSeconds(draft.exerciseId) },
+                                onDecrementHold = { viewModel.decrementHoldSeconds(draft.exerciseId) },
+                                onToggleInputMode = { viewModel.toggleInputMode(draft.exerciseId) }
+                            )
                         }
                     }
                 }
@@ -239,17 +344,322 @@ fun TemplateBuilderScreen(
                     }
                 }
                 OutlinedButton(
-                    onClick = { navController.navigate("exercise_picker") },
+                    onClick = {
+                        when (workoutStyle) {
+                            WorkoutStyle.PURE_FUNCTIONAL -> showBlockWizard = true
+                            else -> {
+                                navController.currentBackStackEntry?.savedStateHandle
+                                    ?.set("preselected_exercises", ArrayList<Long>())
+                                navController.navigate("exercise_picker")
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add Exercises")
+                    Text(if (workoutStyle == WorkoutStyle.PURE_FUNCTIONAL) "Add Block" else "Add Exercises")
                 }
             }
         }
+    }
+
+    // FunctionalBlockWizard sheet
+    if (showBlockWizard) {
+        FunctionalBlockWizard(
+            onDismiss = { showBlockWizard = false },
+            onBlockCreated = { block ->
+                showBlockWizard = false
+                // Clear preselected — new block has no existing exercises yet
+                navController.currentBackStackEntry?.savedStateHandle
+                    ?.set("preselected_exercises", ArrayList<Long>())
+                viewModel.setPendingBlock(block)
+                navController.navigate("exercise_picker?functionalFilter=true")
+            }
+        )
+    }
+}
+
+@Composable
+private fun ReorderableCollectionItemScope.ExerciseRowContent(
+    draft: DraftExercise,
+    supersetColor: Color,
+    isDragging: Boolean,
+    isOrganizeMode: Boolean,
+    isReorderMode: Boolean,
+    blockType: BlockType?,
+    selectedExerciseIds: Set<Long>,
+    onLongPress: () -> Unit,
+    onToggleSelection: (Long) -> Unit,
+    onDragStopped: () -> Unit,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit,
+    onRemove: () -> Unit,
+    onIncrementReps: () -> Unit = {},
+    onDecrementReps: () -> Unit = {},
+    onIncrementHold: () -> Unit = {},
+    onDecrementHold: () -> Unit = {},
+    onToggleInputMode: () -> Unit = {}
+) {
+    val isFunctionalBlock = blockType != null && blockType != BlockType.STRENGTH
+    when {
+        isOrganizeMode -> TemplateSupersetSelectRow(
+            draft = draft,
+            supersetColor = supersetColor,
+            isSelected = draft.exerciseId in selectedExerciseIds,
+            onToggle = { onToggleSelection(draft.exerciseId) },
+            dragHandleModifier = Modifier.draggableHandle()
+        )
+        isReorderMode -> CollapsedTemplateDraftRow(
+            draft = draft,
+            isDragging = isDragging,
+            onDragStopped = onDragStopped
+        )
+        isFunctionalBlock -> FunctionalExerciseRow(
+            draft = draft,
+            blockType = blockType!!,
+            onIncrementReps = onIncrementReps,
+            onDecrementReps = onDecrementReps,
+            onIncrementHold = onIncrementHold,
+            onDecrementHold = onDecrementHold,
+            onToggleInputMode = onToggleInputMode,
+            onRemove = onRemove
+        )
+        else -> DraftExerciseRow(
+            draft = draft,
+            supersetColor = supersetColor,
+            onLongPress = onLongPress,
+            onIncrement = onIncrement,
+            onDecrement = onDecrement,
+            onRemove = onRemove
+        )
+    }
+}
+
+private fun formatHoldSeconds(sec: Int): String = when {
+    sec < 60 -> "${sec}s"
+    sec % 60 == 0 -> "${sec / 60}min"
+    else -> "${sec / 60}m ${sec % 60}s"
+}
+
+@Composable
+private fun FunctionalExerciseRow(
+    draft: DraftExercise,
+    blockType: BlockType,
+    onIncrementReps: () -> Unit,
+    onDecrementReps: () -> Unit,
+    onIncrementHold: () -> Unit,
+    onDecrementHold: () -> Unit,
+    onToggleInputMode: () -> Unit,
+    onRemove: () -> Unit
+) {
+    val isTimeMode = draft.holdSeconds != null
+    // Only AMRAP and RFT blocks show the [Reps][Time] toggle
+    val showToggle = blockType == BlockType.AMRAP || blockType == BlockType.RFT
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = PowerMeDefaults.subtleCardElevation()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Exercise name + muscle chip
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = draft.exerciseName,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                SuggestionChip(
+                    onClick = {},
+                    label = { Text(draft.muscleGroup, fontSize = 11.sp) },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = TimerGreen.copy(alpha = 0.12f),
+                        labelColor = TimerGreen
+                    )
+                )
+            }
+
+            // Input controls
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (showToggle) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilterChip(
+                            selected = !isTimeMode,
+                            onClick = { if (isTimeMode) onToggleInputMode() },
+                            label = { Text("Reps", fontSize = 10.sp) },
+                            modifier = Modifier.height(28.dp)
+                        )
+                        FilterChip(
+                            selected = isTimeMode,
+                            onClick = { if (!isTimeMode) onToggleInputMode() },
+                            label = { Text("Time", fontSize = 10.sp) },
+                            modifier = Modifier.height(28.dp)
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = if (isTimeMode) onDecrementHold else onDecrementReps,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(18.dp))
+                    }
+                    Text(
+                        text = if (isTimeMode) formatHoldSeconds(draft.holdSeconds ?: 30)
+                               else "${draft.reps} reps",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.widthIn(min = 56.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    IconButton(
+                        onClick = if (isTimeMode) onIncrementHold else onIncrementReps,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+
+            // Remove button
+            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Remove exercise",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BlockHeader(
+    block: DraftBlock,
+    onAddExercise: () -> Unit,
+    onDeleteBlock: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    val paramSummary = when (block.type) {
+        BlockType.AMRAP -> block.durationSeconds?.let { "${it / 60}min" } ?: ""
+        BlockType.RFT -> buildString {
+            append("${block.targetRounds ?: 0} rounds")
+            block.durationSeconds?.let { append(" · ${it / 60}min cap") }
+        }
+        BlockType.EMOM -> buildString {
+            block.durationSeconds?.let { append("${it / 60}min") }
+            block.emomRoundSeconds?.let { sec ->
+                val label = when {
+                    sec <= 60 -> "60s/round"
+                    sec % 60 == 0 -> "${sec / 60}min/round"
+                    else -> "${sec}s/round"
+                }
+                append(" · $label")
+            }
+        }
+        BlockType.TABATA -> buildString {
+            append("${block.tabataWorkSeconds ?: 20}s / ${block.tabataRestSeconds ?: 10}s")
+            block.targetRounds?.let { append(" × $it") }
+        }
+        BlockType.STRENGTH -> ""
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 4.dp),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Type badge
+            if (block.type != BlockType.STRENGTH) {
+                SuggestionChip(
+                    onClick = {},
+                    label = {
+                        Text(
+                            block.type.displayName,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TimerGreen
+                        )
+                    },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = TimerGreen.copy(alpha = 0.12f)
+                    )
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = block.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (paramSummary.isNotBlank()) {
+                    Text(
+                        text = paramSummary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = "Block options",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Add exercise to block") },
+                        onClick = {
+                            showMenu = false
+                            onAddExercise()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete block", color = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            showMenu = false
+                            onDeleteBlock()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    )
+                }
+            }
+        }
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 4.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
     }
 }
 
