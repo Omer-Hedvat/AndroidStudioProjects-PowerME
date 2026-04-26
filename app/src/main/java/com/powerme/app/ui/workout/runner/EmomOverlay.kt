@@ -1,6 +1,7 @@
 package com.powerme.app.ui.workout.runner
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.powerme.app.ui.theme.TimerDigitsXL
 import com.powerme.app.ui.theme.TimerGreen
@@ -48,6 +50,7 @@ fun EmomOverlay(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
+            .pointerInput(Unit) { detectTapGestures { } },
     ) {
         Column(
             modifier = Modifier

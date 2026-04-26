@@ -1,7 +1,7 @@
 # BUG: Tapping the progress ring area in functional overlays triggers the keyboard
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P1 high
@@ -26,4 +26,13 @@ During an active block the user must be able to tap the ring area freely (e.g. A
 - Related spec: `FUNCTIONAL_TRAINING_SPEC.md`, `THEME_SPEC.md §9.3`
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+Root cause: the overlay's root `Box` had only a `background` modifier and no pointer input handler.
+In Compose, a `Box` without a pointer input modifier does not act as a touch barrier — taps on
+non-interactive areas (ring, recipe rows) fall through to composables drawn below in the same
+parent `Box` (the workout `LazyColumn` with `WorkoutInputField` TextFields), which then capture
+focus and show the keyboard.
+
+Fix: added `.pointerInput(Unit) { detectTapGestures { } }` to the outermost `Box` in each of
+the four overlays (AMRAP, RFT, EMOM, TABATA). This makes the Box claim any tap gesture not
+already consumed by its children (buttons, BlindTapZone), preventing propagation to the
+underlying LazyColumn. No changes to `BlindTapZone` or child composables were needed.
