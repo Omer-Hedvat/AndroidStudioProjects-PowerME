@@ -85,6 +85,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import java.util.ArrayList
+import com.powerme.app.data.WorkoutStyle
 import com.powerme.app.ui.workouts.AddBlockOrExerciseSheet
 import com.powerme.app.ui.workouts.FunctionalBlockWizard
 
@@ -120,6 +121,7 @@ fun ActiveWorkoutScreen(
     var showBlockWizard by remember { mutableStateOf(false) }
     var showHybridSheet by remember { mutableStateOf(false) }
     var pendingDraftBlock by remember { mutableStateOf<com.powerme.app.ui.workouts.DraftBlock?>(null) }
+    var pendingBlockId by remember { mutableStateOf<String?>(null) }
     var showCancelDialog by remember { mutableStateOf(false) }
     var showDiscardEditDialog by remember { mutableStateOf(false) }
     var showTimerControls by remember { mutableStateOf(false) }
@@ -389,8 +391,8 @@ fun ActiveWorkoutScreen(
                         activeTimerTotalSeconds = activeTimerTotalSeconds,
                         onShowExerciseDialog = {
                             when (workoutStyle) {
-                                com.powerme.app.data.WorkoutStyle.PURE_FUNCTIONAL -> showBlockWizard = true
-                                com.powerme.app.data.WorkoutStyle.HYBRID -> showHybridSheet = true
+                                WorkoutStyle.PURE_FUNCTIONAL -> showBlockWizard = true
+                                WorkoutStyle.HYBRID -> showHybridSheet = true
                                 else -> showExerciseDialog = true
                             }
                         },
@@ -403,7 +405,12 @@ fun ActiveWorkoutScreen(
                         rpeAutoPopTarget = rpeAutoPopTarget,
                         onConsumeRpeAutoPop = { viewModel.consumeRpeAutoPop() },
                         setupSeconds = setupSeconds,
-                        onSetupCountdownTick = { viewModel.setupCountdownTickFeedback() }
+                        onSetupCountdownTick = { viewModel.setupCountdownTickFeedback() },
+                        workoutStyle = workoutStyle,
+                        onAddExerciseToBlock = { blockId ->
+                            pendingBlockId = blockId
+                            showExerciseDialog = true
+                        },
                     )
                 }
             }
@@ -488,10 +495,12 @@ fun ActiveWorkoutScreen(
 
     if (showExerciseDialog) {
         val draft = pendingDraftBlock
+        val targetBlockId = pendingBlockId
         ModalBottomSheet(
             onDismissRequest = {
                 showExerciseDialog = false
                 pendingDraftBlock = null
+                pendingBlockId = null
             },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
@@ -499,13 +508,24 @@ fun ActiveWorkoutScreen(
                 pickerMode = true,
                 isModal = true,
                 initialFunctionalFilter = draft != null,
+                initialSelectedIds = if (targetBlockId != null) {
+                    workoutState.exercises
+                        .filter { it.blockId == targetBlockId }
+                        .map { it.exercise.id }
+                        .toSet()
+                } else emptySet(),
                 onExercisesSelected = { ids ->
                     val selectedExercises = ids.mapNotNull { id -> workoutState.availableExercises.find { it.id == id } }
-                    if (draft != null) {
-                        viewModel.addFunctionalBlock(draft, selectedExercises)
-                        pendingDraftBlock = null
-                    } else {
-                        selectedExercises.forEach { viewModel.addExercise(it) }
+                    when {
+                        draft != null -> {
+                            viewModel.addFunctionalBlock(draft, selectedExercises)
+                            pendingDraftBlock = null
+                        }
+                        targetBlockId != null -> {
+                            selectedExercises.forEach { viewModel.addExercise(it, blockId = targetBlockId) }
+                            pendingBlockId = null
+                        }
+                        else -> selectedExercises.forEach { viewModel.addExercise(it) }
                     }
                     showExerciseDialog = false
                 }
@@ -568,6 +588,8 @@ private fun FunctionalBlockActiveCard(
     onWeightChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
     onRepsChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
     onTimeChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
+    onRemoveExercise: (exId: Long) -> Unit = {},
+    onAddExercise: (() -> Unit)? = null,
 ) {
     val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
         .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
@@ -669,51 +691,50 @@ private fun FunctionalBlockActiveCard(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            // Column headers
+            val allTimed = exercises.all { it.exercise.exerciseType == ExerciseType.TIMED }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "EXERCISE",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = "WEIGHT",
-                    fontSize = 10.sp,
+                    text = if (allTimed) "TIME(S)" else "REPS",
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.width(72.dp)
+                    modifier = Modifier.width(52.dp)
                 )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "REPS",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.width(72.dp)
-                )
-                Spacer(Modifier.width(20.dp)) // aligns with the "reps"/"s" label space
+                Spacer(modifier = Modifier.weight(1f))
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-
-            // Exercise rows — one plain row per exercise, no sets/PRE/RPE/checkmark
+            // Exercise rows — editable prescription
             exercises.forEachIndexed { index, exWithSets ->
                 if (index > 0) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 }
                 FunctionalExerciseRow(
                     exerciseWithSets = exWithSets,
-                    unitSystem = unitSystem,
-                    onWeightChanged = { setOrder, v -> onWeightChanged(exWithSets.exercise.id, setOrder, v) },
-                    onRepsChanged = { setOrder, v -> onRepsChanged(exWithSets.exercise.id, setOrder, v) },
-                    onTimeChanged = { setOrder, v -> onTimeChanged(exWithSets.exercise.id, setOrder, v) },
+                    onRepsChanged = onRepsChanged,
+                    onTimeChanged = onTimeChanged,
+                    onRemove = if (!alreadyRun) ({ onRemoveExercise(exWithSets.exercise.id) }) else null,
                 )
+            }
+
+            // Add exercise button — only show before block has started
+            if (!alreadyRun && onAddExercise != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                TextButton(
+                    onClick = onAddExercise,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add exercise", style = MaterialTheme.typography.labelMedium)
+                }
             }
         }
     }
@@ -721,87 +742,92 @@ private fun FunctionalBlockActiveCard(
 
 /**
  * Single exercise row inside a [FunctionalBlockActiveCard].
- * Shows name, optional muscle group, weight field, and reps-or-time field.
+ * Shows an inline editable prescription:
+ *  - Reps exercise: [10] Air Squat  reps
+ *  - Timed exercise: [30] Plank  sec
  */
 @Composable
 private fun FunctionalExerciseRow(
     exerciseWithSets: ExerciseWithSets,
-    unitSystem: UnitSystem,
-    onWeightChanged: (setOrder: Int, value: String) -> Unit,
-    onRepsChanged: (setOrder: Int, value: String) -> Unit,
-    onTimeChanged: (setOrder: Int, value: String) -> Unit,
+    onRepsChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
+    onTimeChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
+    onRemove: (() -> Unit)? = null,
 ) {
     val exercise = exerciseWithSets.exercise
     val set = exerciseWithSets.sets.firstOrNull()
     val isTimed = exercise.exerciseType == ExerciseType.TIMED
+    val setOrder = set?.setOrder ?: 1
+    val value = if (isTimed) {
+        set?.timeSeconds?.takeIf { it.isNotBlank() } ?: "30"
+    } else {
+        set?.reps?.takeIf { it.isNotBlank() && it != "0" } ?: "10"
+    }
+
+    var tfv by remember { mutableStateOf(TextFieldValue(value)) }
+    LaunchedEffect(value) {
+        if (tfv.text != value) tfv = TextFieldValue(value)
+    }
+    var selectAllTrigger by remember { mutableIntStateOf(0) }
+    LaunchedEffect(selectAllTrigger) {
+        if (selectAllTrigger > 0) {
+            delay(50)
+            tfv = tfv.copy(selection = TextRange(0, tfv.text.length))
+        }
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = exercise.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.width(52.dp)
+        ) {
+            BasicTextField(
+                value = tfv,
+                onValueChange = { new ->
+                    val filteredText = new.text.filter { it.isDigit() }
+                    tfv = new.copy(text = filteredText)
+                    if (isTimed) onTimeChanged(exercise.id, setOrder, filteredText)
+                    else onRepsChanged(exercise.id, setOrder, filteredText)
+                },
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp)
+                    .onFocusChanged { if (it.isFocused) selectAllTrigger++ }
             )
-            exercise.muscleGroup?.let { muscle ->
-                Text(
-                    text = muscle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        }
+        Text(
+            text = exercise.name,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (onRemove != null) {
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Remove exercise",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
                 )
             }
-        }
-        Spacer(Modifier.width(8.dp))
-        // Weight field
-        WorkoutInputField(
-            value = set?.weight ?: "",
-            onValueChange = { v -> set?.let { onWeightChanged(it.setOrder, v) } },
-            modifier = Modifier.width(72.dp),
-            placeholder = "0",
-            keyboardType = KeyboardType.Decimal,
-            imeAction = ImeAction.Next,
-            accessoryEnabled = true
-        )
-        Spacer(Modifier.width(6.dp))
-        // Reps or hold-seconds field
-        if (isTimed) {
-            WorkoutInputField(
-                value = set?.timeSeconds ?: "",
-                onValueChange = { v -> set?.let { onTimeChanged(it.setOrder, v) } },
-                modifier = Modifier.width(72.dp),
-                placeholder = "0",
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done,
-                accessoryEnabled = true
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "s",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            WorkoutInputField(
-                value = set?.reps ?: "",
-                onValueChange = { v -> set?.let { onRepsChanged(it.setOrder, v) } },
-                modifier = Modifier.width(72.dp),
-                placeholder = "0",
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done,
-                accessoryEnabled = true
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "reps",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -911,7 +937,9 @@ private fun LazyListScope.activeWorkoutListItems(
     rpeAutoPopTarget: String? = null,
     onConsumeRpeAutoPop: () -> Unit = {},
     setupSeconds: Int = 0,
-    onSetupCountdownTick: () -> Unit = {}
+    onSetupCountdownTick: () -> Unit = {},
+    workoutStyle: WorkoutStyle = WorkoutStyle.PURE_GYM,
+    onAddExerciseToBlock: (blockId: String) -> Unit = {},
 ) {
     // Organize Mode CAB — persistent; user exits only via Done
     if (workoutState.isSupersetSelectMode) {
@@ -1042,6 +1070,8 @@ private fun LazyListScope.activeWorkoutListItems(
                         onWeightChanged = { exId, setOrder, v -> viewModel.onWeightChanged(exId, setOrder, v) },
                         onRepsChanged = { exId, setOrder, v -> viewModel.onRepsChanged(exId, setOrder, v) },
                         onTimeChanged = { exId, setOrder, v -> viewModel.onTimeChanged(exId, setOrder, v) },
+                        onRemoveExercise = { exId -> viewModel.removeExercise(exId) },
+                        onAddExercise = { onAddExerciseToBlock(block.id) },
                     )
                 }
             }
@@ -1266,9 +1296,16 @@ private fun LazyListScope.activeWorkoutListItems(
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Exercise")
+            Icon(Icons.Default.Add, contentDescription = "Add")
             Spacer(modifier = Modifier.width(8.dp))
-            Text("ADD EXERCISE", fontWeight = FontWeight.Bold)
+            Text(
+                when (workoutStyle) {
+                    WorkoutStyle.PURE_FUNCTIONAL -> "ADD BLOCK"
+                    WorkoutStyle.HYBRID -> "ADD BLOCK OR EXERCISE"
+                    else -> "ADD EXERCISE"
+                },
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 

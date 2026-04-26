@@ -18,6 +18,7 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_time_based_exercise_column_header](BUG_time_based_exercise_column_header.md) | Time-based exercise column header shows 'Reps' instead of 'Time' | ✅ Completed | P2 | — | — | `ActiveWorkoutScreen.kt` |
 | [BUG_func_block_exercise_reps_config](BUG_func_block_exercise_reps_config.md) | Functional block exercises default to 0 reps with no way to configure reps/time | ✅ Completed | P1 | — | — | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
 | [BUG_quick_start_add_block_dispatch](BUG_quick_start_add_block_dispatch.md) | Quick-start Add button should dispatch to Add Block for Hybrid/Pure Functional styles | ✅ Completed | P1 | — | — | `ActiveWorkoutScreen.kt` |
+| [BUG_active_workout_header_and_input_select](BUG_active_workout_header_and_input_select.md) | Active workout: column headers missing + tap input should select all text | ✅ Wrapped | P2 | — | — | `ActiveWorkoutScreen.kt` |
 
 ---
 
