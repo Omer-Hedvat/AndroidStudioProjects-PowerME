@@ -16,6 +16,7 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.sync.FirestoreSyncManager
 import com.powerme.app.health.HealthConnectManager
 import com.powerme.app.data.database.Exercise
+import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.util.UnitConverter
 import com.powerme.app.data.database.Routine
 import com.powerme.app.data.database.RoutineDao
@@ -442,11 +443,12 @@ class WorkoutViewModel @Inject constructor(
         val recipeRows = state.exercises
             .filter { it.blockId == block.id }
             .map { ex ->
+                val isTimed = ex.exercise.exerciseType == ExerciseType.TIMED
                 RecipeRow(
                     exerciseId = ex.exercise.id,
                     exerciseName = ex.exercise.name,
-                    reps = ex.sets.firstOrNull()?.reps?.toIntOrNull(),
-                    holdSeconds = null,
+                    reps = if (!isTimed) ex.sets.firstOrNull()?.reps?.toIntOrNull() else null,
+                    holdSeconds = if (isTimed) ex.sets.firstOrNull()?.timeSeconds?.toIntOrNull() else null,
                 )
             }
         return BlockPlan(
@@ -714,7 +716,9 @@ class WorkoutViewModel @Inject constructor(
                         weight = weightStr,
                         reps = ws.reps.toString(),
                         setType = ws.setType,
-                        timeSeconds = ghost?.timeSeconds?.let { if (it > 0) it.toString() else "" } ?: "",
+                        timeSeconds = ghost?.timeSeconds?.let { if (it > 0) it.toString() else "" }
+                            ?: ws.timeSeconds?.let { if (it > 0) it.toString() else "" }
+                            ?: "",
                         ghostWeight = ghost?.weight?.let { if (it > 0.0) formatWeight(it, currentUnit) else null },
                         ghostReps = ghost?.reps?.let { if (it > 0) it.toString() else null },
                         ghostRpe = ghost?.rpe?.let { formatGhostRpe(it) },
@@ -1144,7 +1148,16 @@ class WorkoutViewModel @Inject constructor(
                     )
                 }
             } else {
-                listOf(ActiveSet(setOrder = 1, weight = "0", reps = "0"))
+                if (blockId != null) {
+                    // Functional block: prescription defaults (no prior session data)
+                    if (exercise.exerciseType == ExerciseType.TIMED) {
+                        listOf(ActiveSet(setOrder = 1, timeSeconds = "30"))
+                    } else {
+                        listOf(ActiveSet(setOrder = 1, reps = "10"))
+                    }
+                } else {
+                    listOf(ActiveSet(setOrder = 1, weight = "0", reps = "0"))
+                }
             }
 
             // Load sticky note from DB (only when a routine is active)

@@ -12,7 +12,7 @@ import com.powerme.app.ui.workout.RecipeRow
 @Composable
 fun BlockRecipeRow(row: RecipeRow, modifier: Modifier = Modifier) {
     val line = when {
-        row.reps != null -> "${row.reps} ${row.exerciseName}"
+        row.reps != null -> "${row.reps} ${row.exerciseName} Reps"
         row.holdSeconds != null -> "${row.holdSeconds}s ${row.exerciseName}"
         else -> row.exerciseName
     }

@@ -8,6 +8,7 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | Bug | Title | Status | Severity | Files Changed |
 |-----|-------|--------|----------|---------------|
 | [BUG_func_overlay_ring_tap_keyboard](BUG_func_overlay_ring_tap_keyboard.md) | Tapping progress ring in functional overlays triggers soft keyboard | ✅ Wrapped | P1 | `EmomOverlay.kt`, `AmrapOverlay.kt`, `RftOverlay.kt`, `TabataOverlay.kt` |
+| [BUG_active_workout_header_and_input_select](BUG_active_workout_header_and_input_select.md) | Active workout: column headers missing + tap input should select all text | ✅ Wrapped | P2 | `ActiveWorkoutScreen.kt` |
 | [BUG_func_routine_view_no_block_ui](BUG_func_routine_view_no_block_ui.md) | Routine summary and edit pages show flat exercise list instead of functional block structure | ~~Superseded~~ by FUNC_TEMPLATE_BUILDER_POLISH_SPEC | P2 | — |
 | [BUG_func_no_block_edit](BUG_func_no_block_edit.md) | No way to edit a functional block's parameters after routine creation | ~~Superseded~~ by FUNC_TEMPLATE_BUILDER_POLISH_SPEC | P1 | — |
 | [BUG_func_active_workout_add_functional_block](BUG_func_active_workout_add_functional_block.md) | Active workout Add button always opens strength picker regardless of workout style | ✅ Wrapped | P1 | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
@@ -116,3 +117,5 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | [BUG_func_overlay_typography_too_small](BUG_func_overlay_typography_too_small.md) | Overlay typography too small — round number, exercises, reps unreadable at arm's length | ✅ Wrapped | P2 | `AmrapOverlay.kt`, `RftOverlay.kt`, `EmomOverlay.kt`, `TabataOverlay.kt`, `BlockRecipeRow.kt` |
 | [BUG_func_rft_round_btn_ui](BUG_func_rft_round_btn_ui.md) | RFT "ROUND ✓" button too small; AMRAP and RFT round button UI inconsistent | ✅ Wrapped | P2 | `RftOverlay.kt`, `AmrapOverlay.kt`, `BlindTapZone.kt` |
 | [BUG_func_overlay_exercise_format](BUG_func_overlay_exercise_format.md) | Functional overlay exercise list: "10 Box Jump" format instead of separate columns | ✅ Wrapped | P2 | `BlockRecipeRow.kt` |
+| [BUG_func_block_exercise_reps_config](BUG_func_block_exercise_reps_config.md) | Functional block exercises default to 0 reps with no way to configure reps/time | ✅ Wrapped | P1 | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt`, `BlockRecipeRow.kt` |
+| [BUG_quick_start_add_block_dispatch](BUG_quick_start_add_block_dispatch.md) | Quick-start Add button should dispatch to Add Block for Hybrid/Pure Functional styles | ✅ Wrapped | P1 | `ActiveWorkoutScreen.kt` |

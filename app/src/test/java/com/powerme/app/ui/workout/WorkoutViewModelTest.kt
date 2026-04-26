@@ -5129,6 +5129,73 @@ class WorkoutViewModelTest {
 
         verify(mockFunctionalBlockRunner, never()).abandon()
     }
+
+    // -------------------------------------------------------------------------
+    // addExercise: functional block prescription defaults
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `addExercise defaults to 10 reps when added to functional block with no prior session`() = vmTest {
+        whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+
+        val exercise = Exercise(id = 42L, name = "Burpee", muscleGroup = "Full Body", equipmentType = "Bodyweight", exerciseType = ExerciseType.STRENGTH)
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise, blockId = "block-1")
+        runCurrent()
+
+        val addedExercise = viewModel.workoutState.value.exercises.find { it.exercise.id == 42L }
+        assertNotNull(addedExercise)
+        val set = addedExercise!!.sets.firstOrNull()
+        assertNotNull(set)
+        assertEquals("10", set!!.reps)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `addExercise defaults to 30s when added to functional block for TIMED exercise with no prior session`() = vmTest {
+        whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+
+        val exercise = Exercise(id = 43L, name = "Plank", muscleGroup = "Core", equipmentType = "Bodyweight", exerciseType = ExerciseType.TIMED)
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise, blockId = "block-1")
+        runCurrent()
+
+        val addedExercise = viewModel.workoutState.value.exercises.find { it.exercise.id == 43L }
+        assertNotNull(addedExercise)
+        val set = addedExercise!!.sets.firstOrNull()
+        assertNotNull(set)
+        assertEquals("30", set!!.timeSeconds)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `addExercise defaults to 0 reps for strength exercise outside functional block`() = vmTest {
+        whenever(mockWorkoutSetDao.getPreviousSessionSets(any(), any())).thenReturn(emptyList())
+        whenever(mockWorkoutRepository.createWorkoutSet(any())).thenReturn(Unit)
+
+        val exercise = Exercise(id = 44L, name = "Squat", muscleGroup = "Legs", equipmentType = "Barbell", exerciseType = ExerciseType.STRENGTH)
+        viewModel.startWorkout("")
+        runCurrent()
+        viewModel.addExercise(exercise, blockId = null)
+        runCurrent()
+
+        val addedExercise = viewModel.workoutState.value.exercises.find { it.exercise.id == 44L }
+        assertNotNull(addedExercise)
+        val set = addedExercise!!.sets.firstOrNull()
+        assertNotNull(set)
+        assertEquals("0", set!!.reps)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
 }
 
 // ── Test helpers ─────────────────────────────────────────────────────────────
