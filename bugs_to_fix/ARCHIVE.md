@@ -10,6 +10,7 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | [BUG_func_routine_view_no_block_ui](BUG_func_routine_view_no_block_ui.md) | Routine summary and edit pages show flat exercise list instead of functional block structure | ~~Superseded~~ by FUNC_TEMPLATE_BUILDER_POLISH_SPEC | P2 | — |
 | [BUG_func_active_workout_add_functional_block](BUG_func_active_workout_add_functional_block.md) | Active workout Add button always opens strength picker regardless of workout style | ✅ Wrapped | P1 | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
 | [BUG_func_rft_screen_off](BUG_func_rft_screen_off.md) | Screen turns off during RFT overlay / Always mode despite "Keep Screen On" setting | ✅ Wrapped | P1 | `MainActivity.kt`, `ActiveWorkoutScreen.kt` |
+| [BUG_func_picker_excludes_strength_functional](BUG_func_picker_excludes_strength_functional.md) | Functional block exercise picker excludes STRENGTH-typed functional exercises (Power Clean, KB Swing, Front Squat, etc.) | ✅ Wrapped | P1 | `TemplateBuilderScreen.kt`, `ExerciseTagsFilterTest.kt` |
 |-----|-------|--------|----------|---------------|
 | [BUG_start_workout_after_edit](BUG_start_workout_after_edit.md) | Start workout button broken after editing a routine | ✅ Fixed & Committed | P0 | `WorkoutViewModel.kt` |
 | [BUG_ai_text_generator_no_parse](BUG_ai_text_generator_no_parse.md) | AI text generator does not generate workout from natural language input | ✅ Wrapped | P1 | No code changes — stale; fixed by WorkoutParserRouter + AiWorkoutViewModel |

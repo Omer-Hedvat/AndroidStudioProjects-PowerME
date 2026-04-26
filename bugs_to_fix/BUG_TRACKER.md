@@ -19,7 +19,6 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_post_workout_rpe_redesign](BUG_post_workout_rpe_redesign.md) | Post-workout RPE auto-pops instead of offering an "Add RPE" button with RPE scale titles | 🔵 Open | P2 | — | — | — |
 | [BUG_func_no_block_edit](BUG_func_no_block_edit.md) | No way to edit a functional block's parameters (type, duration, rounds, cap) after routine creation | 🔵 Open | P1 | — | — | — |
 | [BUG_func_overlay_ring_tap_keyboard](BUG_func_overlay_ring_tap_keyboard.md) | Tapping progress ring in functional overlays triggers soft keyboard | 🔵 Open | P1 | — | — | — |
-| [BUG_func_picker_excludes_strength_functional](BUG_func_picker_excludes_strength_functional.md) | Functional block exercise picker excludes STRENGTH-typed functional exercises (Power Clean, KB Swing, Front Squat, etc.) | ✅ Completed | P1 | — | — | `TemplateBuilderScreen.kt` |
 | [BUG_func_overlay_abandon_rename](BUG_func_overlay_abandon_rename.md) | "Abandon" button exits entire workout instead of just the block | ✅ Completed | P2 | — | — | `AmrapOverlay.kt`, `RftOverlay.kt`, `EmomOverlay.kt`, `TabataOverlay.kt`, `ActiveWorkoutScreen.kt` |
 
 ---
