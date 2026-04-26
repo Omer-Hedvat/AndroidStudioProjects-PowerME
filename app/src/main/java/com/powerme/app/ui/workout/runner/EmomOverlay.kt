@@ -64,12 +64,12 @@ fun EmomOverlay(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "Round ${state.currentRound} of ${state.totalRounds}",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = "${intervalSecs}s interval",
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 

@@ -43,6 +43,7 @@ fun BlindTapZone(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    label: String = "ROUND ✓",
 ) {
     val haptic = LocalHapticFeedback.current
     var lastTapMs by remember { mutableStateOf(0L) }
@@ -82,7 +83,7 @@ fun BlindTapZone(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "TAP",
+                text = label,
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Bold,

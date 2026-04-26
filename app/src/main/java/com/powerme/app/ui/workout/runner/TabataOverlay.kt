@@ -69,12 +69,12 @@ fun TabataOverlay(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "Round ${state.currentRound} of ${state.totalRounds}",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = phaseLabel,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.headlineMedium,
                 color = ringColor,
             )
 

@@ -76,16 +76,25 @@ fun RftOverlay(
             }
             Text(
                 text = "Round ${state.roundTapCount} / $target",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             Column(modifier = Modifier.fillMaxWidth()) {
                 state.plan.recipe.forEach { row -> BlockRecipeRow(row) }
             }
+            Spacer(Modifier.height(16.dp))
 
-            Spacer(Modifier.weight(1f))
+            Box(modifier = Modifier.weight(1f)) {
+                BlindTapZone(
+                    currentRound = state.roundTapCount + 1,
+                    onTap = onRoundTap,
+                    label = "ROUND ✓",
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             Column(
                 modifier = Modifier
@@ -94,17 +103,10 @@ fun RftOverlay(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
-                    onClick = onRoundTap,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = TimerGreen),
-                ) { Text("ROUND ✓") }
-                Button(
                     onClick = { showFinishConfirm = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(72.dp),
+                        .height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) { Text("FINISH WOD") }
                 OutlinedButton(

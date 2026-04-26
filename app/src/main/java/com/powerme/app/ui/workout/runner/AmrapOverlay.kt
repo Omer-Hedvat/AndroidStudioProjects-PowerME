@@ -68,18 +68,22 @@ fun AmrapOverlay(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Round ${state.roundTapCount + 1}",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 state.plan.recipe.forEach { row -> BlockRecipeRow(row) }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
 
             Box(modifier = Modifier.weight(1f)) {
-                BlindTapZone(currentRound = state.roundTapCount + 1, onTap = onTap)
+                BlindTapZone(
+                    currentRound = state.roundTapCount + 1,
+                    onTap = onTap,
+                    label = "ROUND ✓",
+                )
             }
 
             Spacer(Modifier.height(12.dp))
