@@ -1,7 +1,7 @@
 {
-  "version": "2.3.1",
-  "lastUpdated": "2026-04-24",
-  "totalExercises": 355,
+  "version": "2.4.0",
+  "lastUpdated": "2026-04-26",
+  "totalExercises": 376,
   "exercises": [
     {
       "name": "Barbell Back Squat",
@@ -819,22 +819,6 @@
       "secondaryJoints": "[\"HIP\"]"
     },
     {
-      "name": "Nordic Curl",
-      "muscleGroup": "Legs",
-      "equipmentType": "Bodyweight",
-      "exerciseType": "STRENGTH",
-      "familyId": "leg_curl_family",
-      "youtubeVideoId": "B5wCAKzS6Jc",
-      "setupNotes": "Kneel on a padded surface and have a partner hold your ankles down firmly, or anchor them under something heavy. Keeping your body in a straight line from knees to head, lower yourself toward the floor as slowly as possible by letting your knees straighten. Catch yourself at the bottom and use a small push to get back up, then pull yourself back to the start with your hamstrings. Don't let your hips break — your body should move as one rigid plank; hip bending is just cheating yourself.",
-      "committeeNotes": "Dr. Brad: 3-8 reps, strength. Noa: Injury prevention gold standard. Boris: Negatives if can't do full.",
-      "restDurationSeconds": 120,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"KNEE\"]",
-      "secondaryJoints": "[\"HIP\"]"
-    },
-    {
       "name": "Leg Extension",
       "muscleGroup": "Legs",
       "equipmentType": "Machine",
@@ -1155,23 +1139,6 @@
       "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
       "secondaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
       "tags": "[\"functional\"]"
-    },
-    {
-      "name": "Farmer's Walk",
-      "muscleGroup": "Core",
-      "equipmentType": "Dumbbell",
-      "exerciseType": "TIMED",
-      "familyId": "accessory_family",
-      "youtubeVideoId": "rt14xQ0RPhM",
-      "setupNotes": "Pick up two heavy dumbbells or kettlebells, one in each hand, and stand tall with your shoulders pulled back. Walk forward at a steady, controlled pace — keep your chest up, core tight, and steps even. Don't shrug or let the weights pull your shoulders forward and down; think about keeping them locked back the whole walk.",
-      "committeeNotes": "Dr. Brad: 30-60 sec walks. Noa: Excellent functional strength. Boris: Heavy, short distance.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"SHOULDER\"]",
-      "secondaryJoints": "[\"LUMBAR_SPINE\",\"WRIST\",\"HIP\",\"KNEE\"]",
-      "tags": "[\"functional\",\"hyrox\"]"
     },
     {
       "name": "Sled Push",
@@ -1521,11 +1488,11 @@
       "muscleGroup": "Arms",
       "equipmentType": "Bodyweight",
       "exerciseType": "STRENGTH",
-      "familyId": "accessory_family",
+      "familyId": "dip_family",
       "youtubeVideoId": "0326dy_-CzM",
       "setupNotes": "Sit on the edge of a bench and place your hands beside your hips with your fingers pointing forward. Step your feet out in front and lower yourself by bending your elbows until your upper arms are roughly parallel to the floor, then push back up. Keep your back close to the bench. Don't dip too deep or let your shoulders roll forward — stop when your upper arms are parallel.",
       "committeeNotes": "Dr. Brad: 10-20 reps. Noa: Monitor shoulder/elbow depth. Boris: High rep work.",
-      "restDurationSeconds": 60,
+      "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
       "isCustom": false,
@@ -1932,23 +1899,6 @@
       "isCustom": false,
       "primaryJoints": "[\"LUMBAR_SPINE\",\"HIP\"]",
       "secondaryJoints": ""
-    },
-    {
-      "name": "L-Sit",
-      "muscleGroup": "Core",
-      "equipmentType": "Bodyweight",
-      "exerciseType": "TIMED",
-      "familyId": "core_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Sit on the floor (or two parallel bars/handles) with your hands planted beside your hips. Press through your palms to lift your body off the surface, then extend your legs straight out in front of you so they're parallel to the floor. Hold that position without letting your legs drop. Don't bend your knees to make it easier — a tucked L-sit is a valid progression, but the full version requires perfectly straight legs.",
-      "committeeNotes": "High core and hip flexor demand.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
-      "secondaryJoints": "[\"SHOULDER\",\"ELBOW\",\"WRIST\"]",
-      "tags": "[\"functional\",\"gymnastics\"]"
     },
     {
       "name": "Landmine Anti-Rotation Press",
@@ -2642,22 +2592,6 @@
       "secondaryJoints": "[\"KNEE\",\"ANKLE\"]"
     },
     {
-      "name": "Band Pull-Apart (Resistance Band)",
-      "muscleGroup": "Back",
-      "equipmentType": "Resistance Band",
-      "exerciseType": "STRENGTH",
-      "familyId": "accessory_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Hold a resistance band in front of you at about shoulder height with arms straight and hands about shoulder-width apart. Pull the band apart by squeezing your shoulder blades together until the band touches your chest. Slowly return to the start and repeat. Don't let your elbows bend as you pull — keep them nearly straight; bending them turns it into a back-fly and takes tension off the target muscles.",
-      "committeeNotes": "Dr. Brad: 20-25 reps, posterior chain shoulder health. Noa: Critical for heavy pressers — prevents AC joint issues. Boris: 3x20 every upper body session.",
-      "restDurationSeconds": 60,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"SHOULDER\"]",
-      "secondaryJoints": ""
-    },
-    {
       "name": "Smith Machine Squat",
       "muscleGroup": "Legs",
       "equipmentType": "Smith Machine",
@@ -3252,22 +3186,6 @@
       "secondaryJoints": "[\"WRIST\"]"
     },
     {
-      "name": "Bench Dip (Feet Elevated)",
-      "muscleGroup": "Arms",
-      "equipmentType": "Bench",
-      "exerciseType": "STRENGTH",
-      "familyId": "dip_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Place your hands on a bench behind you and your heels on another bench or box in front of you so your body is suspended between them. Lower yourself by bending your elbows until your upper arms are parallel to the floor, then push back up. The elevated feet increase the load compared to standard bench dips. Don't let your hips drift far away from the bench — keep your back close and dip straight down.",
-      "committeeNotes": "Increased tricep load.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
-      "secondaryJoints": "[\"WRIST\"]"
-    },
-    {
       "name": "Incline Push-up",
       "muscleGroup": "Chest",
       "equipmentType": "Bench",
@@ -3428,22 +3346,6 @@
       "secondaryJoints": "[\"WRIST\",\"HIP\"]"
     },
     {
-      "name": "Explosive Pull-up (Chest-to-Bar)",
-      "muscleGroup": "Back",
-      "equipmentType": "Pull-up Bar",
-      "exerciseType": "STRENGTH",
-      "familyId": "pullup_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Hang from a bar and perform a pull-up with maximum power, pulling hard enough that your chest makes contact with the bar at the top. Lower back down to a full hang and rest as needed between reps to maintain quality. Focus on accelerating through the entire pull, not just the bottom. Don't coast through the top half — the explosive intent needs to be there from the first inch of the pull to get your chest high enough.",
-      "committeeNotes": "Power development.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
-      "secondaryJoints": "[\"WRIST\"]"
-    },
-    {
       "name": "Single-Arm Australian Row",
       "muscleGroup": "Back",
       "equipmentType": "Bodyweight",
@@ -3522,22 +3424,6 @@
       "isCustom": false,
       "primaryJoints": "[\"KNEE\",\"HIP\"]",
       "secondaryJoints": "[\"ANKLE\"]"
-    },
-    {
-      "name": "Sissy Squat (Bodyweight)",
-      "muscleGroup": "Legs",
-      "equipmentType": "Bodyweight",
-      "exerciseType": "STRENGTH",
-      "familyId": "squat_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Stand holding something lightly for balance, feet together or hip-width apart, and rise onto the balls of your feet. Lean your entire body backward as one unit while bending your knees, lowering until your knees nearly touch the floor. Squeeze your quads hard to pull back up. Don't let your hips break — your body from knee to shoulder should stay in a rigid straight line; any hip bending takes the work away from your quads.",
-      "committeeNotes": "Extreme quad isolation.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"KNEE\"]",
-      "secondaryJoints": "[\"HIP\",\"ANKLE\"]"
     },
     {
       "name": "Reverse Nordic",
@@ -3734,22 +3620,6 @@
       "secondaryJoints": "[\"SHOULDER\"]"
     },
     {
-      "name": "Knee-to-Elbow (Bar)",
-      "muscleGroup": "Core",
-      "equipmentType": "Pull-up Bar",
-      "exerciseType": "STRENGTH",
-      "familyId": "core_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Hang from a pull-up bar with a shoulder-width overhand grip, body in a controlled hang. Bring one knee up and across your body, aiming to touch it to the opposite elbow, then lower it and repeat on the other side. Keep the movement deliberate and rotational — you should feel your obliques working with each rep. Don't just kick your knees up randomly; the cross-body rotation is what makes this exercise effective.",
-      "committeeNotes": "Advanced core strength.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"HIP\",\"LUMBAR_SPINE\"]",
-      "secondaryJoints": "[\"SHOULDER\"]"
-    },
-    {
       "name": "Mountain Climber",
       "muscleGroup": "Core",
       "equipmentType": "Bodyweight",
@@ -3847,22 +3717,6 @@
       "isCustom": false,
       "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
       "secondaryJoints": "[\"WRIST\",\"HIP\"]"
-    },
-    {
-      "name": "Farmer's Walk (Heavy Bags)",
-      "muscleGroup": "Full Body",
-      "equipmentType": "Bodyweight",
-      "exerciseType": "STRENGTH",
-      "familyId": "movement_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Pick up two heavy bags or loaded handles — one in each hand — and stand tall with your shoulders pulled back and your core tight. Walk forward with even, controlled steps, keeping your chest up and your posture upright despite the load. Don't let the weight of the bags drag your shoulders forward and down into a hunched position; fight to keep your shoulder blades retracted for the full walk.",
-      "committeeNotes": "Grip and posture.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"SHOULDER\"]",
-      "secondaryJoints": "[\"LUMBAR_SPINE\",\"WRIST\",\"HIP\",\"KNEE\"]"
     },
     {
       "name": "Jumping Jacks",
@@ -4220,23 +4074,6 @@
       "primaryJoints": "[\"SHOULDER\",\"ELBOW\"]",
       "secondaryJoints": "[\"WRIST\",\"HIP\",\"KNEE\",\"ANKLE\"]",
       "tags": "[\"functional\",\"functional-only\",\"gymnastics\"]"
-    },
-    {
-      "name": "Rowing (meters)",
-      "muscleGroup": "Full Body",
-      "equipmentType": "Machine",
-      "exerciseType": "CARDIO",
-      "familyId": "monostructural_family",
-      "youtubeVideoId": "aSWMOC_pMq4",
-      "setupNotes": "Sit on the rowing machine with feet strapped in, knees bent, back upright. Drive through your legs first — legs, then lean back slightly, then pull the handle to your lower chest with elbows tight to your body. Recover in reverse: arms extend, torso rocks forward, knees bend. The drive should be roughly 60% legs, 20% back, 20% arms. The biggest mistake is pulling with your arms before fully extending your legs — you lose the massive leg-drive advantage and row with your back instead.",
-      "committeeNotes": "Scored in metres. 500m/2000m are standard benchmark distances. Damper setting 4-6 is typically optimal.",
-      "restDurationSeconds": 120,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"HIP\",\"KNEE\",\"SHOULDER\"]",
-      "secondaryJoints": "[\"ANKLE\",\"ELBOW\",\"LUMBAR_SPINE\",\"WRIST\"]",
-      "tags": "[\"functional\",\"monostructural\",\"cardio\"]"
     },
     {
       "name": "Rowing (calories)",

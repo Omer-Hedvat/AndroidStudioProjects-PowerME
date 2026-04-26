@@ -62,30 +62,6 @@ class DatabaseSeeder @Inject constructor(
                 committeeNotes = "Noa: Back stays vertical - safer for your back pain."
             ),
             Exercise(
-                // DB variant — JSON has "Romanian Deadlift (RDL) - BB" (Barbell)
-                name = "Romanian Deadlift (RDL) - DB",
-                muscleGroup = "Legs",
-                equipmentType = "Dumbbell",
-                instructionsUrl = null,
-                committeeNotes = "Noa: Go down only to below knee to maintain neutral spine position."
-            ),
-            Exercise(
-                // Weighted variant — JSON has "Pull-Up" (unweighted)
-                name = "Weighted Pull-Up",
-                muscleGroup = "Back",
-                equipmentType = "Bodyweight",
-                instructionsUrl = null,
-                committeeNotes = "Boris: Add weight every time you exceed 10 reps."
-            ),
-            Exercise(
-                // Incline DB row on a bench — JSON has "Chest-Supported Row" (machine)
-                name = "Incline Dumbbell Row",
-                muscleGroup = "Back",
-                equipmentType = "Dumbbell",
-                instructionsUrl = null,
-                committeeNotes = "Noa: Chest support eliminates lumbar shear — ideal for lower back protection."
-            ),
-            Exercise(
                 name = "Hanging Knee Raise",
                 muscleGroup = "Core",
                 equipmentType = "Bodyweight",

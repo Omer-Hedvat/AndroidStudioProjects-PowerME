@@ -156,7 +156,7 @@ class MovementTransferTableTest {
             "olympic_family" to "clean and jerk",
             "olympic_family" to "power clean",
             "leg_curl_family" to "lying leg curl",
-            "leg_curl_family" to "nordic curl",
+            "leg_curl_family" to "nordic hamstring curl",
         )
 
         val missing = seedSamples.filter { (_, name) -> name !in jsonNames }
