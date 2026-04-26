@@ -37,7 +37,7 @@
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 20/29 wrapped · 1 completed · 4 in-progress · 3 not-started | 29 |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 21/29 wrapped · 0 completed · 4 in-progress · 3 not-started | 29 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/4 wrapped · 1 in-progress | 4 active + §8 queue |
 | Gym Profiles | `GYM_PROFILES_SPEC.md` | P10 | `not-started` | — | 0 |
 
@@ -123,7 +123,7 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 | Functional template builder polish — block view, weights, reorder, edit, supersets | `future_devs/FUNC_TEMPLATE_BUILDER_POLISH_SPEC.md` | M | `not-started` | func_active_block_card_ui ✅, func_block_card_layout ✅ |
 | Functional blocks — adjust time cap from within active workout | `future_devs/FUNC_TIMECAP_ADJUST_IN_WORKOUT_SPEC.md` | S | `not-started` | BUG_func_start_block_noop, BUG_func_timecap_no_alert |
 | Functional blocks — inter-round rest timer | `future_devs/FUNC_INTER_ROUND_REST_SPEC.md` | M | `not-started` | BUG_func_start_block_noop |
-| Functional overlays — larger exercise name typography | `future_devs/FUNC_OVERLAY_EXERCISE_FONT_SPEC.md` | XS | `completed` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
+| Functional overlays — larger exercise name typography | `future_devs/FUNC_OVERLAY_EXERCISE_FONT_SPEC.md` | XS | `wrapped` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
 | EMOM setup — configurable warning threshold | `future_devs/FUNC_EMOM_WARN_CONFIG_SPEC.md` | XS | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
 | Functional blocks — setup countdown (3s default) | `future_devs/FUNC_BLOCK_SETUP_TIME_SPEC.md` | XS | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
 | Tabata block — full config parity with Clocks tab | `future_devs/FUNC_TABATA_FULL_CONFIG_SPEC.md` | S | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |

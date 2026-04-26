@@ -114,7 +114,7 @@ fun RftOverlay(
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                ) { Text("Finish RFT Block") }
+                ) { Text("Finish Block") }
                 OutlinedButton(
                     onClick = { showAbandonConfirm = true },
                     modifier = Modifier

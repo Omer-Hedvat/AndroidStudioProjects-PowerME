@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Phase** | P8 |
-| **Status** | `completed` |
+| **Status** | `done` |
 | **Effort** | XS |
 | **Depends on** | AMRAP/RFT/EMOM/TABATA overlays ✅ |
 | **Blocks** | — |
