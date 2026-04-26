@@ -2807,15 +2807,15 @@
       "tags": "[\"functional\",\"gymnastics\"]"
     },
     {
-      "name": "Burpee (Standard)",
-      "muscleGroup": "Core",
+      "name": "Burpee",
+      "muscleGroup": "Full Body",
       "equipmentType": "Bodyweight",
       "exerciseType": "STRENGTH",
-      "familyId": "accessory_family",
+      "familyId": "cardio_family",
       "youtubeVideoId": "qLBImHhCXSw",
       "setupNotes": "Stand with your feet shoulder-width apart, then drop your hands to the floor and jump or step your feet back into a push-up position. Do a push-up, then jump your feet back toward your hands, stand up, and jump with your arms overhead at the top. Move through each position deliberately — it should be a push-up, not a chest flop. Don't skip the push-up or let your hips sag on the way down; every rep should look controlled even when you're gassed.",
       "committeeNotes": "Dr. Brad: High metabolic cost. Noa: Watch lower back 'sag' during the push-up phase. Boris: Use in AMRAP or EMOM formats for conditioning.",
-      "restDurationSeconds": 60,
+      "restDurationSeconds": 90,
       "barType": "STANDARD",
       "isFavorite": false,
       "isCustom": false,
@@ -3831,23 +3831,6 @@
       "primaryJoints": "[\"ANKLE\",\"KNEE\"]",
       "secondaryJoints": "[\"SHOULDER\",\"WRIST\"]",
       "tags": "[\"functional\",\"monostructural\",\"cardio\"]"
-    },
-    {
-      "name": "Burpee",
-      "muscleGroup": "Full Body",
-      "equipmentType": "Bodyweight",
-      "exerciseType": "STRENGTH",
-      "familyId": "cardio_family",
-      "youtubeVideoId": null,
-      "setupNotes": "Stand with your feet shoulder-width apart, then drop your hands to the floor and jump or step your feet back into a push-up position. Do a push-up, then jump your feet back toward your hands, stand up, and jump with your arms overhead at the top. Move through each position deliberately — it should be a push-up, not a chest flop. Don't skip the push-up or let your hips sag on the way down; every rep should look controlled even when you're gassed.",
-      "committeeNotes": "Full body conditioning.",
-      "restDurationSeconds": 90,
-      "barType": "STANDARD",
-      "isFavorite": false,
-      "isCustom": false,
-      "primaryJoints": "[\"HIP\",\"KNEE\",\"SHOULDER\"]",
-      "secondaryJoints": "[\"ANKLE\",\"ELBOW\",\"WRIST\",\"LUMBAR_SPINE\"]",
-      "tags": "[\"functional\"]"
     },
     {
       "name": "Shadow Boxing",

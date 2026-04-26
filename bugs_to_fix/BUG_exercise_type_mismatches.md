@@ -37,3 +37,5 @@ Bumped seeder to v2.3.1. Four exerciseType corrections:
 - Speed Rope (calories): `BODYWEIGHT` → `CARDIO` (invalid enum → calorie tracking like Rowing/Assault Bike cals)
 - Shadow Boxing: `STRENGTH` → `TIMED` (done for timed rounds, not reps)
 - Battle Ropes: `CARDIO` → `TIMED` (done for time intervals; CARDIO implies distance+pace which doesn't apply)
+
+Additionally: `Burpee` and `Burpee (Standard)` were duplicate entries with identical movement. Consolidated into a single `Burpee` entry (Full Body, cardio_family, 90s rest, YouTube video retained from the Standard entry, detailed committee notes retained).
