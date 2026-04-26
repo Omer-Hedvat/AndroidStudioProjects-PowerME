@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | P8 |
 | **Epic** | [Functional Training](../FUNCTIONAL_TRAINING_SPEC.md) |
-| **Status** | `completed` |
+| **Status** | `done` |
 | **Effort** | S |
 | **Depends on** | func_template_hybrid_sheet ✅ |
 | **Blocks** | exercise_picker_ui_consistency |

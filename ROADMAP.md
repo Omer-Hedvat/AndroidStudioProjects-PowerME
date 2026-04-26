@@ -37,7 +37,7 @@
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 16/29 wrapped · 4 completed · 4 in-progress · 3 not-started | 29 |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 19/29 wrapped · 1 completed · 4 in-progress · 3 not-started | 29 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/4 wrapped · 1 in-progress | 4 active + §8 queue |
 | Gym Profiles | `GYM_PROFILES_SPEC.md` | P10 | `not-started` | — | 0 |
 
@@ -116,9 +116,9 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 | Exercise gap analysis — CrossFit / Hyrox / Calisthenics | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `wrapped` | — |
 | CrossFit exercise list verification | `future_devs/FUNC_CROSSFIT_VERIFICATION_SPEC.md` | XS | `wrapped` | gap analysis ✅ |
 | Expanded exercise seed — CrossFit / Hyrox / Calisthenics | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `wrapped` | gap analysis ✅, CrossFit verification ✅, Exercise tags seed ✅ |
-| Functional block card layout (single card per block in template builder) | `future_devs/FUNC_BLOCK_CARD_LAYOUT_SPEC.md` | S | `completed` | func_template_wizard ✅ |
-| Exercise picker UI consistency (standardise all entry points) | `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | S | `completed` | func_template_wizard ✅ |
-| Exercise picker — ExerciseType pre-filter by entry point | `future_devs/EXERCISE_PICKER_TYPE_PREFILTER_SPEC.md` | S | `completed` | func_template_hybrid_sheet ✅ |
+| Functional block card layout (single card per block in template builder) | `future_devs/FUNC_BLOCK_CARD_LAYOUT_SPEC.md` | S | `wrapped` | func_template_wizard ✅ |
+| Exercise picker UI consistency (standardise all entry points) | `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | S | `wrapped` | func_template_wizard ✅ |
+| Exercise picker — ExerciseType pre-filter by entry point | `future_devs/EXERCISE_PICKER_TYPE_PREFILTER_SPEC.md` | S | `wrapped` | func_template_hybrid_sheet ✅ |
 | Functional block active workout card UI (grouped card, no sets/PRE/RPE/V) | `future_devs/FUNC_ACTIVE_BLOCK_CARD_UI_SPEC.md` | M | `completed` | func_active_strength_blocks ✅ |
 | Functional template builder polish — block view, weights, reorder, edit, supersets | `future_devs/FUNC_TEMPLATE_BUILDER_POLISH_SPEC.md` | M | `not-started` | func_active_block_card_ui ✅, func_block_card_layout ✅ |
 | Functional blocks — adjust time cap from within active workout | `future_devs/FUNC_TIMECAP_ADJUST_IN_WORKOUT_SPEC.md` | S | `not-started` | BUG_func_start_block_noop, BUG_func_timecap_no_alert |
