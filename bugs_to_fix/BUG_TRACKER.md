@@ -14,7 +14,6 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_body_composition_ignores_hc](BUG_body_composition_ignores_hc.md) | BodyCompositionCard shows empty state — does not pull weight/body fat from HC | 🔴 Blocked (external HC issue) | P1 | — | — | `HealthConnectManager.kt`, `TrendsRepository.kt` |
 | [BUG_hc_extended_reads_no_data](BUG_hc_extended_reads_no_data.md) | All HC data missing — full Health Connect sync broken | 🔴 Blocked (external HC issue) | P0 | — | — | multiple HC + Trends files |
 | [BUG_nuke_hc_debug_cleanup](BUG_nuke_hc_debug_cleanup.md) | Remove HC nuke debug tooling (temporary code, must not ship) | ⏸️ Pending | P1 | BUG_write_workout_session_oversized ✅, HC lockup resolved | — | `HealthConnectManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt` |
-| [BUG_ai_textbox_dark_mode_bg](BUG_ai_textbox_dark_mode_bg.md) | AI text generator text box has wrong background in dark mode | ✅ Completed | P3 | — | — | `AiWorkoutGenerationScreen.kt` |
 | [BUG_post_workout_rpe_redesign](BUG_post_workout_rpe_redesign.md) | Post-workout RPE auto-pops instead of offering an "Add RPE" button with RPE scale titles | 🔵 Open | P2 | — | — | — |
 | [BUG_func_overlay_ring_tap_keyboard](BUG_func_overlay_ring_tap_keyboard.md) | Tapping progress ring in functional overlays triggers soft keyboard | 🔵 Open | P1 | — | — | — |
 | [BUG_time_based_exercise_column_header](BUG_time_based_exercise_column_header.md) | Time-based exercise column header shows 'Reps' instead of 'Time' | ✅ Completed | P2 | — | — | `ActiveWorkoutScreen.kt` |
