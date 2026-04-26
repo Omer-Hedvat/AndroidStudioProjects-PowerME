@@ -18,10 +18,10 @@ The Settings screen is a single scrollable `LazyColumn` of `SettingsCard` compos
 |---|---|---|
 | 1 | Appearance | Theme mode |
 | 2 | Units | Metric / Imperial |
-| 3 | Workout Style | Pure Gym / Pure Functional / Hybrid (with ℹ info sheet) |
+| 3 | Workout Style | Pure Gym / Pure Functional / Hybrid (with ℹ info sheet) + RPE prompts selector |
 | 4 | Health Connect | HC permissions + sync |
 | 5 | Rest Timer | Audio / haptics toggles + Get Ready countdown (0–10s) |
-| 6 | Display & Workout | Keep screen on, Use RPE (auto-pop picker) |
+| 6 | Display | Keep screen on |
 | 7 | AI | Gemini API key management (user override + status + Connected chip) |
 | 8 | Data & Backup | Export JSON + Import History + (signed-in) Back Up Now + Restore |
 | 9 | Feedback | Email feedback |
@@ -61,17 +61,19 @@ Two `Switch` rows: "Audio" and "Haptics". Changes persisted to `userSettingsDao.
 
 **Get Ready countdown** stepper row: label "Get Ready countdown" + `[-] [N] [+]` buttons (range 0–10s). Shows "Off" + grey text when 0; shows amber `Ns` value and subtitle "Timed sets wait Ns before starting" otherwise. Calls `viewModel.setTimedSetSetupSeconds()` → `AppSettingsDataStore.setTimedSetSetupSeconds()` → syncs via `FirestoreSyncManager.pushAppPreferences()`. Default 3s. Controls the `SETUP` state in `TimedSetRow` (see WORKOUT_SPEC.md §4.8).
 
+**Timer sound** `ExposedDropdownMenuBox` row: alert tone selection for rest timers and clocks. `viewModel.setTimerSound(TimerSound)` → `AppSettingsDataStore.setTimerSound()`.
+
 ### 2.5 Workout Style
 
 `SingleChoiceSegmentedButtonRow` with 3 options: Pure Gym / Pure Functional / Hybrid → `viewModel.setWorkoutStyle(WorkoutStyle)` → persists to `AppSettingsDataStore`.
 
 **Info sheet:** An `IconButton(Icons.Outlined.Info)` appears to the right of the "Workout Style" card title. Tapping it opens a `ModalBottomSheet` (`WorkoutStyleInfoSheet`) with three rows explaining each style (Pure Gym / Hybrid / Pure Functional), separated by `HorizontalDivider`. Sheet state is `showWorkoutStyleInfoSheet: Boolean` in `SettingsUiState`, toggled by `showWorkoutStyleInfo()` / `dismissWorkoutStyleInfo()` in `SettingsViewModel`.
 
-### 2.6 Display & Workout
+**RPE prompts selector:** Below a `HorizontalDivider`, a `RadioButton` group labelled "RPE prompts" lets the user pick `RpeMode`: Strength only / Functional only / All workouts / Off → `viewModel.setRpeMode(RpeMode)` → `AppSettingsDataStore.setRpeMode()`. Co-located here because the options mirror workout style choices.
 
-"Keep screen on" `Switch` → `viewModel.toggleKeepScreenOn()` → `AppSettingsDataStore.setKeepScreenOn()`.
+### 2.6 Display
 
-"Use RPE" `Switch` → `viewModel.toggleUseRpeAutoPop()` → `AppSettingsDataStore.setUseRpeAutoPop()`. When enabled, `WorkoutViewModel` emits a one-shot `rpeAutoPopTarget` signal after each set completion, which `ActiveWorkoutScreen` consumes to auto-open `RpePickerSheet` for that set.
+"Keep screen on" `KeepScreenOnMode` segmented row (Always / During workout / Off) → `viewModel.setKeepScreenOnMode()` → `AppSettingsDataStore.setKeepScreenOnMode()`.
 
 ### 2.7 AI
 

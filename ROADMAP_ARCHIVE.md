@@ -43,6 +43,8 @@ Moved here from `ROADMAP.md` to keep the active roadmap lean.
 | RPE auto-pop — workout style selector (Strength only / Functional only / All workouts / Off) | `future_devs/RPE_MODE_SELECTOR_SPEC.md` | `wrapped` |
 | Profile — move Log Out into Danger Zone | `future_devs/PROFILE_LOGOUT_INTO_DANGER_ZONE_SPEC.md` | `wrapped` |
 | Settings page — card reorder | `future_devs/SETTINGS_PAGE_REORDER_SPEC.md` | `wrapped` |
+| Settings — move RPE mode selector into Workout Style card | `future_devs/SETTINGS_RPE_INTO_WORKOUT_STYLE_SPEC.md` | `wrapped` |
+| Settings — move Timer sound to Rest Timer card + rename Display card | `future_devs/SETTINGS_TIMER_SOUND_TO_REST_TIMER_SPEC.md` | `wrapped` |
 
 ---
 

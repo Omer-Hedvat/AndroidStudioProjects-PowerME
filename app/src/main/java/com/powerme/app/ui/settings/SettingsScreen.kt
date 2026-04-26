@@ -227,35 +227,11 @@ fun SettingsScreen(
                             }
                         }
                     }
-                }
-            }
-
-
-            // ── Display & Workout ──────────────────────────────────────
-            item {
-                SettingsCard(title = "Display & Workout") {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text("Keep screen on", color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        val keepScreenOnModes = KeepScreenOnMode.entries
-                        val keepScreenOnLabels = listOf("Always", "During workout", "Off")
-                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                            keepScreenOnModes.forEachIndexed { index, mode ->
-                                SegmentedButton(
-                                    selected = uiState.keepScreenOnMode == mode,
-                                    onClick = { viewModel.setKeepScreenOnMode(mode) },
-                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = keepScreenOnModes.size)
-                                ) {
-                                    Text(keepScreenOnLabels[index], fontSize = 11.sp)
-                                }
-                            }
-                        }
-                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                     Spacer(modifier = Modifier.height(8.dp))
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Text("RPE auto-pop", color = MaterialTheme.colorScheme.onSurface)
+                        Text("RPE prompts", color = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.height(4.dp))
                         val rpeModes = listOf(RpeMode.PURE_GYM, RpeMode.PURE_FUNCTIONAL, RpeMode.HYBRID, RpeMode.OFF)
                         val rpeLabels = listOf("Strength only", "Functional only", "All workouts", "Off")
@@ -286,45 +262,26 @@ fun SettingsScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Timer sound dropdown
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Timer sound", color = MaterialTheme.colorScheme.onSurface)
-                            Text("Alert tone for rest timers and clocks", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                        }
-                        var timerSoundExpanded by remember { mutableStateOf(false) }
-                        ExposedDropdownMenuBox(
-                            expanded = timerSoundExpanded,
-                            onExpandedChange = { timerSoundExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = uiState.timerSound.displayName,
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = timerSoundExpanded) },
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .width(120.dp),
-                                textStyle = MaterialTheme.typography.bodyMedium,
-                                singleLine = true
-                            )
-                            ExposedDropdownMenu(
-                                expanded = timerSoundExpanded,
-                                onDismissRequest = { timerSoundExpanded = false }
-                            ) {
-                                TimerSound.entries.forEach { sound ->
-                                    DropdownMenuItem(
-                                        text = { Text(sound.displayName) },
-                                        onClick = {
-                                            viewModel.setTimerSound(sound)
-                                            timerSoundExpanded = false
-                                        }
-                                    )
+                }
+            }
+
+
+            // ── Display ───────────────────────────────────────────────
+            item {
+                SettingsCard(title = "Display") {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Keep screen on", color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        val keepScreenOnModes = KeepScreenOnMode.entries
+                        val keepScreenOnLabels = listOf("Always", "During workout", "Off")
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            keepScreenOnModes.forEachIndexed { index, mode ->
+                                SegmentedButton(
+                                    selected = uiState.keepScreenOnMode == mode,
+                                    onClick = { viewModel.setKeepScreenOnMode(mode) },
+                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = keepScreenOnModes.size)
+                                ) {
+                                    Text(keepScreenOnLabels[index], fontSize = 11.sp)
                                 }
                             }
                         }
@@ -437,6 +394,50 @@ fun SettingsScreen(
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Timer sound", color = MaterialTheme.colorScheme.onSurface)
+                            Text("Alert tone for rest timers and clocks", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        }
+                        var timerSoundExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = timerSoundExpanded,
+                            onExpandedChange = { timerSoundExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.timerSound.displayName,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = timerSoundExpanded) },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .width(120.dp),
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                singleLine = true
+                            )
+                            ExposedDropdownMenu(
+                                expanded = timerSoundExpanded,
+                                onDismissRequest = { timerSoundExpanded = false }
+                            ) {
+                                TimerSound.entries.forEach { sound ->
+                                    DropdownMenuItem(
+                                        text = { Text(sound.displayName) },
+                                        onClick = {
+                                            viewModel.setTimerSound(sound)
+                                            timerSoundExpanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
