@@ -15,7 +15,7 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_hc_extended_reads_no_data](BUG_hc_extended_reads_no_data.md) | All HC data missing — full Health Connect sync broken | 🔴 Blocked (external HC issue) | P0 | — | — | multiple HC + Trends files |
 | [BUG_nuke_hc_debug_cleanup](BUG_nuke_hc_debug_cleanup.md) | Remove HC nuke debug tooling (temporary code, must not ship) | ⏸️ Pending | P1 | BUG_write_workout_session_oversized ✅, HC lockup resolved | — | `HealthConnectManager.kt`, `SettingsViewModel.kt`, `SettingsScreen.kt` |
 | [BUG_post_workout_rpe_redesign](BUG_post_workout_rpe_redesign.md) | Post-workout RPE auto-pops instead of offering an "Add RPE" button with RPE scale titles | 🔵 Open | P2 | — | — | — |
-| [BUG_time_based_exercise_column_header](BUG_time_based_exercise_column_header.md) | Time-based exercise column header shows 'Reps' instead of 'Time' | ✅ Completed | P2 | — | — | `ActiveWorkoutScreen.kt` |
+| [BUG_func_routine_preview_no_block_ui](BUG_func_routine_preview_no_block_ui.md) | Routine preview and edit mode show flat exercise list instead of functional block structure | ✅ Completed | P2 | func_active_block_card_ui ✅, func_block_card_layout ✅ | — | `WorkoutsScreen.kt`, `WorkoutsViewModel.kt` |
 
 
 ---

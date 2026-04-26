@@ -119,3 +119,4 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | [BUG_func_overlay_exercise_format](BUG_func_overlay_exercise_format.md) | Functional overlay exercise list: "10 Box Jump" format instead of separate columns | ✅ Wrapped | P2 | `BlockRecipeRow.kt` |
 | [BUG_func_block_exercise_reps_config](BUG_func_block_exercise_reps_config.md) | Functional block exercises default to 0 reps with no way to configure reps/time | ✅ Wrapped | P1 | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt`, `BlockRecipeRow.kt` |
 | [BUG_quick_start_add_block_dispatch](BUG_quick_start_add_block_dispatch.md) | Quick-start Add button should dispatch to Add Block for Hybrid/Pure Functional styles | ✅ Wrapped | P1 | `ActiveWorkoutScreen.kt` |
+| [BUG_time_based_exercise_column_header](BUG_time_based_exercise_column_header.md) | Time-based exercise column header shows 'Reps' instead of 'Time' | ✅ Wrapped | P2 | `ActiveWorkoutScreen.kt` |

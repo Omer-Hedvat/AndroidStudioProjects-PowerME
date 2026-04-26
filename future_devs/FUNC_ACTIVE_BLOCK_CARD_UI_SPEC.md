@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | P8 |
 | **Epic** | [Functional Training](../FUNCTIONAL_TRAINING_SPEC.md) |
-| **Status** | `completed` |
+| **Status** | `done` |
 | **Effort** | M |
 | **Depends on** | func_active_strength_blocks ✅ |
 | **Blocks** | func_active_functional_runner |
