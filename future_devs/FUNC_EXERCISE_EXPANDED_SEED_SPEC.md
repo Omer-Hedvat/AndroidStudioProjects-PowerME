@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | P8 |
 | **Epic** | [Functional Training](../FUNCTIONAL_TRAINING_SPEC.md) |
-| **Status** | `completed` |
+| **Status** | `done` |
 | **Effort** | M |
 | **Depends on** | func_exercise_gap_analysis ✅, func_exercise_tags_seed ✅, func_crossfit_verification ✅ |
 | **Blocks** | — |

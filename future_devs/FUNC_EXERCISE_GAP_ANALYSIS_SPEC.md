@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | P8 |
 | **Epic** | [Functional Training](../FUNCTIONAL_TRAINING_SPEC.md) |
-| **Status** | `completed` |
+| **Status** | `done` |
 | **Effort** | XS |
 | **Depends on** | — |
 | **Blocks** | func_exercise_expanded_seed |
