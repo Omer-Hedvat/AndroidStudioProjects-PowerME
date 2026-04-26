@@ -75,7 +75,7 @@ class FunctionalBlockRunner @Inject constructor(
 
         startMirror()
         runJob = scope.launch {
-            timerEngine.run(spec, setupSeconds = block.setupSecondsOverride ?: 0)
+            timerEngine.run(spec, setupSeconds = block.setupSecondsOverride ?: 3)
             onFinish()
         }
     }

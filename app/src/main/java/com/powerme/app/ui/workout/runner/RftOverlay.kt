@@ -57,7 +57,7 @@ fun RftOverlay(
         ) {
             Text(
                 text = state.blockName ?: "RFT",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(8.dp))
@@ -69,14 +69,14 @@ fun RftOverlay(
             Spacer(Modifier.height(4.dp))
             if (capRemaining != null) {
                 Text(
-                    text = "Cap remaining: ${formatMmSs(capRemaining)}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "Cap: ${formatMmSs(capRemaining)}",
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
                 text = "Round ${state.roundTapCount} / $target",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -112,7 +112,7 @@ fun RftOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                ) { Text("Abandon") }
+                ) { Text("Cancel Workout") }
             }
         }
     }
@@ -129,23 +129,23 @@ fun RftOverlay(
                 }) { Text("Finish") }
             },
             dismissButton = {
-                TextButton(onClick = { showFinishConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showFinishConfirm = false }) { Text("Keep Going") }
             },
         )
     }
     if (showAbandonConfirm) {
         AlertDialog(
             onDismissRequest = { showAbandonConfirm = false },
-            title = { Text("Abandon workout?") },
+            title = { Text("Cancel workout?") },
             text = { Text("The entire workout session will be discarded.") },
             confirmButton = {
                 TextButton(onClick = {
                     showAbandonConfirm = false
                     onAbandonClick()
-                }) { Text("Abandon") }
+                }) { Text("Cancel Workout") }
             },
             dismissButton = {
-                TextButton(onClick = { showAbandonConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showAbandonConfirm = false }) { Text("Keep Going") }
             },
         )
     }

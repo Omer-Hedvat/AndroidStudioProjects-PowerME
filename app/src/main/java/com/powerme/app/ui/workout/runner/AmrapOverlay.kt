@@ -56,7 +56,7 @@ fun AmrapOverlay(
         ) {
             Text(
                 text = state.blockName ?: "AMRAP",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(8.dp))
@@ -68,7 +68,7 @@ fun AmrapOverlay(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Round ${state.roundTapCount + 1}",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
@@ -101,7 +101,7 @@ fun AmrapOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                ) { Text("Abandon") }
+                ) { Text("Cancel Workout") }
             }
         }
     }
@@ -109,16 +109,16 @@ fun AmrapOverlay(
     if (showAbandonConfirm) {
         AlertDialog(
             onDismissRequest = { showAbandonConfirm = false },
-            title = { Text("Abandon workout?") },
+            title = { Text("Cancel workout?") },
             text = { Text("The entire workout session will be discarded.") },
             confirmButton = {
                 TextButton(onClick = {
                     showAbandonConfirm = false
                     onAbandonClick()
-                }) { Text("Abandon") }
+                }) { Text("Cancel Workout") }
             },
             dismissButton = {
-                TextButton(onClick = { showAbandonConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showAbandonConfirm = false }) { Text("Keep Going") }
             },
         )
     }

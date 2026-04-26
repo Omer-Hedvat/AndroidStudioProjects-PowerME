@@ -58,13 +58,18 @@ fun EmomOverlay(
         ) {
             Text(
                 text = state.blockName ?: "EMOM",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Round ${state.currentRound} of ${state.totalRounds} — ${intervalSecs}s interval",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Round ${state.currentRound} of ${state.totalRounds}",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "${intervalSecs}s interval",
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -117,7 +122,7 @@ fun EmomOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(40.dp),
-                ) { Text("Abandon") }
+                ) { Text("Cancel Workout") }
             }
         }
     }
@@ -125,16 +130,16 @@ fun EmomOverlay(
     if (showAbandonConfirm) {
         AlertDialog(
             onDismissRequest = { showAbandonConfirm = false },
-            title = { Text("Abandon workout?") },
+            title = { Text("Cancel workout?") },
             text = { Text("The entire workout session will be discarded.") },
             confirmButton = {
                 TextButton(onClick = {
                     showAbandonConfirm = false
                     onAbandonClick()
-                }) { Text("Abandon") }
+                }) { Text("Cancel Workout") }
             },
             dismissButton = {
-                TextButton(onClick = { showAbandonConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showAbandonConfirm = false }) { Text("Keep Going") }
             },
         )
     }

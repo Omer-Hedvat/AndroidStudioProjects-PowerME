@@ -32,4 +32,4 @@ If the user is already in round N (the last round), SKIP ROUND should trigger th
 - Related spec: `FUNCTIONAL_TRAINING_SPEC.md`
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+Three-part fix: (1) Added `skipInterval()` to `TimerEngine` interface + `AtomicBoolean _skipInterval` in `TimerEngineImpl` — `runEmom()` checks and clears the flag at the top of each interval tick, immediately breaking to the next round. (2) Added `FunctionalBlockRunner.skipCurrentInterval()` which guards on `_isActive` then calls `timerEngine.skipInterval()`. (3) Added `WorkoutViewModel.skipEmomRound()` which appends a skipped-round tap log entry then calls `functionalBlockRunner.skipCurrentInterval()`. `ActiveWorkoutScreen` now routes EMOM `onRoundSkipped` to `viewModel.skipEmomRound()` instead of the bare `appendBlockRoundTap()` call that only logged but never advanced the timer.

@@ -63,13 +63,18 @@ fun TabataOverlay(
         ) {
             Text(
                 text = state.blockName ?: "TABATA",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Round ${state.currentRound} of ${state.totalRounds} — $phaseLabel",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Round ${state.currentRound} of ${state.totalRounds}",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = phaseLabel,
+                style = MaterialTheme.typography.titleLarge,
                 color = ringColor,
             )
 
@@ -116,7 +121,7 @@ fun TabataOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                ) { Text("Abandon") }
+                ) { Text("Cancel Workout") }
             }
         }
     }
@@ -124,16 +129,16 @@ fun TabataOverlay(
     if (showAbandonConfirm) {
         AlertDialog(
             onDismissRequest = { showAbandonConfirm = false },
-            title = { Text("Abandon workout?") },
+            title = { Text("Cancel workout?") },
             text = { Text("The entire workout session will be discarded.") },
             confirmButton = {
                 TextButton(onClick = {
                     showAbandonConfirm = false
                     onAbandonClick()
-                }) { Text("Abandon") }
+                }) { Text("Cancel Workout") }
             },
             dismissButton = {
-                TextButton(onClick = { showAbandonConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showAbandonConfirm = false }) { Text("Keep Going") }
             },
         )
     }

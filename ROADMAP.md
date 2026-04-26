@@ -37,7 +37,7 @@
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 13/25 wrapped · 7 completed · 0 in-progress · 3 not-started | 25 |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 13/29 wrapped · 7 completed · 4 in-progress · 3 not-started | 29 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/4 wrapped · 1 in-progress | 4 active + §8 queue |
 | Gym Profiles | `GYM_PROFILES_SPEC.md` | P10 | `not-started` | — | 0 |
 
@@ -125,6 +125,10 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 | Functional blocks — adjust time cap from within active workout | `future_devs/FUNC_TIMECAP_ADJUST_IN_WORKOUT_SPEC.md` | S | `not-started` | BUG_func_start_block_noop, BUG_func_timecap_no_alert |
 | Functional blocks — inter-round rest timer | `future_devs/FUNC_INTER_ROUND_REST_SPEC.md` | M | `not-started` | BUG_func_start_block_noop |
 | Functional overlays — larger exercise name typography | `future_devs/FUNC_OVERLAY_EXERCISE_FONT_SPEC.md` | XS | `completed` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
+| EMOM setup — configurable warning threshold | `future_devs/FUNC_EMOM_WARN_CONFIG_SPEC.md` | XS | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
+| Functional blocks — setup countdown (3s default) | `future_devs/FUNC_BLOCK_SETUP_TIME_SPEC.md` | XS | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
+| Tabata block — full config parity with Clocks tab | `future_devs/FUNC_TABATA_FULL_CONFIG_SPEC.md` | S | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
+| Functional block exercises — weight targets & lock during workout | `future_devs/FUNC_BLOCK_WEIGHT_CONFIG_SPEC.md` | M | `in-progress` | func_active_block_card_ui ✅ |
 
 ---
 
@@ -206,6 +210,10 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/FUNC_TIMECAP_ADJUST_IN_WORKOUT_SPEC.md` | P8 — Adjust AMRAP/RFT time cap from within the active workout overlay |
 | `future_devs/FUNC_INTER_ROUND_REST_SPEC.md` | P8 — Optional inter-round rest timer for RFT and AMRAP functional blocks |
 | `future_devs/FUNC_OVERLAY_EXERCISE_FONT_SPEC.md` | P8 — Functional overlays: bump exercise name typography from bodyLarge → titleMedium |
+| `future_devs/FUNC_EMOM_WARN_CONFIG_SPEC.md` | P8 — EMOM setup: configurable warning threshold (default 10s) |
+| `future_devs/FUNC_BLOCK_SETUP_TIME_SPEC.md` | P8 — Functional blocks: 3s GET READY setup countdown before timer starts |
+| `future_devs/FUNC_TABATA_FULL_CONFIG_SPEC.md` | P8 — Tabata block: full config parity with Clocks tab (work/rest/rounds/skip-last-rest) |
+| `future_devs/FUNC_BLOCK_WEIGHT_CONFIG_SPEC.md` | P8 — Functional block exercises: weight targets in template builder, locked during workout |
 | `future_devs/AI_REVIEW_WORKOUT_MANAGEMENT_SPEC.md` | P7 — AI Review — supersets, reorder, replace, rest times, notes in PREVIEW step |
 | `future_devs/KEEP_SCREEN_ON_MODE_SPEC.md` | P1 — Keep screen on: Always / During workout / Off selector |
 | `future_devs/RPE_MODE_SELECTOR_SPEC.md` | P1 — RPE auto-pop: Gym only / Functional / All workouts / Off selector |

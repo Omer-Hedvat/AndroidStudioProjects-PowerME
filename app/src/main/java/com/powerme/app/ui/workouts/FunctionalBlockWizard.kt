@@ -199,6 +199,7 @@ private fun BlockParamsStep(
     var emomIntervalSec by remember { mutableIntStateOf(60) }
     var emomCustomText by remember { mutableStateOf("") }
     var emomCustomSelected by remember { mutableStateOf(false) }
+    var emomWarnSec by remember { mutableIntStateOf(10) }
 
     var tabataWorkSec by remember { mutableIntStateOf(20) }
     var tabataRestSec by remember { mutableIntStateOf(10) }
@@ -252,7 +253,9 @@ private fun BlockParamsStep(
                     emomCustomSelected = isCustom
                 },
                 customText = emomCustomText,
-                onCustomTextChange = { emomCustomText = it }
+                onCustomTextChange = { emomCustomText = it },
+                warnSec = emomWarnSec,
+                onWarnSecChange = { emomWarnSec = it }
             )
             BlockType.TABATA -> TabataParams(
                 workSec = tabataWorkSec,
@@ -345,7 +348,7 @@ private fun BlockParamsStep(
                         durationSeconds = emomTotalRounds * emomIntervalSec,
                         emomRoundSeconds = emomIntervalSec,
                         setupSecondsOverride = setupOverride.toIntOrNull(),
-                        warnAtSecondsOverride = warnOverride.toIntOrNull()
+                        warnAtSecondsOverride = emomWarnSec
                     )
                     BlockType.TABATA -> DraftBlock(
                         type = type,
@@ -419,7 +422,9 @@ private fun EmomParams(
     intervalSec: Int,
     onIntervalChange: (Int, Boolean) -> Unit,
     customText: String,
-    onCustomTextChange: (String) -> Unit
+    onCustomTextChange: (String) -> Unit,
+    warnSec: Int,
+    onWarnSecChange: (Int) -> Unit,
 ) {
     var showCustomField by remember { mutableStateOf(false) }
     val totalSeconds = totalRounds * intervalSec
@@ -468,6 +473,12 @@ private fun EmomParams(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
         }
+        StepperRow(
+            label = "Warn at (sec)",
+            value = warnSec,
+            onDecrement = { if (warnSec > 5) onWarnSecChange(warnSec - 5) },
+            onIncrement = { if (warnSec < 30) onWarnSecChange(warnSec + 5) }
+        )
     }
 }
 

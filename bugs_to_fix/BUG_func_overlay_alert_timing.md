@@ -1,7 +1,7 @@
 # BUG: Functional overlay mid-round alert timing wrong — EMOM needs 30s+10s alerts; RFT needs mid-cap alert
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P1 high
@@ -45,4 +45,4 @@ The existing `BUG_func_overlay_mid_round_alert` fix wired `warnAtSeconds` in `Fu
 - Related spec: `FUNCTIONAL_TRAINING_SPEC.md`
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+Three-part fix: (1) `TimerSpec.Emom` gained `warnAtSeconds2: Int? = null` for a second alert threshold. `FunctionalBlockRunner.mapToTimerSpec()` for EMOM now sets `warnAtSeconds = override ?: 10` (always 10s) and `warnAtSeconds2 = if (override == null && interval > 20) 30 else null` (30s for intervals > 20s). (2) `TimerEngineImpl.runEmom()` tracks `warnedPrimary` / `warnedSecondary` booleans per round, resetting them each interval, and fires `WARNING` when `remaining == warnAtSeconds` and `remaining == warnAtSeconds2` respectively. (3) `runAmrap()` fires `WARNING` once at `elapsed == durationSeconds/2` (half-time); `runRft()` fires `WARNING` once at `elapsed == cap/2` (mid-cap). All existing cap-expiry and final 10s alerts preserved.
