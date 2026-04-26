@@ -856,7 +856,26 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             _workoutState.update { it.copy(editModeSaved = false) }
             val unit = currentUnit
-            val (exercises, name) = withContext(Dispatchers.IO) {
+            val (exercises, blocks, name) = withContext(Dispatchers.IO) {
+                val routineBlocks = routineBlockDao.getBlocksForRoutineOnce(routineId)
+                // Synthesise in-memory WorkoutBlock objects (same IDs as RoutineBlock — no DB write)
+                val syntheticBlocks = routineBlocks.map { rb ->
+                    com.powerme.app.data.database.WorkoutBlock(
+                        id = rb.id,
+                        workoutId = routineId,
+                        order = rb.order,
+                        type = rb.type,
+                        name = rb.name,
+                        durationSeconds = rb.durationSeconds,
+                        targetRounds = rb.targetRounds,
+                        emomRoundSeconds = rb.emomRoundSeconds,
+                        tabataWorkSeconds = rb.tabataWorkSeconds,
+                        tabataRestSeconds = rb.tabataRestSeconds,
+                        tabataSkipLastRest = rb.tabataSkipLastRest,
+                        setupSecondsOverride = rb.setupSecondsOverride,
+                        warnAtSecondsOverride = rb.warnAtSecondsOverride
+                    )
+                }
                 val routineExercises = routineExerciseDao.getForRoutine(routineId)
                 val exList = routineExercises.mapNotNull { re ->
                     val exercise = exerciseRepository.getExerciseById(re.exerciseId) ?: return@mapNotNull null
@@ -876,10 +895,10 @@ class WorkoutViewModel @Inject constructor(
                         )
                     }
                     val sticky = try { routineExerciseDao.getStickyNote(routineId, re.exerciseId) } catch (_: Exception) { null }
-                    ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky, supersetGroupId = re.supersetGroupId)
+                    ExerciseWithSets(exercise = exercise, sets = activeSets, stickyNote = sticky, supersetGroupId = re.supersetGroupId, blockId = re.blockId)
                 }
                 val routineName = routineDao.getRoutineById(routineId)?.name ?: "Routine"
-                Pair(exList, routineName)
+                Triple(exList, syntheticBlocks, routineName)
             }
             Timber.d("WVM EDIT_START routineId=${routineId.take(8)}")
             _workoutState.update {
@@ -890,6 +909,7 @@ class WorkoutViewModel @Inject constructor(
                     workoutId = null,
                     startTime = null,
                     exercises = exercises,
+                    blocks = blocks,
                     workoutName = name,
                     elapsedSeconds = 0,
                     routineSnapshot = emptyList(),
@@ -2516,6 +2536,41 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
+    /** Remove a functional block and all its exercises from the active workout. */
+    fun removeBlock(blockId: String) {
+        _workoutState.update { state ->
+            state.copy(
+                exercises = state.exercises.filter { it.blockId != blockId },
+                blocks = state.blocks.filter { it.id != blockId },
+                snackbarMessage = "Block removed"
+            ).markDirtyIfEditing()
+        }
+    }
+
+    /** Update plan parameters of a functional block. Only meaningful before the block has started. */
+    fun updateBlock(
+        blockId: String,
+        durationSeconds: Int?,
+        targetRounds: Int?,
+        emomRoundSeconds: Int?,
+        tabataWorkSeconds: Int?,
+        tabataRestSeconds: Int?
+    ) {
+        _workoutState.update { state ->
+            state.copy(
+                blocks = state.blocks.map { block ->
+                    if (block.id == blockId) block.copy(
+                        durationSeconds = durationSeconds,
+                        targetRounds = targetRounds,
+                        emomRoundSeconds = emomRoundSeconds,
+                        tabataWorkSeconds = tabataWorkSeconds,
+                        tabataRestSeconds = tabataRestSeconds
+                    ) else block
+                }
+            ).markDirtyIfEditing()
+        }
+    }
+
     /** Replace an exercise, keeping all its existing sets. */
     fun replaceExercise(oldId: Long, newExercise: Exercise) {
         _workoutState.update { state ->
@@ -2842,9 +2897,13 @@ class WorkoutViewModel @Inject constructor(
         _workoutState.update { it.copy(isSupersetSelectMode = true, supersetCandidateIds = preSelected) }
     }
 
-    /** Toggle an exercise in/out of the superset candidate set. */
+    /** Toggle an exercise in/out of the superset candidate set.
+     *  Functional block exercises (AMRAP/RFT/EMOM/TABATA) are silently ignored — they cannot be supersetted. */
     fun toggleSupersetCandidate(exerciseId: Long) {
         _workoutState.update { state ->
+            val ex = state.exercises.find { it.exercise.id == exerciseId }
+            val block = state.blocks.find { it.id == ex?.blockId }
+            if (block != null && block.type != "STRENGTH") return@update state
             val updated = if (exerciseId in state.supersetCandidateIds) {
                 state.supersetCandidateIds - exerciseId
             } else {
@@ -2904,6 +2963,84 @@ class WorkoutViewModel @Inject constructor(
             if (fromIndex in list.indices && toIndex in list.indices) {
                 val item = list.removeAt(fromIndex)
                 list.add(toIndex, item)
+            }
+            state.copy(exercises = list).markDirtyIfEditing()
+        }
+    }
+
+    /**
+     * Reorder an organize-mode list item by LazyList keys.
+     * Handles both individual exercise items (Long key = exercise ID) and
+     * functional block items (String key = "org_block_<blockId>").
+     * Functional blocks move atomically — all their exercises relocate together.
+     *
+     * The reorderable library calls this with adjacent swaps, so [fromKey] and [toKey]
+     * represent the two items exchanging positions. Direction (forward/backward) is inferred
+     * from whether the target appears after or before the source in the flat exercises list.
+     */
+    fun reorderOrganizeItem(fromKey: Any, toKey: Any) {
+        _workoutState.update { state ->
+            val list = state.exercises.toMutableList()
+            val fromBlockId = (fromKey as? String)?.takeIf { it.startsWith("org_block_") }?.removePrefix("org_block_")
+            val toBlockId = (toKey as? String)?.takeIf { it.startsWith("org_block_") }?.removePrefix("org_block_")
+            when {
+                fromBlockId != null -> {
+                    // Moving an entire functional block — move all its exercises atomically
+                    val blockExercises = list.filter { it.blockId == fromBlockId }
+                    val firstBlockIdx = list.indexOfFirst { it.blockId == fromBlockId }
+                    val targetIdx = when {
+                        toBlockId != null -> list.indexOfFirst { it.blockId == toBlockId }
+                        toKey is Long -> list.indexOfFirst { it.exercise.id == toKey }
+                        else -> -1
+                    }
+                    if (targetIdx < 0) return@update state
+                    val draggingForward = targetIdx > firstBlockIdx
+                    list.removeAll { it.blockId == fromBlockId }
+                    val insertAt = when {
+                        toBlockId != null -> {
+                            val idx = list.indexOfFirst { it.blockId == toBlockId }
+                            if (idx < 0) list.size
+                            else if (draggingForward) idx + list.count { it.blockId == toBlockId }
+                            else idx
+                        }
+                        toKey is Long -> {
+                            val idx = list.indexOfFirst { it.exercise.id == toKey }
+                            if (idx < 0) list.size
+                            else if (draggingForward) idx + 1
+                            else idx
+                        }
+                        else -> list.size
+                    }.coerceAtMost(list.size)
+                    list.addAll(insertAt, blockExercises)
+                }
+                toBlockId != null -> {
+                    // Moving a strength/unblocked exercise past a functional block
+                    val exId = fromKey as? Long ?: return@update state
+                    val fromIdx = list.indexOfFirst { it.exercise.id == exId }
+                    if (fromIdx < 0) return@update state
+                    val targetFirstIdx = list.indexOfFirst { it.blockId == toBlockId }
+                    if (targetFirstIdx < 0) return@update state
+                    val draggingForward = targetFirstIdx > fromIdx
+                    val item = list.removeAt(fromIdx)
+                    val insertAt = if (draggingForward) {
+                        val idx = list.indexOfFirst { it.blockId == toBlockId }
+                        if (idx >= 0) idx + list.count { it.blockId == toBlockId } else list.size
+                    } else {
+                        list.indexOfFirst { it.blockId == toBlockId }.let { if (it < 0) list.size else it }
+                    }.coerceAtMost(list.size)
+                    list.add(insertAt, item)
+                }
+                else -> {
+                    // Both are individual exercises
+                    val fromId = fromKey as? Long ?: return@update state
+                    val toId = toKey as? Long ?: return@update state
+                    val fromIdx = list.indexOfFirst { it.exercise.id == fromId }
+                    val toIdx = list.indexOfFirst { it.exercise.id == toId }
+                    if (fromIdx >= 0 && toIdx >= 0) {
+                        val item = list.removeAt(fromIdx)
+                        list.add(toIdx, item)
+                    }
+                }
             }
             state.copy(exercises = list).markDirtyIfEditing()
         }

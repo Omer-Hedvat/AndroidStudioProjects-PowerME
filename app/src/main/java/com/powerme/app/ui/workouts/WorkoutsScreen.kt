@@ -24,9 +24,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.powerme.app.data.BlockType
+import com.powerme.app.data.database.RoutineBlock
 import com.powerme.app.data.database.RoutineExerciseWithName
 import com.powerme.app.data.database.workingSets
 import com.powerme.app.ui.theme.PowerMeDefaults
+import com.powerme.app.ui.theme.TimerGreen
 import com.powerme.app.ui.theme.buildSupersetColorMap
 
 @Composable
@@ -43,6 +46,7 @@ fun WorkoutsScreen(
     val visibleRoutines by viewModel.visibleRoutines.collectAsState()
     val showArchived by viewModel.showArchived.collectAsState()
     val routineDetails by viewModel.routineDetails.collectAsState()
+    val routineBlocks by viewModel.routineBlocks.collectAsState()
     var selectedRoutine by remember { mutableStateOf<RoutineWithSummary?>(null) }
     var pendingExportId by remember { mutableStateOf<String?>(null) }
 
@@ -186,6 +190,7 @@ fun WorkoutsScreen(
         RoutineOverviewSheet(
             summary = summary,
             exerciseDetails = routineDetails,
+            blocks = routineBlocks,
             isWorkoutActive = isWorkoutActive,
             onStartWorkout = {
                 selectedRoutine = null
@@ -435,6 +440,7 @@ private fun RoutineCard(
 private fun RoutineOverviewSheet(
     summary: RoutineWithSummary,
     exerciseDetails: List<RoutineExerciseWithName>,
+    blocks: List<RoutineBlock> = emptyList(),
     isWorkoutActive: Boolean,
     onStartWorkout: () -> Unit,
     onEdit: () -> Unit,
@@ -461,6 +467,7 @@ private fun RoutineOverviewSheet(
         else -> "${summary.daysSincePerformed} days ago"
     }
 
+    val sections = remember(exerciseDetails, blocks) { buildRoutineSections(exerciseDetails, blocks) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -582,46 +589,93 @@ private fun RoutineOverviewSheet(
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 }
             } else {
-                exerciseDetails.forEach { ex ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min)
-                    ) {
-                        if (ex.supersetGroupId != null) {
-                            Box(
-                                modifier = Modifier
-                                    .width(4.dp)
-                                    .fillMaxHeight()
-                                    .background(supersetColorMap[ex.supersetGroupId] ?: Color.Transparent)
-                            )
-                        }
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(
-                                    start = if (ex.supersetGroupId != null) 8.dp else 0.dp,
-                                    top = 10.dp,
-                                    bottom = 10.dp
-                                ),
-                            verticalAlignment = Alignment.CenterVertically
+                sections.forEach { section ->
+                    val block = section.block
+                    val blockType = block?.let { runCatching { BlockType.valueOf(it.type) }.getOrNull() }
+                    val isFunctional = blockType != null && blockType != BlockType.STRENGTH
+
+                    if (isFunctional && block != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            shape = MaterialTheme.shapes.medium
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "${ex.workingSets} × ${ex.exerciseName}",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = ex.muscleGroup,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-                                )
+                            Column {
+                                RoutineBlockPreviewHeader(block = block, blockType = blockType)
+                                section.exercises.forEachIndexed { index, ex ->
+                                    if (index > 0) HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 12.dp),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "${ex.workingSets} × ${ex.exerciseName}",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = ex.muscleGroup,
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
+                    } else {
+                        section.exercises.forEach { ex ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min)
+                            ) {
+                                if (ex.supersetGroupId != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(4.dp)
+                                            .fillMaxHeight()
+                                            .background(supersetColorMap[ex.supersetGroupId] ?: Color.Transparent)
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(
+                                            start = if (ex.supersetGroupId != null) 8.dp else 0.dp,
+                                            top = 10.dp,
+                                            bottom = 10.dp
+                                        ),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${ex.workingSets} × ${ex.exerciseName}",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = ex.muscleGroup,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                    }
+                                }
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                        }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                 }
             }
 
@@ -677,5 +731,95 @@ private fun RoutineOverviewSheet(
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+private data class RoutineSection(
+    val block: RoutineBlock?,
+    val exercises: List<RoutineExerciseWithName>
+)
+
+private fun buildRoutineSections(
+    exercises: List<RoutineExerciseWithName>,
+    blocks: List<RoutineBlock>
+): List<RoutineSection> {
+    if (blocks.isEmpty()) return if (exercises.isEmpty()) emptyList() else listOf(RoutineSection(null, exercises))
+    val byBlockId = exercises.groupBy { it.blockId }
+    val sections = mutableListOf<RoutineSection>()
+    // Blocks in their defined order first (matches ActiveWorkoutScreen rendering order)
+    blocks.sortedBy { it.order }.forEach { block ->
+        val blockExercises = byBlockId[block.id] ?: emptyList()
+        sections.add(RoutineSection(block, blockExercises))
+    }
+    // Unblocked exercises last (matches ActiveWorkoutScreen rendering order)
+    val unblocked = byBlockId[null] ?: emptyList()
+    if (unblocked.isNotEmpty()) sections.add(RoutineSection(null, unblocked))
+    return sections
+}
+
+@Composable
+private fun RoutineBlockPreviewHeader(block: RoutineBlock, blockType: BlockType?) {
+    val paramSummary = when (blockType) {
+        BlockType.AMRAP -> block.durationSeconds?.let { "${it / 60}min" } ?: ""
+        BlockType.RFT -> buildString {
+            append("${block.targetRounds ?: 0} rounds")
+            block.durationSeconds?.let { append(" · ${it / 60}min cap") }
+        }
+        BlockType.EMOM -> buildString {
+            block.durationSeconds?.let { append("${it / 60}min") }
+            block.emomRoundSeconds?.let { sec ->
+                val label = when {
+                    sec <= 60 -> "60s/round"
+                    sec % 60 == 0 -> "${sec / 60}min/round"
+                    else -> "${sec}s/round"
+                }
+                append(" · $label")
+            }
+        }
+        BlockType.TABATA -> buildString {
+            append("${block.tabataWorkSeconds ?: 20}s / ${block.tabataRestSeconds ?: 10}s")
+            block.targetRounds?.let { append(" × $it") }
+        }
+        else -> ""
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (blockType != null && blockType != BlockType.STRENGTH) {
+            SuggestionChip(
+                onClick = {},
+                label = {
+                    Text(
+                        blockType.displayName,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TimerGreen
+                    )
+                },
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = TimerGreen.copy(alpha = 0.12f)
+                )
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = block.name ?: blockType?.displayName ?: "",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (paramSummary.isNotBlank()) {
+                Text(
+                    text = paramSummary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }

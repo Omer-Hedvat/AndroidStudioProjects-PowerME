@@ -3,6 +3,8 @@ package com.powerme.app.ui.workouts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.powerme.app.data.database.Routine
+import com.powerme.app.data.database.RoutineBlock
+import com.powerme.app.data.database.RoutineBlockDao
 import com.powerme.app.data.database.RoutineDao
 import com.powerme.app.data.database.RoutineExerciseDao
 import com.powerme.app.data.database.RoutineExerciseNameRow
@@ -32,6 +34,7 @@ data class RoutineWithSummary(
 class WorkoutsViewModel @Inject constructor(
     private val routineDao: RoutineDao,
     private val routineExerciseDao: RoutineExerciseDao,
+    private val routineBlockDao: RoutineBlockDao,
     private val routineRepository: RoutineRepository,
     private val firestoreSyncManager: FirestoreSyncManager
 ) : ViewModel() {
@@ -39,14 +42,19 @@ class WorkoutsViewModel @Inject constructor(
     private val _routineDetails = MutableStateFlow<List<RoutineExerciseWithName>>(emptyList())
     val routineDetails: StateFlow<List<RoutineExerciseWithName>> = _routineDetails.asStateFlow()
 
+    private val _routineBlocks = MutableStateFlow<List<RoutineBlock>>(emptyList())
+    val routineBlocks: StateFlow<List<RoutineBlock>> = _routineBlocks.asStateFlow()
+
     fun loadRoutineDetails(routineId: String) {
         viewModelScope.launch {
             _routineDetails.value = routineExerciseDao.getExercisesWithNamesForRoutine(routineId)
+            _routineBlocks.value = routineBlockDao.getBlocksForRoutineOnce(routineId)
         }
     }
 
     fun clearRoutineDetails() {
         _routineDetails.value = emptyList()
+        _routineBlocks.value = emptyList()
     }
 
     private val _showArchived = MutableStateFlow(false)
