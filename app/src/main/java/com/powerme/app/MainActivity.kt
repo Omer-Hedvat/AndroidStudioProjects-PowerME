@@ -11,6 +11,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import com.powerme.app.data.AppSettingsDataStore
 import com.powerme.app.data.KeepScreenOnMode
 import com.powerme.app.data.ThemeMode
@@ -19,6 +20,7 @@ import com.powerme.app.navigation.PowerMeApp
 import com.powerme.app.ui.theme.PowerMETheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -40,9 +42,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Collect keepScreenOnMode imperatively so the window flag is applied immediately
+        // and on every change — independent of Compose recomposition timing.
+        // ALWAYS  → add FLAG_KEEP_SCREEN_ON (screen always on, app-wide)
+        // anything else → clear flag (DURING_WORKOUT is handled view-level in ActiveWorkoutScreen)
+        lifecycleScope.launch {
+            appSettingsDataStore.keepScreenOnMode.collect { mode ->
+                if (mode == KeepScreenOnMode.ALWAYS) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+        }
+
         setContent {
             val themeMode by appSettingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
-            val keepScreenOnMode by appSettingsDataStore.keepScreenOnMode.collectAsState(initial = KeepScreenOnMode.DURING_WORKOUT)
             val systemDark = isSystemInDarkTheme()
             val isDark = when (themeMode) {
                 ThemeMode.LIGHT  -> false
@@ -55,11 +71,6 @@ class MainActivity : ComponentActivity() {
                 else
                     SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
-                if (keepScreenOnMode == KeepScreenOnMode.ALWAYS) {
-                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                } else {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                }
             }
             PowerMETheme(themeMode = themeMode) {
                 PowerMeApp()

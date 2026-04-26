@@ -126,11 +126,23 @@ fun ActiveWorkoutScreen(
     var showStandaloneTimerConfig by remember { mutableStateOf(false) }
     val view = LocalView.current
 
-    // Keep screen on during workout when mode is DURING_WORKOUT (ALWAYS is handled in MainActivity).
+    // Keep screen on based on the user's mode setting.
+    // ALWAYS  → screen always on (view-level; MainActivity window flag is belt-and-suspenders).
+    // DURING_WORKOUT → on only while a workout is active.
+    // OFF / other → normal system behaviour.
+    // onDispose skips the clear for ALWAYS so the window flag in MainActivity is not clobbered.
     DisposableEffect(view, keepScreenOnMode, workoutState.isActive) {
-        val shouldKeep = keepScreenOnMode == KeepScreenOnMode.DURING_WORKOUT && workoutState.isActive
+        val shouldKeep = when (keepScreenOnMode) {
+            KeepScreenOnMode.ALWAYS -> true
+            KeepScreenOnMode.DURING_WORKOUT -> workoutState.isActive
+            else -> false
+        }
         view.keepScreenOn = shouldKeep
-        onDispose { if (keepScreenOnMode == KeepScreenOnMode.DURING_WORKOUT) view.keepScreenOn = false }
+        onDispose {
+            if (keepScreenOnMode != KeepScreenOnMode.ALWAYS) {
+                view.keepScreenOn = false
+            }
+        }
     }
 
     var isReorderMode by remember { mutableStateOf(false) }

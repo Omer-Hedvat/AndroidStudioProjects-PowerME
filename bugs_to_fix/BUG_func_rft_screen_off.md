@@ -1,7 +1,7 @@
 # BUG: Screen turns off during RFT overlay despite "Keep Screen On — Always" setting
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P1 high
@@ -32,4 +32,4 @@ The EMOM and AMRAP overlays should be verified for the same issue.
 - Related spec: `WORKOUT_SPEC.md`, `future_devs/KEEP_SCREEN_ON_MODE_SPEC.md`
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+Root cause (two-part): (1) `ActiveWorkoutScreen`'s `DisposableEffect` never actively set `view.keepScreenOn = true` for ALWAYS mode — it only passively avoided setting it to false. (2) The `onDispose` block called `view.keepScreenOn = false` when the mode changed from DURING_WORKOUT to ALWAYS (using the old captured value), which cleared the `FLAG_KEEP_SCREEN_ON` set by `MainActivity`. Fix: comprehensive `DisposableEffect` that sets `view.keepScreenOn` for all three modes (ALWAYS→true, DURING_WORKOUT→isActive, else→false), and `onDispose` skips the clear when mode is ALWAYS so the window-level flag in `MainActivity` is not clobbered. Scope: affects both overlay screens (RFT/AMRAP/EMOM/TABATA) and plain gym workouts.
