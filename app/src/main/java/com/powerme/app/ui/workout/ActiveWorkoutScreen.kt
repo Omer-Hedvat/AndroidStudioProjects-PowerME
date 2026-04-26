@@ -611,6 +611,39 @@ private fun FunctionalBlockActiveCard(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
+            // Column headers
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "EXERCISE",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "WEIGHT",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(72.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "REPS",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(72.dp)
+                )
+                Spacer(Modifier.width(20.dp)) // aligns with the "reps"/"s" label space
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+
             // Exercise rows — one plain row per exercise, no sets/PRE/RPE/checkmark
             exercises.forEachIndexed { index, exWithSets ->
                 if (index > 0) {

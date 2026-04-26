@@ -27,4 +27,4 @@ The likely cause: the clear handler calls `onQueryChange("")` which may trigger 
 - Related spec: `future_devs/EXERCISE_FILTER_DIALOG_SPEC.md`
 
 ## Fix Notes
-Added a `FocusRequester` to the search `OutlinedTextField`. The X button click handler now calls `searchFocusRequester.requestFocus()` immediately after `onSearchQueryChanged("")`, so the field regains focus and the keyboard stays visible. The Tune filter icon is unaffected — it sits in the same trailing `Row` and its click handler is unchanged.
+Added a `FocusRequester` to the search `OutlinedTextField`. The X button click handler now calls `searchFocusRequester.requestFocus()` immediately after `onSearchQueryChanged("")`, so the field regains focus. Also added `LocalSoftwareKeyboardController.current?.show()` so the keyboard re-appears even if it was manually dismissed before tapping X. The Tune filter icon is unaffected — it sits in the same trailing `Row` and its click handler is unchanged.

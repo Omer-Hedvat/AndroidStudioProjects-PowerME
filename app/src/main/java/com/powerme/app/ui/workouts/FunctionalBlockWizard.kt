@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -439,10 +440,10 @@ private fun EmomParams(
             onIncrement = { if (totalRounds < 60) onTotalRoundsChange(totalRounds + 1) }
         )
         Text("Interval", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        // Preset chips
+        // Preset chips — horizontally scrollable so all chips (incl. Custom) are reachable
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.horizontalScroll(rememberScrollState())
         ) {
             emomPresets.forEachIndexed { idx, presetSec ->
                 FilterChip(

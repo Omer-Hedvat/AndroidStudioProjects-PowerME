@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,6 +60,7 @@ fun ExercisesScreen(
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
     var selectedIds by remember { mutableStateOf(initialSelectedIds) }
     val searchFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(initialFunctionalFilter) {
         if (initialFunctionalFilter && !uiState.functionalFilter) {
@@ -107,6 +109,7 @@ fun ExercisesScreen(
                             IconButton(onClick = {
                                 viewModel.onSearchQueryChanged("")
                                 searchFocusRequester.requestFocus()
+                                keyboardController?.show()
                             }) {
                                 Icon(
                                     Icons.Default.Close,

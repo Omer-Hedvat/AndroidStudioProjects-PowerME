@@ -119,8 +119,7 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 | Exercise picker UI consistency (standardise all entry points) | `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | S | `completed` | func_template_wizard ✅ |
 | Exercise picker — ExerciseType pre-filter by entry point | `future_devs/EXERCISE_PICKER_TYPE_PREFILTER_SPEC.md` | S | `completed` | func_template_hybrid_sheet ✅ |
 | Functional block active workout card UI (grouped card, no sets/PRE/RPE/V) | `future_devs/FUNC_ACTIVE_BLOCK_CARD_UI_SPEC.md` | M | `completed` | func_active_strength_blocks ✅ |
-| Functional block exercise — weight targets & column labels | `future_devs/FUNC_EXERCISE_WEIGHT_DISPLAY_SPEC.md` | S | `not-started` | func_active_block_card_ui ✅ |
-| Functional block — exercise reorder in template builder | `future_devs/FUNC_BLOCK_EXERCISE_REORDER_SPEC.md` | S | `not-started` | func_block_card_layout |
+| Functional template builder polish — block view, weights, reorder | `future_devs/FUNC_TEMPLATE_BUILDER_POLISH_SPEC.md` | M | `not-started` | func_active_block_card_ui ✅, func_block_card_layout ✅ |
 | Functional blocks — disable supersets for functional exercises | `future_devs/FUNC_HIDE_SUPERSET_FUNCTIONAL_SPEC.md` | XS | `not-started` | func_active_block_card_ui ✅ |
 | Functional blocks — adjust time cap from within active workout | `future_devs/FUNC_TIMECAP_ADJUST_IN_WORKOUT_SPEC.md` | S | `not-started` | BUG_func_start_block_noop, BUG_func_timecap_no_alert |
 | Functional blocks — inter-round rest timer | `future_devs/FUNC_INTER_ROUND_REST_SPEC.md` | M | `not-started` | BUG_func_start_block_noop |
@@ -204,8 +203,7 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | P8 — Exercise picker UI consistency — standardise all entry points to same UI |
 | `future_devs/EXERCISE_PICKER_TYPE_PREFILTER_SPEC.md` | P8 — Exercise picker pre-filter by ExerciseType based on entry point (strength vs functional) |
 | `future_devs/FUNC_ACTIVE_BLOCK_CARD_UI_SPEC.md` | P8 — Functional block active workout card: grouped card, no sets/PRE/RPE/V for functional exercises |
-| `future_devs/FUNC_EXERCISE_WEIGHT_DISPLAY_SPEC.md` | P8 — Functional block exercises: weight targets in template builder + column labels in active workout |
-| `future_devs/FUNC_BLOCK_EXERCISE_REORDER_SPEC.md` | P8 — Functional block exercise reorder + block reorder in template builder |
+| `future_devs/FUNC_TEMPLATE_BUILDER_POLISH_SPEC.md` | P8 — Functional template builder polish: block view in routine detail, weight targets, exercise/block reorder |
 | `future_devs/FUNC_HIDE_SUPERSET_FUNCTIONAL_SPEC.md` | P8 — Disable superset UI for exercises inside functional blocks |
 | `future_devs/FUNC_TIMECAP_ADJUST_IN_WORKOUT_SPEC.md` | P8 — Adjust AMRAP/RFT time cap from within the active workout overlay |
 | `future_devs/FUNC_INTER_ROUND_REST_SPEC.md` | P8 — Optional inter-round rest timer for RFT and AMRAP functional blocks |
