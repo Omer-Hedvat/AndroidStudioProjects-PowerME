@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
@@ -56,7 +57,8 @@ fun TabataOverlay(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 24.dp, bottom = 24.dp),
+                .padding(top = 24.dp)
+                .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -122,8 +124,8 @@ fun TabataOverlay(
     if (showAbandonConfirm) {
         AlertDialog(
             onDismissRequest = { showAbandonConfirm = false },
-            title = { Text("Abandon block?") },
-            text = { Text("Phase log will be discarded.") },
+            title = { Text("Abandon workout?") },
+            text = { Text("The entire workout session will be discarded.") },
             confirmButton = {
                 TextButton(onClick = {
                     showAbandonConfirm = false

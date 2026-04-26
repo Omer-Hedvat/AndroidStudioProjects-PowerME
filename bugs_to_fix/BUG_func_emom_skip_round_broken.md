@@ -1,7 +1,7 @@
 # BUG: EMOM "Skip Round" button does not advance to the next round
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P1 high

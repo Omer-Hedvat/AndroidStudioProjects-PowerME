@@ -219,6 +219,103 @@ class FunctionalBlockRunnerTest {
         assertEquals(5, spec.targetRounds)
         assertEquals(1500, spec.capSeconds)
     }
+
+    // ── Bug: func_timecap_no_alert — onFinish wired ──────────────────────────
+
+    @Test
+    fun `start invokes onFinish callback after timer completes`() = runTest(testDispatcher) {
+        var callbackFired = false
+        runner.start(amrapBlock(), emptyPlan, onFinish = { callbackFired = true })
+        advanceUntilIdle()
+        assertTrue("onFinish must be invoked once the timer run() returns", callbackFired)
+    }
+
+    // ── Bug: func_overlay_mid_round_alert — default warnAt ────────────────────
+
+    @Test
+    fun `mapToTimerSpec provides default warnAtSeconds for EMOM when override is null`() =
+        runTest(testDispatcher) {
+            // 60s interval → resolveWarnAt(60) = min(30, 10) = 10
+            runner.start(emomBlock(duration = 600, interval = 60), emptyPlan); runCurrent()
+            val spec = fakeEngine.lastSpec as TimerSpec.Emom
+            assertEquals(10, spec.warnAtSeconds)
+        }
+
+    @Test
+    fun `mapToTimerSpec respects explicit warnAtSecondsOverride for EMOM`() =
+        runTest(testDispatcher) {
+            val block = emomBlock(duration = 600, interval = 60)
+                .copy(warnAtSecondsOverride = 20)
+            runner.start(block, emptyPlan); runCurrent()
+            val spec = fakeEngine.lastSpec as TimerSpec.Emom
+            assertEquals(20, spec.warnAtSeconds)
+        }
+
+    @Test
+    fun `mapToTimerSpec provides default workWarnAtSeconds for TABATA when override is null`() =
+        runTest(testDispatcher) {
+            // 20s work → resolveWarnAt(20) = min(10, 10) = 10
+            runner.start(tabataBlock(), emptyPlan); runCurrent()
+            val spec = fakeEngine.lastSpec as TimerSpec.Tabata
+            assertEquals(10, spec.workWarnAtSeconds)
+        }
+
+    // ── Bug: func_early_finish_round_count — roundTapCount tracking ───────────
+
+    @Test
+    fun `appendRoundTap increments roundTapCount in state`() = runTest(testDispatcher) {
+        runner.start(amrapBlock(), emptyPlan); runCurrent()
+        runner.appendRoundTap(round = 1, elapsedMs = 10_000L, completed = true)
+        runCurrent()
+        runner.appendRoundTap(round = 2, elapsedMs = 20_000L, completed = true)
+        runCurrent()
+        assertEquals(2, runner.state.value?.roundTapCount)
+    }
+
+    // ── skipCurrentInterval ─────────────────────────────────────────────────
+
+    @Test
+    fun `skipCurrentInterval delegates to timerEngine`() = runTest(testDispatcher) {
+        runner.start(emomBlock(), emptyPlan); runCurrent()
+        runner.skipCurrentInterval()
+        assertEquals(1, fakeEngine.skipIntervalCalls)
+    }
+
+    @Test
+    fun `skipCurrentInterval is no-op when runner is not active`() = runTest(testDispatcher) {
+        runner.skipCurrentInterval()
+        assertEquals(0, fakeEngine.skipIntervalCalls)
+    }
+
+    // ── EMOM warnAtSeconds2 mapping ─────────────────────────────────────────
+
+    @Test
+    fun `mapToTimerSpec EMOM sets warnAtSeconds2=30 for interval longer than 20s`() =
+        runTest(testDispatcher) {
+            runner.start(emomBlock(duration = 600, interval = 60), emptyPlan); runCurrent()
+            val spec = fakeEngine.lastSpec as TimerSpec.Emom
+            assertEquals(10, spec.warnAtSeconds)
+            assertEquals(30, spec.warnAtSeconds2)
+        }
+
+    @Test
+    fun `mapToTimerSpec EMOM warnAtSeconds2 is null for short interval`() =
+        runTest(testDispatcher) {
+            val block = emomBlock(duration = 200, interval = 20)
+            runner.start(block, emptyPlan); runCurrent()
+            val spec = fakeEngine.lastSpec as TimerSpec.Emom
+            assertNull(spec.warnAtSeconds2)
+        }
+
+    @Test
+    fun `mapToTimerSpec EMOM warnAtSeconds2 is null when override is set`() =
+        runTest(testDispatcher) {
+            val block = emomBlock(duration = 600, interval = 60).copy(warnAtSecondsOverride = 20)
+            runner.start(block, emptyPlan); runCurrent()
+            val spec = fakeEngine.lastSpec as TimerSpec.Emom
+            assertEquals(20, spec.warnAtSeconds)
+            assertNull(spec.warnAtSeconds2)
+        }
 }
 
 /** Minimal TimerEngine fake used by FunctionalBlockRunnerTest. */
@@ -231,6 +328,7 @@ private class FakeTimerEngine : TimerEngine {
     var pauseCalls = 0
     var resumeCalls = 0
     var stopCalls = 0
+    var skipIntervalCalls = 0
 
     override suspend fun run(spec: TimerSpec, setupSeconds: Int) {
         lastSpec = spec
@@ -246,4 +344,5 @@ private class FakeTimerEngine : TimerEngine {
     override fun resume() { resumeCalls++ }
     override fun stop() { stopCalls++ }
     override fun addSeconds(delta: Int) {}
+    override fun skipInterval() { skipIntervalCalls++ }
 }

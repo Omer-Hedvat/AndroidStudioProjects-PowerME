@@ -1,6 +1,7 @@
 package com.powerme.app.ui.exercises
 
 import com.powerme.app.data.database.Exercise
+import com.powerme.app.data.database.ExerciseType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,13 +18,15 @@ class ExerciseTagsFilterTest {
     private fun makeExercise(
         id: Long,
         name: String,
-        tags: String = "[]"
+        tags: String = "[]",
+        exerciseType: ExerciseType = ExerciseType.STRENGTH
     ) = Exercise(
         id = id,
         name = name,
         muscleGroup = "Legs",
         equipmentType = "Barbell",
-        tags = tags
+        tags = tags,
+        exerciseType = exerciseType
     )
 
     private val allExercises = listOf(
@@ -102,5 +105,77 @@ class ExerciseTagsFilterTest {
         val ex = makeExercise(1, "Exercise A", """[ "functional" , "olympic" ]""")
         val result = applyFunctionalFilter(listOf(ex), functional = true)
         assertEquals(1, result.size)
+    }
+
+    // --- Combined functional + ExerciseType filter (functional entry point fix) ---
+
+    /** Simulates applyFilters() with both a type set and the functional tag predicate. */
+    private fun applyTypeAndFunctionalFilter(
+        exercises: List<Exercise>,
+        types: Set<ExerciseType>,
+        functional: Boolean
+    ): List<Exercise> = exercises.filter { ex ->
+        val matchesType = types.isEmpty() || ex.exerciseType in types
+        val matchesFunctional = !functional || ex.tags.contains("\"functional\"")
+        matchesType && matchesFunctional
+    }
+
+    @Test
+    fun `functional entry — no type filter — STRENGTH-typed exercises with functional tag are visible`() {
+        // Power Clean, KB Swing, etc. are ExerciseType.STRENGTH but carry the functional tag.
+        // Functional entry points no longer pass typeFilters=CARDIO,PLYOMETRIC, so these must appear.
+        val exercises = listOf(
+            makeExercise(1, "Power Clean", """["functional","olympic"]""", ExerciseType.STRENGTH),
+            makeExercise(2, "Kettlebell Swing", """["functional"]""", ExerciseType.STRENGTH),
+            makeExercise(3, "Box Jump", """["functional"]""", ExerciseType.PLYOMETRIC),
+            makeExercise(4, "Row Machine", """["functional","monostructural"]""", ExerciseType.CARDIO),
+            makeExercise(5, "Bench Press", "[]", ExerciseType.STRENGTH) // no functional tag
+        )
+        val result = applyTypeAndFunctionalFilter(exercises, types = emptySet(), functional = true)
+        assertEquals(4, result.size)
+        assertTrue(result.any { it.name == "Power Clean" })
+        assertTrue(result.any { it.name == "Kettlebell Swing" })
+        assertTrue(result.any { it.name == "Box Jump" })
+        assertTrue(result.any { it.name == "Row Machine" })
+        assertFalse(result.any { it.name == "Bench Press" })
+    }
+
+    @Test
+    fun `functional entry — CARDIO+PLYOMETRIC type filter — STRENGTH functional exercises hidden (old bug)`() {
+        // Demonstrates the old broken behaviour: when typeFilters=CARDIO,PLYOMETRIC was active,
+        // STRENGTH-typed functional exercises were silently excluded.
+        val exercises = listOf(
+            makeExercise(1, "Power Clean", """["functional","olympic"]""", ExerciseType.STRENGTH),
+            makeExercise(2, "Box Jump", """["functional"]""", ExerciseType.PLYOMETRIC),
+        )
+        val brokenResult = applyTypeAndFunctionalFilter(
+            exercises,
+            types = setOf(ExerciseType.CARDIO, ExerciseType.PLYOMETRIC),
+            functional = true
+        )
+        // Power Clean was excluded by the old CARDIO+PLYOMETRIC gate
+        assertEquals(1, brokenResult.size)
+        assertFalse(brokenResult.any { it.name == "Power Clean" })
+        assertTrue(brokenResult.any { it.name == "Box Jump" })
+    }
+
+    @Test
+    fun `strength entry — STRENGTH+TIMED type filter — CARDIO and PLYOMETRIC excluded`() {
+        val exercises = listOf(
+            makeExercise(1, "Barbell Back Squat", "[]", ExerciseType.STRENGTH),
+            makeExercise(2, "Plank Hold", "[]", ExerciseType.TIMED),
+            makeExercise(3, "Running", "[]", ExerciseType.CARDIO),
+            makeExercise(4, "Box Jump", """["functional"]""", ExerciseType.PLYOMETRIC),
+        )
+        val result = applyTypeAndFunctionalFilter(
+            exercises,
+            types = setOf(ExerciseType.STRENGTH, ExerciseType.TIMED),
+            functional = false
+        )
+        assertEquals(2, result.size)
+        assertTrue(result.any { it.name == "Barbell Back Squat" })
+        assertTrue(result.any { it.name == "Plank Hold" })
+        assertFalse(result.any { it.name == "Running" })
+        assertFalse(result.any { it.name == "Box Jump" })
     }
 }

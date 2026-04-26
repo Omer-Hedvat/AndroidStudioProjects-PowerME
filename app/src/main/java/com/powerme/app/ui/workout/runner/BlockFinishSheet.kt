@@ -61,7 +61,10 @@ fun BlockFinishSheet(
     onDismiss: () -> Unit,
     onSave: (BlockFinishResult) -> Unit,
 ) {
-    var rounds by remember { mutableStateOf(state.roundTapCount.coerceAtLeast(state.currentRound)) }
+    // TABATA is auto-run (no user taps) so use timer's currentRound; all others use confirmed tap count.
+    var rounds by remember {
+        mutableStateOf(if (blockType == "TABATA") state.currentRound else state.roundTapCount)
+    }
     var extraReps by remember { mutableStateOf(0) }
     var rpeMode by remember { mutableStateOf(RpeMode.OVERALL) }
     var overallRpe by remember { mutableStateOf<Int?>(null) }

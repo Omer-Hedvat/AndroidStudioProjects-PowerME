@@ -6,7 +6,8 @@ sealed class TimerSpec {
     data class Emom(
         val totalDurationSeconds: Int,
         val intervalSeconds: Int,
-        val warnAtSeconds: Int? = null
+        val warnAtSeconds: Int? = null,
+        val warnAtSeconds2: Int? = null,
     ) : TimerSpec()
     data class Tabata(
         val workSeconds: Int,

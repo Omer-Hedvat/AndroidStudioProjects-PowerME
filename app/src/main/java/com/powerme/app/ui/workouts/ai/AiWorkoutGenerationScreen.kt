@@ -31,6 +31,7 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.powerme.app.ai.DownloadState
+import com.powerme.app.ui.theme.PowerMeDefaults
 import com.powerme.app.ui.theme.buildSupersetColorMap
 import com.powerme.app.util.MatchType
 import sh.calvin.reorderable.ReorderableItem
@@ -403,7 +404,8 @@ private fun InputStep(
                     )
                 },
                 label = { Text("Workout description") },
-                minLines = 6
+                minLines = 6,
+                colors = PowerMeDefaults.outlinedTextFieldColors()
             )
         } else {
             Column(
@@ -435,7 +437,8 @@ private fun InputStep(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        minLines = 4
+                        minLines = 4,
+                        colors = PowerMeDefaults.outlinedTextFieldColors()
                     )
                 } else {
                     Box(
@@ -867,7 +870,8 @@ private fun RestTimeDialog(
                 label = { Text("Seconds") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = PowerMeDefaults.outlinedTextFieldColors()
             )
         },
         confirmButton = {
@@ -896,7 +900,8 @@ private fun NotesDialog(
                 onValueChange = { text = it },
                 label = { Text("Notes (optional)") },
                 minLines = 3,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = PowerMeDefaults.outlinedTextFieldColors()
             )
         },
         confirmButton = {
@@ -921,7 +926,8 @@ private fun SaveRoutineDialog(
                 onValueChange = { name = it },
                 label = { Text("Routine name") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = PowerMeDefaults.outlinedTextFieldColors()
             )
         },
         confirmButton = {

@@ -53,6 +53,7 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 - RPE auto-pop mode selector (P1) — `RpeMode` enum (PURE_GYM/PURE_FUNCTIONAL/HYBRID/OFF) replaces old boolean. Display: RadioButton list ("Strength only" / "Functional only" / "All workouts" / "Off") in Display & Workout card — avoids text-wrapping of 4-segment row. `WorkoutViewModel` checks `rpeMode` against `currentWorkoutStyle` (from DataStore) before emitting `rpeAutoPopTarget`. DataStore migration from old boolean. Firestore push/pull updated. 7 new ViewModel tests.
 - Profile — Log Out into Danger Zone (P1) — Standalone Log Out button removed from above the Danger Zone divider; moved inside the Danger Zone block as the first action, above Delete Account, with 8dp spacer between them.
 - Settings page card reorder (P1) — LazyColumn order: Appearance → Units → Workout Style → Display & Workout → Rest Timer → AI → Health Connect → Data & Backup.
+- Functional block card layout (P8) — In template builder, each functional block (AMRAP/RFT/EMOM/TABATA) is wrapped in a single `Card` (`surfaceVariant` bg, `medium` shape) containing `BlockHeader` + all exercise rows; no individual card per exercise. STRENGTH blocks / unblocked exercises keep per-exercise cards. `BlockHeader` gains `standalone: Boolean = true`; when `false` uses transparent bg + 8dp top padding. `FunctionalExerciseRow` renders as a plain `Row` (no Card wrapper).
 
 **In-progress:**
 - _(none)_

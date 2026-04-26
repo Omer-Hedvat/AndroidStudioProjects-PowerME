@@ -197,84 +197,22 @@ fun ActiveWorkoutScreen(
         )
     }
 
-    // Functional Block Overlay (AMRAP / RFT / EMOM / TABATA — full-screen when active)
+    // Functional Block Overlay state — declared here so it's accessible inside the Box below
     val fb = workoutState.functionalBlockState
     var showBlockFinishSheet by remember { mutableStateOf(false) }
-    if (fb != null) {
-        when (fb.blockType) {
-            "AMRAP" -> com.powerme.app.ui.workout.runner.AmrapOverlay(
-                state = fb,
-                onTap = {
-                    viewModel.appendBlockRoundTap(
-                        round = fb.roundTapCount + 1,
-                        elapsedMs = fb.elapsedSeconds * 1000L,
-                        completed = true,
-                    )
-                },
-                onFinishClick = { showBlockFinishSheet = true },
-                onAbandonClick = { viewModel.abandonFunctionalBlock() },
-            )
-            "RFT" -> com.powerme.app.ui.workout.runner.RftOverlay(
-                state = fb,
-                onRoundTap = {
-                    viewModel.appendBlockRoundTap(
-                        round = fb.roundTapCount + 1,
-                        elapsedMs = fb.elapsedSeconds * 1000L,
-                        completed = true,
-                    )
-                },
-                onFinishClick = { showBlockFinishSheet = true },
-                onAbandonClick = { viewModel.abandonFunctionalBlock() },
-            )
-            "EMOM" -> com.powerme.app.ui.workout.runner.EmomOverlay(
-                state = fb,
-                onRoundCompleted = {
-                    viewModel.appendBlockRoundTap(
-                        round = fb.currentRound,
-                        elapsedMs = fb.elapsedSeconds * 1000L,
-                        completed = true,
-                    )
-                },
-                onRoundSkipped = {
-                    viewModel.appendBlockRoundTap(
-                        round = fb.currentRound,
-                        elapsedMs = fb.elapsedSeconds * 1000L,
-                        completed = false,
-                    )
-                },
-                onFinishClick = { showBlockFinishSheet = true },
-                onAbandonClick = { viewModel.abandonFunctionalBlock() },
-            )
-            "TABATA" -> com.powerme.app.ui.workout.runner.TabataOverlay(
-                state = fb,
-                onFinishClick = { showBlockFinishSheet = true },
-                onAbandonClick = { viewModel.abandonFunctionalBlock() },
-            )
-        }
-        if (showBlockFinishSheet) {
-            com.powerme.app.ui.workout.runner.BlockFinishSheet(
-                blockType = fb.blockType,
-                state = fb,
-                onDismiss = { showBlockFinishSheet = false },
-                onSave = { result ->
-                    viewModel.finishFunctionalBlock(
-                        rounds = result.rounds,
-                        extraReps = result.extraReps,
-                        finishSeconds = result.finishSeconds,
-                        rpe = result.rpe,
-                        perExerciseRpeJson = result.perExerciseRpeJson,
-                        notes = result.notes,
-                    )
-                    showBlockFinishSheet = false
-                },
-            )
-        }
-    }
 
     // Auto-navigate to WorkoutSummaryScreen when finishWorkout() completes
     LaunchedEffect(workoutState.pendingWorkoutSummary) {
         if (workoutState.pendingWorkoutSummary != null) {
             onWorkoutFinished()
+        }
+    }
+
+    // Auto-present BlockFinishSheet when the functional block timer expires
+    LaunchedEffect(workoutState.blockAutoFinished) {
+        if (workoutState.blockAutoFinished) {
+            showBlockFinishSheet = true
+            viewModel.consumeBlockAutoFinished()
         }
     }
 
@@ -463,6 +401,65 @@ fun ActiveWorkoutScreen(
         hostState = snackbarHostState,
         modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
     )
+    // Functional Block Overlay (AMRAP / RFT / EMOM / TABATA — full-screen when active).
+    // Must be the last child in this Box so it draws on top of all workout content.
+    if (fb != null) {
+        when (fb.blockType) {
+            "AMRAP" -> com.powerme.app.ui.workout.runner.AmrapOverlay(
+                state = fb,
+                onTap = {
+                    viewModel.appendBlockRoundTap(
+                        round = fb.roundTapCount + 1,
+                        elapsedMs = fb.elapsedSeconds * 1000L,
+                        completed = true,
+                    )
+                },
+                onFinishClick = { showBlockFinishSheet = true },
+                onAbandonClick = { viewModel.cancelWorkout(); onWorkoutFinished() },
+            )
+            "RFT" -> com.powerme.app.ui.workout.runner.RftOverlay(
+                state = fb,
+                onRoundTap = {
+                    viewModel.appendBlockRoundTap(
+                        round = fb.roundTapCount + 1,
+                        elapsedMs = fb.elapsedSeconds * 1000L,
+                        completed = true,
+                    )
+                },
+                onFinishClick = { showBlockFinishSheet = true },
+                onAbandonClick = { viewModel.cancelWorkout(); onWorkoutFinished() },
+            )
+            "EMOM" -> com.powerme.app.ui.workout.runner.EmomOverlay(
+                state = fb,
+                onRoundSkipped = { viewModel.skipEmomRound() },
+                onFinishClick = { showBlockFinishSheet = true },
+                onAbandonClick = { viewModel.cancelWorkout(); onWorkoutFinished() },
+            )
+            "TABATA" -> com.powerme.app.ui.workout.runner.TabataOverlay(
+                state = fb,
+                onFinishClick = { showBlockFinishSheet = true },
+                onAbandonClick = { viewModel.cancelWorkout(); onWorkoutFinished() },
+            )
+        }
+        if (showBlockFinishSheet) {
+            com.powerme.app.ui.workout.runner.BlockFinishSheet(
+                blockType = fb.blockType,
+                state = fb,
+                onDismiss = { showBlockFinishSheet = false },
+                onSave = { result ->
+                    viewModel.finishFunctionalBlock(
+                        rounds = result.rounds,
+                        extraReps = result.extraReps,
+                        finishSeconds = result.finishSeconds,
+                        rpe = result.rpe,
+                        perExerciseRpeJson = result.perExerciseRpeJson,
+                        notes = result.notes,
+                    )
+                    showBlockFinishSheet = false
+                },
+            )
+        }
+    }
     } // end Box
 
     if (showExerciseDialog) {
@@ -957,6 +954,68 @@ private fun LazyListScope.activeWorkoutListItems(
                     )
                 }
             }
+        }
+        // Render unblocked exercises (null blockId) as regular strength-style cards.
+        // These exist when strength exercises were added to a HYBRID routine without an
+        // explicit STRENGTH block assignment (AddBlockOrExerciseSheet → exercise picker path).
+        val unblockedExercises = workoutState.exercisesByBlockId[null] ?: emptyList()
+        items(items = unblockedExercises, key = { it.exercise.id }) { exerciseWithSets ->
+            val isCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedExerciseIds
+            val warmupsCollapsed = exerciseWithSets.exercise.id in workoutState.collapsedWarmupExerciseIds
+            ExerciseCard(
+                exerciseWithSets = exerciseWithSets,
+                supersetColor = supersetColorMap[exerciseWithSets.supersetGroupId] ?: Color.Transparent,
+                isSelectMode = false,
+                isSelected = false,
+                activeTimerExerciseId = activeTimerExerciseId,
+                activeTimerSetOrder = activeTimerSetOrder,
+                activeTimerRemainingSeconds = activeTimerRemainingSeconds,
+                activeTimerTotalSeconds = activeTimerTotalSeconds,
+                unitSystem = unitSystem,
+                availableExercises = workoutState.availableExercises,
+                restTimeOverrides = workoutState.restTimeOverrides,
+                hiddenRestSeparators = workoutState.hiddenRestSeparators + workoutState.finishedRestSeparators,
+                isEditMode = isEditMode,
+                isCollapsed = isCollapsed,
+                warmupsCollapsed = warmupsCollapsed,
+                onCollapseAllExcept = { viewModel.collapseAllExcept(exerciseWithSets.exercise.id) },
+                onToggleCollapsed = { viewModel.toggleCollapsed(exerciseWithSets.exercise.id) },
+                onToggleWarmupsCollapsed = { viewModel.toggleWarmupsCollapsed(exerciseWithSets.exercise.id) },
+                dragHandleModifier = null,
+                onToggleSelect = { viewModel.toggleSupersetCandidate(exerciseWithSets.exercise.id) },
+                onAddSet = { viewModel.addSet(exerciseWithSets.exercise.id) },
+                onDeleteSet = { setOrder -> viewModel.deleteSet(exerciseWithSets.exercise.id, setOrder) },
+                onUpdateSetupNotes = { notes -> viewModel.updateSetupNotes(exerciseWithSets.exercise.id, notes) },
+                onUpdateSetNotes = { setOrder, notes -> viewModel.updateSetNotes(exerciseWithSets.exercise.id, setOrder, notes) },
+                onWeightChanged = { setOrder, weight -> viewModel.onWeightChanged(exerciseWithSets.exercise.id, setOrder, weight) },
+                onRepsChanged = { setOrder, reps -> viewModel.onRepsChanged(exerciseWithSets.exercise.id, setOrder, reps) },
+                onUpdateCardioSet = { setOrder, dist, time, rpe, completed -> viewModel.updateCardioSet(exerciseWithSets.exercise.id, setOrder, dist, time, rpe, completed = completed) },
+                onUpdateTimedSet = { setOrder, time, rpe, completed -> viewModel.updateTimedSet(exerciseWithSets.exercise.id, setOrder, "", time, rpe, completed = completed) },
+                onTimeChanged = { setOrder, time -> viewModel.onTimeChanged(exerciseWithSets.exercise.id, setOrder, time) },
+                onReplaceExercise = { newExercise -> viewModel.replaceExercise(exerciseWithSets.exercise.id, newExercise) },
+                onRemoveExercise = { viewModel.removeExercise(exerciseWithSets.exercise.id) },
+                onUpdateSessionNote = { note -> viewModel.updateExerciseSessionNote(exerciseWithSets.exercise.id, note) },
+                onUpdateStickyNote = { note -> viewModel.updateExerciseStickyNote(exerciseWithSets.exercise.id, note) },
+                onUpdateExerciseRestTimers = { work, warmup, drop, restAfterLast -> viewModel.updateExerciseRestTimers(exerciseWithSets.exercise.id, work, warmup, drop, restAfterLast) },
+                onAddWarmupSets = { w, r, fill -> viewModel.addSmartWarmups(exerciseWithSets.exercise.id, w, r, fill) },
+                onEnterSupersetMode = { viewModel.enterSupersetSelectMode(exerciseWithSets.exercise.id) },
+                onRemoveFromSuperset = { viewModel.removeFromSuperset(exerciseWithSets.exercise.id) },
+                onCompleteSet = { setOrder -> viewModel.completeSet(exerciseWithSets.exercise.id, setOrder) },
+                onSelectSetType = { setOrder, type -> viewModel.selectSetType(exerciseWithSets.exercise.id, setOrder, type) },
+                onUpdateRpe = { setOrder, rpe -> viewModel.updateRpe(exerciseWithSets.exercise.id, setOrder, rpe) },
+                onDeleteLocalRestTime = { setOrder -> viewModel.deleteLocalRestTime(exerciseWithSets.exercise.id, setOrder) },
+                onUpdateLocalRestTime = { setOrder, seconds -> viewModel.updateLocalRestTime(exerciseWithSets.exercise.id, setOrder, seconds) },
+                onTimerActiveClick = onTimerActiveClick,
+                onDeleteRestSeparator = { setOrder -> viewModel.deleteRestSeparator(exerciseWithSets.exercise.id, setOrder) },
+                onTimerFinished = { viewModel.timerFinishedFeedback() },
+                onTimerWarningTick = { viewModel.timerWarningTickFeedback() },
+                rpeAutoPopTarget = rpeAutoPopTarget,
+                onConsumeRpeAutoPop = onConsumeRpeAutoPop,
+                setupSeconds = setupSeconds,
+                onSetupCountdownTick = onSetupCountdownTick,
+                onTimerHalftimeTick = { viewModel.timerHalftimeTickFeedback() },
+                onStopRestTimer = { viewModel.stopRestTimer() }
+            )
         }
     } else {
         // Single-block or organize mode: flat list with full reorder / superset support

@@ -565,4 +565,142 @@ class TimerEngineTest {
 
         job.join()
     }
+
+    // ── Bug: func_overlay_mid_round_alert — AMRAP and RFT cap warnings ────────
+
+    @Test
+    fun `AMRAP fires WARNING at half-time and at 10s remaining (2 total)`() = runTest(testDispatcher) {
+        val e = engine()
+        // 60s AMRAP — half-time at elapsed=30, cap-expiry at remaining=10 (elapsed=50)
+        val job = launch { e.run(TimerSpec.Amrap(durationSeconds = 60)) }
+        runCurrent()
+
+        // Advance 30s → half-time fires (WARNING #1)
+        advanceTimeBy(30_001L)
+        runCurrent()
+        verify(mockNotifier, times(1)).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        // Advance to 50s → cap-expiry fires (WARNING #2)
+        advanceTimeBy(20_001L)
+        runCurrent()
+        verify(mockNotifier, times(2)).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `AMRAP fires exactly 2 WARNING alerts for full run`() = runTest(testDispatcher) {
+        val e = engine()
+        val job = launch { e.run(TimerSpec.Amrap(durationSeconds = 60)) }
+        runCurrent()
+
+        advanceTimeBy(60_001L)
+        runCurrent()
+        verify(mockNotifier, times(2)).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        job.join()
+    }
+
+    @Test
+    fun `RFT fires WARNING at mid-cap and at 10s before cap (2 total)`() = runTest(testDispatcher) {
+        val e = engine()
+        // Cap = 60s — mid-cap at elapsed=30, cap-expiry at elapsed=50
+        val job = launch { e.run(TimerSpec.Rft(targetRounds = 5, capSeconds = 60)) }
+        runCurrent()
+
+        // Advance 30s → mid-cap fires (WARNING #1)
+        advanceTimeBy(30_001L)
+        runCurrent()
+        verify(mockNotifier, times(1)).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        // Advance to 50s → cap-expiry fires (WARNING #2)
+        advanceTimeBy(20_001L)
+        runCurrent()
+        verify(mockNotifier, times(2)).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `RFT without cap fires no WARNING`() = runTest(testDispatcher) {
+        val e = engine()
+        val job = launch { e.run(TimerSpec.Rft(targetRounds = 3, capSeconds = null)) }
+        runCurrent()
+
+        advanceTimeBy(60_001L)
+        runCurrent()
+        verify(mockNotifier, org.mockito.kotlin.never()).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        job.cancel()
+    }
+
+    // ── Alert timing rework — EMOM dual-threshold + skipInterval ─────────────
+
+    @Test
+    fun `EMOM fires WARNING at warnAtSeconds2 and warnAtSeconds per round`() = runTest(testDispatcher) {
+        val e = engine()
+        // 1 round × 60s, warnAt=10, warnAt2=30
+        val job = launch {
+            e.run(TimerSpec.Emom(
+                totalDurationSeconds = 60, intervalSeconds = 60,
+                warnAtSeconds = 10, warnAtSeconds2 = 30,
+            ))
+        }
+        runCurrent()
+
+        // Advance 30s → warnAtSeconds2 fires (remaining=30)
+        advanceTimeBy(30_001L)
+        runCurrent()
+        verify(mockNotifier, times(1)).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        // Advance to 50s → warnAtSeconds fires (remaining=10)
+        advanceTimeBy(20_001L)
+        runCurrent()
+        verify(mockNotifier, times(2)).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `EMOM dual-threshold warns reset each round`() = runTest(testDispatcher) {
+        val e = engine()
+        // 2 rounds × 60s, warnAt=10, warnAt2=30 → 4 WARNINGs total
+        val job = launch {
+            e.run(TimerSpec.Emom(
+                totalDurationSeconds = 120, intervalSeconds = 60,
+                warnAtSeconds = 10, warnAtSeconds2 = 30,
+            ))
+        }
+        runCurrent()
+
+        advanceTimeBy(120_001L)
+        runCurrent()
+        verify(mockNotifier, times(4)).triggerAudioAlert(AlertType.WARNING, TimerSound.BEEP)
+
+        job.join()
+    }
+
+    @Test
+    fun `EMOM skipInterval advances to next round within one tick`() = runTest(testDispatcher) {
+        val e = engine()
+        val job = launch { e.run(TimerSpec.Emom(totalDurationSeconds = 180, intervalSeconds = 60)) }
+        runCurrent()
+
+        assertEquals(1, e.state.value.currentRound)
+
+        // 5s into round 1 — still round 1
+        advanceTimeBy(5_001L)
+        runCurrent()
+        assertEquals(1, e.state.value.currentRound)
+
+        // Signal skip
+        e.skipInterval()
+        // One tick to consume the flag and break out of the while loop
+        advanceTimeBy(1_001L)
+        runCurrent()
+
+        assertEquals(2, e.state.value.currentRound)
+
+        job.cancel()
+    }
 }

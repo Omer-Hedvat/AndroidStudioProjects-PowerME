@@ -25,10 +25,13 @@ When the user opens the exercise picker from different entry points, the list sh
 | Entry Point | Initial type filters active |
 |---|---|
 | Hybrid sheet "Add Strength Exercise" | `STRENGTH`, `TIMED` |
-| Hybrid sheet "Add Functional Block" | functional tag filter ON + `CARDIO`, `PLYOMETRIC` types |
+| Hybrid sheet "Add Functional Block" | functional tag filter ON only — no ExerciseType restriction |
 | PURE_GYM "Add Exercises" | No type filter (all types, current behaviour) |
-| PURE_FUNCTIONAL "Add Block" → exercises | functional tag filter ON + `CARDIO`, `PLYOMETRIC` types |
-| Template builder "Add exercise to block" overflow | functional tag filter ON + `CARDIO`, `PLYOMETRIC` types |
+| PURE_FUNCTIONAL "Add Block" → exercises | functional tag filter ON only — no ExerciseType restriction |
+| Template builder "Add exercise to block" overflow (functional block) | functional tag filter ON only — no ExerciseType restriction |
+
+**Why functional entry points have no type pre-filter (updated):**
+`CARDIO` + `PLYOMETRIC` was the original spec, but this silently hides all `STRENGTH`-typed exercises even when they carry the `"functional"` tag — Power Clean, Thruster, KB Swing, Olympic lifts, etc. The type gate contradicts the actual exercise data. The functional tag chip is the sole discriminator; users can toggle it off to see everything.
 
 **Rules:**
 - Pre-filters are additive initial state only — the user can freely toggle any chip off/on after opening.
@@ -61,8 +64,9 @@ When the user opens the exercise picker from different entry points, the list sh
 ## How to QA
 
 1. **Hybrid — Add Strength Exercise:** Set style to Hybrid → open template builder → tap "Add Exercise or Block" → tap "Add Strength Exercise". Verify picker opens with Strength + Timed filter chips active; other type chips (Cardio, Plyometric, Stretch) are off.
-2. **Hybrid — Add Functional Block:** Same path → tap "Add Functional Block" → complete wizard → reach exercise picker. Verify functional tag filter AND Cardio + Plyometric chips are active; Strength/Timed chips are off.
+2. **Hybrid — Add Functional Block:** Same path → tap "Add Functional Block" → complete wizard → reach exercise picker. Verify functional tag filter chip is ON; no ExerciseType chips are pre-selected. Search "Power Clean" — it must appear.
 3. **PURE_GYM — Add Exercises:** Set style to Pure Gym → tap "+". Verify picker opens with no type chips pre-selected (current behaviour unchanged).
-4. **PURE_FUNCTIONAL — Add Block:** Set style to Pure Functional → tap "+" → complete wizard. Verify functional filter + Cardio + Plyometric chips active.
-5. **Block overflow — Add exercise to block:** In a PURE_FUNCTIONAL or HYBRID routine with an existing block → tap block overflow → "Add exercise to block". Verify functional + Cardio + Plyometric chips active.
-6. **User can toggle:** In any of the above entry points, tap a pre-selected chip to deactivate it. Verify the list updates accordingly.
+4. **PURE_FUNCTIONAL — Add Block:** Set style to Pure Functional → tap "+" → complete wizard. Verify functional filter chip ON but NO type chips pre-selected. Search "KB Swing" — it must appear.
+5. **Block overflow — Add exercise to block:** In a PURE_FUNCTIONAL or HYBRID routine with an existing functional block → tap block overflow → "Add exercise to block". Verify functional chip ON, no type chips active. Search "Front Squat" — it must appear.
+6. **User can toggle:** In any of the above entry points, tap the functional chip to deactivate it. Verify all exercises (including non-functional) appear.
+7. **STRENGTH-typed functional exercises are visible:** From any functional entry point, search "Power Clean", "Thruster", "Kettlebell Swing" — all must appear (they carry functional tag but are ExerciseType.STRENGTH).

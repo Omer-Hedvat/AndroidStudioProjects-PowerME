@@ -220,7 +220,8 @@ data class ActiveWorkoutState(
     val workoutEditSnapshot: WorkoutEditSnapshot? = null,
     val blocks: List<com.powerme.app.data.database.WorkoutBlock> = emptyList(),
     val activeBlockId: String? = null,
-    val functionalBlockState: FunctionalBlockRunnerState? = null
+    val functionalBlockState: FunctionalBlockRunnerState? = null,
+    val blockAutoFinished: Boolean = false,
 ) {
     val exercisesByBlockId: Map<String?, List<ExerciseWithSets>> by lazy { exercises.groupBy { it.blockId } }
 }
@@ -378,9 +379,15 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             val block = workoutBlockDao.getById(blockId) ?: return@launch
             val plan = buildBlockPlan(block) ?: return@launch
-            functionalBlockRunner.start(block, plan)
+            functionalBlockRunner.start(block, plan, onFinish = {
+                _workoutState.update { it.copy(blockAutoFinished = true) }
+            })
             _workoutState.update { it.copy(activeBlockId = blockId) }
         }
+    }
+
+    fun consumeBlockAutoFinished() {
+        _workoutState.update { it.copy(blockAutoFinished = false) }
     }
 
     fun pauseFunctionalBlock() = functionalBlockRunner.pause()
@@ -396,19 +403,32 @@ class WorkoutViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             functionalBlockRunner.finish(rounds, extraReps, finishSeconds, rpe, perExerciseRpeJson, notes)
-            _workoutState.update { it.copy(activeBlockId = null) }
+            _workoutState.update { it.copy(activeBlockId = null, blockAutoFinished = false) }
         }
     }
 
     fun abandonFunctionalBlock() {
         functionalBlockRunner.abandon()
-        _workoutState.update { it.copy(activeBlockId = null) }
+        _workoutState.update { it.copy(activeBlockId = null, blockAutoFinished = false) }
     }
 
     fun appendBlockRoundTap(round: Int, elapsedMs: Long, phase: String? = null, completed: Boolean? = null) {
         viewModelScope.launch {
             functionalBlockRunner.appendRoundTap(round, elapsedMs, phase, completed)
         }
+    }
+
+    /** Log the skipped round and advance the EMOM timer to the next round immediately. */
+    fun skipEmomRound() {
+        val fb = _workoutState.value.functionalBlockState ?: return
+        viewModelScope.launch {
+            functionalBlockRunner.appendRoundTap(
+                round = fb.currentRound,
+                elapsedMs = fb.elapsedSeconds * 1000L,
+                completed = false,
+            )
+        }
+        functionalBlockRunner.skipCurrentInterval()
     }
 
     /**
@@ -2055,6 +2075,11 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun cancelWorkout() {
+        // If a functional block is active, abandon it to stop its timer and release the wakelock
+        // before tearing down the rest of the workout.
+        if (functionalBlockRunner.isActive.value) {
+            functionalBlockRunner.abandon()
+        }
         val setsLogged = _workoutState.value.exercises.sumOf { ex -> ex.sets.count { it.isCompleted } }
         Timber.d("WVM CANCEL wId=${_workoutState.value.workoutId?.take(8)} setsLogged=$setsLogged")
         analyticsTracker.logWorkoutCancelled(setsLogged = setsLogged)

@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | P8 |
 | **Epic** | [Functional Training](../FUNCTIONAL_TRAINING_SPEC.md) |
-| **Status** | `not-started` |
+| **Status** | `completed` |
 | **Effort** | S |
 | **Depends on** | func_template_wizard ✅ |
 | **Blocks** | — |

@@ -23,7 +23,7 @@ fun BlockRecipeRow(row: RecipeRow, modifier: Modifier = Modifier) {
     ) {
         Text(
             text = row.exerciseName,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
@@ -32,7 +32,7 @@ fun BlockRecipeRow(row: RecipeRow, modifier: Modifier = Modifier) {
                 row.holdSeconds != null -> "${row.holdSeconds}s"
                 else -> ""
             },
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

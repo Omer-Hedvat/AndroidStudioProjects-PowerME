@@ -63,6 +63,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -4809,6 +4810,159 @@ class WorkoutViewModelTest {
     }
 
     // -------------------------------------------------------------------------
+    // Functional block runner — startFunctionalBlock wiring
+    // -------------------------------------------------------------------------
+
+    private fun makeFunctionalBlockRunnerState(blockId: String, blockType: String) =
+        FunctionalBlockRunnerState(
+            blockId = blockId,
+            blockType = blockType,
+            blockName = null,
+            plan = BlockPlan(
+                durationSeconds = 600,
+                targetRounds = null,
+                emomRoundSeconds = null,
+                tabataWorkSeconds = null,
+                tabataRestSeconds = null,
+                tabataSkipLastRest = false,
+                recipe = emptyList(),
+            ),
+            timerPhase = com.powerme.app.util.timer.TimerPhase.IDLE,
+            displaySeconds = 0,
+            elapsedSeconds = 0,
+            currentRound = 0,
+            totalRounds = 0,
+            phaseTotalSeconds = 0,
+            isRunning = false,
+            isPaused = false,
+            roundTapCount = 0,
+        )
+
+    @Test
+    fun `startFunctionalBlock sets activeBlockId in workoutState`() = vmTest {
+        val blockId = "block-amrap-1"
+        val block = WorkoutBlock(
+            id = blockId,
+            workoutId = "workout-1",
+            order = 0,
+            type = "AMRAP",
+            durationSeconds = 600,
+        )
+        runBlocking {
+            whenever(mockWorkoutBlockDao.getById(blockId)).thenReturn(block)
+        }
+
+        viewModel.startFunctionalBlock(blockId)
+        runCurrent()
+
+        assertEquals(blockId, viewModel.workoutState.value.activeBlockId)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `startFunctionalBlock delegates to functionalBlockRunner start`() = vmTest {
+        val blockId = "block-rft-1"
+        val block = WorkoutBlock(
+            id = blockId,
+            workoutId = "workout-1",
+            order = 0,
+            type = "RFT",
+            targetRounds = 5,
+        )
+        runBlocking {
+            whenever(mockWorkoutBlockDao.getById(blockId)).thenReturn(block)
+        }
+
+        viewModel.startFunctionalBlock(blockId)
+        runCurrent()
+
+        verify(mockFunctionalBlockRunner).start(eq(block), any(), any())
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `functionalBlockRunner state emission propagates to workoutState functionalBlockState`() = vmTest {
+        val blockId = "block-emom-1"
+        val runnerStateFlow = MutableStateFlow<FunctionalBlockRunnerState?>(null)
+        whenever(mockFunctionalBlockRunner.state).thenReturn(runnerStateFlow)
+
+        // Rebuild the ViewModel so init subscribes to the updated flow
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
+            context = mockContext
+        )
+        runCurrent()
+
+        assertNull(viewModel.workoutState.value.functionalBlockState)
+
+        val emittedState = makeFunctionalBlockRunnerState(blockId, "EMOM")
+        runnerStateFlow.value = emittedState
+        runCurrent()
+
+        assertEquals(emittedState, viewModel.workoutState.value.functionalBlockState)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `abandonFunctionalBlock clears activeBlockId`() = vmTest {
+        // Seed activeBlockId directly via state reflection
+        _workoutState_forTest(viewModel) { it.copy(activeBlockId = "block-1") }
+        assertEquals("block-1", viewModel.workoutState.value.activeBlockId)
+
+        viewModel.abandonFunctionalBlock()
+        runCurrent()
+
+        assertNull(viewModel.workoutState.value.activeBlockId)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `finishFunctionalBlock clears activeBlockId`() = vmTest {
+        _workoutState_forTest(viewModel) { it.copy(activeBlockId = "block-tabata-1") }
+        runBlocking {
+            whenever(mockFunctionalBlockRunner.finish(any(), any(), any(), any(), any(), any())).thenReturn(Unit)
+        }
+
+        viewModel.finishFunctionalBlock()
+        runCurrent()
+
+        assertNull(viewModel.workoutState.value.activeBlockId)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
     // Invariant #4: rest timers must be a no-op while functional block runner active
     // -------------------------------------------------------------------------
 
@@ -4856,6 +5010,124 @@ class WorkoutViewModelTest {
 
         viewModel.cancelWorkout()
         runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // Bug: func_timecap_no_alert — blockAutoFinished flag
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `startFunctionalBlock blockAutoFinished becomes true when onFinish callback fires`() = vmTest {
+        val block = WorkoutBlock(id = "b1", workoutId = "w1", order = 0, type = "AMRAP",
+            durationSeconds = 60)
+        runBlocking { whenever(mockWorkoutBlockDao.getById("b1")).thenReturn(block) }
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        val captor = argumentCaptor<suspend () -> Unit>()
+
+        viewModel.startFunctionalBlock("b1")
+        runCurrent()
+
+        runBlocking { verify(mockFunctionalBlockRunner).start(any(), any(), captor.capture()) }
+
+        assertFalse("blockAutoFinished must be false before timer expires",
+            viewModel.workoutState.value.blockAutoFinished)
+
+        // Simulate timer expiry
+        runBlocking { captor.firstValue() }
+        runCurrent()
+
+        assertTrue("blockAutoFinished must be true after onFinish fires",
+            viewModel.workoutState.value.blockAutoFinished)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `consumeBlockAutoFinished resets blockAutoFinished to false`() = vmTest {
+        _workoutState_forTest(viewModel) { it.copy(blockAutoFinished = true) }
+
+        assertTrue(viewModel.workoutState.value.blockAutoFinished)
+        viewModel.consumeBlockAutoFinished()
+        runCurrent()
+        assertFalse(viewModel.workoutState.value.blockAutoFinished)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `abandonFunctionalBlock clears blockAutoFinished`() = vmTest {
+        _workoutState_forTest(viewModel) { it.copy(blockAutoFinished = true) }
+
+        viewModel.abandonFunctionalBlock()
+        runCurrent()
+
+        assertFalse(viewModel.workoutState.value.blockAutoFinished)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    // -------------------------------------------------------------------------
+    // Bug: func_abandon_exits_workout — cancelWorkout calls runner.abandon when active
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `cancelWorkout calls functionalBlockRunner abandon when runner is active`() = vmTest {
+        val activeFlow = MutableStateFlow(true)
+        whenever(mockFunctionalBlockRunner.isActive).thenReturn(activeFlow)
+
+        // Rebuild VM so it picks up the updated isActive stub
+        viewModel.viewModelScope.cancel()
+        viewModel = WorkoutViewModel(
+            exerciseRepository = mockExerciseRepository,
+            workoutRepository = mockWorkoutRepository,
+            warmupRepository = mockWarmupRepository,
+            workoutDao = mockWorkoutDao,
+            workoutSetDao = mockWorkoutSetDao,
+            routineExerciseDao = mockRoutineExerciseDao,
+            exerciseDao = mockExerciseDao,
+            routineDao = mockRoutineDao,
+            routineBlockDao = mockRoutineBlockDao,
+            workoutBlockDao = mockWorkoutBlockDao,
+            userSettingsDao = mockUserSettingsDao,
+            medicalLedgerRepository = mockMedicalLedgerRepository,
+            boazPerformanceAnalyzer = mockBoazPerformanceAnalyzer,
+            analyticsTracker = mockAnalyticsTracker,
+            stateHistoryRepository = mockStateHistoryRepository,
+            clocksTimerBridge = mockClocksTimerBridge,
+            firestoreSyncManager = mockFirestoreSyncManager,
+            healthConnectManager = mockHealthConnectManager,
+            appSettingsDataStore = mockAppSettingsDataStore,
+            workoutNotificationManager = mockWorkoutNotificationManager,
+            functionalBlockRunner = mockFunctionalBlockRunner,
+            wakeLockManager = mockWakeLockManager,
+            context = mockContext
+        )
+
+        viewModel.startWorkout("")
+        runCurrent()
+
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        verify(mockFunctionalBlockRunner).abandon()
+    }
+
+    @Test
+    fun `cancelWorkout does not call functionalBlockRunner abandon when runner is inactive`() = vmTest {
+        // isActive defaults to false in the standard setup
+        viewModel.startWorkout("")
+        runCurrent()
+
+        viewModel.cancelWorkout()
+        runCurrent()
+
+        verify(mockFunctionalBlockRunner, never()).abandon()
     }
 }
 

@@ -18,6 +18,8 @@ interface TimerEngine {
     fun resume()
     fun stop()
     fun addSeconds(delta: Int)
+    /** Skip the current EMOM interval — causes the active round loop to break early. */
+    fun skipInterval()
 }
 
 class TimerEngineImpl(
@@ -29,6 +31,9 @@ class TimerEngineImpl(
     override val state: StateFlow<TimerEngineState> = _state.asStateFlow()
 
     private val _isPaused = MutableStateFlow(false)
+    private val _skipInterval = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    override fun skipInterval() { _skipInterval.set(true) }
 
     override suspend fun run(spec: TimerSpec, setupSeconds: Int) =
         runInternal(spec, setupSeconds, initialElapsed = 0)
@@ -38,6 +43,7 @@ class TimerEngineImpl(
 
     private suspend fun runInternal(spec: TimerSpec, setupSeconds: Int, initialElapsed: Int) {
         _isPaused.value = false
+        _skipInterval.set(false)
         _state.update { it.copy(isRunning = true, phase = TimerPhase.IDLE) }
         try {
             if (!runSetup(setupSeconds)) return
@@ -67,6 +73,7 @@ class TimerEngineImpl(
 
     override fun stop() {
         _isPaused.value = false
+        _skipInterval.set(false)
         _state.value = TimerEngineState()
     }
 
@@ -107,8 +114,10 @@ class TimerEngineImpl(
             _state.update { it.copy(currentRound = round) }
             if (!resumingMidRound) notifier.triggerAudioAlert(AlertType.ROUND_START, getSound())
             var remaining = if (resumingMidRound) spec.intervalSeconds - intoRound else spec.intervalSeconds
-            var warnedThisRound = false
+            var warnedPrimary = false
+            var warnedSecondary = false
             while (remaining > 0) {
+                if (_skipInterval.getAndSet(false)) break
                 awaitNotPaused()
                 val elapsed = (round - 1) * spec.intervalSeconds + (spec.intervalSeconds - remaining)
                 _state.update {
@@ -118,8 +127,12 @@ class TimerEngineImpl(
                         tickEpochMs = System.currentTimeMillis()
                     )
                 }
-                if (spec.warnAtSeconds != null && remaining == spec.warnAtSeconds && !warnedThisRound) {
-                    warnedThisRound = true
+                if (spec.warnAtSeconds != null && remaining == spec.warnAtSeconds && !warnedPrimary) {
+                    warnedPrimary = true
+                    notifier.triggerAudioAlert(AlertType.WARNING, getSound())
+                }
+                if (spec.warnAtSeconds2 != null && remaining == spec.warnAtSeconds2 && !warnedSecondary) {
+                    warnedSecondary = true
                     notifier.triggerAudioAlert(AlertType.WARNING, getSound())
                 }
                 if (remaining in 1..3) notifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, getSound())
@@ -233,10 +246,21 @@ class TimerEngineImpl(
         _state.update { it.copy(phase = TimerPhase.WORK, totalRounds = 0, phaseTotalSeconds = spec.durationSeconds) }
         var remaining = (spec.durationSeconds - initialElapsed).coerceAtLeast(0)
         var elapsed = initialElapsed
+        var warnedCap = false
+        var warnedHalf = false
+        val halfPoint = spec.durationSeconds / 2
         while (remaining > 0) {
             awaitNotPaused()
             _state.update {
                 it.copy(displaySeconds = remaining, elapsedSeconds = elapsed, tickEpochMs = System.currentTimeMillis())
+            }
+            if (!warnedHalf && elapsed == halfPoint) {
+                warnedHalf = true
+                notifier.triggerAudioAlert(AlertType.WARNING, getSound())
+            }
+            if (remaining == 10 && !warnedCap) {
+                warnedCap = true
+                notifier.triggerAudioAlert(AlertType.WARNING, getSound())
             }
             if (remaining in 1..3) notifier.triggerAudioAlert(AlertType.COUNTDOWN_TICK, getSound())
             delay(1000L)
@@ -251,10 +275,21 @@ class TimerEngineImpl(
         var elapsed = initialElapsed
         val cap = spec.capSeconds
         if (cap != null && elapsed >= cap) return
+        var warnedMidCap = false
+        var warnedCap = false
+        val midCap = cap?.let { it / 2 }
         while (true) {
             awaitNotPaused()
             _state.update {
                 it.copy(elapsedSeconds = elapsed, displaySeconds = elapsed, tickEpochMs = System.currentTimeMillis())
+            }
+            if (midCap != null && !warnedMidCap && elapsed == midCap) {
+                warnedMidCap = true
+                notifier.triggerAudioAlert(AlertType.WARNING, getSound())
+            }
+            if (cap != null && !warnedCap && (cap - elapsed) == 10) {
+                warnedCap = true
+                notifier.triggerAudioAlert(AlertType.WARNING, getSound())
             }
             delay(1000L)
             elapsed++

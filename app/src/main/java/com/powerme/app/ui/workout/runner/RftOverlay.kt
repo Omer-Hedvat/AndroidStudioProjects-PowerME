@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -50,7 +51,8 @@ fun RftOverlay(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 24.dp, bottom = 24.dp),
+                .padding(top = 24.dp)
+                .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -134,8 +136,8 @@ fun RftOverlay(
     if (showAbandonConfirm) {
         AlertDialog(
             onDismissRequest = { showAbandonConfirm = false },
-            title = { Text("Abandon block?") },
-            text = { Text("Round splits will be discarded.") },
+            title = { Text("Abandon workout?") },
+            text = { Text("The entire workout session will be discarded.") },
             confirmButton = {
                 TextButton(onClick = {
                     showAbandonConfirm = false

@@ -251,47 +251,97 @@ fun TemplateBuilderScreen(
 
                     // Blocks in order
                     sortedBlocks.forEach { block ->
-                        item(key = "block-header-${block.id}") {
-                            BlockHeader(
-                                block = block,
-                                onAddExercise = {
-                                    val existing = draftExercises.filter { it.blockId == block.id }.map { it.exerciseId }
-                                    navController.currentBackStackEntry?.savedStateHandle
-                                        ?.set("preselected_exercises", ArrayList(existing))
-                                    viewModel.setPendingBlock(block)
-                                    navController.navigate("exercise_picker?functionalFilter=true&typeFilters=CARDIO,PLYOMETRIC")
-                                },
-                                onDeleteBlock = { viewModel.deleteBlock(block.id) },
-                                modifier = Modifier.animateItem()
-                            )
-                        }
                         val blockExercises = exercisesByBlock[block.id] ?: emptyList()
-                        items(blockExercises, key = { it.exerciseId }) { draft ->
-                            ReorderableItem(reorderState, key = draft.exerciseId) { isDragging ->
-                                ExerciseRowContent(
-                                    draft = draft,
-                                    supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
-                                    isDragging = isDragging,
-                                    isOrganizeMode = isOrganizeMode,
-                                    isReorderMode = isReorderMode,
-                                    blockType = blockTypeById[draft.blockId],
-                                    selectedExerciseIds = selectedExerciseIds,
-                                    onLongPress = { isReorderMode = true },
-                                    onToggleSelection = { viewModel.toggleExerciseSelection(it) },
-                                    onDragStopped = { isReorderMode = false },
-                                    onIncrement = { viewModel.incrementSets(draft.exerciseId) },
-                                    onDecrement = { viewModel.decrementSets(draft.exerciseId) },
-                                    onRemove = { viewModel.removeExercise(draft.exerciseId) },
-                                    onIncrementReps = { viewModel.incrementReps(draft.exerciseId) },
-                                    onDecrementReps = { viewModel.decrementReps(draft.exerciseId) },
-                                    onIncrementHold = { viewModel.incrementHoldSeconds(draft.exerciseId) },
-                                    onDecrementHold = { viewModel.decrementHoldSeconds(draft.exerciseId) },
-                                    onToggleInputMode = { viewModel.toggleInputMode(draft.exerciseId) }
+                        if (block.type == BlockType.STRENGTH) {
+                            item(key = "block-header-${block.id}") {
+                                BlockHeader(
+                                    block = block,
+                                    onAddExercise = {
+                                        val existing = draftExercises.filter { it.blockId == block.id }.map { it.exerciseId }
+                                        navController.currentBackStackEntry?.savedStateHandle
+                                            ?.set("preselected_exercises", ArrayList(existing))
+                                        viewModel.setPendingBlock(block)
+                                        navController.navigate("exercise_picker?functionalFilter=true&typeFilters=CARDIO,PLYOMETRIC")
+                                    },
+                                    onDeleteBlock = { viewModel.deleteBlock(block.id) },
+                                    modifier = Modifier.animateItem()
                                 )
                             }
-                        }
-                        item(key = "block-spacer-${block.id}") {
-                            Spacer(Modifier.height(8.dp))
+                            items(blockExercises, key = { it.exerciseId }) { draft ->
+                                ReorderableItem(reorderState, key = draft.exerciseId) { isDragging ->
+                                    ExerciseRowContent(
+                                        draft = draft,
+                                        supersetColor = supersetColorMap[draft.supersetGroupId] ?: Color.Transparent,
+                                        isDragging = isDragging,
+                                        isOrganizeMode = isOrganizeMode,
+                                        isReorderMode = isReorderMode,
+                                        blockType = blockTypeById[draft.blockId],
+                                        selectedExerciseIds = selectedExerciseIds,
+                                        onLongPress = { isReorderMode = true },
+                                        onToggleSelection = { viewModel.toggleExerciseSelection(it) },
+                                        onDragStopped = { isReorderMode = false },
+                                        onIncrement = { viewModel.incrementSets(draft.exerciseId) },
+                                        onDecrement = { viewModel.decrementSets(draft.exerciseId) },
+                                        onRemove = { viewModel.removeExercise(draft.exerciseId) },
+                                        onIncrementReps = { viewModel.incrementReps(draft.exerciseId) },
+                                        onDecrementReps = { viewModel.decrementReps(draft.exerciseId) },
+                                        onIncrementHold = { viewModel.incrementHoldSeconds(draft.exerciseId) },
+                                        onDecrementHold = { viewModel.decrementHoldSeconds(draft.exerciseId) },
+                                        onToggleInputMode = { viewModel.toggleInputMode(draft.exerciseId) }
+                                    )
+                                }
+                            }
+                            item(key = "block-spacer-${block.id}") {
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        } else {
+                            // Functional block: group everything into a single Card
+                            item(key = "block-card-${block.id}") {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .animateItem()
+                                        .padding(bottom = 8.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                    shape = MaterialTheme.shapes.medium,
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                                ) {
+                                    Column {
+                                        BlockHeader(
+                                            block = block,
+                                            onAddExercise = {
+                                                val existing = draftExercises.filter { it.blockId == block.id }.map { it.exerciseId }
+                                                navController.currentBackStackEntry?.savedStateHandle
+                                                    ?.set("preselected_exercises", ArrayList(existing))
+                                                viewModel.setPendingBlock(block)
+                                                navController.navigate("exercise_picker?functionalFilter=true")
+                                            },
+                                            onDeleteBlock = { viewModel.deleteBlock(block.id) },
+                                            standalone = false
+                                        )
+                                        blockExercises.forEachIndexed { index, draft ->
+                                            FunctionalExerciseRow(
+                                                draft = draft,
+                                                blockType = block.type,
+                                                onIncrementReps = { viewModel.incrementReps(draft.exerciseId) },
+                                                onDecrementReps = { viewModel.decrementReps(draft.exerciseId) },
+                                                onIncrementHold = { viewModel.incrementHoldSeconds(draft.exerciseId) },
+                                                onDecrementHold = { viewModel.decrementHoldSeconds(draft.exerciseId) },
+                                                onToggleInputMode = { viewModel.toggleInputMode(draft.exerciseId) },
+                                                onRemove = { viewModel.removeExercise(draft.exerciseId) }
+                                            )
+                                            if (index < blockExercises.lastIndex) {
+                                                HorizontalDivider(
+                                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -382,7 +432,7 @@ fun TemplateBuilderScreen(
                 navController.currentBackStackEntry?.savedStateHandle
                     ?.set("preselected_exercises", ArrayList<Long>())
                 viewModel.setPendingBlock(block)
-                navController.navigate("exercise_picker?functionalFilter=true&typeFilters=CARDIO,PLYOMETRIC")
+                navController.navigate("exercise_picker?functionalFilter=true")
             }
         )
     }
@@ -478,87 +528,82 @@ private fun FunctionalExerciseRow(
     // Only AMRAP and RFT blocks show the [Reps][Time] toggle
     val showToggle = blockType == BlockType.AMRAP || blockType == BlockType.RFT
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = PowerMeDefaults.subtleCardElevation()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Exercise name + muscle chip
-            Column(modifier = Modifier.weight(1f)) {
+        // Exercise name + muscle chip
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = draft.exerciseName,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            SuggestionChip(
+                onClick = {},
+                label = { Text(draft.muscleGroup, fontSize = 11.sp) },
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = TimerGreen.copy(alpha = 0.12f),
+                    labelColor = TimerGreen
+                )
+            )
+        }
+
+        // Input controls
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (showToggle) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FilterChip(
+                        selected = !isTimeMode,
+                        onClick = { if (isTimeMode) onToggleInputMode() },
+                        label = { Text("Reps", fontSize = 10.sp) },
+                        modifier = Modifier.height(28.dp)
+                    )
+                    FilterChip(
+                        selected = isTimeMode,
+                        onClick = { if (!isTimeMode) onToggleInputMode() },
+                        label = { Text("Time", fontSize = 10.sp) },
+                        modifier = Modifier.height(28.dp)
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = if (isTimeMode) onDecrementHold else onDecrementReps,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(18.dp))
+                }
                 Text(
-                    text = draft.exerciseName,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = if (isTimeMode) formatHoldSeconds(draft.holdSeconds ?: 30)
+                           else "${draft.reps} reps",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.widthIn(min = 56.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                SuggestionChip(
-                    onClick = {},
-                    label = { Text(draft.muscleGroup, fontSize = 11.sp) },
-                    colors = SuggestionChipDefaults.suggestionChipColors(
-                        containerColor = TimerGreen.copy(alpha = 0.12f),
-                        labelColor = TimerGreen
-                    )
-                )
-            }
-
-            // Input controls
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (showToggle) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        FilterChip(
-                            selected = !isTimeMode,
-                            onClick = { if (isTimeMode) onToggleInputMode() },
-                            label = { Text("Reps", fontSize = 10.sp) },
-                            modifier = Modifier.height(28.dp)
-                        )
-                        FilterChip(
-                            selected = isTimeMode,
-                            onClick = { if (!isTimeMode) onToggleInputMode() },
-                            label = { Text("Time", fontSize = 10.sp) },
-                            modifier = Modifier.height(28.dp)
-                        )
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = if (isTimeMode) onDecrementHold else onDecrementReps,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(18.dp))
-                    }
-                    Text(
-                        text = if (isTimeMode) formatHoldSeconds(draft.holdSeconds ?: 30)
-                               else "${draft.reps} reps",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.widthIn(min = 56.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    IconButton(
-                        onClick = if (isTimeMode) onIncrementHold else onIncrementReps,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(18.dp))
-                    }
+                IconButton(
+                    onClick = if (isTimeMode) onIncrementHold else onIncrementReps,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(18.dp))
                 }
             }
+        }
 
-            // Remove button
-            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Remove exercise",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+        // Remove button
+        IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Remove exercise",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
@@ -568,7 +613,8 @@ private fun BlockHeader(
     block: DraftBlock,
     onAddExercise: () -> Unit,
     onDeleteBlock: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    standalone: Boolean = true
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -599,8 +645,8 @@ private fun BlockHeader(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 12.dp, bottom = 4.dp),
-        color = MaterialTheme.colorScheme.background
+            .padding(top = if (standalone) 12.dp else 8.dp, bottom = 4.dp),
+        color = if (standalone) MaterialTheme.colorScheme.background else Color.Transparent
     ) {
         Row(
             modifier = Modifier

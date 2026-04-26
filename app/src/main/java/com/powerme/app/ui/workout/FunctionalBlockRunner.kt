@@ -151,6 +151,12 @@ class FunctionalBlockRunner @Inject constructor(
         teardown()
     }
 
+    /** Skip the current EMOM interval — causes the active round loop to break early. */
+    fun skipCurrentInterval() {
+        if (!_isActive.value) return
+        timerEngine.skipInterval()
+    }
+
     /** Append a round-tap log entry. Serialized via [tapMutex] to avoid lost writes. */
     suspend fun appendRoundTap(round: Int, elapsedMs: Long, phase: String? = null, completed: Boolean? = null) {
         val blockId = currentBlockId ?: return
@@ -246,20 +252,32 @@ class FunctionalBlockRunner @Inject constructor(
             targetRounds = block.targetRounds!!,
             capSeconds = block.durationSeconds,
         )
-        "EMOM" -> TimerSpec.Emom(
-            totalDurationSeconds = block.durationSeconds!!,
-            intervalSeconds = block.emomRoundSeconds ?: 60,
-            warnAtSeconds = block.warnAtSecondsOverride,
-        )
-        "TABATA" -> TimerSpec.Tabata(
-            workSeconds = block.tabataWorkSeconds!!,
-            restSeconds = block.tabataRestSeconds!!,
-            rounds = block.targetRounds ?: 8,
-            workWarnAtSeconds = block.warnAtSecondsOverride,
-            skipLastRest = block.tabataSkipLastRest == 1,
-        )
+        "EMOM" -> {
+            val interval = block.emomRoundSeconds ?: 60
+            val override = block.warnAtSecondsOverride
+            TimerSpec.Emom(
+                totalDurationSeconds = block.durationSeconds!!,
+                intervalSeconds = interval,
+                warnAtSeconds = override ?: 10,
+                warnAtSeconds2 = if (override == null && interval > 20) 30 else null,
+            )
+        }
+        "TABATA" -> {
+            val workSecs = block.tabataWorkSeconds!!
+            TimerSpec.Tabata(
+                workSeconds = workSecs,
+                restSeconds = block.tabataRestSeconds!!,
+                rounds = block.targetRounds ?: 8,
+                workWarnAtSeconds = block.warnAtSecondsOverride ?: resolveWarnAt(workSecs),
+                skipLastRest = block.tabataSkipLastRest == 1,
+            )
+        }
         else -> error("FunctionalBlockRunner cannot run block type ${block.type}")
     }
+
+    /** Default warn threshold: half the interval, capped at 10s, minimum 1s. */
+    private fun resolveWarnAt(intervalSeconds: Int): Int =
+        (intervalSeconds / 2).coerceIn(1, 10)
 
     private fun parseTapCount(json: String?): Int {
         if (json.isNullOrBlank()) return 0
