@@ -24,7 +24,7 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_func_rft_screen_off](BUG_func_rft_screen_off.md) | Screen turns off during RFT overlay despite "Keep Screen On — Always" setting | 🔵 Open | P1 | — | — | — |
 | [BUG_func_overlay_ring_tap_keyboard](BUG_func_overlay_ring_tap_keyboard.md) | Tapping progress ring in functional overlays triggers soft keyboard | 🔵 Open | P1 | — | — | — |
 | [BUG_func_picker_excludes_strength_functional](BUG_func_picker_excludes_strength_functional.md) | Functional block exercise picker excludes STRENGTH-typed functional exercises (Power Clean, KB Swing, Front Squat, etc.) | ✅ Completed | P1 | — | — | `TemplateBuilderScreen.kt` |
-| [BUG_func_overlay_abandon_rename](BUG_func_overlay_abandon_rename.md) | "Abandon" button in functional overlays should be renamed to "Cancel Workout" | 🟡 In Progress | P3 | — | — | `AmrapOverlay.kt`, `RftOverlay.kt`, `EmomOverlay.kt`, `TabataOverlay.kt` |
+| [BUG_func_overlay_abandon_rename](BUG_func_overlay_abandon_rename.md) | "Abandon" button exits entire workout instead of just the block | ✅ Completed | P2 | — | — | `AmrapOverlay.kt`, `RftOverlay.kt`, `EmomOverlay.kt`, `TabataOverlay.kt`, `ActiveWorkoutScreen.kt` |
 
 ---
 

@@ -415,7 +415,7 @@ fun ActiveWorkoutScreen(
                     )
                 },
                 onFinishClick = { showBlockFinishSheet = true },
-                onAbandonClick = { viewModel.cancelWorkout(); onWorkoutFinished() },
+                onAbandonClick = { viewModel.abandonFunctionalBlock() },
             )
             "RFT" -> com.powerme.app.ui.workout.runner.RftOverlay(
                 state = fb,
@@ -427,18 +427,18 @@ fun ActiveWorkoutScreen(
                     )
                 },
                 onFinishClick = { showBlockFinishSheet = true },
-                onAbandonClick = { viewModel.cancelWorkout(); onWorkoutFinished() },
+                onAbandonClick = { viewModel.abandonFunctionalBlock() },
             )
             "EMOM" -> com.powerme.app.ui.workout.runner.EmomOverlay(
                 state = fb,
                 onRoundSkipped = { viewModel.skipEmomRound() },
                 onFinishClick = { showBlockFinishSheet = true },
-                onAbandonClick = { viewModel.cancelWorkout(); onWorkoutFinished() },
+                onAbandonClick = { viewModel.abandonFunctionalBlock() },
             )
             "TABATA" -> com.powerme.app.ui.workout.runner.TabataOverlay(
                 state = fb,
                 onFinishClick = { showBlockFinishSheet = true },
-                onAbandonClick = { viewModel.cancelWorkout(); onWorkoutFinished() },
+                onAbandonClick = { viewModel.abandonFunctionalBlock() },
             )
         }
         if (showBlockFinishSheet) {

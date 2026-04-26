@@ -112,7 +112,7 @@ fun RftOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                ) { Text("Cancel Workout") }
+                ) { Text("Abandon Block") }
             }
         }
     }
@@ -136,13 +136,13 @@ fun RftOverlay(
     if (showAbandonConfirm) {
         AlertDialog(
             onDismissRequest = { showAbandonConfirm = false },
-            title = { Text("Cancel workout?") },
-            text = { Text("The entire workout session will be discarded.") },
+            title = { Text("Abandon block?") },
+            text = { Text("The block result won't be saved. You'll return to the workout.") },
             confirmButton = {
                 TextButton(onClick = {
                     showAbandonConfirm = false
                     onAbandonClick()
-                }) { Text("Cancel Workout") }
+                }) { Text("Abandon Block") }
             },
             dismissButton = {
                 TextButton(onClick = { showAbandonConfirm = false }) { Text("Keep Going") }
