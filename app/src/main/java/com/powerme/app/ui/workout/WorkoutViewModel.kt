@@ -339,8 +339,10 @@ class WorkoutViewModel @Inject constructor(
     private val rpeMode: StateFlow<RpeMode> = appSettingsDataStore.rpeMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, RpeMode.OFF)
 
-    private val currentWorkoutStyle: StateFlow<WorkoutStyle> = appSettingsDataStore.workoutStyle
+    val workoutStyle: StateFlow<WorkoutStyle> = appSettingsDataStore.workoutStyle
         .stateIn(viewModelScope, SharingStarted.Eagerly, WorkoutStyle.HYBRID)
+
+    private val currentWorkoutStyle: StateFlow<WorkoutStyle> get() = workoutStyle
 
     val timedSetSetupSeconds: StateFlow<Int> = appSettingsDataStore.timedSetSetupSeconds
         .stateIn(viewModelScope, SharingStarted.Eagerly, 3)
@@ -1081,11 +1083,41 @@ class WorkoutViewModel @Inject constructor(
     fun editModeHasChanges(): Boolean =
         _workoutState.value.isEditMode && _workoutState.value.editModeDirty
 
-    fun addExercise(exercise: Exercise) {
+    /**
+     * Add a mid-workout functional block (created from [DraftBlock] + user-selected exercises).
+     * Creates a [WorkoutBlock] DB row then delegates each exercise to [addExercise] with the block id.
+     */
+    fun addFunctionalBlock(draft: com.powerme.app.ui.workouts.DraftBlock, exercises: List<Exercise>) {
+        val workoutId = _workoutState.value.workoutId ?: return
+        viewModelScope.launch {
+            val blockId = UUID.randomUUID().toString()
+            val nextOrder = _workoutState.value.blocks.size
+            val block = com.powerme.app.data.database.WorkoutBlock(
+                id = blockId,
+                workoutId = workoutId,
+                order = nextOrder,
+                type = draft.type.name,
+                name = draft.name,
+                durationSeconds = draft.durationSeconds,
+                targetRounds = draft.targetRounds,
+                emomRoundSeconds = draft.emomRoundSeconds,
+                tabataWorkSeconds = draft.tabataWorkSeconds,
+                tabataRestSeconds = draft.tabataRestSeconds,
+                tabataSkipLastRest = if (draft.tabataSkipLastRest) 1 else null,
+                setupSecondsOverride = draft.setupSecondsOverride,
+                warnAtSecondsOverride = draft.warnAtSecondsOverride,
+            )
+            workoutBlockDao.upsertAll(listOf(block))
+            _workoutState.update { it.copy(blocks = it.blocks + block) }
+            exercises.forEach { exercise -> addExercise(exercise, blockId = blockId) }
+        }
+    }
+
+    fun addExercise(exercise: Exercise, blockId: String? = null) {
         val currentExercises = _workoutState.value.exercises
 
-        // Check if exercise already exists
-        if (currentExercises.any { it.exercise.id == exercise.id }) {
+        // Check if exercise already exists (skip for functional block re-adds)
+        if (blockId == null && currentExercises.any { it.exercise.id == exercise.id }) {
             return
         }
 
@@ -1151,7 +1183,8 @@ class WorkoutViewModel @Inject constructor(
             val newExerciseWithSets = ExerciseWithSets(
                 exercise = exercise,
                 sets = setsWithIds,
-                stickyNote = sticky
+                stickyNote = sticky,
+                blockId = blockId
             )
 
             _workoutState.update {

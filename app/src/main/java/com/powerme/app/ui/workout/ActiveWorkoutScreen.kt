@@ -85,6 +85,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import java.util.ArrayList
+import com.powerme.app.ui.workouts.AddBlockOrExerciseSheet
+import com.powerme.app.ui.workouts.FunctionalBlockWizard
 
 private enum class TimedSetState { IDLE, SETUP, RUNNING, PAUSED, COMPLETED }
 
@@ -113,7 +115,11 @@ fun ActiveWorkoutScreen(
     val supersetColorMap = remember(workoutState.exercises) {
         buildSupersetColorMap(workoutState.exercises.map { it.supersetGroupId })
     }
+    val workoutStyle by viewModel.workoutStyle.collectAsState()
     var showExerciseDialog by remember { mutableStateOf(false) }
+    var showBlockWizard by remember { mutableStateOf(false) }
+    var showHybridSheet by remember { mutableStateOf(false) }
+    var pendingDraftBlock by remember { mutableStateOf<com.powerme.app.ui.workouts.DraftBlock?>(null) }
     var showCancelDialog by remember { mutableStateOf(false) }
     var showDiscardEditDialog by remember { mutableStateOf(false) }
     var showTimerControls by remember { mutableStateOf(false) }
@@ -369,7 +375,13 @@ fun ActiveWorkoutScreen(
                         activeTimerSetOrder = activeTimerSetOrder,
                         activeTimerRemainingSeconds = activeTimerRemainingSeconds,
                         activeTimerTotalSeconds = activeTimerTotalSeconds,
-                        onShowExerciseDialog = { showExerciseDialog = true },
+                        onShowExerciseDialog = {
+                            when (workoutStyle) {
+                                com.powerme.app.data.WorkoutStyle.PURE_FUNCTIONAL -> showBlockWizard = true
+                                com.powerme.app.data.WorkoutStyle.HYBRID -> showHybridSheet = true
+                                else -> showExerciseDialog = true
+                            }
+                        },
                         onTimerActiveClick = { showTimerControls = true },
                         onCancelWorkout = { showCancelDialog = true },
                         isEditMode = workoutState.isEditMode,
@@ -463,21 +475,55 @@ fun ActiveWorkoutScreen(
     } // end Box
 
     if (showExerciseDialog) {
+        val draft = pendingDraftBlock
         ModalBottomSheet(
-            onDismissRequest = { showExerciseDialog = false },
+            onDismissRequest = {
+                showExerciseDialog = false
+                pendingDraftBlock = null
+            },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             ExercisesScreen(
                 pickerMode = true,
                 isModal = true,
+                initialFunctionalFilter = draft != null,
                 onExercisesSelected = { ids ->
-                    ids.forEach { id ->
-                        workoutState.availableExercises.find { it.id == id }?.let { viewModel.addExercise(it) }
+                    val selectedExercises = ids.mapNotNull { id -> workoutState.availableExercises.find { it.id == id } }
+                    if (draft != null) {
+                        viewModel.addFunctionalBlock(draft, selectedExercises)
+                        pendingDraftBlock = null
+                    } else {
+                        selectedExercises.forEach { viewModel.addExercise(it) }
                     }
                     showExerciseDialog = false
                 }
             )
         }
+    }
+
+    if (showBlockWizard) {
+        FunctionalBlockWizard(
+            onDismiss = { showBlockWizard = false },
+            onBlockCreated = { draft ->
+                pendingDraftBlock = draft
+                showBlockWizard = false
+                showExerciseDialog = true  // step 2: pick exercises for this block
+            }
+        )
+    }
+
+    if (showHybridSheet) {
+        AddBlockOrExerciseSheet(
+            onDismiss = { showHybridSheet = false },
+            onAddStrengthExercise = {
+                showHybridSheet = false
+                showExerciseDialog = true
+            },
+            onAddFunctionalBlock = {
+                showHybridSheet = false
+                showBlockWizard = true
+            }
+        )
     }
 
     if (showTimerControls) {

@@ -80,6 +80,7 @@
 | Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `completed` | — |
 | CSV Import (Strong, Hevy, FitBod, generic) | `CSV_IMPORT_SPEC.md` | L | `completed` | — |
 | Alternative exercise — movement-specific weight transfer | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | M | `wrapped` | Exercise Detail Tabs v2 ✅ |
+| Exercise functional tag — user toggle on/off per exercise | `future_devs/EXERCISE_FUNCTIONAL_TAG_TOGGLE_SPEC.md` | S | `not-started` | — |
 
 ---
 
@@ -198,6 +199,7 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/AICORE_ONDEVICE_INTEGRATION_SPEC.md` | P9 — AICore on-device inference: availability, download, OnDeviceWorkoutParser |
 | `future_devs/SYNONYM_LEARNING_SYSTEM_SPEC.md` | P9 — Synonym learning — ExerciseMatcher user-synonym tier, save prompt |
 | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | P5 — Movement-specific weight transfer ratios for alternative exercise suggestions |
+| `future_devs/EXERCISE_FUNCTIONAL_TAG_TOGGLE_SPEC.md` | P5 — Exercise functional tag: user can toggle ⚡ Functional filter inclusion per exercise |
 | `future_devs/WATCH_WORKOUT_NOTIFICATIONS_SPEC.md` | P1 — Watch & phone workout notifications |
 | `future_devs/FUNC_BLOCK_CARD_LAYOUT_SPEC.md` | P8 — Functional block card layout — single card per block in template builder |
 | `future_devs/EXERCISE_PICKER_UI_CONSISTENCY_SPEC.md` | P8 — Exercise picker UI consistency — standardise all entry points to same UI |

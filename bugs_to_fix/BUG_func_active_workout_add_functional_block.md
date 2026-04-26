@@ -1,7 +1,7 @@
 # BUG: Active workout Add button always opens strength picker regardless of workout style
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P1 high
@@ -28,4 +28,4 @@ In `TemplateBuilderScreen`, the Add button correctly dispatches by style: PURE_G
 - Related spec: `FUNCTIONAL_TRAINING_SPEC.md`, `WORKOUT_SPEC.md`
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+Exposed `workoutStyle: StateFlow<WorkoutStyle>` in `WorkoutViewModel` (was private). In `ActiveWorkoutScreen`, the "ADD EXERCISE" button now dispatches by style: PURE_GYM → strength exercise picker, PURE_FUNCTIONAL → `FunctionalBlockWizard`, HYBRID → `AddBlockOrExerciseSheet`. After the wizard creates a `DraftBlock`, the exercise picker opens with `pendingDraftBlock` set; on confirmation the selections are passed to `viewModel.addFunctionalBlock(draft, exercises)`. Added `addFunctionalBlock(DraftBlock, List<Exercise>)` to `WorkoutViewModel` — creates a `WorkoutBlock` row in the DB, appends it to `ActiveWorkoutState.blocks`, then calls `addExercise(exercise, blockId)` for each selection. `addExercise` gained a `blockId: String? = null` parameter propagated into `ExerciseWithSets.blockId`.
