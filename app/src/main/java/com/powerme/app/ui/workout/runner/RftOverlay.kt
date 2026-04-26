@@ -37,10 +37,10 @@ fun RftOverlay(
     onAbandonClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var showFinishConfirm by remember { mutableStateOf(false) }
     var showAbandonConfirm by remember { mutableStateOf(false) }
 
     val target = state.plan.targetRounds ?: 0
+    val isLastRound = target > 0 && state.roundTapCount + 1 >= target
     val capRemaining = state.capRemainingSeconds
 
     Box(
@@ -89,8 +89,11 @@ fun RftOverlay(
             Box(modifier = Modifier.weight(1f)) {
                 BlindTapZone(
                     currentRound = state.roundTapCount + 1,
-                    onTap = onRoundTap,
-                    label = "ROUND ✓",
+                    onTap = {
+                        onRoundTap()
+                        if (isLastRound) onFinishClick()
+                    },
+                    label = if (isLastRound) "LAST ROUND ✓" else "ROUND ✓",
                 )
             }
 
@@ -103,12 +106,12 @@ fun RftOverlay(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
-                    onClick = { showFinishConfirm = true },
+                    onClick = onFinishClick,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                ) { Text("FINISH WOD") }
+                ) { Text("Finish RFT Block") }
                 OutlinedButton(
                     onClick = { showAbandonConfirm = true },
                     modifier = Modifier
@@ -119,22 +122,6 @@ fun RftOverlay(
         }
     }
 
-    if (showFinishConfirm) {
-        AlertDialog(
-            onDismissRequest = { showFinishConfirm = false },
-            title = { Text("Finish WOD?") },
-            text = { Text("Captured time: ${formatMmSs(state.elapsedSeconds)}.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showFinishConfirm = false
-                    onFinishClick()
-                }) { Text("Finish") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showFinishConfirm = false }) { Text("Keep Going") }
-            },
-        )
-    }
     if (showAbandonConfirm) {
         AlertDialog(
             onDismissRequest = { showAbandonConfirm = false },

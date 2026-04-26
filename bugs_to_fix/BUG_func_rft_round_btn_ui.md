@@ -1,7 +1,7 @@
 # BUG: RFT "ROUND ✓" button too small; AMRAP and RFT round button UI inconsistent
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P2 normal
@@ -30,4 +30,4 @@ Design direction (use /ui-ux-pro-max):
 - Design tool: invoke `/ui-ux-pro-max` when implementing
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+RftOverlay replaced the 48dp "ROUND ✓" Button with a BlindTapZone (same component used by AMRAP), filling all available space between the exercise list and the bottom action bar. The tap zone shows "ROUND ✓" (or "LAST ROUND ✓" on the final round) matching AMRAP's treatment. When the tap fires on the last round it automatically calls onFinishClick() after logging the round, opening BlockFinishSheet without requiring a separate button tap. BlindTapZone gained a label: String = "ROUND ✓" param so the cue text can be customised per overlay.

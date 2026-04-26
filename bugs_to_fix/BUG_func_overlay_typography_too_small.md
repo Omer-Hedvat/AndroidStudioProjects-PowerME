@@ -1,7 +1,7 @@
 # BUG: Functional overlay typography too small — round number, exercise list, and reps unreadable at arm's length
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P2 normal
@@ -29,4 +29,4 @@ The existing `func_overlay_exercise_font` fix bumped exercise names from `bodyLa
 - Related (incomplete): `future_devs/FUNC_OVERLAY_EXERCISE_FONT_SPEC.md` — partial fix, insufficient
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+All four overlays: block name titleMedium → titleLarge; round counter titleMedium → headlineLarge (two scale steps up). EMOM interval sub-label titleSmall → titleMedium. TABATA phase label (WORK/REST) titleLarge → headlineMedium. BlockRecipeRow (shared across all overlays) replaced the two-column name/reps layout with a single left-aligned headlineMedium line — "10 Box Jump" format — which is significantly larger and more readable at distance.

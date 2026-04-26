@@ -7,6 +7,8 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 
 | Bug | Title | Status | Severity | Files Changed |
 |-----|-------|--------|----------|---------------|
+| [BUG_func_routine_view_no_block_ui](BUG_func_routine_view_no_block_ui.md) | Routine summary and edit pages show flat exercise list instead of functional block structure | ~~Superseded~~ by FUNC_TEMPLATE_BUILDER_POLISH_SPEC | P2 | — |
+|-----|-------|--------|----------|---------------|
 | [BUG_start_workout_after_edit](BUG_start_workout_after_edit.md) | Start workout button broken after editing a routine | ✅ Fixed & Committed | P0 | `WorkoutViewModel.kt` |
 | [BUG_ai_text_generator_no_parse](BUG_ai_text_generator_no_parse.md) | AI text generator does not generate workout from natural language input | ✅ Wrapped | P1 | No code changes — stale; fixed by WorkoutParserRouter + AiWorkoutViewModel |
 | [BUG_youtube_links_still_rendered](BUG_youtube_links_still_rendered.md) | YouTube links still shown in ExerciseDetailSheet | ✅ Fixed & Committed | P2 | `ExercisesScreen.kt` |
@@ -103,3 +105,6 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | [BUG_func_overlay_mid_round_alert](BUG_func_overlay_mid_round_alert.md) | Functional overlays missing mid-round alert (haptic/sound) | ✅ Wrapped | P2 | `TimerEngine.kt`, `FunctionalBlockRunner.kt`, `TimerSpec.kt` |
 | [BUG_func_emom_skip_round_broken](BUG_func_emom_skip_round_broken.md) | EMOM "Skip Round" button does not advance to next round or update round counter | ✅ Wrapped | P1 | `TimerEngine.kt`, `FunctionalBlockRunner.kt`, `WorkoutViewModel.kt`, `ActiveWorkoutScreen.kt` |
 | [BUG_func_overlay_alert_timing](BUG_func_overlay_alert_timing.md) | Functional overlay alert timing — EMOM 30s+10s alerts; RFT/AMRAP mid-cap/half-time alerts | ✅ Wrapped | P1 | `TimerEngine.kt`, `FunctionalBlockRunner.kt`, `TimerSpec.kt` |
+| [BUG_func_overlay_typography_too_small](BUG_func_overlay_typography_too_small.md) | Overlay typography too small — round number, exercises, reps unreadable at arm's length | ✅ Wrapped | P2 | `AmrapOverlay.kt`, `RftOverlay.kt`, `EmomOverlay.kt`, `TabataOverlay.kt`, `BlockRecipeRow.kt` |
+| [BUG_func_rft_round_btn_ui](BUG_func_rft_round_btn_ui.md) | RFT "ROUND ✓" button too small; AMRAP and RFT round button UI inconsistent | ✅ Wrapped | P2 | `RftOverlay.kt`, `AmrapOverlay.kt`, `BlindTapZone.kt` |
+| [BUG_func_overlay_exercise_format](BUG_func_overlay_exercise_format.md) | Functional overlay exercise list: "10 Box Jump" format instead of separate columns | ✅ Wrapped | P2 | `BlockRecipeRow.kt` |

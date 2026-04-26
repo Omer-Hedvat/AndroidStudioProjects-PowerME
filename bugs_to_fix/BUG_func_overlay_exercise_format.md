@@ -1,7 +1,7 @@
 # BUG: Functional overlay exercise list shows name + reps separately instead of "10 Box Jump" format
 
 ## Status
-[ ] In Progress
+[x] Fixed
 
 ## Severity
 P2 normal
@@ -24,4 +24,4 @@ All four functional overlays show exercises as two separate text elements: exerc
 - Related spec: `FUNCTIONAL_TRAINING_SPEC.md`
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+BlockRecipeRow rewritten: removed the SpaceBetween Row layout (name left, reps right). Replaced with a single Text composable showing "${reps} ${exerciseName}" (or "${holdSeconds}s ${exerciseName}") left-aligned at headlineMedium — matching the whiteboard-style "10 Box Jump" format requested.
