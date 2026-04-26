@@ -1,7 +1,7 @@
 # BUG: AI text generator text box has wrong background in dark mode
 
 ## Status
-[ ] Open
+[x] Fixed
 
 ## Severity
 P3 low — cosmetic issue; text input background is not styled correctly in dark mode
@@ -23,4 +23,4 @@ In the AI workout generation screen, the text input field background appears as 
 - Related spec: `THEME_SPEC.md`
 
 ## Fix Notes
-<!-- populated after fix is applied -->
+All 5 `OutlinedTextField` instances in `AiWorkoutGenerationScreen.kt` (main text input, OCR text field, RestTimeDialog, NotesDialog, SaveRoutineDialog) were missing `colors = PowerMeDefaults.outlinedTextFieldColors()`. Without this, M3 uses its default container color which renders light/white in dark mode. Adding `PowerMeDefaults.outlinedTextFieldColors()` explicitly sets `focusedContainerColor` and `unfocusedContainerColor` to `Color.Transparent`, so the dark surface background shows through correctly. Also aligns with THEME_SPEC §9.3 rule 4.
