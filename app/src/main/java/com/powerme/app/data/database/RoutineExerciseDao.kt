@@ -13,7 +13,8 @@ data class RoutineExerciseWithName(
     val supersetGroupId: String?,
     val setTypesJson: String = "",
     val blockId: String? = null,
-    val holdSeconds: Int? = null
+    val holdSeconds: Int? = null,
+    val defaultWeight: String = ""
 )
 
 /** Working sets = total sets minus WARMUP-typed slots. Falls back to raw [sets] for legacy rows. */
@@ -53,7 +54,7 @@ interface RoutineExerciseDao {
     @Query("""
         SELECT re.exerciseId, e.name AS exerciseName, e.muscleGroup, e.equipmentType,
                re.sets, re.reps, re.`order`, re.supersetGroupId, re.setTypesJson,
-               re.blockId, re.holdSeconds
+               re.blockId, re.holdSeconds, re.defaultWeight
         FROM routine_exercises re
         JOIN exercises e ON re.exerciseId = e.id
         WHERE re.routineId = :routineId

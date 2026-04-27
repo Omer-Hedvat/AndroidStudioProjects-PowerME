@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,13 +66,26 @@ fun TemplateBuilderScreen(
     var showHybridSheet by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
-        val fromIdx = draftExercises.indexOfFirst { it.exerciseId == from.key as Long }
-        val toIdx   = draftExercises.indexOfFirst { it.exerciseId == to.key as Long }
-        // Only allow reorder within the same block
-        val fromBlock = draftExercises.getOrNull(fromIdx)?.blockId
-        val toBlock   = draftExercises.getOrNull(toIdx)?.blockId
-        if (fromIdx >= 0 && toIdx >= 0 && fromBlock == toBlock) {
-            viewModel.reorderDraftExercise(fromIdx, toIdx)
+        val fromKey = from.key
+        val toKey = to.key
+        when {
+            fromKey is String && fromKey.startsWith("block-card-") &&
+            toKey is String && toKey.startsWith("block-card-") -> {
+                val fromBlockId = fromKey.removePrefix("block-card-")
+                val toBlockId = toKey.removePrefix("block-card-")
+                val fromIdx = draftBlocks.indexOfFirst { it.id == fromBlockId }
+                val toIdx = draftBlocks.indexOfFirst { it.id == toBlockId }
+                if (fromIdx >= 0 && toIdx >= 0) viewModel.reorderBlocks(fromIdx, toIdx)
+            }
+            fromKey is Long && toKey is Long -> {
+                val fromIdx = draftExercises.indexOfFirst { it.exerciseId == fromKey }
+                val toIdx   = draftExercises.indexOfFirst { it.exerciseId == toKey }
+                val fromBlock = draftExercises.getOrNull(fromIdx)?.blockId
+                val toBlock   = draftExercises.getOrNull(toIdx)?.blockId
+                if (fromIdx >= 0 && toIdx >= 0 && fromBlock == toBlock) {
+                    viewModel.reorderDraftExercise(fromIdx, toIdx)
+                }
+            }
         }
     }
 
@@ -295,48 +309,55 @@ fun TemplateBuilderScreen(
                                 Spacer(Modifier.height(8.dp))
                             }
                         } else {
-                            // Functional block: group everything into a single Card
+                            // Functional block: group everything into a single draggable Card
                             item(key = "block-card-${block.id}") {
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateItem()
-                                        .padding(bottom = 8.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                    ),
-                                    shape = MaterialTheme.shapes.medium,
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                                ) {
-                                    Column {
-                                        BlockHeader(
-                                            block = block,
-                                            onAddExercise = {
-                                                val existing = draftExercises.filter { it.blockId == block.id }.map { it.exerciseId }
-                                                navController.currentBackStackEntry?.savedStateHandle
-                                                    ?.set("preselected_exercises", ArrayList(existing))
-                                                viewModel.setPendingBlock(block)
-                                                navController.navigate("exercise_picker?functionalFilter=true")
-                                            },
-                                            onDeleteBlock = { viewModel.deleteBlock(block.id) },
-                                            standalone = false
-                                        )
-                                        blockExercises.forEachIndexed { index, draft ->
-                                            FunctionalExerciseRow(
-                                                draft = draft,
-                                                blockType = block.type,
-                                                onIncrementReps = { viewModel.incrementReps(draft.exerciseId) },
-                                                onDecrementReps = { viewModel.decrementReps(draft.exerciseId) },
-                                                onIncrementHold = { viewModel.incrementHoldSeconds(draft.exerciseId) },
-                                                onDecrementHold = { viewModel.decrementHoldSeconds(draft.exerciseId) },
-                                                onToggleInputMode = { viewModel.toggleInputMode(draft.exerciseId) },
-                                                onRemove = { viewModel.removeExercise(draft.exerciseId) }
+                                ReorderableItem(reorderState, key = "block-card-${block.id}") { isDragging ->
+                                    val elevation by animateDpAsState(
+                                        if (isDragging) 8.dp else 1.dp,
+                                        label = "block-drag-elev"
+                                    )
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 8.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                        ),
+                                        shape = MaterialTheme.shapes.medium,
+                                        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+                                    ) {
+                                        Column {
+                                            BlockHeader(
+                                                block = block,
+                                                onAddExercise = {
+                                                    val existing = draftExercises.filter { it.blockId == block.id }.map { it.exerciseId }
+                                                    navController.currentBackStackEntry?.savedStateHandle
+                                                        ?.set("preselected_exercises", ArrayList(existing))
+                                                    viewModel.setPendingBlock(block)
+                                                    navController.navigate("exercise_picker?functionalFilter=true")
+                                                },
+                                                onDeleteBlock = { viewModel.deleteBlock(block.id) },
+                                                standalone = false,
+                                                dragHandleModifier = Modifier.draggableHandle()
                                             )
-                                            if (index < blockExercises.lastIndex) {
-                                                HorizontalDivider(
-                                                    modifier = Modifier.padding(horizontal = 8.dp),
-                                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                            blockExercises.forEachIndexed { index, draft ->
+                                                FunctionalExerciseRow(
+                                                    draft = draft,
+                                                    blockType = block.type,
+                                                    onIncrementReps = { viewModel.incrementReps(draft.exerciseId) },
+                                                    onDecrementReps = { viewModel.decrementReps(draft.exerciseId) },
+                                                    onIncrementHold = { viewModel.incrementHoldSeconds(draft.exerciseId) },
+                                                    onDecrementHold = { viewModel.decrementHoldSeconds(draft.exerciseId) },
+                                                    onToggleInputMode = { viewModel.toggleInputMode(draft.exerciseId) },
+                                                    onWeightChanged = { w -> viewModel.updateFunctionalWeight(draft.exerciseId, w) },
+                                                    onRemove = { viewModel.removeExercise(draft.exerciseId) }
                                                 )
+                                                if (index < blockExercises.lastIndex) {
+                                                    HorizontalDivider(
+                                                        modifier = Modifier.padding(horizontal = 8.dp),
+                                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -470,7 +491,8 @@ private fun ReorderableCollectionItemScope.ExerciseRowContent(
     onDecrementReps: () -> Unit = {},
     onIncrementHold: () -> Unit = {},
     onDecrementHold: () -> Unit = {},
-    onToggleInputMode: () -> Unit = {}
+    onToggleInputMode: () -> Unit = {},
+    onWeightChanged: (String) -> Unit = {}
 ) {
     val isFunctionalBlock = blockType != null && blockType != BlockType.STRENGTH
     when {
@@ -494,6 +516,7 @@ private fun ReorderableCollectionItemScope.ExerciseRowContent(
             onIncrementHold = onIncrementHold,
             onDecrementHold = onDecrementHold,
             onToggleInputMode = onToggleInputMode,
+            onWeightChanged = onWeightChanged,
             onRemove = onRemove
         )
         else -> DraftExerciseRow(
@@ -522,6 +545,7 @@ private fun FunctionalExerciseRow(
     onIncrementHold: () -> Unit,
     onDecrementHold: () -> Unit,
     onToggleInputMode: () -> Unit,
+    onWeightChanged: (String) -> Unit,
     onRemove: () -> Unit
 ) {
     val isTimeMode = draft.holdSeconds != null
@@ -555,6 +579,17 @@ private fun FunctionalExerciseRow(
 
         // Input controls
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Weight field
+            OutlinedTextField(
+                value = draft.defaultWeight,
+                onValueChange = onWeightChanged,
+                label = { Text("Weight", fontSize = 10.sp) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                modifier = Modifier.width(88.dp),
+                textStyle = MaterialTheme.typography.bodySmall,
+                colors = PowerMeDefaults.outlinedTextFieldColors()
+            )
             if (showToggle) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     FilterChip(
@@ -614,7 +649,8 @@ private fun BlockHeader(
     onAddExercise: () -> Unit,
     onDeleteBlock: () -> Unit,
     modifier: Modifier = Modifier,
-    standalone: Boolean = true
+    standalone: Boolean = true,
+    dragHandleModifier: Modifier? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -654,6 +690,15 @@ private fun BlockHeader(
                 .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Drag handle (functional blocks only)
+            if (dragHandleModifier != null) {
+                Icon(
+                    imageVector = Icons.Default.DragHandle,
+                    contentDescription = "Drag to reorder block",
+                    modifier = dragHandleModifier.size(20.dp).padding(end = 4.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
             // Type badge
             if (block.type != BlockType.STRENGTH) {
                 SuggestionChip(

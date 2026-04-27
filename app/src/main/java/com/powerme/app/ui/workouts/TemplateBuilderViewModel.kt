@@ -39,7 +39,8 @@ data class DraftExercise(
     val order: Int,
     val supersetGroupId: String? = null,
     val blockId: String? = null,
-    val holdSeconds: Int? = null
+    val holdSeconds: Int? = null,
+    val defaultWeight: String = ""
 )
 
 data class DraftBlock(
@@ -131,7 +132,8 @@ class TemplateBuilderViewModel @Inject constructor(
                         order = i,
                         supersetGroupId = ex.supersetGroupId,
                         blockId = ex.blockId,
-                        holdSeconds = ex.holdSeconds
+                        holdSeconds = ex.holdSeconds,
+                        defaultWeight = ex.defaultWeight
                     )
                 }
             }
@@ -274,6 +276,12 @@ class TemplateBuilderViewModel @Inject constructor(
         }
     }
 
+    fun updateFunctionalWeight(exerciseId: Long, weight: String) {
+        _draftExercises.value = _draftExercises.value.map { d ->
+            if (d.exerciseId == exerciseId) d.copy(defaultWeight = weight) else d
+        }
+    }
+
     fun reorderDraftExercise(fromIndex: Int, toIndex: Int) {
         _draftExercises.value = _draftExercises.value.toMutableList().apply {
             val item = removeAt(fromIndex)
@@ -347,7 +355,8 @@ class TemplateBuilderViewModel @Inject constructor(
                                     order = i,
                                     supersetGroupId = d.supersetGroupId,
                                     blockId = d.blockId,
-                                    holdSeconds = d.holdSeconds
+                                    holdSeconds = d.holdSeconds,
+                                    defaultWeight = d.defaultWeight
                                 )
                             }
                         )
