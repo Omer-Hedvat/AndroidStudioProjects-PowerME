@@ -23,6 +23,7 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_routine_preview_no_scroll](BUG_routine_preview_no_scroll.md) | Routine preview screen cannot scroll — Start Workout button unreachable | ✅ Wrapped | P0 | — | — | `WorkoutsScreen.kt` |
 | [BUG_func_picker_duplicate_exercises](BUG_func_picker_duplicate_exercises.md) | Exercise picker from functional training shows duplicate exercises (reps + time variants) | 🔵 Open | P2 | — | — | — |
 | [BUG_func_block_card_header_duplicate_type](BUG_func_block_card_header_duplicate_type.md) | Functional block card header: type badge + auto-name both show the type — duplicate info, wasted space | 🔵 Open | P2 | — | — | `ActiveWorkoutScreen.kt`, `WorkoutsScreen.kt` |
+| [BUG_active_workout_kebab_options](BUG_active_workout_kebab_options.md) | Functional block kebab missing options; strength card organise always visible | ✅ Completed | P1 | BUG_active_workout_kebab_nav_overlap ✅ | — | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
 
 
 ---
