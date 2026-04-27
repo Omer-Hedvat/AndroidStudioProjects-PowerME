@@ -80,6 +80,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
@@ -575,6 +576,7 @@ fun ActiveWorkoutScreen(
  * Shows block type badge + params at the top, then one plain row per exercise.
  * No sets column, no PRE, no RPE, no checkmark — those concepts don't apply here.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FunctionalBlockActiveCard(
     block: WorkoutBlock,
@@ -588,10 +590,11 @@ private fun FunctionalBlockActiveCard(
     onRemoveExercise: (exId: Long) -> Unit = {},
     onAddExercise: (() -> Unit)? = null,
     onDeleteBlock: (() -> Unit)? = null,
-    onEditBlock: ((durationSeconds: Int?, targetRounds: Int?, emomRoundSeconds: Int?, tabataWorkSeconds: Int?, tabataRestSeconds: Int?) -> Unit)? = null,
+    onEditBlock: ((durationSeconds: Int?, targetRounds: Int?, emomRoundSeconds: Int?, tabataWorkSeconds: Int?, tabataRestSeconds: Int?, tabataSkipLastRest: Boolean?, setupSecondsOverride: Int?, warnAtSecondsOverride: Int?, name: String?) -> Unit)? = null,
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showEditSheet by remember { mutableStateOf(false) }
+    var showBlockMenu by remember { mutableStateOf(false) }
 
     val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
         .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
@@ -690,28 +693,15 @@ private fun FunctionalBlockActiveCard(
                         )
                     }
                 }
-                if (!alreadyRun && onEditBlock != null) {
+                if (!alreadyRun && (onEditBlock != null || onDeleteBlock != null)) {
                     IconButton(
-                        onClick = { showEditSheet = true },
+                        onClick = { showBlockMenu = true },
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Edit block parameters",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                if (onDeleteBlock != null) {
-                    IconButton(
-                        onClick = { showDeleteConfirm = true },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Remove block",
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                            Icons.Default.MoreVert,
+                            contentDescription = "More",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -787,11 +777,33 @@ private fun FunctionalBlockActiveCard(
         EditBlockParamsSheet(
             block = block,
             onDismiss = { showEditSheet = false },
-            onConfirm = { dur, rounds, emomInterval, workSecs, restSecs ->
+            onConfirm = { dur, rounds, emomInterval, workSecs, restSecs, skipLast, setup, warnAt, bName ->
                 showEditSheet = false
-                onEditBlock(dur, rounds, emomInterval, workSecs, restSecs)
+                onEditBlock(dur, rounds, emomInterval, workSecs, restSecs, skipLast, setup, warnAt, bName)
             }
         )
+    }
+
+    if (showBlockMenu) {
+        ModalBottomSheet(onDismissRequest = { showBlockMenu = false }, contentWindowInsets = { WindowInsets(0) }) {
+            Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 24.dp)) {
+                if (onEditBlock != null) {
+                    ListItem(
+                        headlineContent = { Text("Edit Block") },
+                        leadingContent = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { showBlockMenu = false; showEditSheet = true }
+                    )
+                }
+                if (onDeleteBlock != null) {
+                    ListItem(
+                        headlineContent = { Text("Remove Block", color = MaterialTheme.colorScheme.error) },
+                        leadingContent = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        modifier = Modifier.clickable { showBlockMenu = false; showDeleteConfirm = true }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
     }
 }
 
@@ -1128,8 +1140,8 @@ private fun LazyListScope.activeWorkoutListItems(
                         onRemoveExercise = { exId -> viewModel.removeExercise(exId) },
                         onAddExercise = { onAddExerciseToBlock(block.id) },
                         onDeleteBlock = { viewModel.removeBlock(block.id) },
-                        onEditBlock = { dur, rounds, emomInt, workSecs, restSecs ->
-                            viewModel.updateBlock(block.id, dur, rounds, emomInt, workSecs, restSecs)
+                        onEditBlock = { dur, rounds, emomInt, workSecs, restSecs, skipLast, setup, warnAt, bName ->
+                            viewModel.updateBlock(block.id, dur, rounds, emomInt, workSecs, restSecs, skipLast, setup, warnAt, bName)
                         },
                     )
                 }
@@ -2471,100 +2483,300 @@ private fun FunctionalBlockOrganizeRow(
 private fun EditBlockParamsSheet(
     block: WorkoutBlock,
     onDismiss: () -> Unit,
-    onConfirm: (durationSeconds: Int?, targetRounds: Int?, emomRoundSeconds: Int?, tabataWorkSeconds: Int?, tabataRestSeconds: Int?) -> Unit
+    onConfirm: (durationSeconds: Int?, targetRounds: Int?, emomRoundSeconds: Int?, tabataWorkSeconds: Int?, tabataRestSeconds: Int?, tabataSkipLastRest: Boolean?, setupSecondsOverride: Int?, warnAtSecondsOverride: Int?, name: String?) -> Unit
 ) {
     val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
         .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
 
-    var durationMins by remember { mutableStateOf(block.durationSeconds?.let { (it / 60).toString() } ?: "") }
-    var targetRounds by remember { mutableStateOf(block.targetRounds?.toString() ?: "") }
-    var emomInterval by remember { mutableStateOf(block.emomRoundSeconds?.toString() ?: "") }
-    var tabataWork by remember { mutableStateOf(block.tabataWorkSeconds?.toString() ?: "") }
-    var tabataRest by remember { mutableStateOf(block.tabataRestSeconds?.toString() ?: "") }
+    // ── AMRAP ──
+    var amrapMinutes by remember {
+        mutableIntStateOf(block.durationSeconds?.let { it / 60 }?.coerceAtLeast(1) ?: 12)
+    }
+
+    // ── RFT ──
+    var rftRounds by remember { mutableIntStateOf(block.targetRounds?.coerceAtLeast(1) ?: 5) }
+    var rftCapMinutes by remember {
+        mutableStateOf(block.durationSeconds?.let { (it / 60).toString() } ?: "")
+    }
+
+    // ── EMOM ──
+    val initEmomInterval = block.emomRoundSeconds ?: 60
+    val initEmomTotalRounds = if (block.durationSeconds != null && initEmomInterval > 0)
+        (block.durationSeconds / initEmomInterval).coerceAtLeast(1) else 10
+    val emomPresets = listOf(60, 90, 120, 180, 300)
+    val emomPresetLabels = listOf("60s", "90s", "2min", "3min", "5min")
+    var emomTotalRounds by remember { mutableIntStateOf(initEmomTotalRounds) }
+    var emomIntervalSec by remember { mutableIntStateOf(initEmomInterval) }
+    var emomCustomText by remember { mutableStateOf(if (initEmomInterval !in emomPresets) initEmomInterval.toString() else "") }
+    var emomShowCustom by remember { mutableStateOf(initEmomInterval !in emomPresets) }
+    var emomWarnSec by remember { mutableIntStateOf(block.warnAtSecondsOverride?.coerceIn(5, 30) ?: 10) }
+
+    // ── TABATA ──
+    var tabataWorkSec by remember { mutableIntStateOf(block.tabataWorkSeconds?.coerceAtLeast(5) ?: 20) }
+    var tabataRestSec by remember { mutableIntStateOf(block.tabataRestSeconds?.coerceAtLeast(5) ?: 10) }
+    var tabataRounds by remember { mutableIntStateOf(block.targetRounds?.coerceAtLeast(1) ?: 8) }
+    var tabataSkipLastRest by remember { mutableStateOf(block.tabataSkipLastRest == 1) }
+
+    // ── Shared ──
+    var blockName by remember { mutableStateOf(block.name ?: "") }
+    var showAdvanced by remember { mutableStateOf(false) }
+    var setupOverride by remember { mutableStateOf(block.setupSecondsOverride?.toString() ?: "") }
+    // For non-EMOM types warnAtSecondsOverride is the advanced field; EMOM uses emomWarnSec above.
+    var warnOverride by remember {
+        mutableStateOf(
+            if (blockType == com.powerme.app.data.BlockType.EMOM) ""
+            else block.warnAtSecondsOverride?.toString() ?: ""
+        )
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Edit ${blockType.displayName} parameters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "Edit ${blockType.displayName}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            // ── Type-specific fields ──
             when (blockType) {
                 com.powerme.app.data.BlockType.AMRAP -> {
-                    OutlinedTextField(
-                        value = durationMins,
-                        onValueChange = { durationMins = it.filter { c -> c.isDigit() } },
-                        label = { Text("Duration (minutes)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    Text("Duration", style = MaterialTheme.typography.labelLarge)
+                    EditStepperRow(
+                        label = "Minutes",
+                        value = amrapMinutes,
+                        onDecrement = { if (amrapMinutes > 1) amrapMinutes-- },
+                        onIncrement = { if (amrapMinutes < 60) amrapMinutes++ }
                     )
                 }
                 com.powerme.app.data.BlockType.RFT -> {
+                    Text("Rounds For Time", style = MaterialTheme.typography.labelLarge)
+                    EditStepperRow(
+                        label = "Rounds",
+                        value = rftRounds,
+                        onDecrement = { if (rftRounds > 1) rftRounds-- },
+                        onIncrement = { if (rftRounds < 20) rftRounds++ }
+                    )
                     OutlinedTextField(
-                        value = targetRounds,
-                        onValueChange = { targetRounds = it.filter { c -> c.isDigit() } },
-                        label = { Text("Target rounds") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        value = rftCapMinutes,
+                        onValueChange = { rftCapMinutes = it.filter { c -> c.isDigit() } },
+                        label = { Text("Time cap (minutes, optional)") },
+                        placeholder = { Text("No cap") },
+                        modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                 }
                 com.powerme.app.data.BlockType.EMOM -> {
-                    OutlinedTextField(
-                        value = emomInterval,
-                        onValueChange = { emomInterval = it.filter { c -> c.isDigit() } },
-                        label = { Text("Interval (seconds)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    val totalSec = emomTotalRounds * emomIntervalSec
+                    val totalLabel = if (totalSec % 60 == 0) "${totalSec / 60}min total" else "${totalSec}s total"
+                    Text("EMOM Configuration", style = MaterialTheme.typography.labelLarge)
+                    EditStepperRow(
+                        label = "Rounds  ($totalLabel)",
+                        value = emomTotalRounds,
+                        onDecrement = { if (emomTotalRounds > 1) emomTotalRounds-- },
+                        onIncrement = { if (emomTotalRounds < 60) emomTotalRounds++ }
                     )
-                    OutlinedTextField(
-                        value = durationMins,
-                        onValueChange = { durationMins = it.filter { c -> c.isDigit() } },
-                        label = { Text("Total duration (minutes)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    Text("Interval", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        emomPresets.forEachIndexed { idx, preset ->
+                            FilterChip(
+                                selected = emomIntervalSec == preset && !emomShowCustom,
+                                onClick = {
+                                    emomShowCustom = false
+                                    emomIntervalSec = preset
+                                },
+                                label = { Text(emomPresetLabels[idx], fontSize = 12.sp) }
+                            )
+                        }
+                        FilterChip(
+                            selected = emomShowCustom,
+                            onClick = { emomShowCustom = true },
+                            label = { Text("Custom", fontSize = 12.sp) }
+                        )
+                    }
+                    if (emomShowCustom) {
+                        OutlinedTextField(
+                            value = emomCustomText,
+                            onValueChange = { text ->
+                                emomCustomText = text.filter { c -> c.isDigit() }
+                                text.toIntOrNull()?.let { emomIntervalSec = it }
+                            },
+                            label = { Text("Interval (seconds)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+                    EditStepperRow(
+                        label = "Warn at (sec)",
+                        value = emomWarnSec,
+                        onDecrement = { if (emomWarnSec > 5) emomWarnSec -= 5 },
+                        onIncrement = { if (emomWarnSec < 30) emomWarnSec += 5 }
                     )
                 }
                 com.powerme.app.data.BlockType.TABATA -> {
-                    OutlinedTextField(
-                        value = tabataWork,
-                        onValueChange = { tabataWork = it.filter { c -> c.isDigit() } },
-                        label = { Text("Work (seconds)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    Text("Tabata Configuration", style = MaterialTheme.typography.labelLarge)
+                    EditStepperRow(
+                        label = "Work (seconds)",
+                        value = tabataWorkSec,
+                        onDecrement = { if (tabataWorkSec > 5) tabataWorkSec -= 5 },
+                        onIncrement = { tabataWorkSec += 5 }
                     )
-                    OutlinedTextField(
-                        value = tabataRest,
-                        onValueChange = { tabataRest = it.filter { c -> c.isDigit() } },
-                        label = { Text("Rest (seconds)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    EditStepperRow(
+                        label = "Rest (seconds)",
+                        value = tabataRestSec,
+                        onDecrement = { if (tabataRestSec > 5) tabataRestSec -= 5 },
+                        onIncrement = { tabataRestSec += 5 }
                     )
+                    EditStepperRow(
+                        label = "Rounds",
+                        value = tabataRounds,
+                        onDecrement = { if (tabataRounds > 1) tabataRounds-- },
+                        onIncrement = { tabataRounds++ }
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Skip last rest", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = tabataSkipLastRest,
+                            onCheckedChange = { tabataSkipLastRest = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                    }
                 }
                 else -> {}
             }
+
+            // ── Block name ──
+            OutlinedTextField(
+                value = blockName,
+                onValueChange = { blockName = it },
+                label = { Text("Block name") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            // ── Advanced section ──
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showAdvanced = !showAdvanced }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Advanced",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    imageVector = if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            AnimatedVisibility(visible = showAdvanced) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = setupOverride,
+                        onValueChange = { setupOverride = it.filter { c -> c.isDigit() } },
+                        label = { Text("Setup seconds override") },
+                        placeholder = { Text("Use default") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    if (blockType != com.powerme.app.data.BlockType.EMOM) {
+                        OutlinedTextField(
+                            value = warnOverride,
+                            onValueChange = { warnOverride = it.filter { c -> c.isDigit() } },
+                            label = { Text("Warn-at seconds override") },
+                            placeholder = { Text("Use default") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+                }
+            }
+
+            // ── Save button ──
             Button(
                 onClick = {
-                    onConfirm(
-                        durationMins.toIntOrNull()?.let { it * 60 },
-                        targetRounds.toIntOrNull(),
-                        emomInterval.toIntOrNull(),
-                        tabataWork.toIntOrNull(),
-                        tabataRest.toIntOrNull()
-                    )
+                    val (durSecs, rounds, emomInterval, workSecs, restSecs, skipLast, warnAt) = when (blockType) {
+                        com.powerme.app.data.BlockType.AMRAP ->
+                            EditBlockResult(amrapMinutes * 60, null, null, null, null, null, warnOverride.toIntOrNull())
+                        com.powerme.app.data.BlockType.RFT ->
+                            EditBlockResult(rftCapMinutes.toIntOrNull()?.let { it * 60 }, rftRounds, null, null, null, null, warnOverride.toIntOrNull())
+                        com.powerme.app.data.BlockType.EMOM ->
+                            EditBlockResult(emomTotalRounds * emomIntervalSec, null, emomIntervalSec, null, null, null, emomWarnSec)
+                        com.powerme.app.data.BlockType.TABATA ->
+                            EditBlockResult(null, tabataRounds, null, tabataWorkSec, tabataRestSec, tabataSkipLastRest, warnOverride.toIntOrNull())
+                        else -> EditBlockResult(null, null, null, null, null, null, null)
+                    }
+                    onConfirm(durSecs, rounds, emomInterval, workSecs, restSecs, skipLast, setupOverride.toIntOrNull(), warnAt, blockName.ifBlank { null })
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("SAVE", fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+private data class EditBlockResult(
+    val durationSeconds: Int?,
+    val targetRounds: Int?,
+    val emomRoundSeconds: Int?,
+    val tabataWorkSeconds: Int?,
+    val tabataRestSeconds: Int?,
+    val tabataSkipLastRest: Boolean?,
+    val warnAtSecondsOverride: Int?
+)
+
+@Composable
+private fun EditStepperRow(label: String, value: Int, onDecrement: () -> Unit, onIncrement: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilledTonalIconButton(onClick = onDecrement, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(16.dp))
+            }
+            Text(
+                text = value.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.widthIn(min = 32.dp),
+                textAlign = TextAlign.Center
+            )
+            FilledTonalIconButton(onClick = onIncrement, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(16.dp))
+            }
         }
     }
 }

@@ -2553,7 +2553,11 @@ class WorkoutViewModel @Inject constructor(
         targetRounds: Int?,
         emomRoundSeconds: Int?,
         tabataWorkSeconds: Int?,
-        tabataRestSeconds: Int?
+        tabataRestSeconds: Int?,
+        tabataSkipLastRest: Boolean? = null,
+        setupSecondsOverride: Int? = null,
+        warnAtSecondsOverride: Int? = null,
+        name: String? = null
     ) {
         _workoutState.update { state ->
             state.copy(
@@ -2563,7 +2567,11 @@ class WorkoutViewModel @Inject constructor(
                         targetRounds = targetRounds,
                         emomRoundSeconds = emomRoundSeconds,
                         tabataWorkSeconds = tabataWorkSeconds,
-                        tabataRestSeconds = tabataRestSeconds
+                        tabataRestSeconds = tabataRestSeconds,
+                        tabataSkipLastRest = tabataSkipLastRest?.let { if (it) 1 else 0 } ?: block.tabataSkipLastRest,
+                        setupSecondsOverride = setupSecondsOverride,
+                        warnAtSecondsOverride = warnAtSecondsOverride,
+                        name = name ?: block.name
                     ) else block
                 }
             ).markDirtyIfEditing()

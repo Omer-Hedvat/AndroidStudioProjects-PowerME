@@ -7,6 +7,8 @@ import com.powerme.app.data.UnitSystem
 import com.powerme.app.data.database.ExerciseType
 import com.powerme.app.data.database.SetType
 import com.powerme.app.data.database.Workout
+import com.powerme.app.data.database.WorkoutBlock
+import com.powerme.app.data.database.WorkoutBlockDao
 import com.powerme.app.data.database.WorkoutDao
 import com.powerme.app.data.database.WorkoutSet
 import com.powerme.app.data.database.WorkoutSetDao
@@ -15,6 +17,7 @@ import com.powerme.app.data.sync.FirestoreSyncManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -39,6 +42,7 @@ class WorkoutSummaryViewModelTest {
 
     private lateinit var workoutDao: WorkoutDao
     private lateinit var workoutSetDao: WorkoutSetDao
+    private lateinit var workoutBlockDao: WorkoutBlockDao
     private lateinit var appSettingsDataStore: AppSettingsDataStore
     private lateinit var firestoreSyncManager: FirestoreSyncManager
 
@@ -122,7 +126,7 @@ class WorkoutSummaryViewModelTest {
                 "syncType" to syncType
             )
         )
-        return WorkoutSummaryViewModel(handle, workoutDao, workoutSetDao, appSettingsDataStore, firestoreSyncManager)
+        return WorkoutSummaryViewModel(handle, workoutDao, workoutSetDao, workoutBlockDao, appSettingsDataStore, firestoreSyncManager)
     }
 
     @Before
@@ -130,10 +134,12 @@ class WorkoutSummaryViewModelTest {
         Dispatchers.setMain(testDispatcher)
         workoutDao = mock()
         workoutSetDao = mock()
+        workoutBlockDao = mock()
         appSettingsDataStore = mock()
         firestoreSyncManager = mock()
 
         whenever(appSettingsDataStore.unitSystem).thenReturn(flowOf(UnitSystem.METRIC))
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(any())).thenReturn(emptyList()) }
     }
 
     @After
@@ -747,5 +753,237 @@ class WorkoutSummaryViewModelTest {
         advanceUntilIdle()
 
         assertNull(vm.uiState.value.workout?.notes)
+    }
+
+    // ── Block cards ───────────────────────────────────────────────────────────
+
+    private fun makeBlock(
+        id: String = UUID.randomUUID().toString(),
+        type: String,
+        durationSeconds: Int? = null,
+        targetRounds: Int? = null,
+        totalRounds: Int? = null,
+        extraReps: Int? = null,
+        finishTimeSeconds: Int? = null,
+        emomRoundSeconds: Int? = null,
+        rpe: Int? = null,
+        roundTapLogJson: String? = null
+    ) = WorkoutBlock(
+        id = id,
+        workoutId = workoutId,
+        order = 0,
+        type = type,
+        name = null,
+        durationSeconds = durationSeconds,
+        targetRounds = targetRounds,
+        totalRounds = totalRounds,
+        extraReps = extraReps,
+        finishTimeSeconds = finishTimeSeconds,
+        emomRoundSeconds = emomRoundSeconds,
+        rpe = rpe,
+        roundTapLogJson = roundTapLogJson
+    )
+
+    @Test
+    fun `blockCards empty when no functional blocks`() = runTest(testDispatcher) {
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(workoutId)).thenReturn(emptyList()) }
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.blockCards.isEmpty())
+    }
+
+    @Test
+    fun `blockCards populated from AMRAP block with extraReps`() = runTest(testDispatcher) {
+        val block = makeBlock(
+            type = "AMRAP",
+            durationSeconds = 720, // 12 min
+            totalRounds = 8,
+            extraReps = 3,
+            rpe = 8
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(workoutId)).thenReturn(listOf(block)) }
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val cards = vm.uiState.value.blockCards
+        assertEquals(1, cards.size)
+        assertEquals("AMRAP 12:00", cards[0].headline)
+        assertEquals("8+3 rds", cards[0].score)
+        assertEquals(8, cards[0].rpe)
+    }
+
+    @Test
+    fun `blockCards populated from AMRAP block without extraReps`() = runTest(testDispatcher) {
+        val block = makeBlock(
+            type = "AMRAP",
+            durationSeconds = 720,
+            totalRounds = 5,
+            extraReps = 0
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(workoutId)).thenReturn(listOf(block)) }
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val card = vm.uiState.value.blockCards.first()
+        assertEquals("5 rds", card.score)
+    }
+
+    @Test
+    fun `blockCards populated from RFT block`() = runTest(testDispatcher) {
+        val block = makeBlock(
+            type = "RFT",
+            targetRounds = 5,
+            finishTimeSeconds = 1122, // 18:42
+            totalRounds = 5,
+            rpe = 7
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(workoutId)).thenReturn(listOf(block)) }
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val card = vm.uiState.value.blockCards.first()
+        assertEquals("5RFT", card.headline)
+        assertEquals("18:42", card.score)
+        assertEquals(7, card.rpe)
+    }
+
+    @Test
+    fun `blockCards populated from EMOM block`() = runTest(testDispatcher) {
+        val block = makeBlock(
+            type = "EMOM",
+            durationSeconds = 600, // 10 min
+            emomRoundSeconds = 60,
+            totalRounds = 10
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(workoutId)).thenReturn(listOf(block)) }
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val card = vm.uiState.value.blockCards.first()
+        assertEquals("EMOM 10min", card.headline)
+        assertEquals("10/10 rds", card.score)
+    }
+
+    @Test
+    fun `blockCards populated from TABATA block`() = runTest(testDispatcher) {
+        val block = makeBlock(type = "TABATA", targetRounds = 8, totalRounds = 8, rpe = 7)
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(workoutId)).thenReturn(listOf(block)) }
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        val card = vm.uiState.value.blockCards.first()
+        assertEquals("TABATA", card.headline)
+        assertEquals("8 rds", card.score)
+        assertEquals(7, card.rpe)
+    }
+
+    @Test
+    fun `multi-block workout has correct blockCard count`() = runTest(testDispatcher) {
+        val blocks = listOf(
+            makeBlock(type = "AMRAP", durationSeconds = 720, totalRounds = 6),
+            makeBlock(type = "RFT", targetRounds = 3, finishTimeSeconds = 900, totalRounds = 3)
+        )
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(emptyList())
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(workoutId)).thenReturn(blocks) }
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals(2, vm.uiState.value.blockCards.size)
+    }
+
+    @Test
+    fun `totalVolume invariant - exercise cards built from workout_sets not blocks`() = runTest(testDispatcher) {
+        // Invariant §12 #3: strength sets are the only source of totalVolume / setCount.
+        // Functional blocks must not pollute exercise card counts.
+        val strengthSets = listOf(
+            makeSetWithExercise(weight = 100.0, reps = 5, exerciseName = "Squat", muscleGroup = "Legs"),
+            makeSetWithExercise(weight = 60.0, reps = 10, exerciseName = "Squat", muscleGroup = "Legs")
+        )
+        val functionalBlock = makeBlock(type = "AMRAP", durationSeconds = 720, totalRounds = 8, extraReps = 3)
+        whenever(workoutDao.getWorkoutById(workoutId)).thenReturn(baseWorkout)
+        whenever(workoutSetDao.getSetsWithExerciseForWorkout(workoutId)).thenReturn(strengthSets)
+        whenever(workoutSetDao.getPreviousSessionCompletedSets(any(), any())).thenReturn(emptyList())
+        whenever(workoutSetDao.getHistoricalBestE1RM(any(), any())).thenReturn(null)
+        runBlocking { whenever(workoutBlockDao.getFunctionalBlocksForWorkout(workoutId)).thenReturn(listOf(functionalBlock)) }
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        // One exercise card from workout_sets only (not from the block)
+        assertEquals(1, vm.uiState.value.exerciseCards.size)
+        // Block cards come from the block query
+        assertEquals(1, vm.uiState.value.blockCards.size)
+        // Exercise set count should be 2 (from workout_sets, not inflated by blocks)
+        assertEquals(2, vm.uiState.value.totalSets)
+    }
+
+    @Test
+    fun `parseRoundSplits returns empty list for null json`() {
+        val vm = buildViewModelSync()
+        assertTrue(vm.parseRoundSplits(null).isEmpty())
+    }
+
+    @Test
+    fun `parseRoundSplits returns empty list for empty string`() {
+        val vm = buildViewModelSync()
+        assertTrue(vm.parseRoundSplits("").isEmpty())
+    }
+
+    @Test
+    fun `parseRoundSplits returns empty list for empty array`() {
+        val vm = buildViewModelSync()
+        assertTrue(vm.parseRoundSplits("[]").isEmpty())
+    }
+
+    @Test
+    fun `parseRoundSplits parses valid round split json`() {
+        val vm = buildViewModelSync()
+        val json = """[{"round":1,"elapsedMs":65000},{"round":2,"elapsedMs":132000}]"""
+        val splits = vm.parseRoundSplits(json)
+        assertEquals(2, splits.size)
+        assertEquals(1, splits[0].round)
+        assertEquals(65000L, splits[0].elapsedMs)
+        assertEquals(2, splits[1].round)
+        assertEquals(132000L, splits[1].elapsedMs)
+    }
+
+    @Test
+    fun `parseRoundSplits returns empty list for malformed json`() {
+        val vm = buildViewModelSync()
+        assertTrue(vm.parseRoundSplits("{not json}").isEmpty())
+    }
+
+    @Test
+    fun `formatTimeMmSs formats correctly`() {
+        assertEquals("12:00", formatTimeMmSs(720))
+        assertEquals("18:42", formatTimeMmSs(1122))
+        assertEquals("0:30", formatTimeMmSs(30))
+        assertEquals("1:05", formatTimeMmSs(65))
+    }
+
+    private fun buildViewModelSync(): WorkoutSummaryViewModel {
+        val handle = SavedStateHandle(mapOf("workoutId" to workoutId))
+        return WorkoutSummaryViewModel(handle, workoutDao, workoutSetDao, workoutBlockDao, appSettingsDataStore, firestoreSyncManager)
     }
 }

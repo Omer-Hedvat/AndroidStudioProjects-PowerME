@@ -7,6 +7,10 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 
 | Bug | Title | Status | Severity | Files Changed |
 |-----|-------|--------|----------|---------------|
+| [BUG_reps_checkmark_auto_confirm_revert](BUG_reps_checkmark_auto_confirm_revert.md) | Revert: tapping ✓ on keyboard after reps entry should auto-confirm the set | ✅ Wrapped | P1 | `ActiveWorkoutScreen.kt` |
+| [BUG_replace_exercise_stale_data](BUG_replace_exercise_stale_data.md) | Replacing an exercise in active workout keeps stale weights, reps, prev, and notes | ✅ Wrapped | P1 | `WorkoutViewModel.kt` |
+| [BUG_finish_workout_missing_update_routine](BUG_finish_workout_missing_update_routine.md) | No "Update Routine" option when finishing a workout started from a saved routine | ✅ Wrapped | P1 | `WorkoutViewModel.kt` |
+| [BUG_rpe_skip_if_already_set](BUG_rpe_skip_if_already_set.md) | RPE auto-pop fires even when set already has an RPE value | ✅ Wrapped | P2 | `WorkoutViewModel.kt` |
 | [BUG_func_overlay_ring_tap_keyboard](BUG_func_overlay_ring_tap_keyboard.md) | Tapping progress ring in functional overlays triggers soft keyboard | ✅ Wrapped | P1 | `EmomOverlay.kt`, `AmrapOverlay.kt`, `RftOverlay.kt`, `TabataOverlay.kt` |
 | [BUG_active_workout_header_and_input_select](BUG_active_workout_header_and_input_select.md) | Active workout: column headers missing + tap input should select all text | ✅ Wrapped | P2 | `ActiveWorkoutScreen.kt` |
 | [BUG_func_routine_view_no_block_ui](BUG_func_routine_view_no_block_ui.md) | Routine summary and edit pages show flat exercise list instead of functional block structure | ~~Superseded~~ by FUNC_TEMPLATE_BUILDER_POLISH_SPEC | P2 | — |
@@ -19,6 +23,7 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | [BUG_ai_textbox_dark_mode_bg](BUG_ai_textbox_dark_mode_bg.md) | AI text generator text box has wrong background in dark mode | ✅ Wrapped | P3 | `AiWorkoutGenerationScreen.kt` |
 | [BUG_time_based_exercise_column_header](BUG_time_based_exercise_column_header.md) | Time-based exercise column header shows 'Reps' instead of 'Time' | ✅ Wrapped | P2 | `ActiveWorkoutScreen.kt`, `WorkoutRepository.kt` |
 | [BUG_func_routine_preview_no_block_ui](BUG_func_routine_preview_no_block_ui.md) | Routine preview and edit mode show flat exercise list instead of functional block structure | ✅ Wrapped | P2 | `WorkoutsScreen.kt`, `WorkoutsViewModel.kt`, `WorkoutViewModel.kt` |
+| [BUG_func_active_block_organize_edit](BUG_func_active_block_organize_edit.md) | Functional block cards have no edit/delete; organize mode ignores block structure and allows invalid supersets | ✅ Wrapped | P1 | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt`, `WorkoutViewModelTest.kt`, `WorkoutSummaryViewModelTest.kt` |
 | [BUG_routine_preview_no_scroll](BUG_routine_preview_no_scroll.md) | Routine preview screen cannot scroll — Start Workout button unreachable | ✅ Wrapped | P0 | `WorkoutsScreen.kt` |
 |-----|-------|--------|----------|---------------|
 | [BUG_start_workout_after_edit](BUG_start_workout_after_edit.md) | Start workout button broken after editing a routine | ✅ Fixed & Committed | P0 | `WorkoutViewModel.kt` |

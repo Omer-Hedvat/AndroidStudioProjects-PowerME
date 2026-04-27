@@ -5196,6 +5196,140 @@ class WorkoutViewModelTest {
         viewModel.cancelWorkout()
         runCurrent()
     }
+
+    // -------------------------------------------------------------------------
+    // BUG_func_active_block_organize_edit — removeBlock / updateBlock / reorderOrganizeItem / toggleSupersetCandidate
+    // -------------------------------------------------------------------------
+
+    private fun makeExerciseWithSets(id: Long, blockId: String? = null): ExerciseWithSets {
+        val exercise = Exercise(id = id, name = "Ex$id", muscleGroup = "M", equipmentType = "E", exerciseType = ExerciseType.STRENGTH)
+        return ExerciseWithSets(exercise = exercise, sets = emptyList(), blockId = blockId)
+    }
+
+    private fun makeFunctionalBlock(id: String, type: String = "AMRAP"): WorkoutBlock =
+        WorkoutBlock(id = id, workoutId = "w1", order = 0, type = type, durationSeconds = 300)
+
+    @Test
+    fun `removeBlock removes all exercises with that blockId and the block itself`() = vmTest {
+        val block = makeFunctionalBlock("b1")
+        val ex1 = makeExerciseWithSets(1L, blockId = "b1")
+        val ex2 = makeExerciseWithSets(2L, blockId = "b1")
+        val ex3 = makeExerciseWithSets(3L, blockId = null)
+
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(
+                isActive = true,
+                blocks = listOf(block),
+                exercises = listOf(ex1, ex2, ex3)
+            )
+        }
+
+        viewModel.removeBlock("b1")
+        runCurrent()
+
+        val st = viewModel.workoutState.value
+        assertTrue("Block b1 should be gone", st.blocks.none { it.id == "b1" })
+        assertTrue("ex1 (blockId=b1) should be removed", st.exercises.none { it.exercise.id == 1L })
+        assertTrue("ex2 (blockId=b1) should be removed", st.exercises.none { it.exercise.id == 2L })
+        assertEquals("Unblocked ex3 should remain", 1, st.exercises.size)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `updateBlock updates plan params on the target block only`() = vmTest {
+        val b1 = makeFunctionalBlock("b1", "AMRAP").copy(durationSeconds = 300)
+        val b2 = makeFunctionalBlock("b2", "RFT").copy(targetRounds = 5)
+
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(isActive = true, blocks = listOf(b1, b2), exercises = emptyList())
+        }
+
+        viewModel.updateBlock("b1", durationSeconds = 600, targetRounds = null, emomRoundSeconds = null, tabataWorkSeconds = null, tabataRestSeconds = null)
+        runCurrent()
+
+        val st = viewModel.workoutState.value
+        assertEquals(600, st.blocks.find { it.id == "b1" }?.durationSeconds)
+        assertEquals(5, st.blocks.find { it.id == "b2" }?.targetRounds) // unchanged
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `reorderOrganizeItem with two Long keys performs adjacent swap like reorderExercise`() = vmTest {
+        val ex1 = makeExerciseWithSets(1L)
+        val ex2 = makeExerciseWithSets(2L)
+        val ex3 = makeExerciseWithSets(3L)
+
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(isActive = true, exercises = listOf(ex1, ex2, ex3))
+        }
+
+        // Swap ex1 (idx 0) with ex2 (idx 1): expected [ex2, ex1, ex3]
+        viewModel.reorderOrganizeItem(1L, 2L)
+        runCurrent()
+
+        val ids = viewModel.workoutState.value.exercises.map { it.exercise.id }
+        assertEquals(listOf(2L, 1L, 3L), ids)
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `reorderOrganizeItem with block key moves entire block atomically`() = vmTest {
+        val block = makeFunctionalBlock("b1")
+        val ex1 = makeExerciseWithSets(1L, blockId = "b1")
+        val ex2 = makeExerciseWithSets(2L, blockId = "b1")
+        val ex3 = makeExerciseWithSets(3L, blockId = null)
+
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(isActive = true, blocks = listOf(block), exercises = listOf(ex1, ex2, ex3))
+        }
+
+        // Move block "b1" (first two exercises) to after ex3
+        viewModel.reorderOrganizeItem("org_block_b1", 3L)
+        runCurrent()
+
+        val ids = viewModel.workoutState.value.exercises.map { it.exercise.id }
+        // ex3 should come first, then block exercises
+        assertEquals(3L, ids[0])
+        assertTrue(ids.subList(1, 3).containsAll(listOf(1L, 2L)))
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
+
+    @Test
+    fun `toggleSupersetCandidate silently ignores functional block exercises`() = vmTest {
+        val block = makeFunctionalBlock("b1", "AMRAP")
+        val ex1 = makeExerciseWithSets(1L, blockId = "b1")
+        val ex2 = makeExerciseWithSets(2L, blockId = null) // strength
+
+        _workoutState_forTest(viewModel) { state ->
+            state.copy(
+                isActive = true,
+                isSupersetSelectMode = true,
+                blocks = listOf(block),
+                exercises = listOf(ex1, ex2)
+            )
+        }
+
+        viewModel.toggleSupersetCandidate(1L) // functional block exercise — should be ignored
+        runCurrent()
+        assertTrue("Functional block ex should NOT be added to candidates",
+            viewModel.workoutState.value.supersetCandidateIds.isEmpty())
+
+        viewModel.toggleSupersetCandidate(2L) // strength exercise — should work
+        runCurrent()
+        assertTrue("Strength ex should be added to candidates",
+            viewModel.workoutState.value.supersetCandidateIds.contains(2L))
+
+        viewModel.cancelWorkout()
+        runCurrent()
+    }
 }
 
 // ── Test helpers ─────────────────────────────────────────────────────────────
