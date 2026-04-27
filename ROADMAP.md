@@ -37,8 +37,8 @@
 
 | Epic | Spec | Phase | Status | Rollup | Children |
 |---|---|---|---|---|---|
-| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 21/29 wrapped · 0 completed · 4 in-progress · 3 not-started | 29 |
-| AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 0/4 wrapped · 1 in-progress | 4 active + §8 queue |
+| Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 21/30 wrapped · 1 completed · 3 in-progress · 4 not-started | 30 |
+| AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 3/6 wrapped · 1 completed-blocked · 1 completed · 1 in-progress · 1 not-started | 6 |
 | Gym Profiles | `GYM_PROFILES_SPEC.md` | P10 | `not-started` | — | 0 |
 
 ---
@@ -80,7 +80,6 @@
 | Trends Step 8 — ChronotypeCard | `TRENDS_CHARTS_SPEC.md §Step 8` | L | `completed` | — |
 | CSV Import (Strong, Hevy, FitBod, generic) | `CSV_IMPORT_SPEC.md` | L | `completed` | — |
 | Alternative exercise — movement-specific weight transfer | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | M | `wrapped` | Exercise Detail Tabs v2 ✅ |
-| Exercise functional tag — user toggle on/off per exercise | `future_devs/EXERCISE_FUNCTIONAL_TAG_TOGGLE_SPEC.md` | S | `not-started` | — |
 
 ---
 
@@ -99,6 +98,8 @@
 | Feature | Spec | Effort | Status | Depends on |
 |---|---|---|---|---|
 | AI Review — full workout management options | `future_devs/AI_REVIEW_WORKOUT_MANAGEMENT_SPEC.md` | M | `in-progress` | AI workout generation core ✅ |
+| AI — OCR pre-processing & Gemini prompt improvement | `future_devs/AI_OCR_PROMPT_IMPROVEMENT_SPEC.md` | S | `completed` | AI workout generation core ✅ |
+| AI — Internal NLP pipeline | `future_devs/AI_NLP_PIPELINE_SPEC.md` | M | `not-started` | AI_OCR_PROMPT_IMPROVEMENT_SPEC |
 
 ---
 
@@ -112,7 +113,7 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 | Hybrid AddBlockOrExerciseSheet + Pure Gym preserved | `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | S | `wrapped` | FunctionalBlockWizard ✅ |
 | Block headers in active workout; STRENGTH materialisation on start | `future_devs/FUNC_ACTIVE_STRENGTH_BLOCKS_SPEC.md` | M | `wrapped` | Block entities migration ✅ |
 | AMRAP/RFT/EMOM/TABATA overlays + FunctionalBlockRunner | `future_devs/FUNC_ACTIVE_FUNCTIONAL_RUNNER_SPEC.md` | XL | `rework` | TimerEngine ✅, Firestore sync ✅, Strength block headers ✅ |
-| Block-aware History rows + Trends + WorkoutSummaryScreen | `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | M | `not-started` | Functional runner ✅ (in prod ≥1 release) |
+| Block-aware History rows + Trends + WorkoutSummaryScreen | `future_devs/FUNC_HISTORY_TRENDS_POLISH_SPEC.md` | M | `completed` | Functional runner ✅ (in prod ≥1 release) |
 | Exercise gap analysis — CrossFit / Hyrox / Calisthenics | `future_devs/FUNC_EXERCISE_GAP_ANALYSIS_SPEC.md` | XS | `wrapped` | — |
 | CrossFit exercise list verification | `future_devs/FUNC_CROSSFIT_VERIFICATION_SPEC.md` | XS | `wrapped` | gap analysis ✅ |
 | Expanded exercise seed — CrossFit / Hyrox / Calisthenics | `future_devs/FUNC_EXERCISE_EXPANDED_SEED_SPEC.md` | M | `wrapped` | gap analysis ✅, CrossFit verification ✅, Exercise tags seed ✅ |
@@ -128,6 +129,8 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 | Functional blocks — setup countdown (3s default) | `future_devs/FUNC_BLOCK_SETUP_TIME_SPEC.md` | XS | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
 | Tabata block — full config parity with Clocks tab | `future_devs/FUNC_TABATA_FULL_CONFIG_SPEC.md` | S | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
 | Functional block exercises — weight targets & lock during workout | `future_devs/FUNC_BLOCK_WEIGHT_CONFIG_SPEC.md` | M | `in-progress` | func_active_block_card_ui ✅ |
+| AI Add-from-text — full functional block support (AMRAP/RFT/EMOM/TABATA) | `future_devs/AI_ADD_FROM_TEXT_FUNCTIONAL_BLOCKS_SPEC.md` | L | `not-started` | AMRAP/RFT/EMOM/TABATA overlays ✅, AI workout generation core ✅ |
+| Exercise renames (KB swing) + abbreviation display in functional block rows | `future_devs/FUNC_EXERCISE_RENAME_AND_ABBREVIATIONS_SPEC.md` | S | `in-progress` | — |
 
 ---
 
@@ -212,7 +215,11 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/FUNC_BLOCK_SETUP_TIME_SPEC.md` | P8 — Functional blocks: 3s GET READY setup countdown before timer starts |
 | `future_devs/FUNC_TABATA_FULL_CONFIG_SPEC.md` | P8 — Tabata block: full config parity with Clocks tab (work/rest/rounds/skip-last-rest) |
 | `future_devs/FUNC_BLOCK_WEIGHT_CONFIG_SPEC.md` | P8 — Functional block exercises: weight targets in template builder, locked during workout |
+| `future_devs/AI_ADD_FROM_TEXT_FUNCTIONAL_BLOCKS_SPEC.md` | P8 — AI Add-from-text: full AMRAP/RFT/EMOM/TABATA block parsing, block-structured PREVIEW, RoutineBlock persistence |
+| `future_devs/FUNC_EXERCISE_RENAME_AND_ABBREVIATIONS_SPEC.md` | P8 — Exercise renames (KB swing → Russian/American correct naming) + abbreviation display in functional block rows |
 | `future_devs/AI_REVIEW_WORKOUT_MANAGEMENT_SPEC.md` | P7 — AI Review — supersets, reorder, replace, rest times, notes in PREVIEW step |
+| `future_devs/AI_OCR_PROMPT_IMPROVEMENT_SPEC.md` | P7 — AI OCR pre-processing + Gemini prompt improvement (§8.3 quality pass) |
+| `future_devs/AI_NLP_PIPELINE_SPEC.md` | P7 — AI internal NLP pipeline: intent classifier, structural pre-processor, output validator |
 | `future_devs/KEEP_SCREEN_ON_MODE_SPEC.md` | P1 — Keep screen on: Always / During workout / Off selector |
 | `future_devs/RPE_MODE_SELECTOR_SPEC.md` | P1 — RPE auto-pop: Gym only / Functional / All workouts / Off selector |
 | `future_devs/SETTINGS_RPE_INTO_WORKOUT_STYLE_SPEC.md` | P1 — Settings: move RPE mode selector from Display & Workout card into Workout Style card |

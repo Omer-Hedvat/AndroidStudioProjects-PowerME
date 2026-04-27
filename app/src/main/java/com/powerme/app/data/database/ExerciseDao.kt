@@ -93,4 +93,7 @@ interface ExerciseDao {
 
     @Query("UPDATE exercises SET isFavorite = :isFavorite, updatedAt = :updatedAt WHERE id = :exerciseId")
     suspend fun updateFavorite(exerciseId: Long, isFavorite: Boolean, updatedAt: Long)
+
+    @Query("UPDATE exercises SET tags = :tags WHERE id = :id")
+    suspend fun updateTags(id: Long, tags: String)
 }

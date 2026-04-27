@@ -213,6 +213,12 @@ class ExercisesViewModel @Inject constructor(
         }
     }
 
+    fun toggleFunctionalTag(exercise: Exercise) {
+        viewModelScope.launch {
+            exerciseRepository.toggleFunctionalTag(exercise)
+        }
+    }
+
     fun deleteCustomExercise(exercise: Exercise) {
         if (!exercise.isCustom) return
         viewModelScope.launch {

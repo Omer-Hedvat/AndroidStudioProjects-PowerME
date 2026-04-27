@@ -98,7 +98,11 @@ fun ExerciseDetailScreen(
             ExerciseAnimationImage(exercise)
 
             // Pinned: Header
-            HeaderSection(uiState = uiState, affectedJoints = affectedJoints)
+            HeaderSection(
+                uiState = uiState,
+                affectedJoints = affectedJoints,
+                onToggleFunctionalTag = viewModel::toggleFunctionalTag
+            )
 
             // Tab row
             SecondaryTabRow(selectedTabIndex = pagerState.currentPage) {
@@ -205,7 +209,11 @@ private fun ExerciseAnimationImage(exercise: Exercise) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HeaderSection(uiState: ExerciseDetailUiState, affectedJoints: Set<Joint>) {
+private fun HeaderSection(
+    uiState: ExerciseDetailUiState,
+    affectedJoints: Set<Joint>,
+    onToggleFunctionalTag: () -> Unit
+) {
     val exercise = uiState.exercise ?: return
     val hasInjuryWarning = remember(exercise, affectedJoints) {
         (Joint.fromJsonString(exercise.primaryJoints) +
@@ -255,6 +263,39 @@ private fun HeaderSection(uiState: ExerciseDetailUiState, affectedJoints: Set<Jo
             TagChip(
                 exercise.exerciseType.name.lowercase().replaceFirstChar { it.uppercase() },
                 MaterialTheme.colorScheme.tertiary
+            )
+        }
+
+        // Functional training toggle
+        val isFunctional = exercise.tags.contains("\"functional\"")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Functional training",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Included in the ⚡ Functional filter",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = isFunctional,
+                onCheckedChange = { onToggleFunctionalTag() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onSurface,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             )
         }
 

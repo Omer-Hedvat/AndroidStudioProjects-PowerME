@@ -30,7 +30,7 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 
 **Health Connect:** 7 READ permissions (weight, body fat, height, sleep, HRV, RHR, steps). See `HEALTH_CONNECT_SPEC.md`.
 
-**Unit Tests:** 78 files, ~1079 tests (all passing). See `src/test/`.
+**Unit Tests:** 79 files, ~1087 tests (all passing). See `src/test/`.
 
 **AI:** Hybrid key resolution (user key → BuildConfig fallback). Parser router: cloud-only (Gemini via OkHttp REST). See `AI_SPEC.md`.
 
@@ -55,6 +55,8 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 - Settings page card reorder (P1) — LazyColumn order: Appearance → Units → Workout Style → Display → Rest Timer → AI → Health Connect → Data & Backup. "Display & Workout" renamed to "Display" (Keep screen on only). Timer sound moved into Rest Timer card.
 - Functional block card layout (P8) — In template builder, each functional block (AMRAP/RFT/EMOM/TABATA) is wrapped in a single `Card` (`surfaceVariant` bg, `medium` shape) containing `BlockHeader` + all exercise rows; no individual card per exercise. STRENGTH blocks / unblocked exercises keep per-exercise cards. `BlockHeader` gains `standalone: Boolean = true`; when `false` uses transparent bg + 8dp top padding. `FunctionalExerciseRow` renders as a plain `Row` (no Card wrapper).
 - Functional block active workout card UI (P8) — In the active workout screen, exercises inside a functional block (AMRAP/RFT/EMOM/TABATA) render inside a single grouped `Card` with a block type badge + parameter summary at the top and exercise rows below. Functional exercise rows show only name, weight, and reps/time — no sets stepper, no PRE chip, no RPE field, no checkmark button. STRENGTH blocks and unblocked exercises retain the existing per-exercise card UI. Column header reads "TIME" for all-TIMED blocks and "REPS" otherwise.
+- Block-aware History + WorkoutSummary + Trends (P8 Tier 5) — History rows show a compact block-score line (e.g. `"AMRAP 12:00 · 8+3 rds · RPE 8"`) per functional block, displayed below volume stats with a Timer icon. WorkoutSummaryScreen shows a `BlockSummaryCard` composable above exercise cards with: block type badge, formatted score, headline, RPE, expandable round splits (delta time per round), and block notes. `TrendsRepository` gains `getBlockTypeSummary(range)` for future aggregation charts. `WorkoutBlockDao` extended with `getFunctionalBlocksForWorkout`, `getAllFunctionalBlocks`, and `getBlockTypeSummary` queries. Round-split JSON uses `kotlinx.serialization.json` (not `org.json`) so unit tests work correctly under the Android stub environment.
+- Exercise functional tag toggle (P5) — "Functional training" `Switch` row in `ExerciseDetailScreen` `HeaderSection` (below metadata chips). `ExerciseDao.updateTags`, `ExerciseRepository.toggleFunctionalTag` (add/remove `"functional"` from JSON tags array), `ExercisesViewModel.toggleFunctionalTag`, `ExerciseDetailViewModel.toggleFunctionalTag`. No DB migration needed (tags column already exists at v50).
 
 **In-progress:**
 - _(none)_

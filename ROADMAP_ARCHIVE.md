@@ -102,6 +102,7 @@ Moved here from `ROADMAP.md` to keep the active roadmap lean.
 | DB synonym foundation | `future_devs/DB_SYNONYM_FOUNDATION_SPEC.md` | `wrapped` |
 | Exercise Library — favourites quick-filter button | `future_devs/EXERCISE_FAVORITES_FILTER_SPEC.md` | `wrapped` |
 | Alternative exercise — movement-specific weight transfer | `future_devs/ALTERNATIVE_WEIGHT_TRANSFER_SPEC.md` | `wrapped` |
+| Exercise functional tag — user toggle on/off per exercise | `future_devs/EXERCISE_FUNCTIONAL_TAG_TOGGLE_SPEC.md` | `wrapped` |
 
 ---
 

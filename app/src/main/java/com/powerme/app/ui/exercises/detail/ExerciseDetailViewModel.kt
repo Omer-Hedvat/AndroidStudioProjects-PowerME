@@ -197,6 +197,15 @@ class ExerciseDetailViewModel @Inject constructor(
         }
     }
 
+    fun toggleFunctionalTag() {
+        val exercise = _uiState.value.exercise ?: return
+        viewModelScope.launch {
+            exerciseRepository.toggleFunctionalTag(exercise)
+            val updated = repository.getExercise(exerciseId)
+            _uiState.update { it.copy(exercise = updated) }
+        }
+    }
+
     fun loadMoreHistory() {
         if (!_uiState.value.hasMoreHistory) return
         workoutHistoryPage++

@@ -64,4 +64,20 @@ class ExerciseRepository @Inject constructor(
     suspend fun toggleFavorite(exercise: Exercise) {
         exerciseDao.updateFavorite(exercise.id, !exercise.isFavorite, System.currentTimeMillis())
     }
+
+    suspend fun toggleFunctionalTag(exercise: Exercise) {
+        val hasFunctional = exercise.tags.contains("\"functional\"")
+        val newTags = if (hasFunctional) removeFunctionalTag(exercise.tags) else addFunctionalTag(exercise.tags)
+        exerciseDao.updateTags(exercise.id, newTags)
+    }
+
+    private fun addFunctionalTag(tags: String): String {
+        return if (tags == "[]") "[\"functional\"]" else tags.dropLast(1) + ",\"functional\"]"
+    }
+
+    private fun removeFunctionalTag(tags: String): String {
+        val inner = tags.trim().removePrefix("[").removeSuffix("]")
+        val parts = inner.split(",").map { it.trim() }.filter { it.isNotEmpty() && it != "\"functional\"" }
+        return "[${parts.joinToString(",")}]"
+    }
 }
