@@ -1505,7 +1505,7 @@ class WorkoutViewModel @Inject constructor(
                     RpeMode.PURE_FUNCTIONAL -> currentWorkoutStyle.value == WorkoutStyle.PURE_FUNCTIONAL
                     RpeMode.HYBRID -> true
                 }
-                if (shouldAutoPop && completedSet?.setType == SetType.NORMAL) {
+                if (shouldAutoPop && completedSet?.setType == SetType.NORMAL && completedSet.rpeValue == null) {
                     _rpeAutoPopTarget.value = "${exerciseId}_${setOrder}"
                 }
                 val nextSet = ex?.sets
@@ -1883,22 +1883,21 @@ class WorkoutViewModel @Inject constructor(
                 val hasCompletedWorkSets = state.exercises.any { ex ->
                     ex.sets.any { it.isCompleted && it.setType != SetType.WARMUP }
                 }
-                if (snapshot.isNotEmpty() && state.routineId.isNotBlank() && hasCompletedWorkSets) {
+                if (snapshot.isNotEmpty() && state.routineId.isNotBlank()) {
                     val currentExerciseIds = state.exercises.map { it.exercise.id }
                     val snapshotExerciseIds = snapshot.map { it.exerciseId }
 
                     // Structural: exercise list or order changed, or set count changed
                     val exerciseListChanged = currentExerciseIds != snapshotExerciseIds
-                    val setCountChanged = state.exercises.any { ex ->
+                    val setCountChanged = hasCompletedWorkSets && state.exercises.any { ex ->
                         val snap = snapshot.find { it.exerciseId == ex.exercise.id }
                             ?: return@any true  // exercise added mid-workout
                         ex.sets.count { it.isCompleted } != snap.sets
                     }
                     val structuralChange = exerciseListChanged || setCountChanged
 
-                    // Value change: numeric weight/reps differ for sets that existed in the snapshot
-                    // (added sets are structural changes, not value changes)
-                    val valueChange = state.exercises.any { ex ->
+                    // Value change: numeric weight/reps differ for completed sets that existed in snapshot
+                    val valueChange = hasCompletedWorkSets && state.exercises.any { ex ->
                         val snap = snapshot.find { it.exerciseId == ex.exercise.id } ?: return@any false
                         ex.sets.filter { it.isCompleted }.take(snap.sets).mapIndexed { i, set ->
                             val snapWeight = snap.perSetWeights.getOrNull(i) ?: ""
@@ -2576,7 +2575,12 @@ class WorkoutViewModel @Inject constructor(
         _workoutState.update { state ->
             state.copy(
                 exercises = state.exercises.map { ex ->
-                    if (ex.exercise.id == oldId) ex.copy(exercise = newExercise) else ex
+                    if (ex.exercise.id == oldId) ex.copy(
+                        exercise = newExercise,
+                        sets = ex.sets.map { s -> ActiveSet(setOrder = s.setOrder, setType = s.setType) },
+                        sessionNote = null,
+                        stickyNote = null
+                    ) else ex
                 }
             ).markDirtyIfEditing()
         }
@@ -3042,7 +3046,12 @@ class WorkoutViewModel @Inject constructor(
                     }
                 }
             }
-            state.copy(exercises = list).markDirtyIfEditing()
+            // Keep blocks list in sync with the new exercises order so normal-mode rendering
+            // (which iterates workoutState.blocks) matches the organize-mode drag result.
+            val orderedBlockIds = list.mapNotNull { it.blockId }.distinct()
+            val reorderedBlocks = orderedBlockIds.mapNotNull { id -> state.blocks.find { it.id == id } } +
+                state.blocks.filter { b -> orderedBlockIds.none { it == b.id } }
+            state.copy(exercises = list, blocks = reorderedBlocks).markDirtyIfEditing()
         }
     }
 

@@ -2719,7 +2719,7 @@ private fun ManagementHubSheet(
     showAddWarmups: Boolean = false,
     onAddWarmups: () -> Unit = {}
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, contentWindowInsets = { WindowInsets(0) }) {
         Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 24.dp)) {
             val items = buildList {
                 add(Triple("Session Note", Icons.Default.Notes, onSessionNote))

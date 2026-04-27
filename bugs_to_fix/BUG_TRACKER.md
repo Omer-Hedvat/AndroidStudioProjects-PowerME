@@ -19,13 +19,14 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_func_routine_preview_no_block_ui](BUG_func_routine_preview_no_block_ui.md) | Routine preview and edit mode show flat exercise list instead of functional block structure | ✅ Wrapped | P2 | func_active_block_card_ui ✅, func_block_card_layout ✅ | — | `WorkoutsScreen.kt`, `WorkoutsViewModel.kt`, `WorkoutViewModel.kt` |
 | [BUG_func_active_block_organize_edit](BUG_func_active_block_organize_edit.md) | Functional block cards have no edit/delete; organize mode ignores block structure and allows invalid supersets | ✅ Completed | P1 | func_active_block_card_ui ✅ | FUNC_TEMPLATE_BUILDER_POLISH_SPEC | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
 | [BUG_replace_exercise_stale_data](BUG_replace_exercise_stale_data.md) | Replacing an exercise in active workout keeps stale weights, reps, prev, and notes | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt` |
-| [BUG_active_workout_kebab_nav_overlap](BUG_active_workout_kebab_nav_overlap.md) | Exercise options kebab menu overlaps Android navigation bar in active workout | 🟡 In Progress | P2 | — | — | `ActiveWorkoutScreen.kt` |
+| [BUG_active_workout_kebab_nav_overlap](BUG_active_workout_kebab_nav_overlap.md) | Exercise options kebab menu overlaps Android navigation bar in active workout | ✅ Completed | P2 | — | — | `ActiveWorkoutScreen.kt` |
 | [BUG_reps_checkmark_auto_confirm_revert](BUG_reps_checkmark_auto_confirm_revert.md) | Revert: tapping ✓ on keyboard after reps entry should auto-confirm the set | ✅ Completed | P1 | — | — | `ActiveWorkoutScreen.kt` |
 | [BUG_rpe_skip_if_already_set](BUG_rpe_skip_if_already_set.md) | RPE auto-pop fires even when set already has an RPE value | ✅ Completed | P2 | — | — | `WorkoutViewModel.kt` |
 | [BUG_finish_workout_missing_update_routine](BUG_finish_workout_missing_update_routine.md) | No "Update Routine" option when finishing a workout started from a saved routine | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt` |
-| [BUG_func_template_builder_weight_reorder](BUG_func_template_builder_weight_reorder.md) | Functional block template builder — no weight input + blocks not reorderable | 🔵 Open | P1 | — | — | `TemplateBuilderScreen.kt`, `TemplateBuilderViewModel.kt` |
-| [BUG_active_workout_order_mismatch](BUG_active_workout_order_mismatch.md) | Active workout exercise order does not match organize workout order | 🔵 Open | P1 | — | — | `ActiveWorkoutScreen.kt`, `WorkoutViewModel.kt` |
+| [BUG_func_template_builder_weight_reorder](BUG_func_template_builder_weight_reorder.md) | Functional block template builder — no weight input + blocks not reorderable | 🟡 In Progress | P1 | — | — | `TemplateBuilderScreen.kt`, `TemplateBuilderViewModel.kt` |
+| [BUG_active_workout_order_mismatch](BUG_active_workout_order_mismatch.md) | Active workout exercise order does not match organize workout order | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt` |
 | [BUG_routine_preview_no_scroll](BUG_routine_preview_no_scroll.md) | Routine preview screen cannot scroll — Start Workout button unreachable | ✅ Wrapped | P0 | — | — | `WorkoutsScreen.kt` |
+| [BUG_func_picker_duplicate_exercises](BUG_func_picker_duplicate_exercises.md) | Exercise picker from functional training shows duplicate exercises (reps + time variants) | 🔵 Open | P2 | — | — | — |
 
 
 ---
