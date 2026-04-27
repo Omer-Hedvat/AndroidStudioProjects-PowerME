@@ -223,6 +223,7 @@ data class ActiveWorkoutState(
     val activeBlockId: String? = null,
     val functionalBlockState: FunctionalBlockRunnerState? = null,
     val blockAutoFinished: Boolean = false,
+    val blockSessionNotes: Map<String, String?> = emptyMap(),
 ) {
     val exercisesByBlockId: Map<String?, List<ExerciseWithSets>> by lazy { exercises.groupBy { it.blockId } }
 }
@@ -2603,6 +2604,11 @@ class WorkoutViewModel @Inject constructor(
                 }
             ).markDirtyIfEditing()
         }
+    }
+
+    /** Update a volatile session note for a functional block (lost when workout ends). */
+    fun updateBlockSessionNote(blockId: String, note: String?) {
+        _workoutState.update { it.copy(blockSessionNotes = it.blockSessionNotes + (blockId to note)) }
     }
 
     /** Update a sticky note for an exercise — persisted to DB via RoutineExercise.stickyNote. */

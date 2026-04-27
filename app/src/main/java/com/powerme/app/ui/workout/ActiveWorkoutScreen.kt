@@ -592,10 +592,16 @@ private fun FunctionalBlockActiveCard(
     onAddExercise: (() -> Unit)? = null,
     onDeleteBlock: (() -> Unit)? = null,
     onEditBlock: ((durationSeconds: Int?, targetRounds: Int?, emomRoundSeconds: Int?, tabataWorkSeconds: Int?, tabataRestSeconds: Int?, tabataSkipLastRest: Boolean?, setupSecondsOverride: Int?, warnAtSecondsOverride: Int?, name: String?) -> Unit)? = null,
+    blockSessionNote: String? = null,
+    onUpdateSessionNote: ((String?) -> Unit)? = null,
+    onOrganizeExercises: (() -> Unit)? = null,
+    onOrganizeBlocks: (() -> Unit)? = null,
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showEditSheet by remember { mutableStateOf(false) }
     var showBlockMenu by remember { mutableStateOf(false) }
+    var showSessionNoteDialog by remember { mutableStateOf(false) }
+    var sessionNoteText by remember(blockSessionNote) { mutableStateOf(blockSessionNote ?: "") }
 
     val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
         .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
@@ -710,6 +716,16 @@ private fun FunctionalBlockActiveCard(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
+            if (!blockSessionNote.isNullOrBlank()) {
+                Text(
+                    text = blockSessionNote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+
             val allTimed = exercises.all { it.exercise.exerciseType == ExerciseType.TIMED }
             Row(
                 modifier = Modifier
@@ -789,11 +805,32 @@ private fun FunctionalBlockActiveCard(
     if (showBlockMenu) {
         ModalBottomSheet(onDismissRequest = { showBlockMenu = false }, contentWindowInsets = { WindowInsets(0) }) {
             Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 24.dp)) {
+                if (onUpdateSessionNote != null) {
+                    ListItem(
+                        headlineContent = { Text("Session Note") },
+                        leadingContent = { Icon(Icons.Default.Notes, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { showBlockMenu = false; showSessionNoteDialog = true }
+                    )
+                }
                 if (onEditBlock != null) {
                     ListItem(
-                        headlineContent = { Text("Edit Block") },
-                        leadingContent = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        headlineContent = { Text("Replace Block") },
+                        leadingContent = { Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                         modifier = Modifier.clickable { showBlockMenu = false; showEditSheet = true }
+                    )
+                }
+                if (onOrganizeExercises != null) {
+                    ListItem(
+                        headlineContent = { Text("Organize Exercises") },
+                        leadingContent = { Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { showBlockMenu = false; onOrganizeExercises() }
+                    )
+                }
+                if (onOrganizeBlocks != null) {
+                    ListItem(
+                        headlineContent = { Text("Organize Blocks") },
+                        leadingContent = { Icon(Icons.Default.GridView, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { showBlockMenu = false; onOrganizeBlocks() }
                     )
                 }
                 if (onDeleteBlock != null) {
@@ -806,6 +843,32 @@ private fun FunctionalBlockActiveCard(
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
+    }
+
+    if (showSessionNoteDialog) {
+        AlertDialog(
+            onDismissRequest = { showSessionNoteDialog = false },
+            title = { Text("Session Note") },
+            text = {
+                OutlinedTextField(
+                    value = sessionNoteText,
+                    onValueChange = { sessionNoteText = it },
+                    placeholder = { Text("Note for this block…") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
+                    maxLines = 4
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onUpdateSessionNote?.invoke(sessionNoteText.ifBlank { null })
+                    showSessionNoteDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSessionNoteDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -1190,6 +1253,10 @@ private fun LazyListScope.activeWorkoutListItems(
                         onEditBlock = { dur, rounds, emomInt, workSecs, restSecs, skipLast, setup, warnAt, bName ->
                             viewModel.updateBlock(block.id, dur, rounds, emomInt, workSecs, restSecs, skipLast, setup, warnAt, bName)
                         },
+                        blockSessionNote = workoutState.blockSessionNotes[block.id],
+                        onUpdateSessionNote = { note -> viewModel.updateBlockSessionNote(block.id, note) },
+                        onOrganizeExercises = { viewModel.enterSupersetSelectMode() },
+                        onOrganizeBlocks = { viewModel.enterSupersetSelectMode() },
                     )
                 }
             }
@@ -1929,8 +1996,8 @@ private fun ExerciseCard(
             onSessionNote = { showSessionNoteDialog = true; showManagementHub = false },
             onStickyNote = { showStickyNoteDialog = true; showManagementHub = false },
             onRestTimer = { showRestTimerSheet = true; showManagementHub = false },
-            onSuperset = { if (isInSuperset) onRemoveFromSuperset() else onEnterSupersetMode(); showManagementHub = false },
-            isInSuperset = isInSuperset,
+            onOrganizeBlocks = { onEnterSupersetMode(); showManagementHub = false },
+            onRemoveFromSuperset = if (isInSuperset) ({ onRemoveFromSuperset(); showManagementHub = false }) else null,
             showAddWarmups = canAddWarmups,
             onAddWarmups = {
                 showManagementHub = false
@@ -2973,8 +3040,8 @@ private fun ManagementHubSheet(
     onSessionNote: () -> Unit,
     onStickyNote: () -> Unit,
     onRestTimer: () -> Unit,
-    onSuperset: () -> Unit,
-    isInSuperset: Boolean,
+    onOrganizeBlocks: () -> Unit,
+    onRemoveFromSuperset: (() -> Unit)? = null,
     showAddWarmups: Boolean = false,
     onAddWarmups: () -> Unit = {}
 ) {
@@ -2986,13 +3053,14 @@ private fun ManagementHubSheet(
                 add(Triple("Set Rest Timers", Icons.Default.Timer, onRestTimer))
                 if (showAddWarmups) add(Triple("Add Warmups", Icons.Default.FitnessCenter, onAddWarmups))
                 add(Triple("Replace Exercise", Icons.Default.Refresh, onReplace))
-                add(Triple(if (isInSuperset) "Remove from Superset" else "Organize Exercises", Icons.Default.Sync, onSuperset))
+                add(Triple("Organize Blocks", Icons.Default.Sync, onOrganizeBlocks))
+                if (onRemoveFromSuperset != null) add(Triple("Remove from Superset", Icons.Default.LinkOff, onRemoveFromSuperset))
                 add(Triple("Remove Exercise", Icons.Default.Delete, onRemove))
             }
             items.forEach { (label, icon, action) ->
                 ListItem(
                     headlineContent = { Text(label) },
-                    leadingContent = { Icon(icon, contentDescription = null, tint = if (label.contains("Remove")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) },
+                    leadingContent = { Icon(icon, contentDescription = null, tint = if (label.startsWith("Remove")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) },
                     modifier = Modifier.clickable { action() }
                 )
             }
