@@ -582,7 +582,7 @@ object ExerciseStressVectorSeedData {
             BodyRegion.GLUTES to 0.6,
             BodyRegion.CALVES to 0.5
         ),
-        "Kettlebell Swing" to listOf(
+        "Russian Kettlebell Swing" to listOf(
             BodyRegion.HIP_JOINT to 0.8,
             BodyRegion.LOWER_BACK to 0.7,
             BodyRegion.HAMSTRINGS to 0.7,
@@ -1203,7 +1203,7 @@ object ExerciseStressVectorSeedData {
             BodyRegion.QUADS to 0.6,
             BodyRegion.GLUTES to 0.5
         ),
-        "American Kettlebell Swing" to listOf(
+        "Kettlebell Swing" to listOf(
             BodyRegion.HIP_JOINT to 0.8,
             BodyRegion.LOWER_BACK to 0.7,
             BodyRegion.HAMSTRINGS to 0.6,

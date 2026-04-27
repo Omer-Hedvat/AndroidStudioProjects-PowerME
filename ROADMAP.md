@@ -40,10 +40,26 @@
 | Functional Training | `FUNCTIONAL_TRAINING_SPEC.md` | P8 | `in-progress` | 21/30 wrapped · 1 completed · 3 in-progress · 4 not-started | 30 |
 | AI Workout Generation | `AI_SPEC.md` | P7 / P9 | `in-progress` | 3/6 wrapped · 1 completed-blocked · 1 completed · 1 in-progress · 1 not-started | 6 |
 | Gym Profiles | `GYM_PROFILES_SPEC.md` | P10 | `not-started` | — | 0 |
+| Play Store Launch — F&F Internal Testing | `PLAY_STORE_SPEC.md` | P0 | `not-started` | — | 0 |
 
 ---
 
-## Phase P0 — ✅ All wrapped → `ROADMAP_ARCHIVE.md`
+## Phase P0 — Ship Anytime
+
+| Feature | Spec | Effort | Status | Depends on |
+|---|---|---|---|---|
+| AI settings card — connected state UX (hide field, Disconnect, info dialog, Get API key link) | `future_devs/AI_SETTINGS_CONNECTED_STATE_UX_SPEC.md` | XS | `completed` | — |
+| [play-store] Privacy policy + ToS hosted on GitHub Pages | `future_devs/PLAY_STORE_PRIVACY_POLICY_SPEC.md` | S | `completed` | — |
+| [play-store] Release signing keystore + RELEASE.md | `future_devs/PLAY_STORE_RELEASE_SIGNING_SPEC.md` | S | `not-started` | — |
+| [play-store] Account deletion: delete Firestore subtree | `future_devs/PLAY_STORE_ACCOUNT_DELETION_FIRESTORE_SPEC.md` | S | `not-started` | — |
+| [play-store] Crashlytics breadcrumbs + screen tracking + non-fatals | `future_devs/PLAY_STORE_OBSERVABILITY_SPEC.md` | M | `not-started` | — |
+| [play-store] Feedback flow: diagnostic attachment + bug/feature split | `future_devs/PLAY_STORE_FEEDBACK_FLOW_SPEC.md` | S | `not-started` | play-store-observability |
+| [play-store] Manifest hardening: network security + adaptive icon polish | `future_devs/PLAY_STORE_MANIFEST_HARDENING_SPEC.md` | S | `not-started` | — |
+| [play-store] Data Safety form + HC declaration + content rating prep | `future_devs/PLAY_STORE_DATA_SAFETY_FORM_SPEC.md` | S | `not-started` | play-store-privacy-policy, play-store-account-deletion-firestore |
+| [play-store] Store listing assets: icon, feature graphic, screenshots | `future_devs/PLAY_STORE_LISTING_ASSETS_SPEC.md` | S | `not-started` | play-store-manifest-hardening |
+| [play-store] Internal Testing track setup + tester onboarding doc | `future_devs/PLAY_STORE_INTERNAL_TESTING_SETUP_SPEC.md` | S | `not-started` | — |
+| [play-store] Pre-launch QA pass: release build, multi-API, real device | `future_devs/PLAY_STORE_PRE_LAUNCH_QA_SPEC.md` | M | `not-started` | play-store-release-signing, play-store-observability, play-store-feedback-flow, play-store-manifest-hardening |
+| [play-store] Go Live: submit AAB + send F&F invite | `future_devs/PLAY_STORE_GO_LIVE_SPEC.md` | S | `not-started` | play-store-pre-launch-qa, play-store-data-safety-form, play-store-listing-assets, play-store-internal-testing-setup |
 
 ---
 
@@ -130,7 +146,6 @@ Read `FUNCTIONAL_TRAINING_SPEC.md` before starting any task in this phase.
 | Tabata block — full config parity with Clocks tab | `future_devs/FUNC_TABATA_FULL_CONFIG_SPEC.md` | S | `in-progress` | AMRAP/RFT/EMOM/TABATA overlays ✅ |
 | Functional block exercises — weight targets & lock during workout | `future_devs/FUNC_BLOCK_WEIGHT_CONFIG_SPEC.md` | M | `in-progress` | func_active_block_card_ui ✅ |
 | AI Add-from-text — full functional block support (AMRAP/RFT/EMOM/TABATA) | `future_devs/AI_ADD_FROM_TEXT_FUNCTIONAL_BLOCKS_SPEC.md` | L | `not-started` | AMRAP/RFT/EMOM/TABATA overlays ✅, AI workout generation core ✅ |
-| Exercise renames (KB swing) + abbreviation display in functional block rows | `future_devs/FUNC_EXERCISE_RENAME_AND_ABBREVIATIONS_SPEC.md` | S | `in-progress` | — |
 
 ---
 
@@ -192,6 +207,18 @@ Read the relevant spec before touching files in that domain.
 | `DB_ARCHITECTURE.md` | Entity relationships, template-to-instance, UUID migration |
 | `FUNCTIONAL_TRAINING_SPEC.md` | Functional Training — AMRAP / RFT / EMOM Hybrid mode, block concept, timer engine |
 | `GYM_PROFILES_SPEC.md` | P10 — Epic — Gym Profiles: create/join gyms, share equipment + routines |
+| `PLAY_STORE_SPEC.md` | P0 — Epic — Play Store Launch: privacy policy, signing, observability, F&F internal testing |
+| `future_devs/PLAY_STORE_PRIVACY_POLICY_SPEC.md` | P0 — Privacy policy + ToS on GitHub Pages; in-app About links |
+| `future_devs/PLAY_STORE_RELEASE_SIGNING_SPEC.md` | P0 — Upload keystore, RELEASE.md runbook, versionCode policy |
+| `future_devs/PLAY_STORE_ACCOUNT_DELETION_FIRESTORE_SPEC.md` | P0 — Complete server-side account deletion (Firestore subtree + re-auth handling) |
+| `future_devs/PLAY_STORE_OBSERVABILITY_SPEC.md` | P0 — Crashlytics breadcrumbs, screen analytics, non-fatal recording, log ring buffer |
+| `future_devs/PLAY_STORE_FEEDBACK_FLOW_SPEC.md` | P0 — Feedback: Report Bug / Suggest Feature with diagnostic file attachment |
+| `future_devs/PLAY_STORE_MANIFEST_HARDENING_SPEC.md` | P0 — Network security config + adaptive icon rename + monochrome layer |
+| `future_devs/PLAY_STORE_DATA_SAFETY_FORM_SPEC.md` | P0 — Data Safety matrix, HC permission declaration, content rating answers |
+| `future_devs/PLAY_STORE_LISTING_ASSETS_SPEC.md` | P0 — Store listing assets: 512px icon, 1024×500 graphic, 8 screenshots |
+| `future_devs/PLAY_STORE_INTERNAL_TESTING_SETUP_SPEC.md` | P0 — Play Console Internal Testing track, tester list, opt-in URL, onboarding doc |
+| `future_devs/PLAY_STORE_PRE_LAUNCH_QA_SPEC.md` | P0 — Release-build QA matrix: onboarding, workout, AI, Crashlytics, account deletion |
+| `future_devs/PLAY_STORE_GO_LIVE_SPEC.md` | P0 — Final submission: AAB upload, Play Console forms, F&F opt-in invite |
 | `future_devs/FUNC_FIRESTORE_SYNC_BLOCKS_SPEC.md` | P8 Tier 2 — Block arrays in Firestore workout/routine docs |
 | `future_devs/FUNC_TEMPLATE_WIZARD_SPEC.md` | P8 Tier 3 — FunctionalBlockWizard 3-step sheet + block-sectioned TemplateBuilderScreen |
 | `future_devs/FUNC_TEMPLATE_HYBRID_SHEET_SPEC.md` | P8 Tier 3 — Hybrid AddBlockOrExerciseSheet + per-style dispatch |
@@ -223,6 +250,7 @@ Read the relevant spec before touching files in that domain.
 | `future_devs/KEEP_SCREEN_ON_MODE_SPEC.md` | P1 — Keep screen on: Always / During workout / Off selector |
 | `future_devs/RPE_MODE_SELECTOR_SPEC.md` | P1 — RPE auto-pop: Gym only / Functional / All workouts / Off selector |
 | `future_devs/SETTINGS_RPE_INTO_WORKOUT_STYLE_SPEC.md` | P1 — Settings: move RPE mode selector from Display & Workout card into Workout Style card |
+| `future_devs/AI_SETTINGS_CONNECTED_STATE_UX_SPEC.md` | P0 — AI settings card: hide key field when connected, Disconnect button, info dialog, Get API key link |
 | `future_devs/AI_KEY_CONNECTED_INDICATOR_SPEC.md` | P1 — AI card: green "Connected" chip when user API key is validated |
 | `future_devs/WORKOUT_STYLE_TOOLTIPS_SPEC.md` | P1 — Workout Style: ℹ info button + explanation sheet per style |
 | `future_devs/MOVE_PRIVACY_TO_PROFILE_SPEC.md` | P1 — Move Delete Account / Privacy card from Settings to Profile |

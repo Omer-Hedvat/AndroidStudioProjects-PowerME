@@ -40,7 +40,7 @@ class MasterExerciseSeeder @Inject constructor(
         private const val TAG = "MasterExerciseSeeder"
         private const val PREFS_NAME = "master_exercise_seeder"
         private const val KEY_SEEDED_VERSION = "seeded_version"
-        private const val CURRENT_VERSION = "2.4.0"  // dedup: remove 9 duplicate exercises (Sissy Squat (Bodyweight), Nordic Curl, L-Sit, Knee-to-Elbow (Bar), Rowing (meters), Band Pull-Apart (Resistance Band), Explosive Pull-up (Chest-to-Bar), Bench Dip (Feet Elevated), Farmer's Walk (Heavy Bags))
+        private const val CURRENT_VERSION = "2.5.0"  // v2.5.0: KB swing renames — "Kettlebell Swing" → "Russian Kettlebell Swing"; "American Kettlebell Swing" → "Kettlebell Swing" (CrossFit convention)
     }
 
     private val json = Json {

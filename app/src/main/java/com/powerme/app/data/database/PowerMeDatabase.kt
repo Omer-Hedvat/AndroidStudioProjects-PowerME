@@ -28,7 +28,7 @@ import androidx.room.TypeConverters
         RoutineBlock::class,
         WorkoutBlock::class
     ],
-    version = 51,
+    version = 52,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

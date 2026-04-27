@@ -1242,7 +1242,7 @@
       "tags": "[\"functional\"]"
     },
     {
-      "name": "Kettlebell Swing",
+      "name": "Russian Kettlebell Swing",
       "muscleGroup": "Legs",
       "equipmentType": "Kettlebell",
       "exerciseType": "STRENGTH",
@@ -2909,7 +2909,7 @@
       "tags": "[\"functional\"]"
     },
     {
-      "name": "American Kettlebell Swing",
+      "name": "Kettlebell Swing",
       "muscleGroup": "Legs",
       "equipmentType": "Kettlebell",
       "exerciseType": "STRENGTH",

@@ -87,6 +87,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import java.util.ArrayList
 import com.powerme.app.data.WorkoutStyle
+import com.powerme.app.ui.workout.ExerciseAbbreviations
 import com.powerme.app.ui.workouts.AddBlockOrExerciseSheet
 import com.powerme.app.ui.workouts.FunctionalBlockWizard
 
@@ -734,6 +735,7 @@ private fun FunctionalBlockActiveCard(
                 }
                 FunctionalExerciseRow(
                     exerciseWithSets = exWithSets,
+                    onWeightChanged = onWeightChanged,
                     onRepsChanged = onRepsChanged,
                     onTimeChanged = onTimeChanged,
                     onRemove = if (!alreadyRun) ({ onRemoveExercise(exWithSets.exercise.id) }) else null,
@@ -816,6 +818,7 @@ private fun FunctionalBlockActiveCard(
 @Composable
 private fun FunctionalExerciseRow(
     exerciseWithSets: ExerciseWithSets,
+    onWeightChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
     onRepsChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
     onTimeChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
     onRemove: (() -> Unit)? = null,
@@ -824,21 +827,26 @@ private fun FunctionalExerciseRow(
     val set = exerciseWithSets.sets.firstOrNull()
     val isTimed = exercise.exerciseType == ExerciseType.TIMED
     val setOrder = set?.setOrder ?: 1
-    val value = if (isTimed) {
+    val repTimeValue = if (isTimed) {
         set?.timeSeconds?.takeIf { it.isNotBlank() } ?: "30"
     } else {
         set?.reps?.takeIf { it.isNotBlank() && it != "0" } ?: "10"
     }
+    val weightValue = set?.weight?.takeIf { it.isNotBlank() && it != "0" } ?: ""
 
-    var tfv by remember { mutableStateOf(TextFieldValue(value)) }
-    LaunchedEffect(value) {
-        if (tfv.text != value) tfv = TextFieldValue(value)
+    var repTimeTfv by remember { mutableStateOf(TextFieldValue(repTimeValue)) }
+    LaunchedEffect(repTimeValue) {
+        if (repTimeTfv.text != repTimeValue) repTimeTfv = TextFieldValue(repTimeValue)
+    }
+    var weightTfv by remember { mutableStateOf(TextFieldValue(weightValue)) }
+    LaunchedEffect(weightValue) {
+        if (weightTfv.text != weightValue) weightTfv = TextFieldValue(weightValue)
     }
     var selectAllTrigger by remember { mutableIntStateOf(0) }
     LaunchedEffect(selectAllTrigger) {
         if (selectAllTrigger > 0) {
             delay(50)
-            tfv = tfv.copy(selection = TextRange(0, tfv.text.length))
+            repTimeTfv = repTimeTfv.copy(selection = TextRange(0, repTimeTfv.text.length))
         }
     }
 
@@ -847,18 +855,19 @@ private fun FunctionalExerciseRow(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
+        // Reps / time input
         Surface(
             shape = MaterialTheme.shapes.small,
             color = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier.width(52.dp)
         ) {
             BasicTextField(
-                value = tfv,
+                value = repTimeTfv,
                 onValueChange = { new ->
                     val filteredText = new.text.filter { it.isDigit() }
-                    tfv = new.copy(text = filteredText)
+                    repTimeTfv = new.copy(text = filteredText)
                     if (isTimed) onTimeChanged(exercise.id, setOrder, filteredText)
                     else onRepsChanged(exercise.id, setOrder, filteredText)
                 },
@@ -876,13 +885,51 @@ private fun FunctionalExerciseRow(
             )
         }
         Text(
-            text = exercise.name,
+            text = ExerciseAbbreviations.get(exercise.name) ?: exercise.name,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        // Weight input (compact)
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.width(60.dp)
+        ) {
+            BasicTextField(
+                value = weightTfv,
+                onValueChange = { new ->
+                    val filteredText = new.text.filter { it.isDigit() || it == '.' }
+                    weightTfv = new.copy(text = filteredText)
+                    onWeightChanged(exercise.id, setOrder, filteredText)
+                },
+                textStyle = MaterialTheme.typography.bodySmall.copy(
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                singleLine = true,
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.Center) {
+                        if (weightTfv.text.isEmpty()) {
+                            Text(
+                                "wt",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        inner()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp)
+            )
+        }
         if (onRemove != null) {
             IconButton(
                 onClick = onRemove,
