@@ -22,6 +22,7 @@ Single source of truth for **active** bug status. Wrapped bugs are in `ARCHIVE.m
 | [BUG_active_workout_order_mismatch](BUG_active_workout_order_mismatch.md) | Active workout exercise order does not match organize workout order | ✅ Completed | P1 | — | — | `WorkoutViewModel.kt` |
 | [BUG_routine_preview_no_scroll](BUG_routine_preview_no_scroll.md) | Routine preview screen cannot scroll — Start Workout button unreachable | ✅ Wrapped | P0 | — | — | `WorkoutsScreen.kt` |
 | [BUG_func_picker_duplicate_exercises](BUG_func_picker_duplicate_exercises.md) | Exercise picker from functional training shows duplicate exercises (reps + time variants) | 🔵 Open | P2 | — | — | — |
+| [BUG_func_block_card_header_duplicate_type](BUG_func_block_card_header_duplicate_type.md) | Functional block card header: type badge + auto-name both show the type — duplicate info, wasted space | 🔵 Open | P2 | — | — | `ActiveWorkoutScreen.kt`, `WorkoutsScreen.kt` |
 
 
 ---
