@@ -356,8 +356,13 @@ class FirestoreSyncManager @Inject constructor(
                             routineDao.insertRoutine(routine)  // REPLACE strategy
                             if (!routine.isArchived) {
                                 val exercises = doc.toRoutineExercisesResolved(doc.id)
-                                routineExerciseDao.deleteAllForRoutine(doc.id)
-                                if (exercises.isNotEmpty()) routineExerciseDao.insertAll(exercises)
+                                // Only replace exercises if we have valid resolved data.
+                                // Deleting without replacement would permanently erase the
+                                // routine's exercise list if exercise resolution fails.
+                                if (exercises.isNotEmpty()) {
+                                    routineExerciseDao.deleteAllForRoutine(doc.id)
+                                    routineExerciseDao.insertAll(exercises)
+                                }
                                 // Back-compat: only reconstruct blocks if the remote doc has the field
                                 val remoteBlocks = doc.toRoutineBlocks(doc.id)
                                 if (remoteBlocks != null) {
@@ -394,8 +399,13 @@ class FirestoreSyncManager @Inject constructor(
                             workoutDao.insertWorkout(mergedWorkout)  // REPLACE strategy
                             if (!mergedWorkout.isArchived) {
                                 val sets = doc.toWorkoutSetsResolved(doc.id)
-                                workoutSetDao.deleteSetsForWorkout(doc.id)
-                                if (sets.isNotEmpty()) workoutSetDao.insertSets(sets)
+                                // Only replace sets if we have valid resolved data.
+                                // Deleting without replacement would permanently erase all set
+                                // history if exercise resolution fails (e.g., empty exercise table).
+                                if (sets.isNotEmpty()) {
+                                    workoutSetDao.deleteSetsForWorkout(doc.id)
+                                    workoutSetDao.insertSets(sets)
+                                }
                                 // Back-compat: only reconstruct blocks if the remote doc has the field
                                 val remoteBlocks = doc.toWorkoutBlocks(doc.id)
                                 if (remoteBlocks != null) {
@@ -442,10 +452,32 @@ class FirestoreSyncManager @Inject constructor(
         if (!name.isNullOrBlank() && !equipment.isNullOrBlank()) {
             val ex = exerciseDao.getByNameAndEquipment(name, equipment)
             if (ex != null) return ex.id
+            // Name-alias fallback: handle exercises renamed in DB v51→v52.
+            // Firestore docs written before the rename use the old name; the local DB now has
+            // the new name. Try the canonical alias before giving up.
+            val alias = EXERCISE_NAME_ALIASES[name]
+            if (alias != null) {
+                val aliased = exerciseDao.getByNameAndEquipment(alias, equipment)
+                if (aliased != null) return aliased.id
+            }
         }
         // Legacy format (no identity fields): verify the raw ID exists locally before using it
         if (rawId != null && exerciseDao.getByIds(listOf(rawId)).isNotEmpty()) return rawId
         return null
+    }
+
+    companion object {
+        /**
+         * Maps old exercise names (as stored in Firestore before a rename) to the new local name.
+         * Add entries here whenever an exercise is renamed in a DB migration.
+         *
+         * v51→v52: KB swing names were swapped to match CrossFit convention.
+         */
+        private val EXERCISE_NAME_ALIASES = mapOf(
+            // Old Firestore name            → new local DB name
+            "Kettlebell Swing"          to "Russian Kettlebell Swing",
+            "American Kettlebell Swing" to "Kettlebell Swing"
+        )
     }
 
     // ── Private pull helpers (suspend, can call exerciseDao) ────────────────

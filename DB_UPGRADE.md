@@ -1,5 +1,23 @@
 # PowerME Database Upgrade Log
 
+## v52 — KB Swing Rename (CrossFit naming convention)
+
+**Migration:** `MIGRATION_51_52`
+
+### Changes
+
+- **`exercises` table** — two rows renamed to match CrossFit/functional training convention:
+  - `"Kettlebell Swing"` → `"Russian Kettlebell Swing"` (hip-height; the default in CrossFit)
+  - `"American Kettlebell Swing"` → `"Kettlebell Swing"` (overhead; now the canonical unqualified name)
+  - Order matters in migration SQL: Russian renamed first to avoid collision
+
+### Files Changed
+
+- `app/src/main/java/com/powerme/app/di/DatabaseModule.kt` — added `MIGRATION_51_52`, registered in `addMigrations()`
+- `app/src/main/java/com/powerme/app/data/database/PowerMeDatabase.kt` — bumped to v52
+
+---
+
 ## v51 — Block Entities (Functional Training Tier 1)
 
 **Migration:** `MIGRATION_50_51`

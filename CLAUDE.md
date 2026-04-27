@@ -8,7 +8,7 @@
 - Language: Kotlin 2.0.21
 - UI: Jetpack Compose + Material Design 3
 - Architecture: MVVM + Repository Pattern + Hilt DI
-- Database: Room (v51, 21 entities, 23 DAOs)
+- Database: Room (v52, 21 entities, 23 DAOs)
 - Auth/Backend: Firebase Auth (email/password + Google Sign-In via Credential Manager) + Firestore
 - Health: Health Connect API
 - Charts: Vico (Material 3)
@@ -23,7 +23,7 @@
 
 **Color System:** Pro Tracker v6.0. See `THEME_SPEC.md` for all tokens, semantic colors, and usage rules.
 
-**Database:** Room v51 (21 entities, 23 DAOs). See `DB_UPGRADE.md` for schema history v6→v51.
+**Database:** Room v52 (21 entities, 23 DAOs). See `DB_UPGRADE.md` for schema history v6→v52.
 Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchived`, functional training blocks (5 types), stress vectors, synonym learning, exercise tags.
 
 **SurgicalValidator:** All numeric input validation (`util/SurgicalValidator.kt`). No inline try-catch in ViewModels or Composables.
@@ -57,6 +57,8 @@ Key patterns: UUID String PKs, Firestore sync columns, soft deletes via `isArchi
 - Functional block active workout card UI (P8) — In the active workout screen, exercises inside a functional block (AMRAP/RFT/EMOM/TABATA) render inside a single grouped `Card` with a block type badge + parameter summary at the top and exercise rows below. Functional exercise rows show only name, weight, and reps/time — no sets stepper, no PRE chip, no RPE field, no checkmark button. STRENGTH blocks and unblocked exercises retain the existing per-exercise card UI. Column header reads "TIME" for all-TIMED blocks and "REPS" otherwise.
 - Block-aware History + WorkoutSummary + Trends (P8 Tier 5) — History rows show a compact block-score line (e.g. `"AMRAP 12:00 · 8+3 rds · RPE 8"`) per functional block, displayed below volume stats with a Timer icon. WorkoutSummaryScreen shows a `BlockSummaryCard` composable above exercise cards with: block type badge, formatted score, headline, RPE, expandable round splits (delta time per round), and block notes. `TrendsRepository` gains `getBlockTypeSummary(range)` for future aggregation charts. `WorkoutBlockDao` extended with `getFunctionalBlocksForWorkout`, `getAllFunctionalBlocks`, and `getBlockTypeSummary` queries. Round-split JSON uses `kotlinx.serialization.json` (not `org.json`) so unit tests work correctly under the Android stub environment.
 - Exercise functional tag toggle (P5) — "Functional training" `Switch` row in `ExerciseDetailScreen` `HeaderSection` (below metadata chips). `ExerciseDao.updateTags`, `ExerciseRepository.toggleFunctionalTag` (add/remove `"functional"` from JSON tags array), `ExercisesViewModel.toggleFunctionalTag`, `ExerciseDetailViewModel.toggleFunctionalTag`. No DB migration needed (tags column already exists at v50).
+- Exercise renames (KB swing) + abbreviation display (P8) — DB v51→v52: "Kettlebell Swing" → "Russian Kettlebell Swing", "American Kettlebell Swing" → "Kettlebell Swing" (CrossFit convention). New `ExerciseAbbreviations` object (45 CF/functional abbreviations). `FunctionalExerciseRow` shows `~ KBS` caption below exercise name. `BlockRecipeRow` in runner overlays appends `~ KBS` inline.
+- Data resilience fixes (emergency) — 4 bugs fixed: (1) `MIGRATION_51_52` was missing from `addMigrations()` causing `fallbackToDestructiveMigration()` to wipe all user data on update; (2) `MasterExerciseSeeder` now re-seeds if exercises table is empty despite SharedPreferences flag; (3) Firestore restore no longer deletes local sets/exercises before verifying resolved replacements are non-empty; (4) `resolveExerciseId` now has a name-alias fallback for KB swing rename so old Firestore docs resolve correctly.
 
 **In-progress:**
 - _(none)_

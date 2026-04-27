@@ -59,8 +59,15 @@ class MasterExerciseSeeder @Inject constructor(
             val seededVersion = prefs.getString(KEY_SEEDED_VERSION, null)
 
             if (seededVersion == CURRENT_VERSION) {
-                Timber.d("Exercises already seeded (version $CURRENT_VERSION)")
-                return@withContext false
+                // Even if the version matches, re-seed if the table is empty. This handles
+                // the case where Room's fallbackToDestructiveMigration wiped the DB but the
+                // SharedPreferences flag survived — without this guard the library stays empty.
+                val exerciseCount = exerciseDao.getExerciseCountSync()
+                if (exerciseCount > 0) {
+                    Timber.d("Exercises already seeded (version $CURRENT_VERSION, count=$exerciseCount)")
+                    return@withContext false
+                }
+                Timber.w("Exercise table is empty despite seeded flag — forcing reseed")
             }
 
             Timber.i("Seeding exercises (previous version: $seededVersion, current: $CURRENT_VERSION)")

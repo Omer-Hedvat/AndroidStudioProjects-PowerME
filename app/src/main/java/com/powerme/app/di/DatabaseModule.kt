@@ -628,6 +628,17 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_51_52 = object : Migration(51, 52) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Rename kettlebell swing exercises to match CrossFit/functional convention:
+            // "Kettlebell Swing" (was Russian/hip-height) → "Russian Kettlebell Swing"
+            // "American Kettlebell Swing" (overhead) → "Kettlebell Swing" (canonical unqualified name)
+            // Order matters: rename Russian first to avoid overwriting American before it's renamed.
+            db.execSQL("UPDATE exercises SET name = 'Russian Kettlebell Swing' WHERE name = 'Kettlebell Swing'")
+            db.execSQL("UPDATE exercises SET name = 'Kettlebell Swing' WHERE name = 'American Kettlebell Swing'")
+        }
+    }
+
     private val MIGRATION_49_50 = object : Migration(49, 50) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Add tags JSON column to exercises for functional training categorisation (P8 Tier 0)
@@ -1167,7 +1178,8 @@ object DatabaseModule {
                 MIGRATION_47_48,
                 MIGRATION_48_49,
                 MIGRATION_49_50,
-                MIGRATION_50_51
+                MIGRATION_50_51,
+                MIGRATION_51_52
             )
             .fallbackToDestructiveMigration()
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
