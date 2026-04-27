@@ -19,6 +19,7 @@ Moved here from `BUG_TRACKER.md` to keep the active tracker lean.
 | [BUG_ai_textbox_dark_mode_bg](BUG_ai_textbox_dark_mode_bg.md) | AI text generator text box has wrong background in dark mode | ✅ Wrapped | P3 | `AiWorkoutGenerationScreen.kt` |
 | [BUG_time_based_exercise_column_header](BUG_time_based_exercise_column_header.md) | Time-based exercise column header shows 'Reps' instead of 'Time' | ✅ Wrapped | P2 | `ActiveWorkoutScreen.kt`, `WorkoutRepository.kt` |
 | [BUG_func_routine_preview_no_block_ui](BUG_func_routine_preview_no_block_ui.md) | Routine preview and edit mode show flat exercise list instead of functional block structure | ✅ Wrapped | P2 | `WorkoutsScreen.kt`, `WorkoutsViewModel.kt`, `WorkoutViewModel.kt` |
+| [BUG_routine_preview_no_scroll](BUG_routine_preview_no_scroll.md) | Routine preview screen cannot scroll — Start Workout button unreachable | ✅ Wrapped | P0 | `WorkoutsScreen.kt` |
 |-----|-------|--------|----------|---------------|
 | [BUG_start_workout_after_edit](BUG_start_workout_after_edit.md) | Start workout button broken after editing a routine | ✅ Fixed & Committed | P0 | `WorkoutViewModel.kt` |
 | [BUG_ai_text_generator_no_parse](BUG_ai_text_generator_no_parse.md) | AI text generator does not generate workout from natural language input | ✅ Wrapped | P1 | No code changes — stale; fixed by WorkoutParserRouter + AiWorkoutViewModel |

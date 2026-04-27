@@ -367,10 +367,7 @@ fun ActiveWorkoutScreen(
                 val activeTimerTotalSeconds = workoutState.restTimer.totalSeconds
 
                 val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
-                    val exercises = workoutState.exercises
-                    val fromIdx = exercises.indexOfFirst { it.exercise.id == from.key as Long }
-                    val toIdx = exercises.indexOfFirst { it.exercise.id == to.key as Long }
-                    if (fromIdx >= 0 && toIdx >= 0) viewModel.reorderExercise(fromIdx, toIdx)
+                    viewModel.reorderOrganizeItem(from.key, to.key)
                 }
 
                 LazyColumn(
@@ -590,7 +587,12 @@ private fun FunctionalBlockActiveCard(
     onTimeChanged: (exId: Long, setOrder: Int, value: String) -> Unit = { _, _, _ -> },
     onRemoveExercise: (exId: Long) -> Unit = {},
     onAddExercise: (() -> Unit)? = null,
+    onDeleteBlock: (() -> Unit)? = null,
+    onEditBlock: ((durationSeconds: Int?, targetRounds: Int?, emomRoundSeconds: Int?, tabataWorkSeconds: Int?, tabataRestSeconds: Int?) -> Unit)? = null,
 ) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showEditSheet by remember { mutableStateOf(false) }
+
     val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
         .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
     val badgeColor = when (blockType) {
@@ -688,6 +690,32 @@ private fun FunctionalBlockActiveCard(
                         )
                     }
                 }
+                if (!alreadyRun && onEditBlock != null) {
+                    IconButton(
+                        onClick = { showEditSheet = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit block parameters",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                if (onDeleteBlock != null) {
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Remove block",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
@@ -737,6 +765,33 @@ private fun FunctionalBlockActiveCard(
                 }
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Remove block?") },
+            text = { Text("This will remove the ${blockType.displayName} block and all its exercises from the workout.") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirm = false; onDeleteBlock?.invoke() }) {
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showEditSheet && onEditBlock != null) {
+        EditBlockParamsSheet(
+            block = block,
+            onDismiss = { showEditSheet = false },
+            onConfirm = { dur, rounds, emomInterval, workSecs, restSecs ->
+                showEditSheet = false
+                onEditBlock(dur, rounds, emomInterval, workSecs, restSecs)
+            }
+        )
     }
 }
 
@@ -1072,6 +1127,10 @@ private fun LazyListScope.activeWorkoutListItems(
                         onTimeChanged = { exId, setOrder, v -> viewModel.onTimeChanged(exId, setOrder, v) },
                         onRemoveExercise = { exId -> viewModel.removeExercise(exId) },
                         onAddExercise = { onAddExerciseToBlock(block.id) },
+                        onDeleteBlock = { viewModel.removeBlock(block.id) },
+                        onEditBlock = { dur, rounds, emomInt, workSecs, restSecs ->
+                            viewModel.updateBlock(block.id, dur, rounds, emomInt, workSecs, restSecs)
+                        },
                     )
                 }
             }
@@ -1139,7 +1198,61 @@ private fun LazyListScope.activeWorkoutListItems(
             )
         }
     } else {
-        // Single-block or organize mode: flat list with full reorder / superset support
+        val hasFunctionalBlocks = workoutState.blocks.any { it.type != "STRENGTH" }
+
+        // Block-aware organize mode: functional blocks drag as atomic units; strength exercises drag individually
+        if (workoutState.isSupersetSelectMode && hasFunctionalBlocks) {
+            val seenBlockIds = mutableSetOf<String>()
+            workoutState.exercises.forEach { ex ->
+                val blockId = ex.blockId
+                val block = workoutState.blocks.find { it.id == blockId }
+                val isFunctionalBlock = block != null && block.type != "STRENGTH"
+                if (isFunctionalBlock && blockId != null) {
+                    if (blockId !in seenBlockIds) {
+                        seenBlockIds.add(blockId)
+                        val orgKey = "org_block_$blockId"
+                        val blockExerciseCount = workoutState.exercisesByBlockId[blockId]?.size ?: 0
+                        item(key = orgKey) {
+                            if (reorderableLazyListState != null) {
+                                ReorderableItem(reorderableLazyListState, key = orgKey) { _ ->
+                                    FunctionalBlockOrganizeRow(
+                                        block = block,
+                                        exerciseCount = blockExerciseCount,
+                                        dragHandleModifier = Modifier.draggableHandle()
+                                    )
+                                }
+                            } else {
+                                FunctionalBlockOrganizeRow(block = block, exerciseCount = blockExerciseCount)
+                            }
+                        }
+                    }
+                    // Skip non-first exercises of functional blocks — represented by block row
+                } else {
+                    item(key = ex.exercise.id) {
+                        val isSelected = ex.exercise.id in workoutState.supersetCandidateIds
+                        if (reorderableLazyListState != null) {
+                            ReorderableItem(reorderableLazyListState, key = ex.exercise.id) { _ ->
+                                SupersetSelectRow(
+                                    exerciseWithSets = ex,
+                                    isSelected = isSelected,
+                                    onToggle = { viewModel.toggleSupersetCandidate(ex.exercise.id) },
+                                    dragHandleModifier = Modifier.draggableHandle(),
+                                    supersetColor = supersetColorMap[ex.supersetGroupId] ?: Color.Transparent
+                                )
+                            }
+                        } else {
+                            SupersetSelectRow(
+                                exerciseWithSets = ex,
+                                isSelected = isSelected,
+                                onToggle = { viewModel.toggleSupersetCandidate(ex.exercise.id) },
+                                supersetColor = supersetColorMap[ex.supersetGroupId] ?: Color.Transparent
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+        // Single-block or organize mode (no functional blocks): flat list with full reorder / superset support
         items(
             items = workoutState.exercises,
             key = { it.exercise.id }
@@ -1285,6 +1398,7 @@ private fun LazyListScope.activeWorkoutListItems(
                 )
             }
         }
+        } // end inner else (flat list)
     }
 
     item {
@@ -2279,6 +2393,182 @@ private fun SupersetSelectRow(
     }
 }
 
+/** Single row shown for a functional block in organize mode. Drag handle only — no checkbox (blocks are superset-immune). */
+@Composable
+private fun FunctionalBlockOrganizeRow(
+    block: WorkoutBlock,
+    exerciseCount: Int,
+    dragHandleModifier: Modifier? = null
+) {
+    val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
+        .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
+    val badgeColor = when (blockType) {
+        com.powerme.app.data.BlockType.AMRAP   -> TimerGreen
+        com.powerme.app.data.BlockType.RFT     -> NeonPurple
+        com.powerme.app.data.BlockType.EMOM    -> ReadinessAmber
+        com.powerme.app.data.BlockType.TABATA  -> TimerRed
+        else                                   -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = PowerMeDefaults.cardElevation()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (dragHandleModifier != null) {
+                Icon(
+                    imageVector = Icons.Default.DragHandle,
+                    contentDescription = "Drag block to reorder",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    modifier = dragHandleModifier
+                )
+            }
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = badgeColor.copy(alpha = 0.15f)
+            ) {
+                Text(
+                    text = blockType.displayName,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = badgeColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                if (block.name != null) {
+                    Text(
+                        text = block.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                Text(
+                    text = "$exerciseCount exercise${if (exerciseCount != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = "Block cannot be supersetted",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+/** Bottom sheet to edit plan parameters of a functional block mid-workout (before it has started). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditBlockParamsSheet(
+    block: WorkoutBlock,
+    onDismiss: () -> Unit,
+    onConfirm: (durationSeconds: Int?, targetRounds: Int?, emomRoundSeconds: Int?, tabataWorkSeconds: Int?, tabataRestSeconds: Int?) -> Unit
+) {
+    val blockType = runCatching { com.powerme.app.data.BlockType.valueOf(block.type) }
+        .getOrDefault(com.powerme.app.data.BlockType.STRENGTH)
+
+    var durationMins by remember { mutableStateOf(block.durationSeconds?.let { (it / 60).toString() } ?: "") }
+    var targetRounds by remember { mutableStateOf(block.targetRounds?.toString() ?: "") }
+    var emomInterval by remember { mutableStateOf(block.emomRoundSeconds?.toString() ?: "") }
+    var tabataWork by remember { mutableStateOf(block.tabataWorkSeconds?.toString() ?: "") }
+    var tabataRest by remember { mutableStateOf(block.tabataRestSeconds?.toString() ?: "") }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Edit ${blockType.displayName} parameters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            when (blockType) {
+                com.powerme.app.data.BlockType.AMRAP -> {
+                    OutlinedTextField(
+                        value = durationMins,
+                        onValueChange = { durationMins = it.filter { c -> c.isDigit() } },
+                        label = { Text("Duration (minutes)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                com.powerme.app.data.BlockType.RFT -> {
+                    OutlinedTextField(
+                        value = targetRounds,
+                        onValueChange = { targetRounds = it.filter { c -> c.isDigit() } },
+                        label = { Text("Target rounds") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                com.powerme.app.data.BlockType.EMOM -> {
+                    OutlinedTextField(
+                        value = emomInterval,
+                        onValueChange = { emomInterval = it.filter { c -> c.isDigit() } },
+                        label = { Text("Interval (seconds)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = durationMins,
+                        onValueChange = { durationMins = it.filter { c -> c.isDigit() } },
+                        label = { Text("Total duration (minutes)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                com.powerme.app.data.BlockType.TABATA -> {
+                    OutlinedTextField(
+                        value = tabataWork,
+                        onValueChange = { tabataWork = it.filter { c -> c.isDigit() } },
+                        label = { Text("Work (seconds)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = tabataRest,
+                        onValueChange = { tabataRest = it.filter { c -> c.isDigit() } },
+                        label = { Text("Rest (seconds)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                else -> {}
+            }
+            Button(
+                onClick = {
+                    onConfirm(
+                        durationMins.toIntOrNull()?.let { it * 60 },
+                        targetRounds.toIntOrNull(),
+                        emomInterval.toIntOrNull(),
+                        tabataWork.toIntOrNull(),
+                        tabataRest.toIntOrNull()
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("SAVE", fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StandaloneTimerConfigSheet(onDismiss: () -> Unit, onStartTimer: (Int) -> Unit) {
@@ -2663,11 +2953,8 @@ fun WorkoutSetRow(
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Done,
                 keyboardActions = KeyboardActions(onDone = {
-                    if (nextWeightFocusRequester != null) {
-                        nextWeightFocusRequester.requestFocus()
-                    } else {
-                        focusManager.clearFocus()
-                    }
+                    focusManager.clearFocus()
+                    onCompleteSet()
                 }),
                 focusRequester = repsFocusRequester,
                 accessoryEnabled = true
